@@ -1,0 +1,72 @@
+{
+  "val_ce": {
+    "output_head": 0.15751199246670114,
+    "encoder_0": 0.20629787509685885,
+    "encoder_1": 0.3544232421938502,
+    "encoder_2": 0.39603598295565984,
+    "encoder_3": 0.39772711930701043,
+    "encoder_4": 0.3605143435817566,
+    "encoder_5": 0.3534623003595631,
+    "decoder_0": 0.26511129634388564,
+    "decoder_1": 0.6654158728151035,
+    "decoder_2": 0.8879591223761745,
+    "decoder_3": 1.0733899172553818,
+    "decoder_4": 1.0286964198014585
+  },
+  "nmse": {
+    "output_head": -13.395072276112334,
+    "encoder_0": 32.93933604135756,
+    "encoder_1": 59.43200860256335,
+    "encoder_2": 57.16817930181024,
+    "encoder_3": 58.094010986720605,
+    "encoder_4": 54.6117412996971,
+    "encoder_5": 55.55081107692922,
+    "decoder_0": 2.022801488322162,
+    "decoder_1": 36.12406322601928,
+    "decoder_2": 54.584888660225346,
+    "decoder_3": 60.17496076253115,
+    "decoder_4": 68.81671433928926
+  },
+  "r2": {
+    "output_head": 0.6785628713552246,
+    "encoder_0": -0.1791779028675473,
+    "encoder_1": -0.6499607805544914,
+    "encoder_2": -0.4621287502139163,
+    "encoder_3": -0.7079372657220216,
+    "encoder_4": -0.621612522742317,
+    "encoder_5": -0.7205508178948252,
+    "decoder_0": 0.3339731229045999,
+    "decoder_1": -0.09633538938521538,
+    "decoder_2": -0.6225951642203676,
+    "decoder_3": -0.7293261742554408,
+    "decoder_4": -0.8961819645026755
+  },
+  "var_f1": {
+    "output_head": 0.0,
+    "encoder_0": -1.0,
+    "encoder_1": -1.0,
+    "encoder_2": 1.0,
+    "encoder_3": 1.0,
+    "encoder_4": 1.0,
+    "encoder_5": 1.0,
+    "decoder_0": 1.0,
+    "decoder_1": 1.0,
+    "decoder_2": 1.0,
+    "decoder_3": 1.0,
+    "decoder_4": 1.0
+  },
+  "sym_rate": {
+    "output_head": null,
+    "encoder_0": null,
+    "encoder_1": null,
+    "encoder_2": null,
+    "encoder_3": null,
+    "encoder_4": null,
+    "encoder_5": null,
+    "decoder_0": null,
+    "decoder_1": null,
+    "decoder_2": null,
+    "decoder_3": null,
+    "decoder_4": null
+  }
+}
