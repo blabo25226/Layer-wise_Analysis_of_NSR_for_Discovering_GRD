@@ -29,14 +29,14 @@ def test_registered_colab_configs_fix_noise_to_point_one():
     assert paper.noise == "0.1"
     assert paper.dream4_networks == "1 2 3 4 5"
     assert paper.max_parallel_seeds == 3
-    env = paper.pipeline_environment(Path("/content/LTSR"), 6, resume=True)
+    env = paper.pipeline_environment(Path("/content/LANSR"), 6, resume=True)
     assert env["NOISE"] == "0.1"
     assert env["START_PHASE"] == env["STOP_AFTER_PHASE"] == "6"
     assert env["STRICT_RESUME"] == "1"
     assert env["RESUME"] == "1"
-    assert env["PY"] == "/content/ltsr-py310/bin/python"
+    assert env["PY"] == "/content/lansr-py310/bin/python"
     assert env["MPLBACKEND"] == "Agg"
-    assert env["LTSR_PHASE7_TARGET_EVAL_BUDGET"] == "60"
+    assert env["LANSR_PHASE7_TARGET_EVAL_BUDGET"] == "60"
 
 
 def test_reduced_colab_config_applies_the_approved_compute_budget():
@@ -178,7 +178,7 @@ def test_generated_notebooks_have_no_saved_execution_state():
         code_cells = [cell for cell in payload["cells"] if cell["cell_type"] == "code"]
         assert code_cells
         assert "Python 3.10" in "".join(code_cells[0]["source"])
-        assert "/content/ltsr-py310" in "".join(code_cells[0]["source"])
+        assert "/content/lansr-py310" in "".join(code_cells[0]["source"])
         assert all(cell["execution_count"] is None for cell in code_cells)
         assert all(cell["outputs"] == [] for cell in code_cells)
         if path.name != "00_setup_preflight.ipynb":

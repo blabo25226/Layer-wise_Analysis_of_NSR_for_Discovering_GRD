@@ -154,12 +154,19 @@ def main() -> int:
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     if manifest.get("status") not in RESUMABLE_STATUSES:
         parser.error(f"pipeline did not finish: status={manifest.get('status')}")
-    dream4 = manifest.get("parameters", {}).get("LTSR_DREAM4") == "1"
+    parameters = manifest.get("parameters", {})
+
+    def parameter(name: str, default: str = "") -> str:
+        """Read a LANSR parameter, accepting the pre-rename LTSR key."""
+        if name in parameters:
+            return str(parameters[name])
+        legacy_name = name.replace("LANSR_", "LTSR_", 1)
+        return str(parameters.get(legacy_name, default))
+
+    dream4 = parameter("LANSR_DREAM4") == "1"
     planned_dream4_networks = [
         int(value)
-        for value in manifest.get("parameters", {})
-        .get("LTSR_DREAM4_NETWORKS", "1 2 3 4 5")
-        .split()
+        for value in parameter("LANSR_DREAM4_NETWORKS", "1 2 3 4 5").split()
     ]
     phase7_scope = None
     dream4_networks = planned_dream4_networks
@@ -185,7 +192,7 @@ def main() -> int:
     ]
     if dream4:
         required.append(run / "phase7_multiseed" / "summary.json")
-    seeds = manifest.get("parameters", {}).get("LTSR_SEEDS", "").split()
+    seeds = parameter("LANSR_SEEDS").split()
     for seed in seeds:
         required.extend([
             run / "phase4_multiseed" / f"equations_seed{seed}.json",

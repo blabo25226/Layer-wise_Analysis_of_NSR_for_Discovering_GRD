@@ -39,6 +39,7 @@ def test_validate_and_export_completed_run(tmp_path, monkeypatch):
         "status": "complete",
         "git": {"commit": "abc", "branch": "test"},
         "checkpoint": {"sha256": "123"},
+        # GPU_RUN1 manifests used the pre-rename prefix and must remain valid.
         "parameters": {"LTSR_DREAM4": "0"},
     }), encoding="utf-8")
     (run / "phase5_multiseed" / "equations.json").write_text(
@@ -105,7 +106,7 @@ def test_validator_rejects_incomplete_equation_record(tmp_path, monkeypatch):
         path.write_text("{}", encoding="utf-8")
     (run / "manifest.json").write_text(json.dumps({
         "status": "complete",
-        "parameters": {"LTSR_DREAM4": "0"},
+        "parameters": {"LANSR_DREAM4": "0"},
     }), encoding="utf-8")
     (run / "phase5_multiseed" / "equations.json").write_text(
         json.dumps({"per_problem": [{"eq_id": "e1", "pred": ""}]}),
@@ -133,9 +134,9 @@ def test_strict_manifest_resume_rejects_commit_or_parameter_change(tmp_path, mon
         "status": "complete",
         "git": {"commit": "fixed-commit", "branch": "colab"},
         "parameters": {
-            "LTSR_SEEDS": "0 1",
-            "LTSR_START_PHASE": "4",
-            "LTSR_STOP_AFTER_PHASE": "4",
+            "LANSR_SEEDS": "0 1",
+            "LANSR_START_PHASE": "4",
+            "LANSR_STOP_AFTER_PHASE": "4",
         },
     }
     (run / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
@@ -150,9 +151,9 @@ def test_strict_manifest_resume_rejects_commit_or_parameter_change(tmp_path, mon
         raise AssertionError(args)
 
     monkeypatch.setattr(run_manifest_module, "git", fake_git)
-    monkeypatch.setenv("LTSR_SEEDS", "0 1")
-    monkeypatch.setenv("LTSR_START_PHASE", "5")
-    monkeypatch.setenv("LTSR_STOP_AFTER_PHASE", "5")
+    monkeypatch.setenv("LANSR_SEEDS", "0 1")
+    monkeypatch.setenv("LANSR_START_PHASE", "5")
+    monkeypatch.setenv("LANSR_STOP_AFTER_PHASE", "5")
     monkeypatch.setattr(
         sys,
         "argv",
@@ -162,5 +163,5 @@ def test_strict_manifest_resume_rejects_commit_or_parameter_change(tmp_path, mon
     resumed = json.loads((run / "manifest.json").read_text(encoding="utf-8"))
     assert resumed["resumes"][-1]["strict"] is True
 
-    monkeypatch.setenv("LTSR_SEEDS", "0 1 2")
+    monkeypatch.setenv("LANSR_SEEDS", "0 1 2")
     assert manifest_main() == 2

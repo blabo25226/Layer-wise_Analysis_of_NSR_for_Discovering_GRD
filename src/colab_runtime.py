@@ -1,4 +1,4 @@
-"""Google Colab orchestration helpers for the LTSR GPU pipeline.
+"""Google Colab orchestration helpers for the LANSR GPU pipeline.
 
 The research logic remains in ``scripts/`` and ``src/``.  This module only
 restores persistent artifacts, locks a run configuration, executes one phase,
@@ -51,7 +51,7 @@ def require_python_310(executable: str | Path | None = None) -> None:
             ) from exc
     if major_minor != (3, 10):
         raise RuntimeError(
-            "LTSR GPU runs require Python 3.10; selected interpreter is "
+            "LANSR GPU runs require Python 3.10; selected interpreter is "
             f"{version}. Run the first CondaColab bootstrap cell before setup."
         )
 
@@ -96,7 +96,7 @@ class ColabRunConfig:
         repo_root: Path,
         phase: int,
         resume: bool,
-        python_executable: str | Path = "/content/ltsr-py310/bin/python",
+        python_executable: str | Path = "/content/lansr-py310/bin/python",
     ) -> dict[str, str]:
         if phase not in range(4, 9):
             raise ValueError(f"pipeline phase must be 4..8, got {phase}")
@@ -128,20 +128,20 @@ class ColabRunConfig:
             "STRICT_RESUME": "1",
             "START_PHASE": str(phase),
             "STOP_AFTER_PHASE": str(phase),
-            "LTSR_DECODE_TIMEOUT_SEC": str(self.decode_timeout_sec),
+            "LANSR_DECODE_TIMEOUT_SEC": str(self.decode_timeout_sec),
             # Phase 8 uses a uniform shorter cap from its first decode. PySR is
             # run later on the local CPU and merged by aggregate_phase8_runs.
-            "LTSR_PHASE8_DECODE_TIMEOUT_SEC": "30",
-            "LTSR_PHASE8_PYSR": "0",
-            "LTSR_PHASE8_PYSR_ITERS": "12",
+            "LANSR_PHASE8_DECODE_TIMEOUT_SEC": "30",
+            "LANSR_PHASE8_PYSR": "0",
+            "LANSR_PHASE8_PYSR_ITERS": "12",
             # Operational RAM guard only: target checkpoints restore the exact
             # RNG state, so recycling the worker does not change the experiment.
-            "LTSR_PHASE7_TARGET_EVAL_BUDGET": "60",
-            "LTSR_WEIGHTS": str(repo_root / "NSRS" / "weights" / "100M.ckpt"),
-            "LTSR_CONFIG": str(
+            "LANSR_PHASE7_TARGET_EVAL_BUDGET": "60",
+            "LANSR_WEIGHTS": str(repo_root / "NSRS" / "weights" / "100M.ckpt"),
+            "LANSR_CONFIG": str(
                 repo_root / "NSRS" / "jupyter" / "100M" / "config.yaml"
             ),
-            "LTSR_EQ_SETTING": str(
+            "LANSR_EQ_SETTING": str(
                 repo_root / "NSRS" / "jupyter" / "100M" / "eq_setting.json"
             ),
             "DREAM4_ROOT": str(repo_root / "data" / "dream4"),
@@ -539,7 +539,7 @@ def run_phase(
     phase: int,
     *,
     sync_interval_sec: int = 180,
-    python_executable: str | Path = "/content/ltsr-py310/bin/python",
+    python_executable: str | Path = "/content/lansr-py310/bin/python",
 ) -> Path:
     """Execute one pipeline phase and checkpoint it to Drive periodically."""
     repo_root = repo_root.resolve()

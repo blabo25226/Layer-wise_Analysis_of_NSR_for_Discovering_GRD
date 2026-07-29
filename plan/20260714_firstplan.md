@@ -2,11 +2,11 @@
 
 ## 研究題目（仮）
 
-**層選択型Transformerシンボリック回帰による遺伝子制御方程式の推定**
+**遺伝子制御ダイナミクスの発見に向けたニューラルシンボリック回帰の層別解析**
 
 英語題目案：
 
-**Layer-Selective Transformer-Based Symbolic Regression for Gene Regulatory Equation Discovery**
+**Layer-wise Analysis of Neural Symbolic Regression for Discovering Gene Regulatory Dynamics**
 
 ---
 

@@ -47,10 +47,10 @@ from training.tuning import build_config_grid, seed_everything, tune_selective  
 from experiment_runtime import phase_output_paths  # noqa: E402
 
 DATA_DIR = ROOT / "results" / "synthetic" / "phase1_v1"
-# Checkpoint/config env-overridable for GPU runs (e.g. LTSR_WEIGHTS=.../100M.ckpt)
-WEIGHTS = Path(os.environ.get("LTSR_WEIGHTS", str(ROOT / "NSRS" / "weights" / "10M.ckpt")))
-CONFIG = Path(os.environ.get("LTSR_CONFIG", str(ROOT / "NSRS" / "jupyter" / "100M" / "config.yaml")))
-EQ_SETTING = Path(os.environ.get("LTSR_EQ_SETTING", str(ROOT / "NSRS" / "jupyter" / "100M" / "eq_setting.json")))
+# Checkpoint/config env-overridable for GPU runs (e.g. LANSR_WEIGHTS=.../100M.ckpt)
+WEIGHTS = Path(os.environ.get("LANSR_WEIGHTS", str(ROOT / "NSRS" / "weights" / "10M.ckpt")))
+CONFIG = Path(os.environ.get("LANSR_CONFIG", str(ROOT / "NSRS" / "jupyter" / "100M" / "config.yaml")))
+EQ_SETTING = Path(os.environ.get("LANSR_EQ_SETTING", str(ROOT / "NSRS" / "jupyter" / "100M" / "eq_setting.json")))
 OUT_DIR, REPORT = phase_output_paths(ROOT, "phase4", "phase4_report.md")
 
 

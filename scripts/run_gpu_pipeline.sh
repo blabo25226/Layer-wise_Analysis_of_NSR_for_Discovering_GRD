@@ -27,11 +27,11 @@ RANDOM_LAYER_SEEDS=${RANDOM_LAYER_SEEDS:-"0 1 2 3 4"}
 NMSE_EQUIV_MARGIN=${NMSE_EQUIV_MARGIN:-0.05}
 START_PHASE=${START_PHASE:-4}
 STOP_AFTER_PHASE=${STOP_AFTER_PHASE:-8}
-LTSR_DECODE_TIMEOUT_SEC=${LTSR_DECODE_TIMEOUT_SEC:-240}
-LTSR_PHASE7_TARGET_EVAL_BUDGET=${LTSR_PHASE7_TARGET_EVAL_BUDGET:-0}
-LTSR_PHASE8_DECODE_TIMEOUT_SEC=${LTSR_PHASE8_DECODE_TIMEOUT_SEC:-30}
-LTSR_PHASE8_PYSR=${LTSR_PHASE8_PYSR:-$PYSR}
-LTSR_PHASE8_PYSR_ITERS=${LTSR_PHASE8_PYSR_ITERS:-40}
+LANSR_DECODE_TIMEOUT_SEC=${LANSR_DECODE_TIMEOUT_SEC:-240}
+LANSR_PHASE7_TARGET_EVAL_BUDGET=${LANSR_PHASE7_TARGET_EVAL_BUDGET:-0}
+LANSR_PHASE8_DECODE_TIMEOUT_SEC=${LANSR_PHASE8_DECODE_TIMEOUT_SEC:-30}
+LANSR_PHASE8_PYSR=${LANSR_PHASE8_PYSR:-$PYSR}
+LANSR_PHASE8_PYSR_ITERS=${LANSR_PHASE8_PYSR_ITERS:-40}
 
 # --- Speed / robustness knobs (default values reproduce the original behavior) ---
 # MAX_PARALLEL_SEEDS>1 runs the per-seed loops of phases 4/5/6/7/8 concurrently.
@@ -58,31 +58,31 @@ if [ "$START_PHASE" -lt 4 ] || [ "$STOP_AFTER_PHASE" -gt 8 ] || [ "$START_PHASE"
   exit 2
 fi
 
-export LTSR_SEEDS="$SEEDS" LTSR_N_PER_SKELETON="$NPS" LTSR_EVAL_LIMIT="$EVAL_LIMIT"
-export LTSR_EPOCHS="$EPOCHS" LTSR_BEAM="$BEAM" LTSR_BFGS_RESTARTS="$BFGS_RESTARTS"
-export LTSR_LR_GRID="$LR_GRID" LTSR_EPOCH_GRID="$EPOCH_GRID" LTSR_PATIENCE="$PATIENCE"
-export LTSR_BFGS_STOP="$BFGS_STOP" LTSR_NOISE="$NOISE" LTSR_PYSR="$PYSR"
-export LTSR_DREAM4="$DREAM4" LTSR_DREAM4_ROOT="$DREAM4_ROOT"
-export LTSR_DREAM4_SHARD_NETWORKS="$DREAM4_SHARD_NETWORKS"
-export LTSR_DREAM4_NETWORKS="$DREAM4_NETWORKS"
-export LTSR_DREAM4_SIZE10_TARGET_LIMIT="$DREAM4_SIZE10_TARGET_LIMIT"
-export LTSR_RANDOM_LAYER_SEEDS="$RANDOM_LAYER_SEEDS"
-export LTSR_NMSE_EQUIV_MARGIN="$NMSE_EQUIV_MARGIN"
-export LTSR_START_PHASE="$START_PHASE" LTSR_STOP_AFTER_PHASE="$STOP_AFTER_PHASE"
-export LTSR_MAX_PARALLEL_SEEDS="$MAX_PARALLEL_SEEDS" LTSR_RESUME="$RESUME"
-export LTSR_STRICT_RESUME="$STRICT_RESUME"
-export LTSR_DECODE_TIMEOUT_SEC
-export LTSR_PHASE7_TARGET_EVAL_BUDGET
-export LTSR_PHASE8_DECODE_TIMEOUT_SEC LTSR_PHASE8_PYSR
-export LTSR_PHASE8_PYSR_ITERS
+export LANSR_SEEDS="$SEEDS" LANSR_N_PER_SKELETON="$NPS" LANSR_EVAL_LIMIT="$EVAL_LIMIT"
+export LANSR_EPOCHS="$EPOCHS" LANSR_BEAM="$BEAM" LANSR_BFGS_RESTARTS="$BFGS_RESTARTS"
+export LANSR_LR_GRID="$LR_GRID" LANSR_EPOCH_GRID="$EPOCH_GRID" LANSR_PATIENCE="$PATIENCE"
+export LANSR_BFGS_STOP="$BFGS_STOP" LANSR_NOISE="$NOISE" LANSR_PYSR="$PYSR"
+export LANSR_DREAM4="$DREAM4" LANSR_DREAM4_ROOT="$DREAM4_ROOT"
+export LANSR_DREAM4_SHARD_NETWORKS="$DREAM4_SHARD_NETWORKS"
+export LANSR_DREAM4_NETWORKS="$DREAM4_NETWORKS"
+export LANSR_DREAM4_SIZE10_TARGET_LIMIT="$DREAM4_SIZE10_TARGET_LIMIT"
+export LANSR_RANDOM_LAYER_SEEDS="$RANDOM_LAYER_SEEDS"
+export LANSR_NMSE_EQUIV_MARGIN="$NMSE_EQUIV_MARGIN"
+export LANSR_START_PHASE="$START_PHASE" LANSR_STOP_AFTER_PHASE="$STOP_AFTER_PHASE"
+export LANSR_MAX_PARALLEL_SEEDS="$MAX_PARALLEL_SEEDS" LANSR_RESUME="$RESUME"
+export LANSR_STRICT_RESUME="$STRICT_RESUME"
+export LANSR_DECODE_TIMEOUT_SEC
+export LANSR_PHASE7_TARGET_EVAL_BUDGET
+export LANSR_PHASE8_DECODE_TIMEOUT_SEC LANSR_PHASE8_PYSR
+export LANSR_PHASE8_PYSR_ITERS
 
-: "${LTSR_WEIGHTS:?Set LTSR_WEIGHTS to the GPU checkpoint path}"
-export LTSR_CONFIG=${LTSR_CONFIG:-"$PWD/NSRS/jupyter/100M/config.yaml"}
-export LTSR_EQ_SETTING=${LTSR_EQ_SETTING:-"$PWD/NSRS/jupyter/100M/eq_setting.json"}
+: "${LANSR_WEIGHTS:?Set LANSR_WEIGHTS to the GPU checkpoint path}"
+export LANSR_CONFIG=${LANSR_CONFIG:-"$PWD/NSRS/jupyter/100M/config.yaml"}
+export LANSR_EQ_SETTING=${LANSR_EQ_SETTING:-"$PWD/NSRS/jupyter/100M/eq_setting.json"}
 RUN_ID=${RUN_ID:-"$(date -u +%Y%m%dT%H%M%SZ)_$(git rev-parse --short HEAD)"}
-export LTSR_RUN_DIR=${LTSR_RUN_DIR:-"$PWD/results/runs/$RUN_ID"}
-export LTSR_GRAPH_DIR=${LTSR_GRAPH_DIR:-"$PWD/graphs/$RUN_ID"}
-export LTSR_DREAMLIKE_DATA=${LTSR_DREAMLIKE_DATA:-"$LTSR_RUN_DIR/input_data/phase7_dreamlike_v1"}
+export LANSR_RUN_DIR=${LANSR_RUN_DIR:-"$PWD/results/runs/$RUN_ID"}
+export LANSR_GRAPH_DIR=${LANSR_GRAPH_DIR:-"$PWD/graphs/$RUN_ID"}
+export LANSR_DREAMLIKE_DATA=${LANSR_DREAMLIKE_DATA:-"$LANSR_RUN_DIR/input_data/phase7_dreamlike_v1"}
 case "$NOISE" in
   *[[:space:]]*)
     echo "ERROR: this pipeline requires exactly one NOISE value" >&2
@@ -91,11 +91,11 @@ case "$NOISE" in
 esac
 NOISE_CANON=$("${PY_CMD[@]}" -c 'import sys; print(float(sys.argv[1]))' "$NOISE")
 if [ "$NOISE_CANON" = "0.0" ]; then
-  DATA="$LTSR_RUN_DIR/input_data/diverse_gpu"
+  DATA="$LANSR_RUN_DIR/input_data/diverse_gpu"
 else
-  DATA="$LTSR_RUN_DIR/input_data/diverse_gpu_n${NOISE_CANON}"
+  DATA="$LANSR_RUN_DIR/input_data/diverse_gpu_n${NOISE_CANON}"
 fi
-CONTRIB="$LTSR_RUN_DIR/phase4_multiseed/layer_ranking_scores.json"
+CONTRIB="$LANSR_RUN_DIR/phase4_multiseed/layer_ranking_scores.json"
 
 # --- Concurrency helper: run <fn> for each seed with bounded parallelism -------
 # Default MAX_PARALLEL_SEEDS=1 => strictly sequential, identical to before.
@@ -160,52 +160,52 @@ _require_dir() {
 }
 
 "${PY_CMD[@]}" scripts/preflight_gpu.py \
-  --weights "$LTSR_WEIGHTS" --config "$LTSR_CONFIG" --eq-setting "$LTSR_EQ_SETTING"
-if [ -e "$LTSR_RUN_DIR" ] || [ -e "$LTSR_GRAPH_DIR" ]; then
+  --weights "$LANSR_WEIGHTS" --config "$LANSR_CONFIG" --eq-setting "$LANSR_EQ_SETTING"
+if [ -e "$LANSR_RUN_DIR" ] || [ -e "$LANSR_GRAPH_DIR" ]; then
   if [ "$RESUME" = "1" ]; then
-    echo "[resume] Reusing existing run dir: $LTSR_RUN_DIR"
+    echo "[resume] Reusing existing run dir: $LANSR_RUN_DIR"
   else
     echo "ERROR: RUN_ID already exists; choose a new RUN_ID to avoid mixing runs: $RUN_ID" >&2
     exit 2
   fi
 fi
-mkdir -p "$LTSR_RUN_DIR/logs"
-mkdir -p "$LTSR_GRAPH_DIR/figures" "$LTSR_GRAPH_DIR/tables"
-exec > >(tee -a "$LTSR_RUN_DIR/logs/pipeline.log") 2>&1
-if [ "$RESUME" = "1" ] && [ -f "$LTSR_RUN_DIR/manifest.json" ]; then
+mkdir -p "$LANSR_RUN_DIR/logs"
+mkdir -p "$LANSR_GRAPH_DIR/figures" "$LANSR_GRAPH_DIR/tables"
+exec > >(tee -a "$LANSR_RUN_DIR/logs/pipeline.log") 2>&1
+if [ "$RESUME" = "1" ] && [ -f "$LANSR_RUN_DIR/manifest.json" ]; then
   echo "[resume] Existing manifest found; preserving original provenance and appending a resume note."
   resume_args=()
   if [ "$STRICT_RESUME" = "1" ]; then resume_args+=(--strict); fi
-  "${PY_CMD[@]}" scripts/run_manifest.py resume --run-dir "$LTSR_RUN_DIR" "${resume_args[@]}"
+  "${PY_CMD[@]}" scripts/run_manifest.py resume --run-dir "$LANSR_RUN_DIR" "${resume_args[@]}"
 else
-  "${PY_CMD[@]}" scripts/run_manifest.py start --run-dir "$LTSR_RUN_DIR" \
-    --weights "$LTSR_WEIGHTS" --command "$0 $*" \
+  "${PY_CMD[@]}" scripts/run_manifest.py start --run-dir "$LANSR_RUN_DIR" \
+    --weights "$LANSR_WEIGHTS" --command "$0 $*" \
     --data-path "$PWD/data/human/gse112372_lps" --data-path "$DREAM4_ROOT"
 fi
 
 finish_manifest() {
   status=failed
   if [ "$1" -eq 0 ]; then status=complete; fi
-  "${PY_CMD[@]}" scripts/run_manifest.py finish --run-dir "$LTSR_RUN_DIR" --status "$status" || true
+  "${PY_CMD[@]}" scripts/run_manifest.py finish --run-dir "$LANSR_RUN_DIR" --status "$status" || true
 }
 trap 'finish_manifest $?' EXIT
 
-echo "Run directory: $LTSR_RUN_DIR"
+echo "Run directory: $LANSR_RUN_DIR"
 echo "Seeds=$SEEDS n_per_skeleton=$NPS epochs=$EPOCHS beam=$BEAM"
 echo "Validation tuning: lr_grid=$LR_GRID epoch_grid=$EPOCH_GRID patience=$PATIENCE"
 echo "max_parallel_seeds=$MAX_PARALLEL_SEEDS resume=$RESUME strict_resume=$STRICT_RESUME"
 echo "phase_range=$START_PHASE..$STOP_AFTER_PHASE dream4_shards=$DREAM4_SHARD_NETWORKS"
-echo "noise=$NOISE decode_timeout_sec=$LTSR_DECODE_TIMEOUT_SEC"
-echo "phase7_target_eval_budget=$LTSR_PHASE7_TARGET_EVAL_BUDGET"
-echo "phase8_decode_timeout_sec=$LTSR_PHASE8_DECODE_TIMEOUT_SEC"
-echo "phase8_pysr=$LTSR_PHASE8_PYSR phase8_pysr_iters=$LTSR_PHASE8_PYSR_ITERS"
+echo "noise=$NOISE decode_timeout_sec=$LANSR_DECODE_TIMEOUT_SEC"
+echo "phase7_target_eval_budget=$LANSR_PHASE7_TARGET_EVAL_BUDGET"
+echo "phase8_decode_timeout_sec=$LANSR_PHASE8_DECODE_TIMEOUT_SEC"
+echo "phase8_pysr=$LANSR_PHASE8_PYSR phase8_pysr_iters=$LANSR_PHASE8_PYSR_ITERS"
 
 if [ "$START_PHASE" -le 4 ]; then
   if [ "$RESUME" = "1" ] && [ -d "$DATA" ]; then
     echo "[resume] data suite exists, skipping generate_diverse_suite: $DATA"
   else
     "${PY_CMD[@]}" scripts/generate_diverse_suite.py --n-per-skeleton "$NPS" \
-      --noise $NOISE --tag diverse_gpu --out-root "$LTSR_RUN_DIR/input_data"
+      --noise $NOISE --tag diverse_gpu --out-root "$LANSR_RUN_DIR/input_data"
   fi
 else
   _require_dir "$DATA"
@@ -245,18 +245,18 @@ else
   _require_file "$CONTRIB"
 fi
 
-export LTSR_PHASE4_CONTRIB="$CONTRIB"
-export LTSR_REQUIRE_LIVE_PHASE4=1
+export LANSR_PHASE4_CONTRIB="$CONTRIB"
+export LANSR_REQUIRE_LIVE_PHASE4=1
 
 if [ "$STOP_AFTER_PHASE" -eq 4 ]; then
-  echo "Stopped successfully after Phase 4: $LTSR_RUN_DIR"
+  echo "Stopped successfully after Phase 4: $LANSR_RUN_DIR"
   exit 0
 fi
 
 run_phase5_seed() {
   local seed="$1"
-  _resume_skip "$LTSR_RUN_DIR/phase5_seed${seed}/selective_results.json" "Phase5 seed${seed}" && return 0
-  LTSR_PHASE_TAG="seed${seed}" "${PY_CMD[@]}" scripts/phase5_selective_train.py \
+  _resume_skip "$LANSR_RUN_DIR/phase5_seed${seed}/selective_results.json" "Phase5 seed${seed}" && return 0
+  LANSR_PHASE_TAG="seed${seed}" "${PY_CMD[@]}" scripts/phase5_selective_train.py \
     --data-dir "$DATA" --contributions "$CONTRIB" --seed "$seed" \
     --epochs "$EPOCHS" --eval-limit "$EVAL_LIMIT" --beam-size "$BEAM" \
     --lr-grid $LR_GRID --epoch-grid $EPOCH_GRID --patience "$PATIENCE" \
@@ -265,22 +265,22 @@ run_phase5_seed() {
 }
 if _phase_selected 5; then
   parallel_seeds run_phase5_seed
-  "${PY_CMD[@]}" scripts/aggregate_phase5_runs.py --run-dir "$LTSR_RUN_DIR" \
+  "${PY_CMD[@]}" scripts/aggregate_phase5_runs.py --run-dir "$LANSR_RUN_DIR" \
     --seeds $SEEDS --k 3 --nmse-equivalence-margin "$NMSE_EQUIV_MARGIN"
 else
-  _require_file "$LTSR_RUN_DIR/phase5_multiseed/summary.json"
+  _require_file "$LANSR_RUN_DIR/phase5_multiseed/summary.json"
 fi
 
 if [ "$STOP_AFTER_PHASE" -eq 5 ]; then
-  echo "Stopped successfully after Phase 5: $LTSR_RUN_DIR"
+  echo "Stopped successfully after Phase 5: $LANSR_RUN_DIR"
   exit 0
 fi
 
 run_phase6_seed() {
   local seed="$1"
-  _resume_skip "$LTSR_RUN_DIR/phase6_noise_seed${seed}/noise_sweep.json" "Phase6 seed${seed}" && return 0
-  LTSR_PHASE_TAG="seed${seed}" "${PY_CMD[@]}" scripts/phase6_noise_sweep.py \
-    --noise $NOISE --data-root "$LTSR_RUN_DIR/input_data" --tag diverse_gpu \
+  _resume_skip "$LANSR_RUN_DIR/phase6_noise_seed${seed}/noise_sweep.json" "Phase6 seed${seed}" && return 0
+  LANSR_PHASE_TAG="seed${seed}" "${PY_CMD[@]}" scripts/phase6_noise_sweep.py \
+    --noise $NOISE --data-root "$LANSR_RUN_DIR/input_data" --tag diverse_gpu \
     --contributions "$CONTRIB" --seed "$seed" --epochs "$EPOCHS" \
     --eval-limit "$EVAL_LIMIT" --beam-size "$BEAM" \
     --bfgs-restarts "$BFGS_RESTARTS" --bfgs-stop-time "$BFGS_STOP" \
@@ -288,13 +288,13 @@ run_phase6_seed() {
 }
 if _phase_selected 6; then
   parallel_seeds run_phase6_seed
-  "${PY_CMD[@]}" scripts/aggregate_phase6_runs.py --run-dir "$LTSR_RUN_DIR" --seeds $SEEDS
+  "${PY_CMD[@]}" scripts/aggregate_phase6_runs.py --run-dir "$LANSR_RUN_DIR" --seeds $SEEDS
 else
-  _require_file "$LTSR_RUN_DIR/phase6_noise_multiseed/summary.json"
+  _require_file "$LANSR_RUN_DIR/phase6_noise_multiseed/summary.json"
 fi
 
 if [ "$STOP_AFTER_PHASE" -eq 6 ]; then
-  echo "Stopped successfully after Phase 6: $LTSR_RUN_DIR"
+  echo "Stopped successfully after Phase 6: $LANSR_RUN_DIR"
   exit 0
 fi
 
@@ -303,9 +303,9 @@ run_phase7_size100_chunked() {
   shift 2
   local rc
   while [ ! -f "$sentinel" ]; do
-    if LTSR_PHASE_TAG="$phase_tag" "${PY_CMD[@]}" \
+    if LANSR_PHASE_TAG="$phase_tag" "${PY_CMD[@]}" \
       scripts/phase7_dream4_size100.py "$@" \
-      --target-eval-budget "$LTSR_PHASE7_TARGET_EVAL_BUDGET"; then
+      --target-eval-budget "$LANSR_PHASE7_TARGET_EVAL_BUDGET"; then
       rc=0
     else
       rc=$?
@@ -330,16 +330,16 @@ if _phase_selected 7 && [ "$DREAM4" = "1" ]; then
     local seed="$1" net
     if [ "$DREAM4_SHARD_NETWORKS" = "1" ]; then
       for net in $DREAM4_NETWORKS; do
-        if ! _resume_skip "$LTSR_RUN_DIR/phase7_dream4_size10_seed${seed}_net${net}/size10_results.json" "Phase7 size10 seed${seed} net${net}"; then
-          LTSR_PHASE_TAG="seed${seed}_net${net}" "${PY_CMD[@]}" scripts/phase7_dream4_size10.py \
+        if ! _resume_skip "$LANSR_RUN_DIR/phase7_dream4_size10_seed${seed}_net${net}/size10_results.json" "Phase7 size10 seed${seed} net${net}"; then
+          LANSR_PHASE_TAG="seed${seed}_net${net}" "${PY_CMD[@]}" scripts/phase7_dream4_size10.py \
             --dream4-root "$DREAM4_ROOT" --net-id "$net" \
             --target-limit "$DREAM4_SIZE10_TARGET_LIMIT" --seed "$seed" \
             --epochs "$EPOCHS" --beam-size "$BEAM" \
             --bfgs-restarts "$BFGS_RESTARTS" --bfgs-stop-time "$BFGS_STOP"
         fi
-        if ! _resume_skip "$LTSR_RUN_DIR/phase7_dream4_size100_seed${seed}_net${net}/size100_results.json" "Phase7 size100 seed${seed} net${net}"; then
+        if ! _resume_skip "$LANSR_RUN_DIR/phase7_dream4_size100_seed${seed}_net${net}/size100_results.json" "Phase7 size100 seed${seed} net${net}"; then
           run_phase7_size100_chunked \
-            "$LTSR_RUN_DIR/phase7_dream4_size100_seed${seed}_net${net}/size100_results.json" \
+            "$LANSR_RUN_DIR/phase7_dream4_size100_seed${seed}_net${net}/size100_results.json" \
             "seed${seed}_net${net}" \
             --dream4-root "$DREAM4_ROOT" --net-id "$net" --select-all \
             --sr-targets "$DREAM4_SR_TARGETS" --seed "$seed" --epochs "$EPOCHS" \
@@ -348,16 +348,16 @@ if _phase_selected 7 && [ "$DREAM4" = "1" ]; then
         fi
       done
     else
-      if ! _resume_skip "$LTSR_RUN_DIR/phase7_dream4_size10_seed${seed}/size10_results.json" "Phase7 size10 seed${seed}"; then
-        LTSR_PHASE_TAG="seed${seed}" "${PY_CMD[@]}" scripts/phase7_dream4_size10.py \
+      if ! _resume_skip "$LANSR_RUN_DIR/phase7_dream4_size10_seed${seed}/size10_results.json" "Phase7 size10 seed${seed}"; then
+        LANSR_PHASE_TAG="seed${seed}" "${PY_CMD[@]}" scripts/phase7_dream4_size10.py \
           --dream4-root "$DREAM4_ROOT" --all-nets \
           --target-limit "$DREAM4_SIZE10_TARGET_LIMIT" --seed "$seed" \
           --epochs "$EPOCHS" --beam-size "$BEAM" \
           --bfgs-restarts "$BFGS_RESTARTS" --bfgs-stop-time "$BFGS_STOP"
       fi
-      if ! _resume_skip "$LTSR_RUN_DIR/phase7_dream4_size100_seed${seed}/size100_results.json" "Phase7 size100 seed${seed}"; then
+      if ! _resume_skip "$LANSR_RUN_DIR/phase7_dream4_size100_seed${seed}/size100_results.json" "Phase7 size100 seed${seed}"; then
         run_phase7_size100_chunked \
-          "$LTSR_RUN_DIR/phase7_dream4_size100_seed${seed}/size100_results.json" \
+          "$LANSR_RUN_DIR/phase7_dream4_size100_seed${seed}/size100_results.json" \
           "seed${seed}" \
           --dream4-root "$DREAM4_ROOT" --all-nets --select-all \
           --sr-targets "$DREAM4_SR_TARGETS" --seed "$seed" --epochs "$EPOCHS" \
@@ -367,34 +367,34 @@ if _phase_selected 7 && [ "$DREAM4" = "1" ]; then
     fi
   }
   parallel_seeds run_phase7_seed
-  "${PY_CMD[@]}" scripts/aggregate_phase7_runs.py --run-dir "$LTSR_RUN_DIR" \
+  "${PY_CMD[@]}" scripts/aggregate_phase7_runs.py --run-dir "$LANSR_RUN_DIR" \
     --seeds $SEEDS --networks $DREAM4_NETWORKS
 elif _phase_selected 7; then
   echo "Phase 7 skipped because DREAM4=$DREAM4"
 elif [ "$DREAM4" = "1" ]; then
-  _require_file "$LTSR_RUN_DIR/phase7_multiseed/summary.json"
+  _require_file "$LANSR_RUN_DIR/phase7_multiseed/summary.json"
 fi
 
 if [ "$STOP_AFTER_PHASE" -eq 7 ]; then
-  echo "Stopped successfully after Phase 7: $LTSR_RUN_DIR"
+  echo "Stopped successfully after Phase 7: $LANSR_RUN_DIR"
   exit 0
 fi
 
 run_phase8_seed() {
   local seed="$1"
-  _resume_skip "$LTSR_RUN_DIR/phase8_lodo_seed${seed}/lodo_results.json" "Phase8 seed${seed}" && return 0
-  if [ "$LTSR_PHASE8_PYSR" = "1" ]; then
-    LTSR_PHASE_TAG="seed${seed}" "${PY_CMD[@]}" scripts/phase8_lodo.py \
+  _resume_skip "$LANSR_RUN_DIR/phase8_lodo_seed${seed}/lodo_results.json" "Phase8 seed${seed}" && return 0
+  if [ "$LANSR_PHASE8_PYSR" = "1" ]; then
+    LANSR_PHASE_TAG="seed${seed}" "${PY_CMD[@]}" scripts/phase8_lodo.py \
       --seed "$seed" --epochs "$EPOCHS" --with-pysr \
-      --pysr-iters "$LTSR_PHASE8_PYSR_ITERS"
+      --pysr-iters "$LANSR_PHASE8_PYSR_ITERS"
   else
-    LTSR_PHASE_TAG="seed${seed}" "${PY_CMD[@]}" scripts/phase8_lodo.py \
+    LANSR_PHASE_TAG="seed${seed}" "${PY_CMD[@]}" scripts/phase8_lodo.py \
       --seed "$seed" --epochs "$EPOCHS"
   fi
 }
 if _phase_selected 8; then
   parallel_seeds run_phase8_seed
-  "${PY_CMD[@]}" scripts/aggregate_phase8_runs.py --run-dir "$LTSR_RUN_DIR" --seeds $SEEDS
+  "${PY_CMD[@]}" scripts/aggregate_phase8_runs.py --run-dir "$LANSR_RUN_DIR" --seeds $SEEDS
 fi
 
-echo "Completed successfully: $LTSR_RUN_DIR"
+echo "Completed successfully: $LANSR_RUN_DIR"

@@ -1,4 +1,4 @@
-# LTSR Google Colab notebooks
+# LANSR Google Colab notebooks
 
 `GPU_RUN.md`のPhaseをGoogle Colab Pro上で分割実行するNotebook群である。
 番号順に実行する。Phase 1–3は再現・診断用で、GPU本実験はPhase 4–8である。
@@ -28,9 +28,9 @@
 
 ## 重要事項
 
-- Colab UI kernelの版にかかわらず、`/content/ltsr-py310/bin/python`のworkerがPython 3.10でなければ後続Phaseを実行しない。
+- Colab UI kernelの版にかかわらず、`/content/lansr-py310/bin/python`のworkerがPython 3.10でなければ後続Phaseを実行しない。
 - NotebookをDriveで開いてもrepoファイルは自動的に見えない。
-  各Notebookが固定commitを`/content/LTSR`へcloneする。
+  各Notebookが固定commitを`/content/LANSR`へcloneする。
 - 通常はPhase 4–8で同じ`RUN_KIND`と`RUN_ID`を使う。2026-07-28のPhase 7
   RAM枯渇対応では、旧runの完成済み成果物をSHA256付きlineageで
   `colab_reduced_20260728_01`へ継承し、Phase 7–9はこのcontinuation runを使う。
@@ -38,7 +38,7 @@
   runtime切断後は完成済みtargetを検査してskipし、Phase 7だけseedを逐次実行する。
 - Phase 6は`noise=0.1`だけを実行し、noise slopeは評価しない。
 - Colabの一時VM上の成果物は定期的に
-  `MyDrive/LTSR_colab/runs/<run-id>/`へ同期される。
+  `MyDrive/LANSR_colab/runs/<run-id>/`へ同期される。
 - 本番run開始後にsource commitや科学設定を変更しない。
 
 Notebookは`scripts/build_colab_notebooks.py`から機械生成する。

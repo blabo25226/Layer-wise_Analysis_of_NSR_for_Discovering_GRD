@@ -60,6 +60,8 @@ GPU_RUN1では、事前学習済みTransformer型シンボリック回帰モデ�
 | Phase 8 target timeout | 30秒 |
 | PySR | ローカルCPU、12 iterations |
 
+`LTSR_colab`は旧称時に実行したGPU_RUN1の保存先を示すprovenanceであり、実在する成果物との対応を保つため書き換えていない。
+
 ColabのUI自体はPython 3.12環境だったため、研究コードは別のPython 3.10 workerで動かした。これはHydraを含む既存依存関係との互換性を維持するためである。
 
 ### 2.2 当初計画からの主な変更

@@ -1,4 +1,4 @@
-# AGENTS.md — LTSR研究リポジトリのAI作業指針
+# AGENTS.md — LANSR研究リポジトリのAI作業指針
 
 このファイルは、このリポジトリで作業する **Cursor、Claude Code、Claude Science、Codex、およびその他のAI** に対する共通説明書である。
 目的は、複数のAIが交代・並行して作業しても、研究設計、コード、結果、Git履歴の整合性を保つことにある。

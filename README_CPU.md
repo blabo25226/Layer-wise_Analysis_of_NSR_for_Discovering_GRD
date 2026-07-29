@@ -1,4 +1,4 @@
-# LTSR研究：層選択型シンボリック回帰による遺伝子制御方程式の推定
+# LANSR研究：遺伝子制御ダイナミクスの発見に向けたニューラルシンボリック回帰の層別解析
 
 > **現在地（2026年7月）**：CPU上で研究パイプラインと小規模な予備実験を完了した段階である。
 > GPUを用いた多seed・大規模実験は未実施であり、以下の数値は最終的な研究結論ではない。
@@ -32,7 +32,7 @@
 本研究は、遺伝子発現データから「どの遺伝子が、どの遺伝子を、どのような数式で制御するか」を推定する研究である。
 英語題目は次のとおりである。
 
-> **Layer-Selective Transformer-Based Symbolic Regression for Gene Regulatory Equation Discovery**
+> **Layer-wise Analysis of Neural Symbolic Regression for Discovering Gene Regulatory Dynamics**
 
 遺伝子 $i$ の発現量を $x_i(t)$ とすると、その時間変化を
 
@@ -248,7 +248,7 @@ DREAM4が重要なのは、合成Hill式だけで成功した方法が、より�
 | **LLM / Large Language Model** | 大量の文章で学習した大規模言語モデル。層選択学習の先行研究で使われた。 |
 | **LODO / Leave-One-Donor-Out** | 1人分をテストに回し、残りの人で学習する操作を全員分繰り返す評価。 |
 | **LPS / Lipopolysaccharide** | グラム陰性菌の外膜成分。免疫反応を起こす刺激としてヒト時系列実験に使われた。 |
-| **LTSR / Layer-Selective Transformer-based Symbolic Regression** | 本研究で検討する、寄与の大きいTransformer層を選択して学習するSRの略称。 |
+| **LANSR / Layer-wise Analysis of Neural Symbolic Regression** | 遺伝子制御ダイナミクスの発見に向け、ニューラルシンボリック回帰モデルを層別に解析する本研究の略称。 |
 | **MCTS / Monte Carlo Tree Search** | 試しの先読みを繰り返して有望な枝を探す木探索。 |
 | **MI / Mutual Information** | 二つの変数がどの程度情報を共有しているかを測る量。候補制御因子の選択に使う。 |
 | **Motif** | GRNに繰り返し現れる小さな接続パターン。toggleやrepressilatorなど。 |
@@ -668,8 +668,8 @@ GPU実験で中心仮説が支持されなかった場合でも、どの指標�
 ### 環境
 
 ```bash
-conda create -n ltsr python=3.10 -y
-conda activate ltsr
+conda create -n lansr python=3.10 -y
+conda activate lansr
 pip install -r requirements/cpu.txt
 pip install -e NSRS/src
 pip install -r requirements/dev.txt

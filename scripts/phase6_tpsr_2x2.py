@@ -35,10 +35,10 @@ from training.single_layer import clone_model, train_selective  # noqa: E402
 from experiment_runtime import phase_output_paths  # noqa: E402
 
 DATA_DIR = ROOT / "results" / "synthetic" / "phase1_v1"
-# Checkpoint/config env-overridable for GPU runs (e.g. LTSR_WEIGHTS=.../100M.ckpt)
-WEIGHTS = Path(os.environ.get("LTSR_WEIGHTS", str(ROOT / "NSRS" / "weights" / "10M.ckpt")))
-CONFIG = Path(os.environ.get("LTSR_CONFIG", str(ROOT / "NSRS" / "jupyter" / "100M" / "config.yaml")))
-EQ_SETTING = Path(os.environ.get("LTSR_EQ_SETTING", str(ROOT / "NSRS" / "jupyter" / "100M" / "eq_setting.json")))
+# Checkpoint/config env-overridable for GPU runs (e.g. LANSR_WEIGHTS=.../100M.ckpt)
+WEIGHTS = Path(os.environ.get("LANSR_WEIGHTS", str(ROOT / "NSRS" / "weights" / "10M.ckpt")))
+CONFIG = Path(os.environ.get("LANSR_CONFIG", str(ROOT / "NSRS" / "jupyter" / "100M" / "config.yaml")))
+EQ_SETTING = Path(os.environ.get("LANSR_EQ_SETTING", str(ROOT / "NSRS" / "jupyter" / "100M" / "eq_setting.json")))
 OUT_DIR, REPORT = phase_output_paths(ROOT, "phase6", "phase6_report.md")
 
 PHASE4_CONTRIB = ROOT / "results" / "phase_results" / "phase4_multiseed" / "contrib_aggregate.json"
@@ -49,7 +49,7 @@ PHASE4_CONTRIB = ROOT / "results" / "phase_results" / "phase4_multiseed" / "cont
 # per-problem decode with a wall-clock limit; on timeout the problem is recorded
 # as a failure (the conservative outcome, handled by the existing except below).
 # Normal decodes finish in well under a minute, so only true blow-ups are cut.
-DECODE_TIMEOUT_SEC = float(os.environ.get("LTSR_DECODE_TIMEOUT_SEC", "240"))
+DECODE_TIMEOUT_SEC = float(os.environ.get("LANSR_DECODE_TIMEOUT_SEC", "240"))
 
 
 def log(msg: str) -> None:

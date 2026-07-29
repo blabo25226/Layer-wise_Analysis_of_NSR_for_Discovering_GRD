@@ -67,8 +67,8 @@ from phase8_run_human import (  # noqa: E402
 OUT_DIR, REPORT = phase_output_paths(ROOT, "phase8_lodo", "phase8_lodo_report.md")
 DECODE_TIMEOUT_SEC = float(
     os.environ.get(
-        "LTSR_PHASE8_DECODE_TIMEOUT_SEC",
-        os.environ.get("LTSR_DECODE_TIMEOUT_SEC", "30"),
+        "LANSR_PHASE8_DECODE_TIMEOUT_SEC",
+        os.environ.get("LANSR_DECODE_TIMEOUT_SEC", "30"),
     )
 )
 

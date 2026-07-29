@@ -45,14 +45,14 @@ from training.selective_layers import require_live_phase4_ranking, resolve_selec
 from experiment_runtime import phase_output_paths  # noqa: E402
 
 DREAM4 = ROOT / "data" / "dream4"
-DREAMLIKE = Path(os.environ.get("LTSR_DREAMLIKE_DATA", str(ROOT / "results" / "synthetic" / "phase7_dreamlike_v1")))
-WEIGHTS = Path(os.environ.get("LTSR_WEIGHTS", str(ROOT / "NSRS" / "weights" / "10M.ckpt")))
-CONFIG = Path(os.environ.get("LTSR_CONFIG", str(ROOT / "NSRS" / "jupyter" / "100M" / "config.yaml")))
-EQ_SETTING = Path(os.environ.get("LTSR_EQ_SETTING", str(ROOT / "NSRS" / "jupyter" / "100M" / "eq_setting.json")))
+DREAMLIKE = Path(os.environ.get("LANSR_DREAMLIKE_DATA", str(ROOT / "results" / "synthetic" / "phase7_dreamlike_v1")))
+WEIGHTS = Path(os.environ.get("LANSR_WEIGHTS", str(ROOT / "NSRS" / "weights" / "10M.ckpt")))
+CONFIG = Path(os.environ.get("LANSR_CONFIG", str(ROOT / "NSRS" / "jupyter" / "100M" / "config.yaml")))
+EQ_SETTING = Path(os.environ.get("LANSR_EQ_SETTING", str(ROOT / "NSRS" / "jupyter" / "100M" / "eq_setting.json")))
 OUT_DIR, REPORT = phase_output_paths(ROOT, "phase7_dream4_size10", "phase7_dream4_report.md")
-PHASE4_CONTRIB = Path(os.environ.get("LTSR_PHASE4_CONTRIB", str(ROOT / "results" / "phase_results" / "phase4_multiseed" / "contrib_aggregate.json")))
+PHASE4_CONTRIB = Path(os.environ.get("LANSR_PHASE4_CONTRIB", str(ROOT / "results" / "phase_results" / "phase4_multiseed" / "contrib_aggregate.json")))
 HIGH_CONTRIB, LAYER_SOURCE, LAYER_RULE = resolve_selected_layers(PHASE4_CONTRIB, mode="accuracy", rule="top", k=3)
-if os.environ.get("LTSR_REQUIRE_LIVE_PHASE4", "0") == "1":
+if os.environ.get("LANSR_REQUIRE_LIVE_PHASE4", "0") == "1":
     require_live_phase4_ranking(LAYER_SOURCE, PHASE4_CONTRIB)
 
 

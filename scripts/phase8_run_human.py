@@ -55,19 +55,19 @@ from training.single_layer import clone_model, train_selective  # noqa: E402
 DATA_DIR = ROOT / "data" / "human" / "gse112372_lps"
 DREAMLIKE = Path(
     os.environ.get(
-        "LTSR_DREAMLIKE_DATA",
+        "LANSR_DREAMLIKE_DATA",
         str(ROOT / "results" / "synthetic" / "phase7_dreamlike_v1"),
     )
 )
-# Checkpoint/config env-overridable for GPU runs (e.g. LTSR_WEIGHTS=.../100M.ckpt)
-WEIGHTS = Path(os.environ.get("LTSR_WEIGHTS", str(ROOT / "NSRS" / "weights" / "10M.ckpt")))
-CONFIG = Path(os.environ.get("LTSR_CONFIG", str(ROOT / "NSRS" / "jupyter" / "100M" / "config.yaml")))
-EQ_SETTING = Path(os.environ.get("LTSR_EQ_SETTING", str(ROOT / "NSRS" / "jupyter" / "100M" / "eq_setting.json")))
+# Checkpoint/config env-overridable for GPU runs (e.g. LANSR_WEIGHTS=.../100M.ckpt)
+WEIGHTS = Path(os.environ.get("LANSR_WEIGHTS", str(ROOT / "NSRS" / "weights" / "10M.ckpt")))
+CONFIG = Path(os.environ.get("LANSR_CONFIG", str(ROOT / "NSRS" / "jupyter" / "100M" / "config.yaml")))
+EQ_SETTING = Path(os.environ.get("LANSR_EQ_SETTING", str(ROOT / "NSRS" / "jupyter" / "100M" / "eq_setting.json")))
 OUT_DIR, REPORT = phase_output_paths(ROOT, "phase8", "phase8_report.md")
 DECODE_TIMEOUT_SEC = float(
     os.environ.get(
-        "LTSR_PHASE8_DECODE_TIMEOUT_SEC",
-        os.environ.get("LTSR_DECODE_TIMEOUT_SEC", "30"),
+        "LANSR_PHASE8_DECODE_TIMEOUT_SEC",
+        os.environ.get("LANSR_DECODE_TIMEOUT_SEC", "30"),
     )
 )
 
@@ -81,14 +81,14 @@ from training.selective_layers import (  # noqa: E402
 # if contributions.json is absent.
 _PHASE4_CONTRIB = Path(
     os.environ.get(
-        "LTSR_PHASE4_CONTRIB",
+        "LANSR_PHASE4_CONTRIB",
         str(ROOT / "results" / "phase_results" / "phase4_multiseed" / "contrib_aggregate.json"),
     )
 )
 HIGH_CONTRIB, _HC_SOURCE, _HC_RULE = resolve_selected_layers(
     _PHASE4_CONTRIB, mode="accuracy", rule="top", k=3
 )
-if os.environ.get("LTSR_REQUIRE_LIVE_PHASE4", "0") == "1":
+if os.environ.get("LANSR_REQUIRE_LIVE_PHASE4", "0") == "1":
     require_live_phase4_ranking(_HC_SOURCE, _PHASE4_CONTRIB)
 
 
@@ -759,7 +759,7 @@ def main() -> int:
         f"2. Best holdout donor NMSE: `{best_hold[0]}` = {fmt(best_hold[1]['aggregate']['nmse'])}."
     )
     lines.append(
-        "3. Phase 8 is an application demo; main LTSR claims remain on synthetic + DREAM4."
+        "3. Phase 8 is an application demo; main LANSR claims remain on synthetic + DREAM4."
     )
 
     REPORT.write_text("\n".join(lines) + "\n", encoding="utf-8")

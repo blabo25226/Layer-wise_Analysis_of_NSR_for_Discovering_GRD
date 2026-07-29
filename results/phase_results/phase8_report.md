@@ -57,4 +57,4 @@
 
 1. Prior-constrained selection edge F1=0.8444 vs data-only corr F1=0.
 2. Best holdout donor NMSE: `selective_dreamlike_beam` = 0.1783.
-3. Phase 8 is an application demo; main LTSR claims remain on synthetic + DREAM4.
+3. Phase 8 is an application demo; main LANSR claims remain on synthetic + DREAM4.

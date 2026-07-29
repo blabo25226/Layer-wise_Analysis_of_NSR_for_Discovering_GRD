@@ -11,9 +11,9 @@ from typing import Any, Dict, Tuple
 def phase_output_paths(
     root: Path, phase: str, legacy_report_name: str
 ) -> Tuple[Path, Path]:
-    """Return run-scoped paths when LTSR_RUN_DIR is set, else legacy paths."""
-    run_dir = os.environ.get("LTSR_RUN_DIR")
-    tag = os.environ.get("LTSR_PHASE_TAG", "").strip()
+    """Return run-scoped paths when LANSR_RUN_DIR is set, else legacy paths."""
+    run_dir = os.environ.get("LANSR_RUN_DIR")
+    tag = os.environ.get("LANSR_PHASE_TAG", "").strip()
     if tag:
         phase = f"{phase}_{tag}"
         report_path = Path(legacy_report_name)

@@ -83,7 +83,7 @@ def main() -> int:
     parser.add_argument(
         "--strict",
         action="store_true",
-        help="For resume, require the original commit and scientific LTSR parameters",
+        help="For resume, require the original commit and scientific LANSR parameters",
     )
     args = parser.parse_args()
     if args.action == "stage" and not args.stage:
@@ -115,7 +115,7 @@ def main() -> int:
                 "path": str(weights) if weights else None,
                 "sha256": sha256(weights) if weights and weights.is_file() else None,
             },
-            "parameters": {k: v for k, v in os.environ.items() if k.startswith("LTSR_")},
+            "parameters": {k: v for k, v in os.environ.items() if k.startswith("LANSR_")},
             "data_fingerprints": [tree_sha256(path) for path in args.data_path],
             "git_dirty": bool(git("status", "--porcelain")),
         }
@@ -152,11 +152,11 @@ def main() -> int:
                 print("strict resume refused: current worktree is dirty", file=sys.stderr)
                 return 2
             controls = {
-                "LTSR_START_PHASE",
-                "LTSR_STOP_AFTER_PHASE",
-                "LTSR_RESUME",
-                "LTSR_MAX_PARALLEL_SEEDS",
-                "LTSR_STRICT_RESUME",
+                "LANSR_START_PHASE",
+                "LANSR_STOP_AFTER_PHASE",
+                "LANSR_RESUME",
+                "LANSR_MAX_PARALLEL_SEEDS",
+                "LANSR_STRICT_RESUME",
             }
             original_parameters = data.get("parameters", {})
             mismatches = []
@@ -182,10 +182,10 @@ def main() -> int:
             "runtime_controls": {
                 key: os.environ.get(key)
                 for key in (
-                    "LTSR_START_PHASE",
-                    "LTSR_STOP_AFTER_PHASE",
-                    "LTSR_RESUME",
-                    "LTSR_MAX_PARALLEL_SEEDS",
+                    "LANSR_START_PHASE",
+                    "LANSR_STOP_AFTER_PHASE",
+                    "LANSR_RESUME",
+                    "LANSR_MAX_PARALLEL_SEEDS",
                 )
             },
         })

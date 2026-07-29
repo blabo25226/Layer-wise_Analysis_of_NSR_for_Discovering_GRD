@@ -37,7 +37,7 @@ PYTHON_310 = code(
     import urllib.request
     from pathlib import Path
 
-    PY310_ROOT = Path("/content/ltsr-py310")
+    PY310_ROOT = Path("/content/lansr-py310")
     PY310 = PY310_ROOT / "bin" / "python"
     INSTALLER = Path("/content/Miniconda3-py310_23.11.0-2-Linux-x86_64.sh")
     INSTALLER_URL = (
@@ -61,7 +61,7 @@ PYTHON_310 = code(
 
     version = worker_version()
     print("Colab controller:", sys.version)
-    print("LTSR worker before setup:", version)
+    print("LANSR worker before setup:", version)
     if version is None or not version.startswith("3.10."):
         if not INSTALLER.is_file():
             urllib.request.urlretrieve(INSTALLER_URL, INSTALLER)
@@ -80,7 +80,7 @@ PYTHON_310 = code(
         version = worker_version()
     if version is None or not version.startswith("3.10."):
         raise RuntimeError(f"Python 3.10 worker setup failed: {version}")
-    print("LTSR worker Python 3.10: OK —", version)
+    print("LANSR worker Python 3.10: OK —", version)
     """
 )
 
@@ -109,8 +109,8 @@ def bootstrap_cell(pinned_source_commit: str = "") -> dict:
             import sys
             from pathlib import Path
 
-            DRIVE_ROOT = Path("/content/drive/MyDrive/LTSR_colab")
-            REPO_ROOT = Path("/content/LTSR")
+            DRIVE_ROOT = Path("/content/drive/MyDrive/LANSR_colab")
+            REPO_ROOT = Path("/content/LANSR")
             BRANCH = "20260726/gpu-scale-prep-colab"
             REPO_URL = (
                 "https://github.com/blabo25226/"
@@ -159,8 +159,8 @@ def bootstrap_cell(pinned_source_commit: str = "") -> dict:
     import sys
     from pathlib import Path
 
-    DRIVE_ROOT = Path("/content/drive/MyDrive/LTSR_colab")
-    REPO_ROOT = Path("/content/LTSR")
+    DRIVE_ROOT = Path("/content/drive/MyDrive/LANSR_colab")
+    REPO_ROOT = Path("/content/LANSR")
     BRANCH = "20260726/gpu-scale-prep-colab"
     PINNED_SOURCE_COMMIT = {pinned_source_commit!r}
     REPO_URL = (
@@ -293,7 +293,7 @@ def common_intro(
 
 def setup_notebook() -> dict:
     cells = common_intro(
-        "LTSR Colab Phase 0 — setup / preflight",
+        "LANSR Colab Phase 0 — setup / preflight",
         "Python 3.10、CUDA、依存関係、checkpoint、DREAM4、GSE112372を準備する。",
     )
     cells.pop()  # Phase 0 has the explicit dependency-install section below.
@@ -428,12 +428,12 @@ def diagnostic_notebook(phase: int, title: str, command: list[str]) -> dict:
             diagnostic_dir = REPO_ROOT / "results" / "runs" / DIAGNOSTIC_RUN_ID
             phase1_data = diagnostic_dir / "input_data" / "phase1_v1"
             env = {{
-                "LTSR_RUN_DIR": str(diagnostic_dir),
-                "LTSR_PHASE1_DATA": str(phase1_data),
-                "LTSR_WEIGHTS": str(REPO_ROOT / "NSRS" / "weights" / "100M.ckpt"),
-                "LTSR_CONFIG": str(REPO_ROOT / "NSRS" / "jupyter" / "100M" / "config.yaml"),
-                "LTSR_EQ_SETTING": str(REPO_ROOT / "NSRS" / "jupyter" / "100M" / "eq_setting.json"),
-                "LTSR_PHASE_TAG": "colab",
+                "LANSR_RUN_DIR": str(diagnostic_dir),
+                "LANSR_PHASE1_DATA": str(phase1_data),
+                "LANSR_WEIGHTS": str(REPO_ROOT / "NSRS" / "weights" / "100M.ckpt"),
+                "LANSR_CONFIG": str(REPO_ROOT / "NSRS" / "jupyter" / "100M" / "config.yaml"),
+                "LANSR_EQ_SETTING": str(REPO_ROOT / "NSRS" / "jupyter" / "100M" / "eq_setting.json"),
+                "LANSR_PHASE_TAG": "colab",
             }}
             command = {command!r}
             if command[0] == "python":
@@ -529,7 +529,7 @@ def validate_notebook(
     pinned_source_commit: str = "",
 ) -> dict:
     cells = common_intro(
-        "LTSR Colab Phase 9 — validate / archive",
+        "LANSR Colab Phase 9 — validate / archive",
         "Phase 4–8完了runを検査し、raw runとgraphsのtar.gz＋SHA256をDriveへ保存する。",
         pinned_source_commit=pinned_source_commit,
     )
@@ -638,12 +638,12 @@ def main() -> int:
         "00_setup_preflight.ipynb": setup_notebook(),
         "01_phase1_data.ipynb": diagnostic_notebook(
             1,
-            "LTSR Colab Phase 1 — synthetic data",
+            "LANSR Colab Phase 1 — synthetic data",
             ["python", "scripts/issue6_generate_synthetic.py"],
         ),
         "02_phase2_baselines.ipynb": diagnostic_notebook(
             2,
-            "LTSR Colab Phase 2 — baselines",
+            "LANSR Colab Phase 2 — baselines",
             [
                 "python", "scripts/phase2_run_baselines.py",
                 "--split", "test", "--limit", "2", "--pysr-iters", "2",
@@ -651,7 +651,7 @@ def main() -> int:
         ),
         "03_phase3_layer_scan.ipynb": diagnostic_notebook(
             3,
-            "LTSR Colab Phase 3 — layer scan",
+            "LANSR Colab Phase 3 — layer scan",
             [
                 "python", "scripts/phase3_layer_scan.py",
                 "--epochs", "1", "--eval-limit", "2",
@@ -660,22 +660,22 @@ def main() -> int:
         ),
         "04_phase4_contribution.ipynb": phase_notebook(
             4,
-            "LTSR Colab Phase 4 — layer contribution",
+            "LANSR Colab Phase 4 — layer contribution",
             "validationだけでmulti-seed層寄与とlive rankingを生成する。",
         ),
         "05_phase5_selective_ft.ipynb": phase_notebook(
             5,
-            "LTSR Colab Phase 5 — selective fine-tuning",
+            "LANSR Colab Phase 5 — selective fine-tuning",
             "top/random/middle/bottom/fullをpaired seedで比較する。",
         ),
         "06_phase6_tpsr.ipynb": phase_notebook(
             6,
-            "LTSR Colab Phase 6 — TPSR",
+            "LANSR Colab Phase 6 — TPSR",
             "noise=0.1だけでFT/TPSR 2×2比較を実行する。noise slopeは評価しない。",
         ),
         "07_phase7_dream4.ipynb": phase_notebook(
             7,
-            "LTSR Colab Phase 7 — DREAM4",
+            "LANSR Colab Phase 7 — DREAM4",
             "Size10/100をseed×network shardで実行し、Size100はtarget単位でもresumeする。",
             run_id=phase7_run_id,
             max_parallel_seeds=1,
@@ -684,7 +684,7 @@ def main() -> int:
         ),
         "08_phase8_human_lodo.ipynb": phase_notebook(
             8,
-            "LTSR Colab Phase 8 — GSE112372 LODO",
+            "LANSR Colab Phase 8 — GSE112372 LODO",
             "4 donorのcross-donor application demoを実行する。",
             run_id=phase8_run_id,
             pinned_source_commit=PHASE8_OPTIMIZED_SOURCE_COMMIT,

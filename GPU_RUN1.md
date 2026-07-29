@@ -46,8 +46,8 @@ VS Code左下が`WSL: Ubuntu`等になっており、統合ターミナルの`un
 
 ```bash
 git clone --branch gpu-scale-prep --single-branch \
-  https://github.com/blabo25226/Layer-selective_Transformer-based_Symbolic_Regression.git LTSR
-cd LTSR
+  https://github.com/blabo25226/Layer-selective_Transformer-based_Symbolic_Regression.git LANSR
+cd LANSR
 git status --short
 git branch --show-current
 git log -1 --oneline
@@ -61,8 +61,8 @@ git log -1 --oneline
 Python 3.10を使う。NeSymReSが使用するHydra 1.0はPython 3.12と互換性がない。
 
 ```bash
-conda create -n ltsr-gpu python=3.10 -y
-conda activate ltsr-gpu
+conda create -n lansr-gpu python=3.10 -y
+conda activate lansr-gpu
 python -m pip install --upgrade pip
 pip install torch==2.5.1 --index-url https://download.pytorch.org/whl/cu124
 pip install -r requirements/gpu.txt
@@ -111,11 +111,11 @@ ls -lh NSRS/weights/100M.ckpt
 SHA256が記録される。checkpoint、config、eq_settingは同じモデル構成の組を指定し、ファイル名だけから互換性を仮定しない。
 
 ```bash
-export LTSR_WEIGHTS="$PWD/NSRS/weights/100M.ckpt"
-export LTSR_CONFIG="$PWD/NSRS/jupyter/100M/config.yaml"
-export LTSR_EQ_SETTING="$PWD/NSRS/jupyter/100M/eq_setting.json"
+export LANSR_WEIGHTS="$PWD/NSRS/weights/100M.ckpt"
+export LANSR_CONFIG="$PWD/NSRS/jupyter/100M/config.yaml"
+export LANSR_EQ_SETTING="$PWD/NSRS/jupyter/100M/eq_setting.json"
 python scripts/preflight_gpu.py \
-  --weights "$LTSR_WEIGHTS" --config "$LTSR_CONFIG" --eq-setting "$LTSR_EQ_SETTING"
+  --weights "$LANSR_WEIGHTS" --config "$LANSR_CONFIG" --eq-setting "$LANSR_EQ_SETTING"
 ```
 
 これらの`export`はrunを起動する`tmux`内でも行う。
@@ -194,7 +194,7 @@ smokeの2問題からいきなり全件本番へ進むため、総時間とVRAM�
 引き渡し前に次が成立していることを確認する。
 
 - conda環境がactivate済み
-- `LTSR_WEIGHTS`、`LTSR_CONFIG`、`LTSR_EQ_SETTING`がexport済み
+- `LANSR_WEIGHTS`、`LANSR_CONFIG`、`LANSR_EQ_SETTING`がexport済み
 - 4.2のGSE112372と4.3のDREAM4が取得済み
 - `git status --porcelain`が **完全に空**（untrackedを1つでも含むとcampaignは即座にexit 2で停止する）
 - `PUBLISH_GIT=1`なら`git config user.name`、`git config user.email`、`origin` remoteが設定済みで、
@@ -254,7 +254,7 @@ campaignは`PUBLISH_GIT=1`で起動してよく、AIは検査済み成果物のc
 RUN_ID=... NPS=2 ... bash scripts/run_gpu_pipeline.sh
 
 # 推奨：tmuxセッションを作り、その中で上記コマンドを実行する
-tmux new -s ltsr-smoke
+tmux new -s lansr-smoke
 ```
 
 許可ルールは`Bash(bash scripts/run_gpu_pipeline.sh)`のようにコマンド名で書かれている。一方、
@@ -271,17 +271,17 @@ tmux new -s ltsr-smoke
 ```bash
 CAMPAIGN_ID=paper_gpu_YYYYMMDD_01
 mkdir -p results/runs
-tmux new-session -d -s ltsr-auto \
+tmux new-session -d -s lansr-auto \
   "cd '$PWD' && CAMPAIGN_ID='$CAMPAIGN_ID' RUN_SMOKE=0 PUBLISH_GIT=1 \
-  LTSR_WEIGHTS='$LTSR_WEIGHTS' LTSR_CONFIG='$LTSR_CONFIG' \
-  LTSR_EQ_SETTING='$LTSR_EQ_SETTING' bash scripts/run_gpu_campaign.sh \
+  LANSR_WEIGHTS='$LANSR_WEIGHTS' LANSR_CONFIG='$LANSR_CONFIG' \
+  LANSR_EQ_SETTING='$LANSR_EQ_SETTING' bash scripts/run_gpu_campaign.sh \
   > 'results/runs/${CAMPAIGN_ID}_campaign.log' 2>&1"
 ```
 
 進捗確認は次だけでよい。
 
 ```bash
-tmux attach -t ltsr-auto
+tmux attach -t lansr-auto
 tail -f "results/runs/${CAMPAIGN_ID}_campaign.log"
 ```
 
@@ -312,12 +312,12 @@ AIはログ、manifestの`status`と`stages`、`validation.json`を調べ、コ�
 VS Codeのターミナルを閉じたりリモートデスクトップを切断したりしても計算が継続するよう、`tmux`内で起動する。
 
 ```bash
-tmux new -s ltsr-smoke
-conda activate ltsr-gpu
-cd /path/to/LTSR
-export LTSR_WEIGHTS="$PWD/NSRS/weights/100M.ckpt"
-export LTSR_CONFIG="$PWD/NSRS/jupyter/100M/config.yaml"
-export LTSR_EQ_SETTING="$PWD/NSRS/jupyter/100M/eq_setting.json"
+tmux new -s lansr-smoke
+conda activate lansr-gpu
+cd /path/to/LANSR
+export LANSR_WEIGHTS="$PWD/NSRS/weights/100M.ckpt"
+export LANSR_CONFIG="$PWD/NSRS/jupyter/100M/config.yaml"
+export LANSR_EQ_SETTING="$PWD/NSRS/jupyter/100M/eq_setting.json"
 RUN_ID=gpu_smoke_YYYYMMDD NPS=2 SEEDS="0 1" EPOCHS=1 EVAL_LIMIT=2 \
 LR_GRID="1e-4" EPOCH_GRID="1" PATIENCE=0 \
 BEAM=1 BFGS_RESTARTS=1 BFGS_STOP=0.2 NOISE="0.0" PYSR=0 DREAM4=0 \
@@ -334,7 +334,7 @@ random層集合を5通り学習してsmoke testが数倍遅くなる。campaign�
 
 ```bash
 tmux list-sessions
-tmux attach -t ltsr-smoke
+tmux attach -t lansr-smoke
 ```
 
 別ターミナルから進捗だけを見る場合は次を使う。
@@ -367,7 +367,7 @@ BFGSは主にCPUを使い、decodeと`EVAL_LIMIT`が総時間を支配しやす�
 `EVAL_LIMIT=30`程度の中規模runで所要時間とVRAMを測る。** この中規模runはpilotであり、
 これを見てhyperparameterを変更した場合、そのrunは最終test結果の選択には使わない。
 
-このpilotも§6.2のとおり`tmux`セッションを作ってから実行する（`tmux new -s ltsr-pilot`）。
+このpilotも§6.2のとおり`tmux`セッションを作ってから実行する（`tmux new -s lansr-pilot`）。
 
 ```bash
 RUN_ID=pilot_gpu_YYYYMMDD_01 SEEDS="0 1" NPS=24 EPOCHS=8 EVAL_LIMIT=30 DREAM4=0 \
@@ -384,12 +384,12 @@ SRするため、`DREAM4=1`のときはこれが総時間の支配項になり�
 ### 8.2 本実験
 
 ```bash
-tmux new -s ltsr-paper
-conda activate ltsr-gpu
-cd /path/to/LTSR
-export LTSR_WEIGHTS="$PWD/NSRS/weights/100M.ckpt"
-export LTSR_CONFIG="$PWD/NSRS/jupyter/100M/config.yaml"
-export LTSR_EQ_SETTING="$PWD/NSRS/jupyter/100M/eq_setting.json"
+tmux new -s lansr-paper
+conda activate lansr-gpu
+cd /path/to/LANSR
+export LANSR_WEIGHTS="$PWD/NSRS/weights/100M.ckpt"
+export LANSR_CONFIG="$PWD/NSRS/jupyter/100M/config.yaml"
+export LANSR_EQ_SETTING="$PWD/NSRS/jupyter/100M/eq_setting.json"
 RUN_ID=paper_gpu_YYYYMMDD_01 SEEDS="0 1 2 3 4" NPS=24 EPOCHS=8 EVAL_LIMIT=0 DREAM4=1 \
 LR_GRID="1e-5 3e-5 1e-4" EPOCH_GRID="4 8" PATIENCE=2 \
 RANDOM_LAYER_SEEDS="0 1 2 3 4" NMSE_EQUIV_MARGIN=0.05 \
@@ -483,7 +483,7 @@ Phase 4のseed別ファイル（`equations_seed*`、`raw_scores_seed*`、`absolu
 これを通常のGit履歴へ入れると、削除後もrepository履歴へ残ってcloneが重くなり、checkpointや外部データを誤って含める危険もある。
 そのためraw runはgitignoreし、研究用ストレージのarchiveを正本とする。
 campaignのarchive先は既定で`results/archives/`であり、ここもGit管理外である。別ディスクや研究用ストレージへ
-直接保存する場合は、開始時に`ARCHIVE_DIR=/mnt/research-storage/ltsr`のように指定する。
+直接保存する場合は、開始時に`ARCHIVE_DIR=/mnt/research-storage/lansr`のように指定する。
 
 一方、GitHubから実験の存在と主要結果を確認できるよう、検査済みrunから次を`results/published/<run-id>/`へ自動抽出する。
 
@@ -519,7 +519,7 @@ results/archives/<campaign-id>_full.tar.gz.sha256
 リモートデスクトップ接続前に、接続設定の「ローカル リソース」から回収先ドライブを共有する。
 GPU PCのWindows Explorerでは通常、共有したドライブが「リダイレクトされたドライブ」または
 `\\tsclient\<drive-letter>`として見える。WSL2で実験した場合は、Windows Explorerから
-`\\wsl.localhost\<distribution>\home\<user>\...\LTSR\results\archives`を開き、上の2ファイルを
+`\\wsl.localhost\<distribution>\home\<user>\...\LANSR\results\archives`を開き、上の2ファイルを
 共有ドライブへコピーする。distribution名はGPU PC側のPowerShellで`wsl -l -q`を実行して確認できる。
 
 コピー後は手元PCのPowerShellでSHA256を再計算し、`.sha256`に記録された値と一致することを確認する。
@@ -573,11 +573,11 @@ Colab用Notebookは`notebooks/colab/`にあり、`00_setup_preflight.ipynb`か�
 ### 11.1 Colab固有の前提
 
 - **研究コードのPython 3.10を必須とする。** 現行Colab標準kernelが3.11/3.12でも、
-  Phase 0 Notebookの最初のセルで`/content/ltsr-py310/bin/python`へ公式Python 3.10 Minicondaを導入する。
+  Phase 0 Notebookの最初のセルで`/content/lansr-py310/bin/python`へ公式Python 3.10 Minicondaを導入する。
   Colab UI kernelとは独立させ、preflight、依存関係導入、全Phase、最終検査は
-  `PY=/content/ltsr-py310/bin/python`を明示して実行し、workerが3.10でなければ停止する。
+  `PY=/content/lansr-py310/bin/python`を明示して実行し、workerが3.10でなければ停止する。
 - NotebookをDriveで開いても、このrepositoryの`src/`、`scripts/`、`NSRS/`、`TPSR/`は自動的に見えない。
-  Notebookがbranchを`/content/LTSR`へcloneし、Driveの`source_lock.json`に固定したcommitへcheckoutする。
+  Notebookがbranchを`/content/LANSR`へcloneし、Driveの`source_lock.json`に固定したcommitへcheckoutする。
 - Googleログイン、MFA、Drive mount、GPU runtime接続は人が行う。その後のセル実行とエラー対応はAIへ委任できる。
 - Colab ProでもGPU種類、最大runtime、compute unitsは保証されない。`tmux`はbackend終了への保険にならないため、
   実行中セルを前景で動かし、Drive checkpointとresumeを使う。
@@ -610,7 +610,7 @@ DREAM4_SHARD_NETWORKS=1
 
 ```text
 NOISE="0.1"
-LTSR_DECODE_TIMEOUT_SEC=240
+LANSR_DECODE_TIMEOUT_SEC=240
 ```
 
 `noise=0.0/0.05/0.2`は計算量緩和のため実行しない。このため、Colab runからH3のノイズ頑健性slopeや
@@ -649,7 +649,7 @@ MAX_PARALLEL_SEEDS=2
 ### 11.5 Colab成果物
 
 ```text
-MyDrive/LTSR_colab/
+MyDrive/LANSR_colab/
   source_lock.json
   checkpoints/100M.ckpt
   data/dream4.tar.gz
@@ -692,7 +692,7 @@ Phase 9で`validate_gpu_run.py`を通し、`manifest.json`が`complete`、
 - **ホストメモリ32GBに対し、WSL2は既定でその50%（約16GB）しか割り当てない。** PySRの並列実行や
   DREAM4 Size 100を含むrunではこれが上限になり得る。必要なら`%USERPROFILE%\.wslconfig`で
   `memory`と`processors`を明示する。変更後は`wsl --shutdown`で反映する。
-- **物理ディスクは1台だけである。** したがって§9の`ARCHIVE_DIR=/mnt/research-storage/ltsr`のような
+- **物理ディスクは1台だけである。** したがって§9の`ARCHIVE_DIR=/mnt/research-storage/lansr`のような
   別ディスクへの直接archiveはこのPCでは行えない。既定の`results/archives/`へ作成し、
   §9の`\\tsclient`経由で手元PCへ回収する。回収とSHA256照合が済むまでGPU PC側を削除しない。
 - 電源設定はAC接続時にスリープしない設定になっていることを確認済みである（`powercfg`のAC standby index = 0）。
@@ -824,6 +824,8 @@ tmux new-session -d -s ltsr-auto -c "$PWD" \
 - noise: `0.1`のみ
 - 計算量対策後のbeam: 主に`2`、Phase 8は`1`
 - Phase 7 target timeout: 最終的に240秒
+
+この付録の`LTSR_*`、`LTSR_colab`、`/content/LTSR`は、旧称時に実行したGPU_RUN1のprovenanceとして保持する。
 
 Colab UI kernelとは別にPython 3.10 workerを用意した。
 Driveにはcheckpoint、外部データ、run途中成果物、ログを保存し、Colab切断後も復元できる構成にした。

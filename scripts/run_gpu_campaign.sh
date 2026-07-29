@@ -2,9 +2,9 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-: "${LTSR_WEIGHTS:?Set LTSR_WEIGHTS before starting the campaign}"
-: "${LTSR_CONFIG:?Set LTSR_CONFIG before starting the campaign}"
-: "${LTSR_EQ_SETTING:?Set LTSR_EQ_SETTING before starting the campaign}"
+: "${LANSR_WEIGHTS:?Set LANSR_WEIGHTS before starting the campaign}"
+: "${LANSR_CONFIG:?Set LANSR_CONFIG before starting the campaign}"
+: "${LANSR_EQ_SETTING:?Set LANSR_EQ_SETTING before starting the campaign}"
 if [ -n "$(git status --porcelain)" ]; then
   echo "ERROR: the working tree must be completely clean, including untracked files." >&2
   echo "       Leftovers from an earlier run block the campaign; commit or remove them:" >&2

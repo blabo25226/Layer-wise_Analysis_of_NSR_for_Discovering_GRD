@@ -26,22 +26,22 @@ from experiment_runtime import phase_output_paths  # noqa: E402
 
 DATA_DIR = Path(
     os.environ.get(
-        "LTSR_PHASE1_DATA",
+        "LANSR_PHASE1_DATA",
         str(ROOT / "results" / "synthetic" / "phase1_v1"),
     )
 )
 OUT_DIR, REPORT = phase_output_paths(ROOT, "phase2", "phase2_report.md")
 WEIGHTS = Path(
-    os.environ.get("LTSR_WEIGHTS", str(ROOT / "NSRS" / "weights" / "10M.ckpt"))
+    os.environ.get("LANSR_WEIGHTS", str(ROOT / "NSRS" / "weights" / "10M.ckpt"))
 )
 CONFIG = Path(
     os.environ.get(
-        "LTSR_CONFIG", str(ROOT / "NSRS" / "jupyter" / "100M" / "config.yaml")
+        "LANSR_CONFIG", str(ROOT / "NSRS" / "jupyter" / "100M" / "config.yaml")
     )
 )
 EQ_SETTING = Path(
     os.environ.get(
-        "LTSR_EQ_SETTING",
+        "LANSR_EQ_SETTING",
         str(ROOT / "NSRS" / "jupyter" / "100M" / "eq_setting.json"),
     )
 )

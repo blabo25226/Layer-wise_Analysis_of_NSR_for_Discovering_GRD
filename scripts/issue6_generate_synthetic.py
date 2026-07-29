@@ -14,10 +14,10 @@ sys.path.insert(0, str(ROOT / "src"))
 from data.synthetic_grn import build_phase1_suite, save_suite  # noqa: E402
 from experiment_runtime import phase_output_paths  # noqa: E402
 
-RUN_DIR = os.environ.get("LTSR_RUN_DIR")
+RUN_DIR = os.environ.get("LANSR_RUN_DIR")
 OUT_DIR = Path(
     os.environ.get(
-        "LTSR_PHASE1_DATA",
+        "LANSR_PHASE1_DATA",
         str(
             Path(RUN_DIR) / "input_data" / "phase1_v1"
             if RUN_DIR
