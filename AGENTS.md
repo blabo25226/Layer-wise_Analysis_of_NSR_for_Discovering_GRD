@@ -301,7 +301,10 @@ python -m pytest -q
 ### GPU実験前
 
 ```bash
-python scripts/ops/preflight_gpu.py --checkpoint /path/to/model.ckpt
+python scripts/ops/preflight_gpu.py \
+  --weights /path/to/model.ckpt \
+  --config assets/nesymres/jupyter/100M/config.yaml \
+  --eq-setting assets/nesymres/jupyter/100M/eq_setting.json
 bash -n scripts/ops/run_gpu_pipeline.sh
 ```
 

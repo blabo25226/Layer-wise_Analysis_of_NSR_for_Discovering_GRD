@@ -60,6 +60,9 @@ scripts/
 ```bash
 python -m compileall -q src scripts tests GPU_RUN1/scripts GPU_RUN1/tests
 python -m pytest -q
-python scripts/ops/preflight_gpu.py --checkpoint /path/to/model.ckpt
+python scripts/ops/preflight_gpu.py \
+  --weights /path/to/model.ckpt \
+  --config assets/nesymres/jupyter/100M/config.yaml \
+  --eq-setting assets/nesymres/jupyter/100M/eq_setting.json
 bash -n scripts/ops/run_gpu_pipeline.sh
 ```

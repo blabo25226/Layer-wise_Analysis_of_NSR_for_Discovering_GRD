@@ -2,7 +2,9 @@
 set -euo pipefail
 
 export MPLBACKEND=Agg
-cd "$(dirname "$0")/.."
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+REPO_ROOT=$(cd "$SCRIPT_DIR/../.." && pwd)
+cd "$REPO_ROOT"
 
 read -r -a PY_CMD <<< "${PY:-python}"
 SEEDS=${SEEDS:-"0 1 2 3 4"}

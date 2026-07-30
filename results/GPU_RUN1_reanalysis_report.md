@@ -275,7 +275,7 @@ penalized 指標で比較している現行設計は正しい。
 
 ## 6. 図
 
-![層別寄与プロファイル](../graphs/colab_reduced_20260729_03/figures/phase4_layer_contribution.png)
+![層別寄与プロファイル](../graphs/GPU_RUN1_colab_reduced_20260729_03/figures/phase4_layer_contribution.png)
 
 **図 1.** 単層 fine-tuning の寄与プロファイル（validation、3 seeds）。
 点は各 seed、区間は Student $t$ による 95% CI。
@@ -283,7 +283,7 @@ decoder 中位層（`decoder_2`–`decoder_4`）に寄与が集中し、
 encoder 層と `output_head` は pretrained からほとんど改善しない。
 seed 間の順位安定性は Spearman $0.991$（`val_ce`）。
 
-![式回復の分解と同等性検定](../graphs/colab_reduced_20260729_03/figures/phase45_recovery_and_equivalence.png)
+![式回復の分解と同等性検定](../graphs/GPU_RUN1_colab_reduced_20260729_03/figures/phase45_recovery_and_equivalence.png)
 
 **図 2.** (a) 族別の skeleton recovery（全層 FT、3 seeds）。上段は validation（訓練済み骨格）、
 下段は test（未知骨格）。縦棒は指数多重集合の一致率。
@@ -292,13 +292,13 @@ seed 間の順位安定性は Spearman $0.991$（`val_ce`）。
 (c) 事前指定 margin $\pm 0.05$（灰帯）に対する paired 差。top-$k$ は全て同等、
 random-3 − top-3 は CI が 0 を跨ぐ。
 
-![探索法・実ネットワーク転移・regulator selection](../graphs/colab_reduced_20260729_03/figures/phase67_baselines_and_transfer.png)
+![探索法・実ネットワーク転移・regulator selection](../graphs/GPU_RUN1_colab_reduced_20260729_03/figures/phase67_baselines_and_transfer.png)
 
 **図 3.** (a) noise 0.1 における探索法 × fine-tuning。数値は平均実時間と valid rate。
 (b) DREAM4 転移。破線は平均予測器（NMSE $=1$）。oracle regulators でも改善は小さい。
 (c) regulator selection の edge F1。経験的 selector は $p=100$ で崩壊し、oracle は不変。
 
-![ヒトデータ leave-one-donor-out](../graphs/colab_reduced_20260729_03/figures/phase8_human_lodo.png)
+![ヒトデータ leave-one-donor-out](../graphs/GPU_RUN1_colab_reduced_20260729_03/figures/phase8_human_lodo.png)
 
 **図 4.** GSE112372（20 遺伝子、4 donors、3 seeds）。
 (a) in-donor と held-out donor の NMSE。PySR の in-donor は holdout の $1/22$ で過剰適合。
@@ -362,13 +362,13 @@ NeSymReS: decode 30 秒 + GPU fine-tuning）。
 
 | path | 内容 |
 |---|---|
-| `graphs/colab_reduced_20260729_03/figures/phase4_layer_contribution.png` (+`.svg`) | 図1 単層 fine-tuning の寄与プロファイル（validation、penalized NMSE と val CE） |
-| `graphs/colab_reduced_20260729_03/figures/phase45_recovery_and_equivalence.png` (+`.svg`) | 図2 骨格別 recovery、指数多重集合分布、事前指定 margin に対する paired 差 |
-| `graphs/colab_reduced_20260729_03/figures/phase67_baselines_and_transfer.png` (+`.svg`) | 図3 探索法×FT の 2×2、DREAM4 転移、regulator selection edge F1 |
-| `graphs/colab_reduced_20260729_03/figures/phase8_human_lodo.png` (+`.svg`) | 図4 ヒトデータ leave-one-donor-out（方法別・donor 別） |
-| `graphs/colab_reduced_20260729_03/tables/phase45_condition_summary.csv` | validation 層別 recovery と test 条件別 penalized NMSE の統合表（`split` 列で世代・split を区別） |
-| `graphs/colab_reduced_20260729_03/tables/phase45_skeleton_recovery.csv` | 骨格別 skeleton recovery と指数集合一致率 |
-| `graphs/colab_reduced_20260729_03/tables/phase8_human_per_donor.csv` | donor 別・方法別の in-donor / holdout NMSE（3 seeds の mean/std） |
+| `graphs/GPU_RUN1_colab_reduced_20260729_03/figures/phase4_layer_contribution.png` (+`.svg`) | 図1 単層 fine-tuning の寄与プロファイル（validation、penalized NMSE と val CE） |
+| `graphs/GPU_RUN1_colab_reduced_20260729_03/figures/phase45_recovery_and_equivalence.png` (+`.svg`) | 図2 骨格別 recovery、指数多重集合分布、事前指定 margin に対する paired 差 |
+| `graphs/GPU_RUN1_colab_reduced_20260729_03/figures/phase67_baselines_and_transfer.png` (+`.svg`) | 図3 探索法×FT の 2×2、DREAM4 転移、regulator selection edge F1 |
+| `graphs/GPU_RUN1_colab_reduced_20260729_03/figures/phase8_human_lodo.png` (+`.svg`) | 図4 ヒトデータ leave-one-donor-out（方法別・donor 別） |
+| `graphs/GPU_RUN1_colab_reduced_20260729_03/tables/phase45_condition_summary.csv` | validation 層別 recovery と test 条件別 penalized NMSE の統合表（`split` 列で世代・split を区別） |
+| `graphs/GPU_RUN1_colab_reduced_20260729_03/tables/phase45_skeleton_recovery.csv` | 骨格別 skeleton recovery と指数集合一致率 |
+| `graphs/GPU_RUN1_colab_reduced_20260729_03/tables/phase8_human_per_donor.csv` | donor 別・方法別の in-donor / holdout NMSE（3 seeds の mean/std） |
 
 ### 再現
 

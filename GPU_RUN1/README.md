@@ -22,7 +22,7 @@ GPU_RUN1 reduced run（Colab Pro / NVIDIA L4、3 seeds、noise 0.1）の実行�
 | 叙述レポート | [`results/GPU_RUN1_report.md`](../results/GPU_RUN1_report.md) |
 | 再解析レポート | [`results/GPU_RUN1_reanalysis_report.md`](../results/GPU_RUN1_reanalysis_report.md) |
 | raw run | `results/runs/<run-id>/`（gitignore） |
-| 図表 | [`graphs/colab_reduced_20260729_03/`](../graphs/colab_reduced_20260729_03/) |
+| 図表 | [`graphs/GPU_RUN1_colab_reduced_20260729_03/`](../graphs/GPU_RUN1_colab_reduced_20260729_03/) |
 
 ## 共通スクリプト（移動しない）
 

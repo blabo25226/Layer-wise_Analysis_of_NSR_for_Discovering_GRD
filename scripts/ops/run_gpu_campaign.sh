@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-cd "$(dirname "$0")/.."
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+REPO_ROOT=$(cd "$SCRIPT_DIR/../.." && pwd)
+cd "$REPO_ROOT"
 : "${LANSR_WEIGHTS:?Set LANSR_WEIGHTS before starting the campaign}"
 : "${LANSR_CONFIG:?Set LANSR_CONFIG before starting the campaign}"
 : "${LANSR_EQ_SETTING:?Set LANSR_EQ_SETTING before starting the campaign}"
