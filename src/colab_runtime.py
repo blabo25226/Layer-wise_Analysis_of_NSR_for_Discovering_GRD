@@ -137,12 +137,12 @@ class ColabRunConfig:
             # Operational RAM guard only: target checkpoints restore the exact
             # RNG state, so recycling the worker does not change the experiment.
             "LANSR_PHASE7_TARGET_EVAL_BUDGET": "60",
-            "LANSR_WEIGHTS": str(repo_root / "NSRS" / "weights" / "100M.ckpt"),
+            "LANSR_WEIGHTS": str(repo_root / "assets" / "nesymres" / "weights" / "100M.ckpt"),
             "LANSR_CONFIG": str(
-                repo_root / "NSRS" / "jupyter" / "100M" / "config.yaml"
+                repo_root / "assets" / "nesymres" / "jupyter" / "100M" / "config.yaml"
             ),
             "LANSR_EQ_SETTING": str(
-                repo_root / "NSRS" / "jupyter" / "100M" / "eq_setting.json"
+                repo_root / "assets" / "nesymres" / "jupyter" / "100M" / "eq_setting.json"
             ),
             "DREAM4_ROOT": str(repo_root / "data" / "dream4"),
             # Colab's controller kernel exports the inline backend, but the
@@ -473,7 +473,7 @@ def restore_static_assets(repo_root: Path, drive_root: Path) -> None:
     checkpoint = drive_root / "checkpoints" / "100M.ckpt"
     if not checkpoint.is_file():
         raise FileNotFoundError(f"missing checkpoint cache: {checkpoint}")
-    weights = repo_root / "NSRS" / "weights"
+    weights = repo_root / "assets" / "nesymres" / "weights"
     weights.mkdir(parents=True, exist_ok=True)
     for name in ("100M.ckpt", "10M.ckpt"):
         target = weights / name
@@ -565,7 +565,7 @@ def run_phase(
             repo_root, phase, resume, python_executable=python_executable
         )
     )
-    command = ["bash", "scripts/run_gpu_pipeline.sh"]
+    command = ["bash", "scripts/ops/run_gpu_pipeline.sh"]
     print(
         f"Starting Phase {phase}: run={config.run_id} kind={config.kind} "
         f"resume={resume}",

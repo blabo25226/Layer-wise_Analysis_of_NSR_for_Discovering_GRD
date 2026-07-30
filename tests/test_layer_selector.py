@@ -13,7 +13,7 @@ from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
-sys.path.insert(0, str(ROOT / "NSRS" / "src"))
+sys.path.insert(0, str(ROOT / "third_party" / "nesymres"))
 
 from nesymres.architectures.model import Model  # noqa: E402
 from models.layer_selector import (  # noqa: E402

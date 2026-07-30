@@ -1,3 +1,6 @@
+> **配置**: この文書は CPU pilot の実行専用案内である（旧 `README_CPU.md`）。
+> キャンペーン全体は [`CPU_RUN/`](./) 、最新の研究状況は [`../README.md`](../README.md) を参照する。
+
 # LANSR研究：遺伝子制御ダイナミクスの発見に向けたニューラルシンボリック回帰の層別解析
 
 > **現在地（2026年7月）**：CPU上で研究パイプラインと小規模な予備実験を完了した段階である。
@@ -47,8 +50,8 @@ $$
 さらに、全パラメータを更新する代わりに、適応への寄与が大きい少数のTransformer層だけをfine-tuningする。
 推論時には必要に応じて **TPSR** による木探索を加え、非ニューラル手法 **PySR** と比較する。
 
-研究計画の詳細は [`docs/plans/20260714_firstplan.md`](docs/plans/20260714_firstplan.md)、GPU実験の手順は
-[`docs/runbooks/GPU_RUN1.md`](docs/runbooks/GPU_RUN1.md) に記載している。
+研究計画の詳細は [`docs/plans/20260714_firstplan.md`](../docs/plans/20260714_firstplan.md)、GPU実験の手順は
+[`GPU_RUN1/runbook.md`](../GPU_RUN1/runbook.md) に記載している。
 
 ## 2. 背景
 
@@ -338,7 +341,7 @@ CPU実験はWindows上のPython 3.10環境で実施した。高beam幅、十分�
 GPU本実験ではPython 3.10または3.11を使用する。
 
 ローカルの `10M.ckpt` はファイル名と異なり、state dict上はencoder/decoder各5層の100M設定側アーキテクチャである。
-そのため `NSRS/jupyter/100M/config.yaml` と組み合わせている。
+そのため `ssets/nesymres/jupyter/100M/config.yaml` と組み合わせている。
 
 ## 7. 実施したPhase
 
@@ -375,7 +378,7 @@ $$
 - TPSR E2EモデルをWindows/CPU上でロードし、軽量MCTSを完走した。
 - Linux保存checkpoint、NumPy 2.0、Python dataclassへの互換修正を適用した。
 
-詳細：[`phase0_report.md`](results/phase_results/phase0_report.md)
+詳細：[`phase0_report.md`](../results/phase_results/phase0_report.md)
 
 ### 8.2 Phase 1–2：合成GRNとベースライン
 
@@ -414,8 +417,8 @@ $$
 小規模な式ではPySRがID適合で大幅に優れていた。この9問題に限ればNeSymReS beam=5はOOD中央値でPySRを上回ったが、
 問題数が少なく、一般化優位性は主張できない。
 
-詳細：[`phase1_report.md`](results/phase_results/phase1_report.md)、
-[`phase2_report.md`](results/phase_results/phase2_report.md)
+詳細：[`phase1_report.md`](../results/phase_results/phase1_report.md)、
+[`phase2_report.md`](../results/phase_results/phase2_report.md)
 
 ### 8.3 Phase 3–4：層ごとの役割
 
@@ -434,8 +437,8 @@ decoder後段は正解token列の生成、encoder側は数値点集合の表現�
 このPhaseでも各条件でSRを行ったが、symbolic recoveryはほぼ0だった。旧Phase 3/4集約ファイルには
 各問題の推定式文字列が保存されておらず、ここへ正確に転載できる出力式はない。この保存欠損は最新コードで改善対象として扱う。
 
-詳細：[`phase3_report.md`](results/phase_results/phase3_report.md)、
-[`phase4_multiseed_report.md`](results/phase_results/phase4_multiseed_report.md)
+詳細：[`phase3_report.md`](../results/phase_results/phase3_report.md)、
+[`phase4_multiseed_report.md`](../results/phase_results/phase4_multiseed_report.md)
 
 ### 8.4 Phase 5：選択的fine-tuning
 
@@ -457,7 +460,7 @@ top層はrandom/bottom/fullを上回った。全層fine-tuningはCEを改善し�
 この旧runの `selective_results.json` は条件別の集約値のみを保存しており、推定数式を保存していない。
 したがって捏造を避けるため、このPhaseの出力式は「記録なし」とする。GPU再実験では全問題の式文字列を必須成果物にする。
 
-詳細：[`phase5_report.md`](results/phase_results/phase5_report.md)
+詳細：[`phase5_report.md`](../results/phase_results/phase5_report.md)
 
 ### 8.5 Phase 6：TPSRとの組合せ
 
@@ -476,8 +479,8 @@ TPSR単独はbeamより悪化したが、選択的FT後には改善した。微�
 
 この旧runも推定式文字列を保存していないため、出力式は「記録なし」である。GPU再実験ではbeam/TPSR双方の式と複雑度を保存する。
 
-詳細：[`phase6_report.md`](results/phase_results/phase6_report.md)、
-[`phase6_noise_report.md`](results/phase_results/phase6_noise_report.md)
+詳細：[`phase6_report.md`](../results/phase_results/phase6_report.md)、
+[`phase6_noise_report.md`](../results/phase_results/phase6_noise_report.md)
 
 ### 8.6 Phase 7：DREAM4への転移
 
@@ -516,9 +519,9 @@ DREAM有限差分への改善は0.890から0.725に留まった。teacher domain
 
 現段階ではDREAM4への転移成功は示されていない。有限差分ノイズ、候補選択、合成–DREAM間のdomain shiftが主要課題である。
 
-詳細：[`phase7_package_a_report.md`](results/phase_results/phase7_package_a_report.md)、
-[`phase7_dream4_report.md`](results/phase_results/phase7_dream4_report.md)、
-[`phase7_dream4_size100_report.md`](results/phase_results/phase7_dream4_size100_report.md)
+詳細：[`phase7_package_a_report.md`](../results/phase_results/phase7_package_a_report.md)、
+[`phase7_dream4_report.md`](../results/phase_results/phase7_dream4_report.md)、
+[`phase7_dream4_size100_report.md`](../results/phase_results/phase7_dream4_size100_report.md)
 
 ### 8.7 Phase 8：ヒトLPS刺激時系列
 
@@ -561,8 +564,8 @@ $$
 LODOでは「選択的FTがPySRよりdonor間で一般化する」という主張は支持されなかった。
 一方、選択的FTはpretrained NeSymReSより改善しており、domain adaptationの効果は示唆される。
 
-詳細：[`phase8_report.md`](results/phase_results/phase8_report.md)、
-[`phase8_lodo_report.md`](results/phase_results/phase8_lodo_report.md)
+詳細：[`phase8_report.md`](../results/phase_results/phase8_report.md)、
+[`phase8_lodo_report.md`](../results/phase_results/phase8_lodo_report.md)
 
 ## 9. CPU研究から得られた結論
 
@@ -633,7 +636,7 @@ GPU実験では各問題について、真の式、推定式、簡約式、変�
 
 ### 11.1 次に行うGPU実験
 
-1. **事前確認**：[`docs/runbooks/GPU_RUN1.md`](docs/runbooks/GPU_RUN1.md) に従い、CUDA、checkpoint、設定、依存関係をpreflightで確認する。
+1. **事前確認**：[`GPU_RUN1/runbook.md`](../GPU_RUN1/runbook.md) に従い、CUDA、checkpoint、設定、依存関係をpreflightで確認する。
 2. **Phase 4再実行**：5–10 seedsで層寄与を測り、validation上の順位、top-3出現率、順位相関を求める。
 3. **Phase 5本比較**：各条件へ同数の学習率・epoch候補を与え、validation CEによるearly stoppingとbest-weight復元を行う。その後、同じseed集合でtop/random/bottom/fullを独立test上で一度だけ評価し、paired差とt信頼区間を求める。
 4. **Phase 6本比較**：複数noise・複数seed・十分なMCTS budgetで2×2比較し、FT効果、TPSR効果、相互作用を分離する。
@@ -671,7 +674,7 @@ GPU実験で中心仮説が支持されなかった場合でも、どの指標�
 conda create -n lansr python=3.10 -y
 conda activate lansr
 pip install -r requirements/cpu.txt
-pip install -e NSRS/src
+pip install -e third_party/nesymres
 pip install -r requirements/dev.txt
 ```
 
@@ -700,20 +703,22 @@ scripts/run_gpu_pipeline.sh           GPU一括実行
 ## 13. リポジトリ構成
 
 ```text
-docs/plans/         研究計画
-docs/runbooks/      GPU実験の手順と実施記録
+GPU_RUN1/           GPU_RUN1実行専用（手順・Notebook・補助script）
+GPU_RUN2/           GPU_RUN2実行専用（計画のみ）
+CPU_RUN/            CPU pilot叙述
+docs/plans/         一般の研究計画
 src/                データ処理、モデル、学習、評価の共通コード
 scripts/            Phase別の実験エントリポイント
 tests/              単体テスト
 requirements/       CPU/GPU/dev別の依存関係
 results/            CPU pilotの結果とrun出力
 graphs/             run別の独立した図・表
-NSRS/               NeSymReS参照実装（実行依存）
-TPSR/               TPSR参照実装（実行依存）
-GitHubSourceCode/   調査用の外部実装（実行依存ではない）
+third_party/        実行用 NeSymReS / TPSR
+assets/nesymres/    NeSymReS設定とcheckpoint
+GitHubSourceCode/   調査用（NSRS/TPSR含む。実行依存ではない）
 ```
 
-新しく作る独立した図・表は [`graphs/README.md`](graphs/README.md) の規約に従い、
+新しく作る独立した図・表は [`graphs/README.md`](../graphs/README.md) の規約に従い、
 `graphs/<run-id>/figures/` または `graphs/<run-id>/tables/` に保存する。
 
 ## 14. 参考文献

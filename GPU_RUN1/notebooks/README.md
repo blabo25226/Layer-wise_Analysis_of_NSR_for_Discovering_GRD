@@ -41,5 +41,5 @@
   `MyDrive/LANSR_colab/runs/<run-id>/`へ同期される。
 - 本番run開始後にsource commitや科学設定を変更しない。
 
-Notebookは`scripts/build_colab_notebooks.py`から機械生成する。
+Notebookは`GPU_RUN1/scripts/build_colab_notebooks.py`から機械生成する。
 Notebookを直接編集した場合は、generatorとの不一致を解消してからcommitする。

@@ -13,17 +13,18 @@ if os.name == "nt":
     pathlib.PosixPath = pathlib.WindowsPath  # type: ignore[misc, assignment]
 
 ROOT = Path = __import__("pathlib").Path
-REPO = ROOT(__file__).resolve().parents[1]
-TPSR = REPO / "TPSR"
+REPO = ROOT(__file__).resolve().parents[2]
+TPSR = REPO / "third_party" / "tpsr"
+WEIGHTS_DIR = REPO / "assets" / "nesymres" / "weights"
 
 
 def main() -> int:
-    weights = TPSR / "symbolicregression" / "weights" / "model.pt"
+    weights = WEIGHTS_DIR / "model.pt"
     if not weights.exists():
-        alt = TPSR / "symbolicregression" / "weights" / "model1.pt"
+        alt = WEIGHTS_DIR / "model1.pt"
         print(f"Missing {weights}")
         if alt.exists():
-            print(f"Hint: run scripts/setup_phase0_links.ps1 to link model1.pt -> model.pt")
+            print("Hint: run scripts/ops/setup_phase0_links.ps1 to prepare assets/nesymres/weights")
         return 1
 
     os.chdir(TPSR)

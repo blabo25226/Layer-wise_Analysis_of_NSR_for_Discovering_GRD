@@ -26,12 +26,19 @@ $$
 1. `git status --short` と `git branch --show-current`
 2. [`README.md`](README.md)：研究背景、現状、CPU pilot、GPU_RUN1結果、重要な限界
 3. [`docs/plans/20260714_firstplan.md`](docs/plans/20260714_firstplan.md)：研究質問と当初計画
-4. GPU実験に関係する場合は実行手順と実施記録の [`docs/runbooks/GPU_RUN1.md`](docs/runbooks/GPU_RUN1.md)、実施済みGPU_RUN1は
+4. GPU実験に関係する場合は実行手順と実施記録の [`GPU_RUN1/runbook.md`](GPU_RUN1/runbook.md)、実施済みGPU_RUN1は
    [`results/GPU_RUN1_report.md`](results/GPU_RUN1_report.md)、次回計画は
-   [`docs/plans/20260729_GPU_RUN2.md`](docs/plans/20260729_GPU_RUN2.md)
+   [`GPU_RUN2/plan.md`](GPU_RUN2/plan.md)
 5. 図表を作る場合は [`graphs/README.md`](graphs/README.md)
 6. 対象Phaseの `results/phase_results/*_report.md` と実行スクリプト
 7. 変更対象に対応する `tests/` のテスト
+
+実行専用資産の置き場は次のとおりである。
+
+- GPU_RUN1: [`GPU_RUN1/`](GPU_RUN1/)
+- GPU_RUN2: [`GPU_RUN2/`](GPU_RUN2/)（現状は計画と空の `notebooks/` のみ）
+- CPU_RUN: [`CPU_RUN/`](CPU_RUN/)
+- 共通コード: `src/`、共通Phase入口: `scripts/`
 
 過去の会話やAIの要約だけを根拠にせず、必ず現在のファイルを読むこと。ブランチは作業ごとに確認し、`main` が常に最新だと仮定しない。
 
@@ -111,13 +118,20 @@ DREAM4などの時系列は、trajectoryをtrain/validation/testへ分けてか�
 
 ### 5.1 既存構造を再利用する
 
-- 共通処理は `src/`、実験入口は `scripts/`、設定は `configs/`、テストは `tests/` に置く。
+- 共通処理は `src/`、実験入口は `scripts/phases/`、GPU運用は `scripts/ops/`、設定は `configs/`、テストは `tests/`（キャンペーン固有は `GPU_RUN1/tests/` 等）に置く。
 - Phaseスクリプト間でsplit、seed、集計、メトリクスを複製せず、既存の共通モジュールを使う。
 - 既にある `src/data/splits.py`、`src/evaluation/aggregation.py`、`src/experiment_runtime.py` などを先に確認する。
-- NeSymReSとTPSRの参照実装は `NSRS/` と `TPSR/` にある。必要性のない大規模改変を避ける。
-- `GitHubSourceCode/` は調査用クローン置き場であり、実行時依存にしない。方針は
-  [`GitHubSourceCode/README.md`](GitHubSourceCode/README.md) を参照する。
-- 参照実装へ互換修正を入れる場合は、理由と上流との差をコメントまたはコミットに残す。
+- `GitHubSourceCode/` は調査用クローン置き場であり、**アルゴリズム・実験ランタイムの一部ではない**。
+  `sys.path` への追加、`import`、実行時パス解決、設定の既定値として `GitHubSourceCode/` を参照しない。
+  方針の詳細は [`GitHubSourceCode/README.md`](GitHubSourceCode/README.md)。
+- 今後 `GitHubSourceCode/` 内のコードを研究実行に使う場合は、必要なファイル・ディレクトリだけを
+  `third_party/`（または必要に応じて `src/` / `assets/`）へ **コピーしてから** 使う。
+  調査ツリーを直接編集・依存しない。コピー後に LANSR 側の互換修正が必要なら、コピー先だけを直し、
+  上流との差をコメントまたはコミットに残す。
+- NeSymReS / TPSR の現行配置: 調査用は `GitHubSourceCode/NSRS` と `GitHubSourceCode/TPSR`、
+  実行用コピーは `third_party/nesymres` と `third_party/tpsr`、設定とcheckpointは `assets/nesymres/`。
+  詳細は [`third_party/README.md`](third_party/README.md)。
+  checkpoint を調査ツリーから用意するセットアップ補助（hardlink 等）は実行依存ではない。
 
 ### 5.2 再現性を保つ
 
@@ -185,7 +199,7 @@ CPU pilotの可視化は `graphs/cpu_pilot/` を使う。ファイル名にはPh
 - READMEは高校生でも大筋を追える日本語を保つ。
 - 専門語は初出で説明し、略語だけで進めない。
 - 数式が必要な説明にはTeXを使う。
-- 研究計画は `docs/plans/`、実験手順は `docs/runbooks/` に置く。詳細は [`docs/README.md`](docs/README.md)。
+- 研究計画は `docs/plans/`、実行キャンペーン専用資産は `GPU_RUN1/`、`GPU_RUN2/`、`CPU_RUN/` に置く。
 - `docs/*.pdf` と `docs/translated_paper/` はローカル文献資産であり、Git管理外とする。
 - 文献は原論文、公式ドキュメント、公式データページを優先し、URLと書誌情報を確認する。
 - AIが生成した架空の論文、DOI、数値、引用を残さない。
@@ -287,8 +301,8 @@ python -m pytest -q
 ### GPU実験前
 
 ```bash
-python scripts/preflight_gpu.py --checkpoint /path/to/model.ckpt
-bash -n scripts/run_gpu_pipeline.sh
+python scripts/ops/preflight_gpu.py --checkpoint /path/to/model.ckpt
+bash -n scripts/ops/run_gpu_pipeline.sh
 ```
 
 GPUを持たないPCではCUDA実験を成功したように装わない。CPUで確認できた範囲と、GPUで未確認の範囲を明示する。

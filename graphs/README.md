@@ -18,5 +18,5 @@ graphs/
 - 同じファイル名を上書きせず、異なる実験は別runディレクトリへ保存する。
 - 論文掲載用の最終図は可能ならSVGまたはPDFも保存する。
 
-Markdownレポート内のインライン表と、NSRS/TPSRに含まれるvendor資産は移動しない。
+Markdownレポート内のインライン表と、GitHubSourceCode や third_party に含まれるvendor資産は移動しない。
 独立して再利用・掲載する図表だけをここへ置く。

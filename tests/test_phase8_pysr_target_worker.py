@@ -6,7 +6,7 @@ from scripts import phase8_pysr_lodo_local
 
 
 def _write_fake_worker(root, *, sleep_sec: float = 0.0) -> None:
-    scripts = root / "scripts"
+    scripts = root / "scripts" / "phases"
     scripts.mkdir(parents=True)
     (scripts / "phase8_pysr_target_worker.py").write_text(
         textwrap.dedent(

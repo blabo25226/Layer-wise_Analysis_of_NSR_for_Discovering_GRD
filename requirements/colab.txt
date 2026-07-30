@@ -1,7 +1,7 @@
 # Colab setup for Phase 0
 # 1. Mount Drive and clone repo
-# 2. Download checkpoints to NSRS/weights/ and TPSR/symbolicregression/weights/
-# 3. Run: bash scripts/setup_phase0_links.sh  (or copy checkpoints manually)
+# 2. Download checkpoints to assets/nesymres/weights/ (see scripts/ops/setup_phase0_links.ps1)
+# 3. Run: powershell -File scripts/ops/setup_phase0_links.ps1  (or copy checkpoints manually)
 # 4. pip install -r requirements/colab.txt
 
 -r base.txt
@@ -9,4 +9,4 @@ pysr>=1.5
 
 # TPSR upstream pins (use only if E2E backbone is needed on Linux)
 # torch==1.11.0
-# See TPSR/requirements.txt
+# See GitHubSourceCode/TPSR/requirements.txt

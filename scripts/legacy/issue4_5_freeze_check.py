@@ -9,9 +9,9 @@ from pathlib import Path
 import omegaconf
 import torch
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
-sys.path.insert(0, str(ROOT / "NSRS" / "src"))
+sys.path.insert(0, str(ROOT / "third_party" / "nesymres"))
 
 from nesymres.architectures.model import Model  # noqa: E402
 from models.layer_selector import (  # noqa: E402
@@ -23,8 +23,8 @@ from models.layer_selector import (  # noqa: E402
     unfreeze_all,
 )
 
-WEIGHTS = ROOT / "NSRS" / "weights" / "10M.ckpt"
-CONFIG = ROOT / "NSRS" / "jupyter" / "100M" / "config.yaml"
+WEIGHTS = ROOT / "assets" / "nesymres" / "weights" / "10M.ckpt"
+CONFIG = ROOT / "assets" / "nesymres" / "jupyter" / "100M" / "config.yaml"
 OUT = ROOT / "results" / "phase_results" / "issue4_5_freeze_check.json"
 REPORT = ROOT / "results" / "phase_results" / "issue4_5_report.md"
 

@@ -6,13 +6,13 @@ CPU pilot（旧評価設計）および今後の GPU_RUN2 の数値は含まな�
 ここの数値と同じ表に載せてはならない。
 
 生成元 run: `results/runs/colab_reduced_20260729_03/`
-生成スクリプト: [`scripts/reanalysis_gpu_run1_figures.py`](../../scripts/reanalysis_gpu_run1_figures.py)
+生成スクリプト: [`GPU_RUN1/scripts/reanalysis_figures.py`](../../GPU_RUN1/scripts/reanalysis_figures.py)
 解説レポート: [`results/GPU_RUN1_reanalysis_report.md`](../../results/GPU_RUN1_reanalysis_report.md)
 
 再生成:
 
 ```bash
-python scripts/reanalysis_gpu_run1_figures.py \
+python GPU_RUN1/scripts/reanalysis_figures.py \
     --run-id colab_reduced_20260729_03 \
     --suite diverse_gpu_n0.1 \
     --seeds 0 1 2

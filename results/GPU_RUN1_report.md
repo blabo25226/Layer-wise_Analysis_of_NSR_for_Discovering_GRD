@@ -29,8 +29,8 @@ GPU_RUN1では、事前学習済みTransformer型シンボリック回帰モデ�
 本報告書は、次の保存済み資料と成果物に基づく。
 
 - 当初の研究計画: [`docs/plans/20260714_firstplan.md`](../docs/plans/20260714_firstplan.md)
-- GPU実行手順と実施記録: [`docs/runbooks/GPU_RUN1.md`](../docs/runbooks/GPU_RUN1.md)
-- GPU_RUN2計画案: [`docs/plans/20260729_GPU_RUN2.md`](../docs/plans/20260729_GPU_RUN2.md)
+- GPU実行手順と実施記録: [`GPU_RUN1/runbook.md`](../GPU_RUN1/runbook.md)
+- GPU_RUN2計画案: [`GPU_RUN2/plan.md`](../GPU_RUN2/plan.md)
 - 最終run: `results/runs/colab_reduced_20260729_03/`
 - 各Phaseの`summary.json`、問題単位JSON、生成レポート
 - 最終manifest: `results/runs/colab_reduced_20260729_03/manifest.json`

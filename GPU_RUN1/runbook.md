@@ -66,7 +66,7 @@ conda activate lansr-gpu
 python -m pip install --upgrade pip
 pip install torch==2.5.1 --index-url https://download.pytorch.org/whl/cu124
 pip install -r requirements/gpu.txt
-pip install -e NSRS/src
+pip install -e third_party/nesymres
 pip install pytest pysr
 ```
 
@@ -88,32 +88,32 @@ WSL対応NVIDIAドライバ、インストールしたPyTorchのCUDA build、WSL
 
 | 対象 | 必要なPhase | 復元方法 |
 |---|---|---|
-| `NSRS/weights/*.ckpt` | Phase 4–8 | Hugging Faceから取得 |
+| `assets/nesymres/weights/*.ckpt` | Phase 4–8 | Hugging Faceから取得 |
 | `data/dream4/` | Phase 7のみ | GNW公式archiveを取得・展開 |
 | `data/human/gse112372_lps/` | Phase 8 | 実装がNCBI GEOから自動取得 |
 | `results/runs/` | 新規run | 実行時に自動生成 |
 | ローカルだけの外部repo群 | 今回のpipelineでは不要 | cloneしない |
 
-`NSRS/jupyter/100M/config.yaml`と`eq_setting.json`、TPSRのMCTSコードはGit管理されている。
+`assets/nesymres/jupyter/100M/config.yaml`と`eq_setting.json`、および`third_party/tpsr`のMCTSコードはGit管理されている。
 Phase 6はNeSymReS backbone上でTPSR探索を行うため、旧Phase 0で使ったTPSR E2E checkpointは不要である。
 
 ### 4.1 NeSymReS checkpoint（必須）
 
 ```bash
-mkdir -p NSRS/weights
-wget -O NSRS/weights/100M.ckpt \
+mkdir -p assets/nesymres/weights
+wget -O assets/nesymres/weights/100M.ckpt \
   https://huggingface.co/TommasoBendinelli/NeuralSymbolicRegressionThatScales/resolve/main/100M.ckpt
-sha256sum NSRS/weights/100M.ckpt
-ls -lh NSRS/weights/100M.ckpt
+sha256sum assets/nesymres/weights/100M.ckpt
+ls -lh assets/nesymres/weights/100M.ckpt
 ```
 
 ダウンロードが途中で切れた場合は、サイズだけで成功と判断せず再取得する。pipelineのmanifestにはcheckpointの
 SHA256が記録される。checkpoint、config、eq_settingは同じモデル構成の組を指定し、ファイル名だけから互換性を仮定しない。
 
 ```bash
-export LANSR_WEIGHTS="$PWD/NSRS/weights/100M.ckpt"
-export LANSR_CONFIG="$PWD/NSRS/jupyter/100M/config.yaml"
-export LANSR_EQ_SETTING="$PWD/NSRS/jupyter/100M/eq_setting.json"
+export LANSR_WEIGHTS="$PWD/assets/nesymres/weights/100M.ckpt"
+export LANSR_CONFIG="$PWD/assets/nesymres/jupyter/100M/config.yaml"
+export LANSR_EQ_SETTING="$PWD/assets/nesymres/jupyter/100M/eq_setting.json"
 python scripts/preflight_gpu.py \
   --weights "$LANSR_WEIGHTS" --config "$LANSR_CONFIG" --eq-setting "$LANSR_EQ_SETTING"
 ```
@@ -315,9 +315,9 @@ VS Codeのターミナルを閉じたりリモートデスクトップを切断�
 tmux new -s lansr-smoke
 conda activate lansr-gpu
 cd /path/to/LANSR
-export LANSR_WEIGHTS="$PWD/NSRS/weights/100M.ckpt"
-export LANSR_CONFIG="$PWD/NSRS/jupyter/100M/config.yaml"
-export LANSR_EQ_SETTING="$PWD/NSRS/jupyter/100M/eq_setting.json"
+export LANSR_WEIGHTS="$PWD/assets/nesymres/weights/100M.ckpt"
+export LANSR_CONFIG="$PWD/assets/nesymres/jupyter/100M/config.yaml"
+export LANSR_EQ_SETTING="$PWD/assets/nesymres/jupyter/100M/eq_setting.json"
 RUN_ID=gpu_smoke_YYYYMMDD NPS=2 SEEDS="0 1" EPOCHS=1 EVAL_LIMIT=2 \
 LR_GRID="1e-4" EPOCH_GRID="1" PATIENCE=0 \
 BEAM=1 BFGS_RESTARTS=1 BFGS_STOP=0.2 NOISE="0.0" PYSR=0 DREAM4=0 \
@@ -387,9 +387,9 @@ SRするため、`DREAM4=1`のときはこれが総時間の支配項になり�
 tmux new -s lansr-paper
 conda activate lansr-gpu
 cd /path/to/LANSR
-export LANSR_WEIGHTS="$PWD/NSRS/weights/100M.ckpt"
-export LANSR_CONFIG="$PWD/NSRS/jupyter/100M/config.yaml"
-export LANSR_EQ_SETTING="$PWD/NSRS/jupyter/100M/eq_setting.json"
+export LANSR_WEIGHTS="$PWD/assets/nesymres/weights/100M.ckpt"
+export LANSR_CONFIG="$PWD/assets/nesymres/jupyter/100M/config.yaml"
+export LANSR_EQ_SETTING="$PWD/assets/nesymres/jupyter/100M/eq_setting.json"
 RUN_ID=paper_gpu_YYYYMMDD_01 SEEDS="0 1 2 3 4" NPS=24 EPOCHS=8 EVAL_LIMIT=0 DREAM4=1 \
 LR_GRID="1e-5 3e-5 1e-4" EPOCH_GRID="4 8" PATIENCE=2 \
 RANDOM_LAYER_SEEDS="0 1 2 3 4" NMSE_EQUIV_MARGIN=0.05 \
@@ -566,9 +566,9 @@ seed間CIとdonor間変動を混同せず、真のヒト制御ODEや因果機構
 
 ## 11. Google Colab ProでPhase別に実行する場合
 
-Colab用Notebookは`notebooks/colab/`にあり、`00_setup_preflight.ipynb`から
+Colab用Notebookは`GPU_RUN1/notebooks/`にあり、`00_setup_preflight.ipynb`から
 `09_validate_archive.ipynb`まで番号順に使う。詳細計画は
-[`docs/plans/20260726_colabexe.md`](../plans/20260726_colabexe.md)を参照する。
+[`plan_colab.md`](plan_colab.md)を参照する。
 
 ### 11.1 Colab固有の前提
 
@@ -576,7 +576,7 @@ Colab用Notebookは`notebooks/colab/`にあり、`00_setup_preflight.ipynb`か�
   Phase 0 Notebookの最初のセルで`/content/lansr-py310/bin/python`へ公式Python 3.10 Minicondaを導入する。
   Colab UI kernelとは独立させ、preflight、依存関係導入、全Phase、最終検査は
   `PY=/content/lansr-py310/bin/python`を明示して実行し、workerが3.10でなければ停止する。
-- NotebookをDriveで開いても、このrepositoryの`src/`、`scripts/`、`NSRS/`、`TPSR/`は自動的に見えない。
+- NotebookをDriveで開いても、このrepositoryの`src/`、`scripts/`、`third_party/`、`assets/`は自動的に見えない。
   Notebookがbranchを`/content/LANSR`へcloneし、Driveの`source_lock.json`に固定したcommitへcheckoutする。
 - Googleログイン、MFA、Drive mount、GPU runtime接続は人が行う。その後のセル実行とエラー対応はAIへ委任できる。
 - Colab ProでもGPU種類、最大runtime、compute unitsは保証されない。`tmux`はbackend終了への保険にならないため、
@@ -717,7 +717,7 @@ wsl --status
 ### B.1 本実験中に発見・修正したバグ
 
 - **`17a31c7` Phase 6 TPSRをPOSIXで動くように（pathlibガード＋UCT配線＋集約None耐性）**
-  - `TPSR/symbolicregression/e2e_model.py`（と`scripts/phase0_tpsr_smoke.py`）が無条件に
+  - `third_party/tpsr/symbolicregression/e2e_model.py`（と`scripts/phase0_tpsr_smoke.py`）が無条件に
     `pathlib.PosixPath = pathlib.WindowsPath`を実行し、Linux/WSLでは`pathlib.Path()`が未対応の
     `WindowsPath`を生成→直後の`networkx` importが`NotImplementedError`で全滅していた。`os.name=="nt"`でガード。
   - `src/models/tpsr_adapter.py`が`UCT(...)`に`alg`を渡さず既定の`var_p_uct`へ落ち、同梱MCTSに無い
@@ -781,9 +781,9 @@ wsl --status
   Phase 7→8→検査→archive→publishまで進む）：
 
 ```bash
-export LTSR_WEIGHTS="$PWD/NSRS/weights/100M.ckpt"
-export LTSR_CONFIG="$PWD/NSRS/jupyter/100M/config.yaml"
-export LTSR_EQ_SETTING="$PWD/NSRS/jupyter/100M/eq_setting.json"
+export LTSR_WEIGHTS="$PWD/assets/nesymres/weights/100M.ckpt"
+export LTSR_CONFIG="$PWD/assets/nesymres/jupyter/100M/config.yaml"
+export LTSR_EQ_SETTING="$PWD/assets/nesymres/jupyter/100M/eq_setting.json"
 tmux new-session -d -s ltsr-auto -c "$PWD" \
   "CAMPAIGN_ID=paper_gpu_20260723_05 RUN_SMOKE=0 PUBLISH_GIT=1 \
    MAX_PARALLEL_SEEDS=5 RESUME=1 DREAM4=1 \

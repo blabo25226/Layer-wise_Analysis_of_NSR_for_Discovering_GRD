@@ -26,7 +26,7 @@ def main() -> int:
         parser.error(f"publication directory already exists: {destination}")
     validation = run / "validation.json"
     if not validation.is_file():
-        parser.error("validate the run with scripts/validate_gpu_run.py first")
+        parser.error("validate the run with scripts/ops/validate_gpu_run.py first")
     validation_status = json.loads(validation.read_text(encoding="utf-8")).get("status")
     if validation_status != "validated":
         record_stage(run / "manifest.json", "publication", "failed")

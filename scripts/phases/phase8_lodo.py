@@ -9,8 +9,8 @@ with a 95% CI, so the claim rests on cross-validation rather than one split.
 The dreamlike selective fine-tune is donor-independent, so it is done once and
 reused across folds. Runs in the NeSymReS environment (Colab):
 
-    python scripts/phase8_lodo.py --epochs 5            # NeSymReS methods only
-    python scripts/phase8_lodo.py --epochs 5 --with-pysr --pysr-iters 12
+    python scripts/phases/phase8_lodo.py --epochs 5            # NeSymReS methods only
+    python scripts/phases/phase8_lodo.py --epochs 5 --with-pysr --pysr-iters 12
 """
 
 from __future__ import annotations
@@ -29,10 +29,10 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "scripts" / "phases"))
 sys.path.insert(0, str(ROOT / "src"))
-sys.path.insert(0, str(ROOT / "NSRS" / "src"))
+sys.path.insert(0, str(ROOT / "third_party" / "nesymres"))
 
 from data.dreamlike_grn import build_local_problem  # noqa: E402
 from data.finetune_dataset import GRNFinetuneDataset, collate_finetune  # noqa: E402

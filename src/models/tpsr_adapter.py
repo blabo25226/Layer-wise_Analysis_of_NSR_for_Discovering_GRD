@@ -14,11 +14,11 @@ import torch
 import torch.nn.functional as F
 
 ROOT = Path(__file__).resolve().parents[2]
-TPSR_DIR = ROOT / "TPSR"
+TPSR_DIR = ROOT / "third_party" / "tpsr"
 
 
 def ensure_tpsr_path() -> Path:
-    """Put TPSR repo on sys.path for rl_env / default_pi / dyna_gym / reward."""
+    """Put vendored TPSR runtime on sys.path for rl_env / default_pi / dyna_gym."""
     p = str(TPSR_DIR)
     if p not in sys.path:
         sys.path.insert(0, p)

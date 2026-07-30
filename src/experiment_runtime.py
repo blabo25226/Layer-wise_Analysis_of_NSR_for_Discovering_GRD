@@ -7,6 +7,38 @@ import os
 from pathlib import Path
 from typing import Any, Dict, Tuple
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+NESYMRES_PACKAGE_ROOT = REPO_ROOT / "third_party" / "nesymres"
+TPSR_RUNTIME_ROOT = REPO_ROOT / "third_party" / "tpsr"
+NESYMRES_ASSETS = REPO_ROOT / "assets" / "nesymres"
+
+
+def default_nesymres_weights() -> Path:
+    return Path(
+        os.environ.get(
+            "LANSR_WEIGHTS",
+            str(NESYMRES_ASSETS / "weights" / "100M.ckpt"),
+        )
+    )
+
+
+def default_nesymres_config() -> Path:
+    return Path(
+        os.environ.get(
+            "LANSR_CONFIG",
+            str(NESYMRES_ASSETS / "jupyter" / "100M" / "config.yaml"),
+        )
+    )
+
+
+def default_nesymres_eq_setting() -> Path:
+    return Path(
+        os.environ.get(
+            "LANSR_EQ_SETTING",
+            str(NESYMRES_ASSETS / "jupyter" / "100M" / "eq_setting.json"),
+        )
+    )
+
 
 def phase_output_paths(
     root: Path, phase: str, legacy_report_name: str

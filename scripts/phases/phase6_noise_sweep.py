@@ -6,8 +6,8 @@ on several noisy versions of the diverse suite and tabulating how NMSE/R2 degrad
 
 First build the noisy suites, then run this in the NeSymReS env:
 
-    python scripts/generate_diverse_suite.py --noise 0.0 0.05 0.1 0.2 --n-per-skeleton 8
-    python scripts/phase6_noise_sweep.py --noise 0.0 0.05 0.1 0.2 --epochs 5
+    python scripts/phases/generate_diverse_suite.py --noise 0.0 0.05 0.1 0.2 --n-per-skeleton 8
+    python scripts/phases/phase6_noise_sweep.py --noise 0.0 0.05 0.1 0.2 --epochs 5
 """
 
 from __future__ import annotations
@@ -24,10 +24,10 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "scripts" / "phases"))
 sys.path.insert(0, str(ROOT / "src"))
-sys.path.insert(0, str(ROOT / "NSRS" / "src"))
+sys.path.insert(0, str(ROOT / "third_party" / "nesymres"))
 
 from data.finetune_dataset import (  # noqa: E402
     GRNFinetuneDataset,

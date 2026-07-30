@@ -6,8 +6,8 @@ import json
 from pathlib import Path
 from textwrap import dedent
 
-ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / "notebooks" / "colab"
+ROOT = Path(__file__).resolve().parents[2]
+OUT = ROOT / "GPU_RUN1" / "notebooks"
 
 
 def markdown(source: str) -> dict:
@@ -237,7 +237,7 @@ ENSURE_DEPENDENCIES = code(
                 "--index-url", "https://download.pytorch.org/whl/cu124",
             ],
             [str(PY310), "-m", "pip", "install", "-r", "requirements/gpu.txt"],
-            [str(PY310), "-m", "pip", "install", "-e", "NSRS/src"],
+            [str(PY310), "-m", "pip", "install", "-e", "third_party/nesymres"],
             [str(PY310), "-m", "pip", "install", "pytest", "pysr"],
         ]
         for command in commands:
@@ -318,7 +318,7 @@ def setup_notebook() -> dict:
                     "--index-url", "https://download.pytorch.org/whl/cu124",
                 ],
                 [str(PY310), "-m", "pip", "install", "-r", "requirements/gpu.txt"],
-                [str(PY310), "-m", "pip", "install", "-e", "NSRS/src"],
+                [str(PY310), "-m", "pip", "install", "-e", "third_party/nesymres"],
                 [str(PY310), "-m", "pip", "install", "pytest", "pysr"],
             ]
             for command in commands:
@@ -396,17 +396,17 @@ def setup_notebook() -> dict:
             run_command(
                 REPO_ROOT,
                 [
-                    str(PY310), "scripts/preflight_gpu.py",
-                    "--weights", "NSRS/weights/100M.ckpt",
-                    "--config", "NSRS/jupyter/100M/config.yaml",
-                    "--eq-setting", "NSRS/jupyter/100M/eq_setting.json",
+                    str(PY310), "scripts/ops/preflight_gpu.py",
+                    "--weights", "assets/nesymres/weights/100M.ckpt",
+                    "--config", "assets/nesymres/jupyter/100M/config.yaml",
+                    "--eq-setting", "assets/nesymres/jupyter/100M/eq_setting.json",
                 ],
             )
             run_command(
                 REPO_ROOT,
                 [str(PY310), "-m", "compileall", "-q", "src", "scripts", "tests"],
             )
-            run_command(REPO_ROOT, ["bash", "-n", "scripts/run_gpu_pipeline.sh"])
+            run_command(REPO_ROOT, ["bash", "-n", "scripts/ops/run_gpu_pipeline.sh"])
             run_command(REPO_ROOT, [str(PY310), "-m", "pytest", "-q"])
             """
         ),
@@ -430,9 +430,9 @@ def diagnostic_notebook(phase: int, title: str, command: list[str]) -> dict:
             env = {{
                 "LANSR_RUN_DIR": str(diagnostic_dir),
                 "LANSR_PHASE1_DATA": str(phase1_data),
-                "LANSR_WEIGHTS": str(REPO_ROOT / "NSRS" / "weights" / "100M.ckpt"),
-                "LANSR_CONFIG": str(REPO_ROOT / "NSRS" / "jupyter" / "100M" / "config.yaml"),
-                "LANSR_EQ_SETTING": str(REPO_ROOT / "NSRS" / "jupyter" / "100M" / "eq_setting.json"),
+                "LANSR_WEIGHTS": str(REPO_ROOT / "assets" / "nesymres" / "weights" / "100M.ckpt"),
+                "LANSR_CONFIG": str(REPO_ROOT / "assets" / "nesymres" / "jupyter" / "100M" / "config.yaml"),
+                "LANSR_EQ_SETTING": str(REPO_ROOT / "assets" / "nesymres" / "jupyter" / "100M" / "eq_setting.json"),
                 "LANSR_PHASE_TAG": "colab",
             }}
             command = {command!r}
@@ -554,7 +554,7 @@ def validate_notebook(
             subprocess.run(
                 [
                     str(PY310),
-                    "scripts/aggregate_phase8_runs.py",
+                    "scripts/ops/aggregate_phase8_runs.py",
                     "--run-dir",
                     str(run_dir),
                     "--seeds",
@@ -575,7 +575,7 @@ def validate_notebook(
                 )
             print("Phase 8 aggregation: PySR included")
             subprocess.run(
-                [str(PY310), "scripts/validate_gpu_run.py", "--run-dir", str(run_dir)],
+                [str(PY310), "scripts/ops/validate_gpu_run.py", "--run-dir", str(run_dir)],
                 cwd=REPO_ROOT,
                 check=True,
             )
@@ -639,13 +639,13 @@ def main() -> int:
         "01_phase1_data.ipynb": diagnostic_notebook(
             1,
             "LANSR Colab Phase 1 — synthetic data",
-            ["python", "scripts/issue6_generate_synthetic.py"],
+            ["python", "scripts/legacy/issue6_generate_synthetic.py"],
         ),
         "02_phase2_baselines.ipynb": diagnostic_notebook(
             2,
             "LANSR Colab Phase 2 — baselines",
             [
-                "python", "scripts/phase2_run_baselines.py",
+                "python", "scripts/phases/phase2_run_baselines.py",
                 "--split", "test", "--limit", "2", "--pysr-iters", "2",
             ],
         ),
@@ -653,7 +653,7 @@ def main() -> int:
             3,
             "LANSR Colab Phase 3 — layer scan",
             [
-                "python", "scripts/phase3_layer_scan.py",
+                "python", "scripts/phases/phase3_layer_scan.py",
                 "--epochs", "1", "--eval-limit", "2",
                 "--conditions", "pretrained,all_params,decoder_4",
             ],

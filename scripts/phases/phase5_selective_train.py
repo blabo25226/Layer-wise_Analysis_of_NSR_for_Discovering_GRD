@@ -14,9 +14,9 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
-sys.path.insert(0, str(ROOT / "NSRS" / "src"))
+sys.path.insert(0, str(ROOT / "third_party" / "nesymres"))
 
 from data.finetune_dataset import (  # noqa: E402
     GRNFinetuneDataset,
@@ -40,9 +40,9 @@ from experiment_runtime import phase_output_paths  # noqa: E402
 
 DATA_DIR = ROOT / "results" / "synthetic" / "phase1_v1"
 # Checkpoint/config env-overridable for GPU runs (e.g. LANSR_WEIGHTS=.../100M.ckpt)
-WEIGHTS = Path(os.environ.get("LANSR_WEIGHTS", str(ROOT / "NSRS" / "weights" / "10M.ckpt")))
-CONFIG = Path(os.environ.get("LANSR_CONFIG", str(ROOT / "NSRS" / "jupyter" / "100M" / "config.yaml")))
-EQ_SETTING = Path(os.environ.get("LANSR_EQ_SETTING", str(ROOT / "NSRS" / "jupyter" / "100M" / "eq_setting.json")))
+WEIGHTS = Path(os.environ.get("LANSR_WEIGHTS", str(ROOT / "assets" / "nesymres" / "weights" / "10M.ckpt")))
+CONFIG = Path(os.environ.get("LANSR_CONFIG", str(ROOT / "assets" / "nesymres" / "jupyter" / "100M" / "config.yaml")))
+EQ_SETTING = Path(os.environ.get("LANSR_EQ_SETTING", str(ROOT / "assets" / "nesymres" / "jupyter" / "100M" / "eq_setting.json")))
 OUT_DIR, REPORT = phase_output_paths(ROOT, "phase5", "phase5_report.md")
 PHASE4_CONTRIB = ROOT / "results" / "phase_results" / "phase4_multiseed" / "contrib_aggregate.json"
 
@@ -221,7 +221,7 @@ def main() -> int:
         log(
             f"WARNING: Phase 4 contributions not found/invalid at "
             f"`{args.contributions}`; using frozen fallback ranking ({args.ranking}). "
-            f"Run scripts/phase4_layer_contribution.py first for live rankings."
+            f"Run scripts/phases/phase4_layer_contribution.py first for live rankings."
         )
         log(f"Ranking ({args.ranking}, fallback): {ranking}")
 
@@ -514,7 +514,7 @@ def main() -> int:
             "> ⚠️ **Statistical caveat (A-1):** this run uses a small train/eval set "
             f"({len(train_ds)} train / {len(test_problems)} eval equations, single seed). "
             "A top≈random gap of this size is NOT evidence for H2. Re-run "
-            "`scripts/phase4_multiseed.py` + this script across ≥3 seeds and compare "
+            "`scripts/phases/phase4_multiseed.py` + this script across ≥3 seeds and compare "
             "distributions (mean ± CI) before claiming layer selectivity.",
             "",
             "## Notes",

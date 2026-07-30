@@ -70,9 +70,9 @@
 推論時には必要に応じて **TPSR** による木探索を加え、非ニューラル手法 **PySR** と比較する。
 
 研究計画の詳細は [`docs/plans/20260714_firstplan.md`](docs/plans/20260714_firstplan.md)、GPU_RUN1の手順と実施記録は
-[`docs/runbooks/GPU_RUN1.md`](docs/runbooks/GPU_RUN1.md) に記載している。実施済みGPU_RUN1の結果は
+[`GPU_RUN1/runbook.md`](GPU_RUN1/runbook.md) に記載している。実施済みGPU_RUN1の結果は
 [`results/GPU_RUN1_report.md`](results/GPU_RUN1_report.md)、次の確認実験は
-[`docs/plans/20260729_GPU_RUN2.md`](docs/plans/20260729_GPU_RUN2.md) にまとめている。
+[`GPU_RUN2/plan.md`](GPU_RUN2/plan.md) にまとめている。
 
 ## 2. 背景
 
@@ -371,7 +371,7 @@ GPU本実験ではPython 3.10を使用する。ColabではUIを動かす標準ke
 Phase 0 Notebookが用意する明示的なPython 3.10 workerでpreflightと全Phaseを実行する。
 
 ローカルの `10M.ckpt` はファイル名と異なり、state dict上はencoder/decoder各5層の100M設定側アーキテクチャである。
-そのため `NSRS/jupyter/100M/config.yaml` と組み合わせている。
+そのため `assets/nesymres/jupyter/100M/config.yaml` と組み合わせている。
 
 GPU_RUN1は3 seeds、noise 0.1、主にbeam 2で実行した。Phase 7は計算制約により主集計をDREAM4 networks 1–3へ縮小し、
 Phase 8のPySRだけはローカルCPUで実行してColab成果物へ統合した。
@@ -754,7 +754,7 @@ GPU_RUN1では少数層FTの全層同等性が支持されたが、3 seedsのred
 
 ### 11.1 次に行うGPU_RUN2
 
-GPU_RUN2の詳細は [`docs/plans/20260729_GPU_RUN2.md`](docs/plans/20260729_GPU_RUN2.md) に記載する。
+GPU_RUN2の詳細は [`GPU_RUN2/plan.md`](GPU_RUN2/plan.md) に記載する。
 主要な変更は次のとおりである。
 
 1. **固定commitの独立run**：GPU_RUN1の継続成果物をseed反復として混ぜず、Phase 0–9を一貫した設定で実行する。
@@ -797,7 +797,7 @@ GPU実験で中心仮説が支持されなかった場合でも、どの指標�
 conda create -n lansr python=3.10 -y
 conda activate lansr
 pip install -r requirements/cpu.txt
-pip install -e NSRS/src
+pip install -e third_party/nesymres
 pip install -r requirements/dev.txt
 ```
 
@@ -813,33 +813,36 @@ python -m pytest -q
 ### 主要スクリプト
 
 ```text
-scripts/generate_diverse_suite.py     構造分離した合成GRNの生成
-scripts/phase4_multiseed.py           validation上の層寄与測定
-scripts/phase5_selective_train.py     独立testでの選択的FT比較
-scripts/phase6_noise_sweep.py         TPSR 2×2・ノイズ試験
-scripts/phase7_dream4_size10.py       DREAM4 Size10
-scripts/phase7_dream4_size100.py      DREAM4 Size100
-scripts/phase8_lodo.py                ヒトleave-one-donor-out
-scripts/run_gpu_pipeline.sh           GPU一括実行
+scripts/phases/generate_diverse_suite.py  構造分離した合成GRNの生成
+scripts/phases/phase4_multiseed.py        validation上の層寄与測定
+scripts/phases/phase5_selective_train.py  独立testでの選択的FT比較
+scripts/phases/phase6_noise_sweep.py      TPSR 2×2・ノイズ試験
+scripts/phases/phase7_dream4_size10.py    DREAM4 Size10
+scripts/phases/phase7_dream4_size100.py   DREAM4 Size100
+scripts/phases/phase8_lodo.py             ヒトleave-one-donor-out
+scripts/ops/run_gpu_pipeline.sh           GPU一括実行
 ```
 
 ## 13. リポジトリ構成
 
 ```text
-docs/plans/         研究計画
-docs/runbooks/      GPU実験の手順と実施記録
+GPU_RUN1/           GPU_RUN1実行専用（手順・Notebook・補助script）
+GPU_RUN2/           GPU_RUN2実行専用（現在は計画のみ）
+CPU_RUN/            CPU pilot叙述（旧 README_CPU.md）
+docs/plans/         一般の研究計画・レビューメモ
 src/                データ処理、モデル、学習、評価の共通コード
 scripts/            Phase別の実験エントリポイント（索引: scripts/README.md）
+third_party/        実行用に切り出した NeSymReS / TPSR（調査クローンではない）
+assets/nesymres/    NeSymReS設定とcheckpoint置き場
 tests/              単体テスト
 requirements/       CPU/GPU/dev別の依存関係
 results/            CPU pilotの結果とrun出力
 graphs/             run別の独立した図・表
-NSRS/               NeSymReS参照実装（実行依存）
-TPSR/               TPSR参照実装（実行依存）
-GitHubSourceCode/   調査用の外部実装（実行依存ではない）
+GitHubSourceCode/   調査用の外部実装（NSRS/TPSR含む。実行依存ではない）
 ```
 
-文書の置き場は [`docs/README.md`](docs/README.md)、スクリプト索引は [`scripts/README.md`](scripts/README.md)、
+実行キャンペーンの入口は [`GPU_RUN1/`](GPU_RUN1/)、[`GPU_RUN2/`](GPU_RUN2/)、[`CPU_RUN/`](CPU_RUN/)。
+文書の一般計画は [`docs/README.md`](docs/README.md)、スクリプト索引は [`scripts/README.md`](scripts/README.md)、
 調査用外部コードの方針は [`GitHubSourceCode/README.md`](GitHubSourceCode/README.md) を参照する。
 新しく作る独立した図・表は [`graphs/README.md`](graphs/README.md) の規約に従い、
 `graphs/<run-id>/figures/` または `graphs/<run-id>/tables/` に保存する。

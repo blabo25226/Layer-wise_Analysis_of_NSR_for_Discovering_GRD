@@ -6,22 +6,20 @@
 
 | 区分 | パス | 扱い |
 |---|---|---|
-| 実行に使う参照実装 | リポジトリ直下の `NSRS/`、`TPSR/` | `src/` と `scripts/` から参照する |
-| 文献調査用の外部実装 | この `GitHubSourceCode/` | 比較・読書・引用確認用。importしない |
-| 文献PDF・訳 | `docs/` 配下のローカル資料 | Git管理外（`.gitignore`） |
+| 調査用の完全クローン | `GitHubSourceCode/NSRS`、`GitHubSourceCode/TPSR` ほか | 読書・比較・引用確認用。**importしない** |
+| 実行用の切り出し | `third_party/nesymres`、`third_party/tpsr` | アルゴリズムが使うコピー |
+| 実行用設定・重み | `assets/nesymres/` | config / eq_setting / weights |
 
-`TPSR/` はもともとここに置いていたが、コード契約に合わせてリポジトリ直下へ昇格済みである。
-ここに再度置く必要はない。
+コードから `GitHubSourceCode/...` を `sys.path` に載せる、または `from GitHubSourceCode...` する変更は行わない。
 
 ## 含まれるもの（調査用）
 
-PySR、ODEFormer、ND2、D-CODE、pySINDy、dynGENIE3、SRBench、LoRA、GNW など、
-関連手法の公式または公開実装のローカルコピーである。巨大な成果物・データ・checkpointが
-混ざっている場合があるため、安易にGitへ追加しない。
+NeSymReS（NSRS）、TPSR、PySR、ODEFormer、ND2、D-CODE、pySINDy、dynGENIE3、SRBench、LoRA、GNW など。
+巨大な成果物・データ・checkpointが混ざっている場合があるため、安易にGitへ追加しない。
 
 ## やってよいこと / 避けること
 
-- よい: 論文実装の確認、比較実験の設計、`source.md` との対応確認
-- 避ける: `from GitHubSourceCode...` のような実行時依存、成果物の上書き、巨大blobの新規追跡
+- よい: 論文実装の確認、比較実験の設計、`source.md` との対応確認、setupスクリプトでassetsへcheckpointを用意
+- 避ける: 実行時依存、`GitHubSourceCode` をアルゴリズムへ混ぜる、成果物の上書き、巨大blobの新規追跡
 
-ランタイムで必要な変更は、原則として `src/` のadapter側、または直下の `NSRS/` / `TPSR/` へ最小限だけ入れる。
+ランタイムで必要な互換修正は `third_party/` または `src/` のadapter側へ入れる。

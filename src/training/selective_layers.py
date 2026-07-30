@@ -16,7 +16,7 @@ import random
 from pathlib import Path
 from typing import Dict, List, Mapping, Optional, Sequence
 
-# Metric keys (as written by scripts/phase4_layer_contribution.py) that define
+# Metric keys (as written by scripts/phases/phase4_layer_contribution.py) that define
 # each ranking mode. "accuracy" = mean rank across CE + prediction metrics;
 # "ce" = teacher-forcing cross-entropy only.
 ACCURACY_METRICS: List[str] = ["val_ce", "penalized_nmse", "penalized_r2"]

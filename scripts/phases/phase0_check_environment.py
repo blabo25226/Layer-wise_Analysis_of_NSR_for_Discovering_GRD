@@ -7,16 +7,24 @@ import platform
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 CHECKPOINTS = {
-    "NSRS/weights/10M.ckpt": ROOT / "NSRS" / "weights" / "10M.ckpt",
-    "TPSR/symbolicregression/weights/model1.pt": ROOT
-    / "TPSR"
-    / "symbolicregression"
+    "assets/nesymres/weights/100M.ckpt": ROOT
+    / "assets"
+    / "nesymres"
     / "weights"
-    / "model1.pt",
-    "TPSR/nesymres/weights/10M.ckpt": ROOT / "TPSR" / "nesymres" / "weights" / "10M.ckpt",
+    / "100M.ckpt",
+    "assets/nesymres/weights/10M.ckpt": ROOT
+    / "assets"
+    / "nesymres"
+    / "weights"
+    / "10M.ckpt",
+    "assets/nesymres/weights/model.pt": ROOT
+    / "assets"
+    / "nesymres"
+    / "weights"
+    / "model.pt",
 }
 
 
@@ -30,31 +38,21 @@ def check_import(name: str) -> str:
 
 
 def main() -> int:
-    print("=== Phase 0 environment check ===")
-    print(f"Python: {sys.version.split()[0]} ({platform.platform()})")
-    print(f"Executable: {sys.executable}")
-
-    for pkg in ("torch", "pytorch_lightning", "sympy", "numpy", "omegaconf"):
+    print("Python:", sys.version.split()[0], platform.platform())
+    for pkg in ("numpy", "torch", "pytorch_lightning", "sympy", "omegaconf", "hydra"):
         print(f"{pkg}: {check_import(pkg)}")
-
-    try:
-        import torch
-
-        print(f"CUDA available: {torch.cuda.is_available()}")
-    except Exception as exc:
-        print(f"CUDA check failed: {exc}")
-
-    print("\n=== Checkpoint files ===")
-    ok = True
+    print("nesymres package root:", ROOT / "third_party" / "nesymres")
+    print("tpsr runtime root:", ROOT / "third_party" / "tpsr")
+    missing = False
     for label, path in CHECKPOINTS.items():
-        if path.exists():
-            size_mb = path.stat().st_size / (1024 * 1024)
-            print(f"OK  {label} ({size_mb:.1f} MB)")
-        else:
-            ok = False
-            print(f"MISSING  {label}")
-
-    return 0 if ok else 1
+        ok = path.exists()
+        print(f"{label}: {'OK' if ok else 'MISSING'} ({path})")
+        if not ok:
+            missing = True
+    if missing:
+        print("Hint: powershell -File scripts/ops/setup_phase0_links.ps1")
+        return 1
+    return 0
 
 
 if __name__ == "__main__":

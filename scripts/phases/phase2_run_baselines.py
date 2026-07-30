@@ -12,9 +12,9 @@ from typing import Any, Dict, List
 
 import numpy as np
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
-sys.path.insert(0, str(ROOT / "NSRS" / "src"))
+sys.path.insert(0, str(ROOT / "third_party" / "nesymres"))
 
 from data.synthetic_grn import load_problem  # noqa: E402
 from evaluation.equation_metrics import (  # noqa: E402
@@ -32,17 +32,17 @@ DATA_DIR = Path(
 )
 OUT_DIR, REPORT = phase_output_paths(ROOT, "phase2", "phase2_report.md")
 WEIGHTS = Path(
-    os.environ.get("LANSR_WEIGHTS", str(ROOT / "NSRS" / "weights" / "10M.ckpt"))
+    os.environ.get("LANSR_WEIGHTS", str(ROOT / "assets" / "nesymres" / "weights" / "10M.ckpt"))
 )
 CONFIG = Path(
     os.environ.get(
-        "LANSR_CONFIG", str(ROOT / "NSRS" / "jupyter" / "100M" / "config.yaml")
+        "LANSR_CONFIG", str(ROOT / "assets" / "nesymres" / "jupyter" / "100M" / "config.yaml")
     )
 )
 EQ_SETTING = Path(
     os.environ.get(
         "LANSR_EQ_SETTING",
-        str(ROOT / "NSRS" / "jupyter" / "100M" / "eq_setting.json"),
+        str(ROOT / "assets" / "nesymres" / "jupyter" / "100M" / "eq_setting.json"),
     )
 )
 

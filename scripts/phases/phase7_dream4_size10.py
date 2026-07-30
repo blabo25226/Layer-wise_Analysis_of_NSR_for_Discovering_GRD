@@ -15,9 +15,9 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
-sys.path.insert(0, str(ROOT / "NSRS" / "src"))
+sys.path.insert(0, str(ROOT / "third_party" / "nesymres"))
 
 from data.dream4 import (  # noqa: E402
     build_dream4_local_problems,
@@ -46,9 +46,9 @@ from experiment_runtime import phase_output_paths  # noqa: E402
 
 DREAM4 = ROOT / "data" / "dream4"
 DREAMLIKE = Path(os.environ.get("LANSR_DREAMLIKE_DATA", str(ROOT / "results" / "synthetic" / "phase7_dreamlike_v1")))
-WEIGHTS = Path(os.environ.get("LANSR_WEIGHTS", str(ROOT / "NSRS" / "weights" / "10M.ckpt")))
-CONFIG = Path(os.environ.get("LANSR_CONFIG", str(ROOT / "NSRS" / "jupyter" / "100M" / "config.yaml")))
-EQ_SETTING = Path(os.environ.get("LANSR_EQ_SETTING", str(ROOT / "NSRS" / "jupyter" / "100M" / "eq_setting.json")))
+WEIGHTS = Path(os.environ.get("LANSR_WEIGHTS", str(ROOT / "assets" / "nesymres" / "weights" / "10M.ckpt")))
+CONFIG = Path(os.environ.get("LANSR_CONFIG", str(ROOT / "assets" / "nesymres" / "jupyter" / "100M" / "config.yaml")))
+EQ_SETTING = Path(os.environ.get("LANSR_EQ_SETTING", str(ROOT / "assets" / "nesymres" / "jupyter" / "100M" / "eq_setting.json")))
 OUT_DIR, REPORT = phase_output_paths(ROOT, "phase7_dream4_size10", "phase7_dream4_report.md")
 PHASE4_CONTRIB = Path(os.environ.get("LANSR_PHASE4_CONTRIB", str(ROOT / "results" / "phase_results" / "phase4_multiseed" / "contrib_aggregate.json")))
 HIGH_CONTRIB, LAYER_SOURCE, LAYER_RULE = resolve_selected_layers(PHASE4_CONTRIB, mode="accuracy", rule="top", k=3)

@@ -9,8 +9,8 @@ ranking-stability score (how often the layer lands in the metric's top-3).
 Intended to run in the NeSymReS-compatible environment (Colab), pointed at the
 diverse suite:
 
-    python scripts/generate_diverse_suite.py --n-per-skeleton 8
-    python scripts/phase4_multiseed.py --data-dir results/synthetic/diverse_v1 \
+    python scripts/phases/generate_diverse_suite.py --n-per-skeleton 8
+    python scripts/phases/phase4_multiseed.py --data-dir results/synthetic/diverse_v1 \
         --seeds 0 1 2 --epochs 3
 """
 
@@ -28,10 +28,10 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "scripts" / "phases"))
 sys.path.insert(0, str(ROOT / "src"))
-sys.path.insert(0, str(ROOT / "NSRS" / "src"))
+sys.path.insert(0, str(ROOT / "third_party" / "nesymres"))
 
 from data.finetune_dataset import (  # noqa: E402
     GRNFinetuneDataset,

@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from colab_runtime import (  # noqa: E402
@@ -169,8 +169,10 @@ def test_prepare_continuation_run_copies_results_with_lineage(tmp_path):
 
 
 def test_generated_notebooks_have_no_saved_execution_state():
-    notebook_dir = ROOT / "notebooks" / "colab"
-    notebooks = sorted(notebook_dir.glob("*.ipynb"))
+    notebook_dir = ROOT / "GPU_RUN1" / "notebooks"
+    notebooks = sorted(
+        path for path in notebook_dir.glob("*.ipynb") if path.name[0].isdigit()
+    )
     assert len(notebooks) == 10
     for path in notebooks:
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -190,7 +192,7 @@ def test_generated_notebooks_have_no_saved_execution_state():
 
 
 def test_gpu_pipeline_selects_the_noise_specific_phase4_suite():
-    script = (ROOT / "scripts" / "run_gpu_pipeline.sh").read_text(
+    script = (ROOT / "scripts" / "ops" / "run_gpu_pipeline.sh").read_text(
         encoding="utf-8"
     )
     assert 'NOISE_CANON=$("${PY_CMD[@]}"' in script

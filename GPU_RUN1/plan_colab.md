@@ -3,8 +3,8 @@
 作成日: 2026-07-26  
 対象ブランチ: `20260726/gpu-scale-prep-colab`  
 計画作成時のHEAD: `cda5475`  
-根拠文書: [`GPU_RUN1.md`](../runbooks/GPU_RUN1.md)、[`README.md`](../../README.md)、
-[`20260714_firstplan.md`](20260714_firstplan.md)
+根拠文書: [`runbook.md`](runbook.md)、[`README.md`](../README.md)、
+[`docs/plans/20260714_firstplan.md`](../docs/plans/20260714_firstplan.md)
 
 ## 0. ユーザーが行うこと
 
@@ -123,7 +123,7 @@ Colab runtimeやアプリ内ブラウザの接続が切れた場合は、Drive�
 
 ### 4.1 Notebook
 
-`notebooks/colab/`に次を作成する。
+`GPU_RUN1/notebooks/`に次を作成する。
 
 | Notebook | 役割 | 本実験上の位置づけ |
 |---|---|---|
@@ -144,7 +144,7 @@ Phase 4のlive validation rankingだけをPhase 5以降へ渡し、testを層選
 ### 4.2 Colab共通コード
 
 Notebook間で大きなセットアップセルを複製しないため、必要なら
-`src/colab_runtime.py`または`notebooks/colab/_shared.py`へ次をまとめる。
+`src/colab_runtime.py`またはキャンペーンNotebook共有セルへ次をまとめる。
 
 - Colab環境判定
 - repo root、Drive root、run IDの解決
@@ -213,7 +213,7 @@ Drive上の想定rootはユーザーがセルで明示する。例:
 
 ### 5.2 Notebook以外のファイルをColabへ渡す方法
 
-Notebookは単独では実行できない。`src/`、`scripts/`、`configs/`、`NSRS/`、`TPSR/`、
+Notebookは単独では実行できない。`src/`、`scripts/`、`configs/`、`third_party/`、`assets/`、
 `requirements/`、テスト、設定JSONが必要である。実行時は次のどちらかで完全なsource treeを作る。
 
 #### 方法A: Git clone（推奨）

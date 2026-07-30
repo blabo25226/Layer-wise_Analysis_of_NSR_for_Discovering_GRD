@@ -8,7 +8,7 @@ from pathlib import Path
 
 import numpy as np
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from data.synthetic_grn import load_problem  # noqa: E402
@@ -20,7 +20,7 @@ OUT = ROOT / "results" / "phase_results" / "issue7_pysr_smoke.json"
 def main() -> int:
     index_path = DATA_DIR / "index.json"
     if not index_path.exists():
-        print("Missing Phase 1 data. Run scripts/issue6_generate_synthetic.py first.")
+        print("Missing Phase 1 data. Run scripts/legacy/issue6_generate_synthetic.py first.")
         return 1
 
     index = json.loads(index_path.read_text(encoding="utf-8"))

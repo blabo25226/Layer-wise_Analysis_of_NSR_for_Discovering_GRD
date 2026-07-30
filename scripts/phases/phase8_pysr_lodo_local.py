@@ -20,7 +20,7 @@ from typing import Any
 
 import numpy as np
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from data.dreamlike_grn import build_local_problem  # noqa: E402
@@ -82,7 +82,7 @@ class TargetWorker:
             subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
         )
         self.process = subprocess.Popen(
-            [sys.executable, str(ROOT / "scripts" / "phase8_pysr_target_worker.py")],
+            [sys.executable, str(ROOT / "scripts" / "phases" / "phase8_pysr_target_worker.py")],
             cwd=ROOT,
             stdin=subprocess.PIPE,
             text=True,

@@ -1,7 +1,8 @@
-# Create hardlinks so TPSR can reuse existing checkpoints without duplicate downloads.
+# Create hardlinks so local assets/ reuse checkpoints without duplicating files.
+# Runtime code reads assets/ and third_party/ only — never GitHubSourceCode/.
 # Run from repository root in PowerShell.
 
-$root = Split-Path -Parent $PSScriptRoot
+$root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 
 function Ensure-HardLink($link, $target) {
     if (-not (Test-Path $target)) {
@@ -20,10 +21,19 @@ function Ensure-HardLink($link, $target) {
     Write-Host "LINKED $link -> $target"
 }
 
+# Prefer survey-tree checkpoints if present locally (setup aid only).
 Ensure-HardLink `
-    "$root\TPSR\nesymres\weights\10M.ckpt" `
-    "$root\NSRS\weights\10M.ckpt"
+    "$root\assets\nesymres\weights\100M.ckpt" `
+    "$root\GitHubSourceCode\NSRS\weights\100M.ckpt"
 
 Ensure-HardLink `
-    "$root\TPSR\symbolicregression\weights\model.pt" `
-    "$root\TPSR\symbolicregression\weights\model1.pt"
+    "$root\assets\nesymres\weights\10M.ckpt" `
+    "$root\GitHubSourceCode\NSRS\weights\10M.ckpt"
+
+Ensure-HardLink `
+    "$root\assets\nesymres\weights\model.pt" `
+    "$root\GitHubSourceCode\TPSR\symbolicregression\weights\model1.pt"
+
+Ensure-HardLink `
+    "$root\assets\nesymres\weights\model1.pt" `
+    "$root\GitHubSourceCode\TPSR\symbolicregression\weights\model1.pt"

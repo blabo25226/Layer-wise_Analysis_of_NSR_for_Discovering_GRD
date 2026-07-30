@@ -21,9 +21,9 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
-sys.path.insert(0, str(ROOT / "NSRS" / "src"))
+sys.path.insert(0, str(ROOT / "third_party" / "nesymres"))
 
 from data.dream4 import (  # noqa: E402
     build_dream4_local_problems,
@@ -58,9 +58,9 @@ from training.single_layer import clone_model, train_selective  # noqa: E402
 
 DREAM4 = ROOT / "data" / "dream4"
 DREAMLIKE = ROOT / "results" / "synthetic" / "phase7_dreamlike_v1"
-WEIGHTS = ROOT / "NSRS" / "weights" / "10M.ckpt"
-CONFIG = ROOT / "NSRS" / "jupyter" / "100M" / "config.yaml"
-EQ_SETTING = ROOT / "NSRS" / "jupyter" / "100M" / "eq_setting.json"
+WEIGHTS = ROOT / "assets" / "nesymres" / "weights" / "10M.ckpt"
+CONFIG = ROOT / "assets" / "nesymres" / "jupyter" / "100M" / "config.yaml"
+EQ_SETTING = ROOT / "assets" / "nesymres" / "jupyter" / "100M" / "eq_setting.json"
 OUT_DIR = ROOT / "results" / "phase_results" / "phase7_package_a"
 REPORT = ROOT / "results" / "phase_results" / "phase7_package_a_report.md"
 

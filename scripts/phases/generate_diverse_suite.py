@@ -7,8 +7,8 @@ several noise levels for the H3 / noise-robustness experiments (reviewer A-4).
 
 Examples
 --------
-    python scripts/generate_diverse_suite.py --n-per-skeleton 8
-    python scripts/generate_diverse_suite.py --noise 0.0 0.05 0.1 --out-root results/synthetic
+    python scripts/phases/generate_diverse_suite.py --n-per-skeleton 8
+    python scripts/phases/generate_diverse_suite.py --noise 0.0 0.05 0.1 --out-root results/synthetic
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from data.synthetic_grn import build_diverse_suite, save_suite  # noqa: E402

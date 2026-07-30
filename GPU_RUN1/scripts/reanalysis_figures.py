@@ -22,7 +22,7 @@
 
 使用例::
 
-    python scripts/reanalysis_gpu_run1_figures.py \
+    python GPU_RUN1/scripts/reanalysis_figures.py \
         --run-id colab_reduced_20260729_03 \
         --suite diverse_gpu_n0.1
 """
@@ -628,7 +628,7 @@ def table_human_folds(folds: pd.DataFrame, out: Path) -> Path:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--repo", type=Path, default=Path(__file__).resolve().parent.parent,
+    parser.add_argument("--repo", type=Path, default=Path(__file__).resolve().parents[2],
                         help="リポジトリのルート")
     parser.add_argument("--run-id", default="colab_reduced_20260729_03",
                         help="results/runs/<run-id> と graphs/<run-id> の識別子")

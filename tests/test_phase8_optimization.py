@@ -129,8 +129,8 @@ def test_phase9_aggregates_local_pysr_before_validation() -> None:
         for cell in payload["cells"]
         if cell["cell_type"] == "code"
     )
-    aggregate_at = source.index("scripts/aggregate_phase8_runs.py")
-    validate_at = source.index("scripts/validate_gpu_run.py")
+    aggregate_at = source.index("scripts/ops/aggregate_phase8_runs.py")
+    validate_at = source.index("scripts/ops/validate_gpu_run.py")
     assert aggregate_at < validate_at
     assert 'phase8_summary.get("pysr_included")' in source
     assert 'graph_dir = REPO_ROOT / "graphs" / RUN_ID' in source

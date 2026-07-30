@@ -14,11 +14,16 @@ from sympy import lambdify
 from nesymres.architectures.model import Model
 from nesymres.dclasses import BFGSParams, FitParams
 
-ROOT = Path(__file__).resolve().parents[1]
-NSRS = ROOT / "NSRS"
-WEIGHTS = NSRS / "weights" / "10M.ckpt"
-EQ_SETTING = NSRS / "jupyter" / "100M" / "eq_setting.json"
-CONFIG = NSRS / "jupyter" / "100M" / "config.yaml"
+from src.experiment_runtime import (
+    default_nesymres_config,
+    default_nesymres_eq_setting,
+    default_nesymres_weights,
+)
+
+ROOT = Path(__file__).resolve().parents[2]
+WEIGHTS = default_nesymres_weights()
+EQ_SETTING = default_nesymres_eq_setting()
+CONFIG = default_nesymres_config()
 TARGET_EQ = "x_1*sin(x_1)"
 
 

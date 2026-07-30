@@ -48,8 +48,8 @@ if [ "$RUN_SMOKE" = "1" ]; then
     LR_GRID="1e-4" EPOCH_GRID="1" PATIENCE=0 BEAM=1 \
     BFGS_RESTARTS=1 BFGS_STOP=0.2 NOISE="0.0" PYSR=0 DREAM4=0 \
     RANDOM_LAYER_SEEDS="0" NMSE_EQUIV_MARGIN=0.05 \
-    bash scripts/run_gpu_pipeline.sh
-  python scripts/validate_gpu_run.py --run-dir "results/runs/$SMOKE_RUN_ID"
+    bash scripts/ops/run_gpu_pipeline.sh
+  python scripts/ops/validate_gpu_run.py --run-dir "results/runs/$SMOKE_RUN_ID"
 fi
 
 RUN_ID="$FULL_RUN_ID" SEEDS="${SEEDS:-0 1 2 3 4}" NPS=${NPS:-24} \
@@ -59,16 +59,16 @@ RUN_ID="$FULL_RUN_ID" SEEDS="${SEEDS:-0 1 2 3 4}" NPS=${NPS:-24} \
   NOISE="${NOISE:-0.0 0.05 0.1 0.2}" PYSR=${PYSR:-1} DREAM4=${DREAM4:-1} \
   RANDOM_LAYER_SEEDS="${RANDOM_LAYER_SEEDS:-0 1 2 3 4}" \
   NMSE_EQUIV_MARGIN=${NMSE_EQUIV_MARGIN:-0.05} \
-  bash scripts/run_gpu_pipeline.sh
+  bash scripts/ops/run_gpu_pipeline.sh
 
 # validate_gpu_run.py records its own outcome in the manifest.
-python scripts/validate_gpu_run.py --run-dir "$FULL_RUN_DIR"
+python scripts/ops/validate_gpu_run.py --run-dir "$FULL_RUN_DIR"
 
 # From here the pipeline and the checks have already succeeded, so any later failure
 # (archiving, export, push) must still be visible in the manifest.
 mark_publication_failed() {
   if [ "$1" -ne 0 ]; then
-    python scripts/run_manifest.py stage --run-dir "$FULL_RUN_DIR" \
+    python scripts/ops/run_manifest.py stage --run-dir "$FULL_RUN_DIR" \
       --stage publication --status failed || true
     echo "ERROR: publication stage failed after a complete, validated run." >&2
     echo "       Do NOT re-run the campaign; fix the cause and re-run only the" >&2
@@ -86,7 +86,7 @@ done
 tar -czf "$ARCHIVE_DIR/${FULL_RUN_ID}.tar.gz" "${ARCHIVE_PATHS[@]}"
 sha256sum "$ARCHIVE_DIR/${FULL_RUN_ID}.tar.gz" \
   > "$ARCHIVE_DIR/${FULL_RUN_ID}.tar.gz.sha256"
-python scripts/export_run_summary.py --run-dir "$FULL_RUN_DIR" \
+python scripts/ops/export_run_summary.py --run-dir "$FULL_RUN_DIR" \
   --archive "$ARCHIVE_DIR/${FULL_RUN_ID}.tar.gz"
 
 if [ "$PUBLISH_GIT" = "1" ]; then
