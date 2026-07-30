@@ -27,8 +27,9 @@ $$
 2. [`README.md`](README.md)：研究背景、現状、CPU pilot、GPU_RUN1結果、重要な限界
 3. [`plan/20260714_firstplan.md`](plan/20260714_firstplan.md)：研究質問と当初計画
 4. GPU実験に関係する場合は実行手順と実施記録の [`GPU_RUN1.md`](GPU_RUN1.md)、実施済みGPU_RUN1は
-   [`results/GPU_RUN1_report.md`](results/GPU_RUN1_report.md)、次回計画は
-   [`plan/20260729_GPU_RUN2.md`](plan/20260729_GPU_RUN2.md)
+   [`results/GPU_RUN1_report.md`](results/GPU_RUN1_report.md)、保存済みJSONのper-problem再集計と
+   批判的レビューは [`results/GPU_RUN1_reanalysis_report.md`](results/GPU_RUN1_reanalysis_report.md)、
+   次回計画は [`plan/20260729_GPU_RUN2.md`](plan/20260729_GPU_RUN2.md)（rev.2で再解析を反映済み）
 5. 図表を作る場合は [`graphs/README.md`](graphs/README.md)
 6. 対象Phaseの `results/phase_results/*_report.md` と実行スクリプト
 7. 変更対象に対応する `tests/` のテスト
