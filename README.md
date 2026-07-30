@@ -1,8 +1,8 @@
 # LANSR研究：遺伝子制御ダイナミクスの発見に向けたニューラルシンボリック回帰の層別解析
 
-> **現在地（2026年7月30日）**：CPU pilotに加え、Google Colab ProのNVIDIA L4で
+> **現在地（2026年7月31日）**：CPU pilotに加え、Google Colab ProのNVIDIA L4で
 > 3 seeds・noise 0.1のGPU_RUN1 reduced runをPhase 0–9まで完了した。
-> 少数decoder層の数値性能は全層fine-tuningと同等だったが、これは全network・統一budgetのpaper runではない。
+> 少数decoder層の数値性能は全層fine-tuningに近かったが、これは全network・統一budgetのpaper runではない。
 > 確定結果と限界は [`results/GPU_RUN1_report.md`](results/GPU_RUN1_report.md) を参照する。
 
 ## 目次
@@ -22,8 +22,8 @@
 - [5. 評価指標](#5-評価指標)
 - [6. 実行環境と実装状況](#6-実行環境と実装状況)
 - [7. 実施したPhase](#7-実施したphase)
-- [8. CPU pilotとGPU_RUN1の結果](#8-cpu-pilotとgpu_run1の結果)
-- [9. CPU pilotとGPU_RUN1から得られた結論](#9-cpu-pilotとgpu_run1から得られた結論)
+- [8. GPU_RUN1を中心とした実験結果](#8-gpu_run1を中心とした実験結果)
+- [9. GPU_RUN1とCPU pilotから得られた結論](#9-gpu_run1とcpu-pilotから得られた結論)
 - [10. 結果を読む際の重要な注意](#10-結果を読む際の重要な注意)
 - [11. 今後の展望](#11-今後の展望)
 - [12. 再現方法](#12-再現方法)
@@ -391,299 +391,163 @@ Phase 8のPySRだけはローカルCPUで実行してColab成果物へ統合し�
 | 8 | ヒトLPS刺激時系列、LODO評価 | NeSymReS 3 seedsとローカルPySRを統合 |
 | 9 | validation、archive、checksum | validated、archive作成済み |
 
-## 8. CPU pilotとGPU_RUN1の結果
+## 8. GPU_RUN1を中心とした実験結果
 
-### 8.0 CPU結果の位置付け
+### 8.1 GPU_RUN1の位置付けと実行範囲
 
-8.1〜8.7の数値はGPU_RUN1より前のCPU pilotであり、最新の評価設計による確証結果ではない。
-GPU_RUN1の多seed結果は8.8に分けて記載する。
+GPU_RUN1は、Google Colab ProのNVIDIA L4とローカルCPUを使い、3 seeds・noise 0.1でPhase 0–9を実行した
+現時点で最も重要な実験である。最終run `colab_reduced_20260729_03` はmanifestが `complete`、
+validationが `validated` であり、全問題の推定式と失敗理由も保存した。
 
-### 8.1 Phase 0：実行基盤
+ただし、これは探索的なreduced runである。単一commit・全DREAM4 network・統一計算budgetのpaper runではなく、
+Phase 7の主集計は全条件が揃ったnetworks 1–3に限る。以下の `±` は、特記しない限り3 seedsに対する
+Studentのt分布による95%信頼区間の半幅である。
 
-- NeSymReSは、入力データの真の関係
+### 8.2 Phase 4：寄与の大きい層はdecoder中後段へ集中した
 
-```math
-y=x_1\sin(x_1)
-```
+合成validationでは、`decoder_2`、`decoder_3`、`decoder_4`がCE、NMSE、$`R^2`$、
+skeleton recoveryのtop 3へ全seedで入った。代表的な`decoder_3`の結果は次のとおりである。
 
-  を同値な式として復元した。
-- PySRの出力も
-
-```math
-\hat y=x\sin(x)
-```
-
-  となった。
-- TPSR E2EモデルをWindows/CPU上でロードし、軽量MCTSを完走した。
-- Linux保存checkpoint、NumPy 2.0、Python dataclassへの互換修正を適用した。
-
-詳細：[`phase0_report.md`](results/phase_results/phase0_report.md)
-
-### 8.2 Phase 1–2：合成GRNとベースライン
-
-最初の合成データは26問題で、activation、repression、toggle、repressilatorを含む。
-各問題は200点、変数範囲は概ね $[0,3]$、初期版はノイズなしである。
-
-9個のtest問題に対する初期比較は次のとおりであった。
-
-| 方法 | median NMSE（ID） | median NMSE（OOD） | median $R^2$（ID） |
+| 指標 | pretrained | `decoder_3`のみFT | 全層FT |
 |---|---:|---:|---:|
-| NeSymReS beam=2 | 0.376 | 0.901 | 0.602 |
-| NeSymReS beam=5 | 0.120 | **0.187** | 0.806 |
-| PySR | **0.00072** | 0.327 | **0.999** |
+| CE | 1.2015 | 0.0815 | **0.0545** |
+| Penalized NMSE | 0.0581 | 0.0081 | **0.0080** |
+| Penalized $`R^2`$ | 0.9305 | 0.9900 | **0.9901** |
+| Variable F1 | 0.9676 | 0.9722 | **1.0000** |
+| Skeleton recovery rate | 0.0000 | 0.5278 | **0.6528** |
 
-例えば `rpl_x2_test_25` の真の式は
+`decoder_3`単独の正規化寄与度はNMSEで`0.9984 ± 0.0068`、$`R^2`$で`0.9979 ± 0.0059`だった。
+seed間の順位相関もNMSEのSpearmanで0.883、Kendallで0.758と正であり、層別信号は再現した。
 
-```math
-\frac{dx_2}{dt}=\frac{2.5}{1+x_1^4}-0.6x_2
-```
+![GPU_RUN1の層寄与度](graphs/GPU_RUN1_colab_reduced_20260729_03/figures/phase4_layer_contribution.png)
 
-であり、PySRの保存された出力は
+### 8.3 Phase 5：少数層FTは全層FTへ数値的に近かった
 
-```math
-\frac{dx_2}{dt}=-0.6x_2+\frac{2.5}{x_1^4+x_2/x_2}=-0.6x_2+\frac{2.5}{x_1^4+1}
-```
+未知のtest問題に対するfailure-penalized NMSEは次のとおりだった。
 
-だった。この例では $x_2/x_2=1$ なので真の式と同値で、ID/OODともNMSEはほぼ0だった。
-一方、別の抑制問題 `rep_test_20` に対するNeSymReS beam=5の出力例には
-
-```math
-\hat f(x_1,x_2)=-x_1+\frac{x_1}{x_2+0.7611}
-```
-
-のように数値的にはある範囲へ適合しても、真のHill型抑制とは構造が異なる式もあった。
-
-小規模な式ではPySRがID適合で大幅に優れていた。この9問題に限ればNeSymReS beam=5はOOD中央値でPySRを上回ったが、
-問題数が少なく、一般化優位性は主張できない。
-
-詳細：[`phase1_report.md`](results/phase_results/phase1_report.md)、
-[`phase2_report.md`](results/phase_results/phase2_report.md)
-
-### 8.3 Phase 3–4：層ごとの役割
-
-Phase 3の探索では、teacher-forcing CEに対してdecoder後段の寄与が大きかった。
-Phase 4の3 seeds実験でも、CE寄与の上位は安定していた。
-
-| CE順位 | 層 | 平均寄与度 | top-3出現率 |
-|---|---|---:|---:|
-| 1 | `decoder_4` | 0.811 | 100% |
-| 2 | `decoder_3` | 0.800 | 100% |
-| 3 | `decoder_2` | 0.626 | 100% |
-
-予測NMSE・$R^2$では `encoder_1`、`encoder_3`、`encoder_5` などencoder側が上位だった。
-decoder後段は正解token列の生成、encoder側は数値点集合の表現に強く関与する可能性がある。
-
-このPhaseでも各条件でSRを行ったが、symbolic recoveryはほぼ0だった。旧Phase 3/4集約ファイルには
-各問題の推定式文字列が保存されておらず、ここへ正確に転載できる出力式はない。この保存欠損は最新コードで改善対象として扱う。
-
-詳細：[`phase3_report.md`](results/phase_results/phase3_report.md)、
-[`phase4_multiseed_report.md`](results/phase_results/phase4_multiseed_report.md)
-
-### 8.4 Phase 5：選択的fine-tuning
-
-60個の学習問題と8個の評価問題を用いた単一seedのCPU実験では、少数層のfine-tuningが良好だった。
-
-| 条件 | 学習パラメータ比 | NMSE | $R^2$ |
+| 条件 | Penalized NMSE | Valid rate | 式複雑度 |
 |---|---:|---:|---:|
-| pretrained | 0% | 0.1946 | 0.6878 |
-| top 1 | 9.96% | 0.0309 | 0.9316 |
-| top 2 | 19.92% | **0.0167** | **0.9755** |
-| top 3 | 29.89% | 0.0272 | 0.9427 |
-| random 3 | 13.66% | 0.0852 | 0.8123 |
-| bottom 3 | 13.66% | 0.2502 | 0.4542 |
-| all parameters | 100% | 0.2818 | 0.4783 |
+| pretrained | 0.0935 ± 0.0150 | 0.989 | 18.346 |
+| 全層FT | **0.0142 ± 0.0037** | 1.000 | 20.156 |
+| top 1 | 0.0146 ± 0.0009 | 1.000 | — |
+| top 2 | 0.0156 ± 0.0084 | 1.000 | — |
+| top 3 | 0.0150 ± 0.0060 | 1.000 | — |
+| middle 3 | 0.0161 ± 0.0079 | 1.000 | — |
+| random 3集合のseed内平均 | 約0.0174 | 1.000 | — |
+| bottom 3 | 0.0246 ± 0.0084 | 0.967 | — |
 
-top層はrandom/bottom/fullを上回った。全層fine-tuningはCEを改善しても予測NMSEを悪化させ、過適合の可能性を示した。
-ただし単一seedかつ旧評価設計なので、中心仮説の確証ではない。
+top 3と全層FTのpaired差は`+0.0009`、95%信頼区間は`[-0.0055, +0.0072]`で、実測上は近かった。
+一方、事前設定した同等性margin `±0.05`は、全層FTによる改善量約0.079の63%に相当して広すぎたため、
+このrunだけから厳密な同等性が確立したとはしない。
 
-この旧runの `selective_results.json` は条件別の集約値のみを保存しており、推定数式を保存していない。
-したがって捏造を避けるため、このCPU Phaseの出力式は「記録なし」とする。
-GPU_RUN1では全問題の式文字列を保存したが、CPU pilotの欠損を後から補ったものとしては扱わない。
+top 3はbottom 3より良かったが、random 3集合との差は`-0.0024`で、95%信頼区間
+`[-0.0061, +0.0013]`は0を含んだ。したがって、少数層FTの有効性は示されたが、
+**寄与度上位層を選ぶ必要性という中心仮説は未支持** である。
+top 1のpeak memoryは全層FTの620.4 MBに対して257.8 MBで約58%少なく、記録elapsedも約12%短かった。
 
-詳細：[`phase5_report.md`](results/phase_results/phase5_report.md)
+### 8.4 Symbolic recovery：IDでは層別信号があり、未知骨格testでは0だった
 
-### 8.5 Phase 6：TPSRとの組合せ
+GPU_RUN1のsymbolic recoveryを一律に「全条件0」とするのは正確ではない。
+validationでは、skeleton recovery rateが全層FTで0.653、`decoder_3`で0.528、pretrainedで0だった。
+一方、exact recoveryとsymbolic equivalenceはvalidationでも全条件0だった。
 
-2問題だけを使った2×2 smoke testでは、選択的FTとTPSRの組合せが最良だった。
+さらに、validationはtrainと式骨格が重なるin-distribution評価だったのに対し、testの60問題は
+`hill_act_n4`、`hill_rep_n3`、`product_hill`、`ratio_xy`、`sum_linear3`という
+学習時にない5種類の式骨格だけで構成されていた。このtestでは全条件のskeleton recoveryが0だった。
+つまり、fine-tuningは既知骨格の回復を改善したが、未知の式族への構造的外挿には成功していない。
 
-| Fine-tuning | 探索 | NMSE | $R^2$ |
-|---|---|---:|---:|
-| なし | beam | 0.203 | 0.684 |
-| なし | TPSR | 0.529 | 0.356 |
-| 選択的FT | beam | 0.193 | 0.700 |
-| 選択的FT | TPSR | **0.082** | **0.879** |
+なお、定数の吸収や因数分解の違いで同値式が不一致になる例もあり、0の一部は評価器の限界を含む。
+それでもexact recoveryとsymbolic equivalenceが得られていないため、低NMSEを真の遺伝子制御式の回復とは解釈しない。
 
-TPSR単独はbeamより悪化したが、選択的FT後には改善した。微調整されたpriorがMCTSを有効な探索領域へ誘導した可能性がある。
-ただし $n=2$ である。ノイズ0.0と0.1の比較では `selective + TPSR` のNMSE劣化量が
-`selective + beam` より大きく、現時点でノイズ耐性仮説は支持されない。
+### 8.5 Phase 6：選択的FTは高価なTPSR探索の必要性を小さくした
 
-この旧runも推定式文字列を保存していないため、出力式は「記録なし」である。
-GPU_RUN1ではbeam/TPSR双方の式と複雑度を保存したが、旧runとは別世代の結果である。
+| Fine-tuning | 探索 | Penalized NMSE | Valid rate | 式複雑度 | 記録elapsed |
+|---|---|---:|---:|---:|---:|
+| なし | beam | 0.0811 ± 0.0205 | 1.000 | 18.200 | 2.6分 |
+| なし | TPSR | 0.0575 ± 0.0049 | 0.983 | 21.060 | 117.7分 |
+| 選択的FT | beam | 0.0131 ± 0.0039 | 1.000 | 19.622 | 2.1分 |
+| 選択的FT | TPSR | **0.0096 ± 0.0010** | 0.921 | 25.963 | 116.5分 |
 
-詳細：[`phase6_report.md`](results/phase_results/phase6_report.md)、
-[`phase6_noise_report.md`](results/phase_results/phase6_noise_report.md)
+TPSRはpretrainedではNMSEを0.0237改善したが、選択的FT後の追加改善は0.0035に縮小し、
+その95%信頼区間は0を含んだ。`選択的FT + beam`は`pretrained + TPSR`より低NMSEであり、
+所要時間も約55分の1だった。GPU_RUN1のbudgetでは、層選択的FTの方が高価なdecode探索より
+費用対効果が高く、TPSR追加時はvalid rateと式複雑度も悪化した。
 
-### 8.6 Phase 7：DREAM4への転移
+### 8.6 Phase 7：DREAM4転移はoracle変数でも低性能だった
 
-#### Regulator selection
+DREAM4の主集計は3 seeds × networks 1–3である。
 
-Size10の5 networksを集約した結果では、候補制御因子のedge F1は次のとおりだった。
+| Network size | 条件 | Penalized NMSE | Valid rate | Selector edge F1 |
+|---|---|---:|---:|---:|
+| 10 | pretrained + oracle | 0.9207 ± 0.0947 | 0.978 | 0.848 |
+| 10 | selective + correlation | 0.8903 ± 0.0391 | 0.789 | 0.327 |
+| 10 | selective + oracle | **0.8554 ± 0.1004** | 0.933 | 0.848 |
+| 100 | pretrained + oracle | 0.9426 ± 0.0152 | 0.999 | 0.848 |
+| 100 | selective + correlation | 0.9005 ± 0.0082 | 0.873 | 0.047 |
+| 100 | selective + oracle | **0.8794 ± 0.0358** | 0.908 | 0.848 |
 
-| 方法 | mean edge F1 |
-|---|---:|
-| oracle | **0.883** |
-| correlation | 0.264 |
-| mutual information | 0.279 |
-| LASSO | 0.266 |
+Size100のcorrelation、LASSO、mutual informationのedge F1は約0.05で、regulator selectionは明確な課題だった。
+しかし、真のregulatorを与えるoracle条件でもNMSEは0.855–0.879で、平均値予測のNMSE=1をわずかに下回る程度である。
+したがって、selectorだけが支配的な原因なのではなく、5時点からの有限差分、データ不足、
+合成データとDREAM4のdomain shift、数式生成の失敗も含む複合的な転移問題である。
 
-Size100 net1ではoracle 0.883に対し、correlation/MI/LASSOは約0.06–0.10だった。
-SR以前のregulator preselectionが大きなボトルネックである。
+現段階ではDREAM4への転移成功は示されていない。また、有限差分ターゲットは真のODE微分ではない。
 
-#### Local symbolic regression
+### 8.7 Phase 8–9：ヒトLODO、式の安全性、provenance
 
-- Size10 net1では、oracle候補でもNMSEは約0.84だった。
-- Size100 net1では、oracle候補でもNMSEは約0.98だった。
-- 合成dreamlikeデータによる選択的FTはDREAM4有限差分ターゲットを改善しなかった。
-- 相関選択の誤りが加わると、Size10のNMSEは約0.98まで悪化した。
+GSE112372の20遺伝子・4 donors・5時点を用いたLODO評価は次のとおりだった。
 
-Size10 net1の標的G1に対する保存済みのNeSymReS出力例は
-
-```math
-\widehat{\frac{dG_1}{dt}}=-0.006125\tan(0.896395G_1-0.563921)
-```
-
-で、NMSEは0.824だった。Size10の公開評価では真のODE式を直接比較できず、この式を真の機構とは解釈できない。
-むしろ、Hill型GRNとして不自然な $\tan$ が生成され、予測性能も低いという失敗例である。
-
-SBML由来teacherによるfine-tuningでは、clean SBML holdout NMSEが0.311から0.0038へ改善したが、
-DREAM有限差分への改善は0.890から0.725に留まった。teacher domainへの適合が実データ転移より容易であることを示す。
-
-現段階ではDREAM4への転移成功は示されていない。有限差分ノイズ、候補選択、合成–DREAM間のdomain shiftが主要課題である。
-
-詳細：[`phase7_package_a_report.md`](results/phase_results/phase7_package_a_report.md)、
-[`phase7_dream4_report.md`](results/phase_results/phase7_dream4_report.md)、
-[`phase7_dream4_size100_report.md`](results/phase_results/phase7_dream4_size100_report.md)
-
-### 8.7 Phase 8：ヒトLPS刺激時系列
-
-NCBI GEOの **GSE112372** から、20遺伝子、4 donors、5時点を使用した。
-5時点から得た導関数は真のODE微分ではなく、平滑化有限差分によるproxyである。
-
-単一donor holdoutでは選択的FTが良かった。
-
-| 方法 | in-donor NMSE | holdout NMSE |
-|---|---:|---:|
-| pretrained beam | 0.405 | 0.596 |
-| selective beam | 0.166 | **0.178** |
-| PySR | **0.0054** | 0.502 |
-
-しかし、4 donorsを順番にholdoutするLODOでは結果が逆転した。
-
-| 方法 | mean in-donor NMSE | mean holdout NMSE | mean gap |
-|---|---:|---:|---:|
-| PySR | **0.0082** | **0.203** | **0.195** |
-| selective beam | 0.208 | 0.487 | 0.279 |
-| pretrained beam | 0.574 | 1.458 | 0.885 |
-
-保存された選択的FTの出力例は次のとおりである。ここで $x_1,x_2,x_3$ は標的ごとに選んだ候補制御因子を表す。
-
-```math
-\widehat{\frac{d\,\mathrm{CCL5}}{dt}}=0.0002435\,\frac{x_1+x_2+x_3+13251.04}{x_1-2.0272}
-```
-
-```math
-\widehat{\frac{d\,\mathrm{CD40}}{dt}}=\left[\cos(x_1+x_2-x_3)-0.06879\right]^2
-```
-
-```math
-\widehat{\frac{d\,\mathrm{IFNB1}}{dt}}=\frac{0.62524x_1}{(0.40253x_2-x_3)^2}
-```
-
-これらには分母が0へ近づく特異点や、Hill型制御として解釈しにくい三角関数が含まれる。
-したがって、良いholdout NMSEだけを根拠に「真のヒト制御ODEを発見した」とは言えない。
-
-LODOでは「選択的FTがPySRよりdonor間で一般化する」という主張は支持されなかった。
-一方、選択的FTはpretrained NeSymReSより改善しており、domain adaptationの効果は示唆される。
-
-詳細：[`phase8_report.md`](results/phase_results/phase8_report.md)、
-[`phase8_lodo_report.md`](results/phase_results/phase8_lodo_report.md)
-
-### 8.8 GPU_RUN1 reduced run
-
-GPU_RUN1では、Google Colab ProのNVIDIA L4とローカルCPUを分担して、3 seeds・noise 0.1のPhase 0–9を実行した。
-最終runは`colab_reduced_20260729_03`で、manifestは`complete`、validationは`validated`である。
-
-#### 層寄与と少数層fine-tuning
-
-合成validationでは、`decoder_2`、`decoder_3`、`decoder_4`がNMSE、$`R^2`$、symbolic recoveryのtop 3へ
-全seedで入った。`decoder_3`単独の正規化NMSE寄与度は`0.9984 ± 0.0068`だった。
-
-独立testでのfailure-penalized NMSEは次のとおりである。`±`は3 seedsに対するStudentのt分布による
-95%信頼区間の半幅である。
-
-| 条件 | Penalized NMSE | Valid rate |
-|---|---:|---:|
-| pretrained | 0.0935 ± 0.0150 | 0.989 |
-| 全層FT | **0.0142 ± 0.0037** | 1.000 |
-| top 1 | 0.0146 ± 0.0009 | 1.000 |
-| top 3 | 0.0150 ± 0.0060 | 1.000 |
-| random 3集合の平均 | 約0.0174 | 1.000 |
-| bottom 3 | 0.0246 ± 0.0084 | 0.967 |
-
-Top 1〜3は事前定義したNMSE margin `±0.05`内で全層FTと同等だった。Top 3はbottom 3より良かったが、
-random 3集合との差の95%信頼区間は0を含んだ。このため「少数層で全層に匹敵する」は支持された一方、
-「寄与度上位層でなければならない」は未確定である。Top 1のpeak memoryは全層FTより約58%少なかった。
-
-#### TPSR
-
-| 方法 | Penalized NMSE | Valid rate | Complexity | 記録elapsed秒 |
+| 方法 | In-donor NMSE | Holdout NMSE | Generalization gap | Valid rate |
 |---|---:|---:|---:|---:|
-| selective beam | 0.0131 ± 0.0039 | 1.000 | 19.622 | 127 |
-| selective + TPSR | 0.0096 ± 0.0010 | 0.922 | 25.963 | 6,989 |
+| pretrained beam | 0.6241 ± 0.1411 | 0.8867 ± 0.1637 | 0.2626 ± 0.0375 | 0.992 |
+| selective beam | 0.2378 ± 0.1134 | 0.5145 ± 0.1927 | 0.2767 ± 0.2968 | 1.000 |
+| PySR | **0.0110 ± 0.0030** | **0.2417 ± 0.1916** | 0.2307 ± 0.1886 | 0.958 |
 
-TPSRの追加NMSE改善は小さく、その95%信頼区間は0をまたいだ。記録elapsedはbeamの約55倍で、
-valid rateと式複雑度も悪化した。GPU_RUN1のbudgetでは、TPSRが精度と複雑度のトレードオフを改善したとはいえない。
+selective FTはpretrained NeSymReSを改善した。PySRの平均holdout NMSEはさらに低かったが、
+donor 11ではPySRが0.729、selective beamが0.579と順位が逆転した。加えてPySRとNeSymReSでは
+探索時間、候補評価回数、演算子集合、GPU使用条件が統一されていない。4 donorsだけの結果から
+方法間の一般的な優劣は決められない。
 
-#### DREAM4
+保存式には`tan`、危険な除算、特異点に近い形が含まれた。5時点の平滑化有限差分は真のODE微分ではないため、
+これらは因果機構や真のヒト制御ODEではなく、追加検証が必要な候補式である。
 
-主集計は、全3 seedsで全条件が揃ったnetworks 1–3に限定した。Size100ではselective + oracle変数のNMSEが
-`0.8794 ± 0.0358`、selective + correlation選択が`0.9005 ± 0.0082`だった。
-一方、correlation、LASSO、mutual informationのedge F1はいずれも約0.05で、oracleの約0.85から大きく離れた。
-高次元GRNでは、数式生成より前のregulator selectionが主要なボトルネックである。
+Phase 9ではmanifestを `complete`、validationを `validated` とし、82 JSON、312 groups、6,831 recordsを検査した。
+式スキーマ、ログ、checkpoint hash、archive SHA256を保存している。詳細な実行履歴と全数値は
+[`GPU_RUN1_report.md`](results/GPU_RUN1_report.md)、結果の再解釈と追加解析は
+[`GPU_RUN1_reanalysis_report.md`](results/GPU_RUN1_reanalysis_report.md)を参照する。
 
-#### ヒトLODO
+### 8.8 CPU pilotの要約
 
-| 方法 | Holdout NMSE | Valid rate |
-|---|---:|---:|
-| pretrained beam | 0.8867 ± 0.1637 | 0.992 |
-| selective beam | 0.5145 ± 0.1927 | 1.000 |
-| PySR | **0.2417 ± 0.1916** | 0.958 |
+GPU_RUN1以前のCPU pilotは、Phase 0–8のパイプライン構築と問題発見に使ったlegacy resultである。
+主な役割は、NeSymReS・PySR・TPSRの実行確認、合成GRN生成、層スキャン、DREAM4・ヒト時系列への
+適用経路を一通り成立させたことにある。
 
-selective FTはpretrainedを改善したが、PySRのholdout NMSEが最も低かった。ただしPySRとNeSymReSでは
-演算子集合、探索budget、parallelismが完全には一致しておらず、4 donors・5時点の小規模application demoでもある。
+CPU pilotでは単一seedのPhase 5でtop 2のNMSEが0.0167、全層FTが0.2818となったが、
+条件別hyperparameter探索や最新のvalidation/test分離より前の結果であり、仮説の確証には使わない。
+Phase 6も2問題だけのsmoke testである。旧runの一部には問題単位の推定式が保存されていないため、
+GPU_RUN1の式を遡ってCPU結果として扱うこともしない。
 
-GPU_RUN1では、低NMSEの式にも`tan`、多数の除算、特異点に近い形が多く、Phase 5 testのsymbolic recoveryは
-全条件で0だった。したがって、数値性能の改善を真の式構造、生物学的機構、因果ODEの回復とは解釈しない。
+CPU pilotの詳細は[`CPU_RUN/README.md`](CPU_RUN/README.md)と
+[`results/phase_results/`](results/phase_results/)に残し、本READMEの主結果とは混ぜない。
 
-詳細な実行履歴、全数値、限界、archive SHA256は
-[`results/GPU_RUN1_report.md`](results/GPU_RUN1_report.md)を参照する。
-
-## 9. CPU pilotとGPU_RUN1から得られた結論
+## 9. GPU_RUN1とCPU pilotから得られた結論
 
 1. **適応効果はdecoder中後段へ集中した。** GPU_RUN1では`decoder_2`〜`decoder_4`の順位が3 seedsで安定した。
-2. **少数層FTは全層FTに匹敵した。** Top 1〜3はNMSE同等性margin内で全層FTと同等だった。
-3. **精密な層rankingの必要性は未確定である。** Top 3対random 3の差は3 seedsでは明確でなかった。
-4. **TPSRの費用対効果は低かった。** selective FT後の追加改善は小さく、時間、valid rate、複雑度が悪化した。
-5. **DREAM4では候補制御因子選択が支配的な課題である。** Size100の経験的selector F1は約0.05だった。
+2. **少数層FTは全層FTへ数値的に近かった。** ただし事前設定した同等性marginは広すぎ、厳密な同等性の確立には再検証が必要である。
+3. **精密な層rankingの必要性は未確定である。** Top 3対random 3の差は3 seedsでは明確でなく、中心仮説は未支持だった。
+4. **選択的FTは高価なTPSR探索より費用対効果が高かった。** FT後のTPSR追加改善は小さく、時間、valid rate、複雑度が悪化した。
+5. **DREAM4転移には複数のボトルネックがある。** 経験的selector F1は低いが、oracle変数でもNMSEが高く、
+   有限差分、データ不足、domain shift、数式生成も解決していない。
 6. **ヒトLODOではPySRが低NMSEだった。** ただし方法間budgetが不統一で、NeSymReSへの一般的優越を確定していない。
-7. **symbolic recoveryは未達である。** 良いNMSEは、正しい式構造や生物学的機構の回復を意味しない。
+7. **未知骨格のsymbolic recoveryは未達である。** ID validationでは層別信号があったが、未知骨格testでは全条件0だった。
 8. **GPU_RUN1は探索的reduced runである。** Phase 7はnetworks 1–3で、複数の継続runを含むため、
    GPU_RUN2を固定commitの独立な確認実験とする。
 
 ## 10. 結果を読む際の重要な注意
 
-8.1〜8.7のCPU数値には、最新のレビュー修正より前に生成されたlegacy pilotが含まれる。
-CPU pilotのPhase 4以降は、次の修正後に同じ条件で再実行した値ではない。
+8.1〜8.7はGPU_RUN1の結果であり、CPU pilotは8.8だけに要約した。
+8.8のCPU数値には最新のレビュー修正より前に生成されたlegacy pilotが含まれ、Phase 4以降は
+次の修正後に同じ条件で再実行した値ではない。
 
 - testを層選択へ使わず、trainからmotif単位でvalidationを分離する。
 - Phase 5の最終比較に独立testだけを使う。
