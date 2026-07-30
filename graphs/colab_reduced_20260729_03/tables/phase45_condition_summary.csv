@@ -1,0 +1,25 @@
+split,condition,skeleton_recovery,sym_exact,sym_equiv,nmse_median,var_f1,n_problems,penalized_nmse,penalized_nmse_ci95,valid_rate,sym_recovery,n_seeds
+validation (phase4),all_params,0.6528,0.0,0.0,0.0081,1.0,72.0,,,,,
+validation (phase4),decoder_0,0.0,0.0,0.0,0.0324,0.9167,72.0,,,,,
+validation (phase4),decoder_1,0.1111,0.0,0.0,0.011,1.0,72.0,,,,,
+validation (phase4),decoder_2,0.4306,0.0,0.0,0.009,1.0,72.0,,,,,
+validation (phase4),decoder_3,0.5278,0.0,0.0,0.0081,0.9722,72.0,,,,,
+validation (phase4),decoder_4,0.4028,0.0,0.0,0.009,1.0,72.0,,,,,
+validation (phase4),encoder_0,0.0,0.0,0.0,0.0335,1.0,72.0,,,,,
+validation (phase4),encoder_1,0.1111,0.0,0.0,0.0287,0.9444,72.0,,,,,
+validation (phase4),encoder_2,0.125,0.0,0.0,0.0288,1.0,72.0,,,,,
+validation (phase4),encoder_3,0.1111,0.0,0.0,0.0269,1.0,72.0,,,,,
+validation (phase4),encoder_4,0.0833,0.0,0.0,0.0254,0.9583,72.0,,,,,
+validation (phase4),encoder_5,0.1389,0.0,0.0,0.0313,0.9861,72.0,,,,,
+validation (phase4),output_head,0.0,0.0,0.0,0.0426,0.9722,72.0,,,,,
+validation (phase4),pretrained,0.0,0.0,0.0,0.0545,0.9676,72.0,,,,,
+test (phase5),all_params,,,,,,,0.0142,0.0037,1.0,0.0,3.0
+test (phase5),bottom_3,,,,,,,0.0246,0.0084,0.9667,0.0,3.0
+test (phase5),middle_3,,,,,,,0.0161,0.0079,0.9889,0.0,3.0
+test (phase5),pretrained,,,,,,,0.0935,0.015,0.9889,0.0,3.0
+test (phase5),random_3,,,,,,,0.0188,0.0012,1.0,0.0,3.0
+test (phase5),random_3_seed1,,,,,,,0.0168,0.0044,1.0,0.0,3.0
+test (phase5),random_3_seed2,,,,,,,0.0167,0.01,1.0,0.0,3.0
+test (phase5),top_1,,,,,,,0.0146,0.0009,1.0,0.0,3.0
+test (phase5),top_2,,,,,,,0.0156,0.0084,1.0,0.0,3.0
+test (phase5),top_3,,,,,,,0.015,0.006,1.0,0.0,3.0

@@ -1,0 +1,13 @@
+split,skeleton,skeleton_recovery,n,exp_match
+validation,hill_act_n2,0.6667,3,0.6667
+validation,hill_act_n3,0.8333,6,0.8333
+validation,hill_rep_n2,0.6667,3,0.6667
+validation,linear2,1.0,6,1.0
+validation,mass_action,0.0,6,1.0
+validation,michaelis,0.7333,15,0.7333
+validation,self_act_n2,0.8667,15,1.0
+validation,sqrt_sat,0.7778,9,0.7778
+validation,toggle_n2,0.1111,9,1.0
+test,hill_act_n4,0.0,36,0.0
+test,hill_rep_n3,0.0,36,0.0
+test,product_hill,0.0,18,0.0556
