@@ -1,7 +1,7 @@
 # 研究レビューと指摘まとめ（2026-07-15, Claude）
 
 対象：`gpu-scale-prep` ブランチの `README.md` および `AGENTS.md`、
-研究計画 `plan/20260714_firstplan.md`、Phase 0–8 のCPU予備結果。
+研究計画 `docs/plans/20260714_firstplan.md`、Phase 0–8 のCPU予備結果。
 
 このドキュメントは、GPU本実験へ進む前のレビュー結果を、後続の作業者（人・AI）が
 参照できる形でまとめたものである。数値はすべて `gpu-scale-prep` ブランチの

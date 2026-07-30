@@ -47,8 +47,8 @@ $$
 さらに、全パラメータを更新する代わりに、適応への寄与が大きい少数のTransformer層だけをfine-tuningする。
 推論時には必要に応じて **TPSR** による木探索を加え、非ニューラル手法 **PySR** と比較する。
 
-研究計画の詳細は [`plan/20260714_firstplan.md`](plan/20260714_firstplan.md)、GPU実験の手順は
-[`GPU_RUN.md`](GPU_RUN.md) に記載している。
+研究計画の詳細は [`docs/plans/20260714_firstplan.md`](docs/plans/20260714_firstplan.md)、GPU実験の手順は
+[`docs/runbooks/GPU_RUN1.md`](docs/runbooks/GPU_RUN1.md) に記載している。
 
 ## 2. 背景
 
@@ -633,7 +633,7 @@ GPU実験では各問題について、真の式、推定式、簡約式、変�
 
 ### 11.1 次に行うGPU実験
 
-1. **事前確認**：[`GPU_RUN.md`](GPU_RUN.md) に従い、CUDA、checkpoint、設定、依存関係をpreflightで確認する。
+1. **事前確認**：[`docs/runbooks/GPU_RUN1.md`](docs/runbooks/GPU_RUN1.md) に従い、CUDA、checkpoint、設定、依存関係をpreflightで確認する。
 2. **Phase 4再実行**：5–10 seedsで層寄与を測り、validation上の順位、top-3出現率、順位相関を求める。
 3. **Phase 5本比較**：各条件へ同数の学習率・epoch候補を与え、validation CEによるearly stoppingとbest-weight復元を行う。その後、同じseed集合でtop/random/bottom/fullを独立test上で一度だけ評価し、paired差とt信頼区間を求める。
 4. **Phase 6本比較**：複数noise・複数seed・十分なMCTS budgetで2×2比較し、FT効果、TPSR効果、相互作用を分離する。
@@ -700,15 +700,17 @@ scripts/run_gpu_pipeline.sh           GPU一括実行
 ## 13. リポジトリ構成
 
 ```text
-plan/          研究計画
-src/           データ処理、モデル、学習、評価の共通コード
-scripts/       Phase別の実験エントリポイント
-tests/         単体テスト
-requirements/  CPU/GPU/dev別の依存関係
-results/       CPU pilotの結果とrun出力
-graphs/        run別の独立した図・表
-NSRS/          NeSymReS参照実装
-TPSR/          TPSR参照実装
+docs/plans/         研究計画
+docs/runbooks/      GPU実験の手順と実施記録
+src/                データ処理、モデル、学習、評価の共通コード
+scripts/            Phase別の実験エントリポイント
+tests/              単体テスト
+requirements/       CPU/GPU/dev別の依存関係
+results/            CPU pilotの結果とrun出力
+graphs/             run別の独立した図・表
+NSRS/               NeSymReS参照実装（実行依存）
+TPSR/               TPSR参照実装（実行依存）
+GitHubSourceCode/   調査用の外部実装（実行依存ではない）
 ```
 
 新しく作る独立した図・表は [`graphs/README.md`](graphs/README.md) の規約に従い、

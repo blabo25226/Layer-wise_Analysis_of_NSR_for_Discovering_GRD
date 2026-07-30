@@ -1,4 +1,4 @@
-plan/20260717_readplan.md に掲載されている文献の出典一覧。
+docs/plans/20260717_readplan.md に掲載されている文献の出典一覧。
 
 # 最重要
 

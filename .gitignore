@@ -1,4 +1,11 @@
-/docs/
+# docs/: track runbooks and plans; keep local literature untracked
+/docs/**
+!/docs/README.md
+!/docs/runbooks/
+!/docs/runbooks/**
+!/docs/plans/
+!/docs/plans/**
+
 /weights/
 /data/
 **/weights/

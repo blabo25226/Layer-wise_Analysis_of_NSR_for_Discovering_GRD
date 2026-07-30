@@ -69,10 +69,10 @@
 さらに、全パラメータを更新する代わりに、適応への寄与が大きい少数のTransformer層だけをfine-tuningする。
 推論時には必要に応じて **TPSR** による木探索を加え、非ニューラル手法 **PySR** と比較する。
 
-研究計画の詳細は [`plan/20260714_firstplan.md`](plan/20260714_firstplan.md)、GPU_RUN1の手順と実施記録は
-[`GPU_RUN1.md`](GPU_RUN1.md) に記載している。実施済みGPU_RUN1の結果は
+研究計画の詳細は [`docs/plans/20260714_firstplan.md`](docs/plans/20260714_firstplan.md)、GPU_RUN1の手順と実施記録は
+[`docs/runbooks/GPU_RUN1.md`](docs/runbooks/GPU_RUN1.md) に記載している。実施済みGPU_RUN1の結果は
 [`results/GPU_RUN1_report.md`](results/GPU_RUN1_report.md)、次の確認実験は
-[`plan/20260729_GPU_RUN2.md`](plan/20260729_GPU_RUN2.md) にまとめている。
+[`docs/plans/20260729_GPU_RUN2.md`](docs/plans/20260729_GPU_RUN2.md) にまとめている。
 
 ## 2. 背景
 
@@ -754,7 +754,7 @@ GPU_RUN1では少数層FTの全層同等性が支持されたが、3 seedsのred
 
 ### 11.1 次に行うGPU_RUN2
 
-GPU_RUN2の詳細は [`plan/20260729_GPU_RUN2.md`](plan/20260729_GPU_RUN2.md) に記載する。
+GPU_RUN2の詳細は [`docs/plans/20260729_GPU_RUN2.md`](docs/plans/20260729_GPU_RUN2.md) に記載する。
 主要な変更は次のとおりである。
 
 1. **固定commitの独立run**：GPU_RUN1の継続成果物をseed反復として混ぜず、Phase 0–9を一貫した設定で実行する。
@@ -826,17 +826,21 @@ scripts/run_gpu_pipeline.sh           GPU一括実行
 ## 13. リポジトリ構成
 
 ```text
-plan/          研究計画
-src/           データ処理、モデル、学習、評価の共通コード
-scripts/       Phase別の実験エントリポイント
-tests/         単体テスト
-requirements/  CPU/GPU/dev別の依存関係
-results/       CPU pilotの結果とrun出力
-graphs/        run別の独立した図・表
-NSRS/          NeSymReS参照実装
-TPSR/          TPSR参照実装
+docs/plans/         研究計画
+docs/runbooks/      GPU実験の手順と実施記録
+src/                データ処理、モデル、学習、評価の共通コード
+scripts/            Phase別の実験エントリポイント（索引: scripts/README.md）
+tests/              単体テスト
+requirements/       CPU/GPU/dev別の依存関係
+results/            CPU pilotの結果とrun出力
+graphs/             run別の独立した図・表
+NSRS/               NeSymReS参照実装（実行依存）
+TPSR/               TPSR参照実装（実行依存）
+GitHubSourceCode/   調査用の外部実装（実行依存ではない）
 ```
 
+文書の置き場は [`docs/README.md`](docs/README.md)、スクリプト索引は [`scripts/README.md`](scripts/README.md)、
+調査用外部コードの方針は [`GitHubSourceCode/README.md`](GitHubSourceCode/README.md) を参照する。
 新しく作る独立した図・表は [`graphs/README.md`](graphs/README.md) の規約に従い、
 `graphs/<run-id>/figures/` または `graphs/<run-id>/tables/` に保存する。
 

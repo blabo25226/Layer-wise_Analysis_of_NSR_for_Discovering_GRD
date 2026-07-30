@@ -25,10 +25,10 @@ $$
 
 1. `git status --short` と `git branch --show-current`
 2. [`README.md`](README.md)：研究背景、現状、CPU pilot、GPU_RUN1結果、重要な限界
-3. [`plan/20260714_firstplan.md`](plan/20260714_firstplan.md)：研究質問と当初計画
-4. GPU実験に関係する場合は実行手順と実施記録の [`GPU_RUN1.md`](GPU_RUN1.md)、実施済みGPU_RUN1は
+3. [`docs/plans/20260714_firstplan.md`](docs/plans/20260714_firstplan.md)：研究質問と当初計画
+4. GPU実験に関係する場合は実行手順と実施記録の [`docs/runbooks/GPU_RUN1.md`](docs/runbooks/GPU_RUN1.md)、実施済みGPU_RUN1は
    [`results/GPU_RUN1_report.md`](results/GPU_RUN1_report.md)、次回計画は
-   [`plan/20260729_GPU_RUN2.md`](plan/20260729_GPU_RUN2.md)
+   [`docs/plans/20260729_GPU_RUN2.md`](docs/plans/20260729_GPU_RUN2.md)
 5. 図表を作る場合は [`graphs/README.md`](graphs/README.md)
 6. 対象Phaseの `results/phase_results/*_report.md` と実行スクリプト
 7. 変更対象に対応する `tests/` のテスト
@@ -115,6 +115,8 @@ DREAM4などの時系列は、trajectoryをtrain/validation/testへ分けてか�
 - Phaseスクリプト間でsplit、seed、集計、メトリクスを複製せず、既存の共通モジュールを使う。
 - 既にある `src/data/splits.py`、`src/evaluation/aggregation.py`、`src/experiment_runtime.py` などを先に確認する。
 - NeSymReSとTPSRの参照実装は `NSRS/` と `TPSR/` にある。必要性のない大規模改変を避ける。
+- `GitHubSourceCode/` は調査用クローン置き場であり、実行時依存にしない。方針は
+  [`GitHubSourceCode/README.md`](GitHubSourceCode/README.md) を参照する。
 - 参照実装へ互換修正を入れる場合は、理由と上流との差をコメントまたはコミットに残す。
 
 ### 5.2 再現性を保つ
@@ -183,6 +185,8 @@ CPU pilotの可視化は `graphs/cpu_pilot/` を使う。ファイル名にはPh
 - READMEは高校生でも大筋を追える日本語を保つ。
 - 専門語は初出で説明し、略語だけで進めない。
 - 数式が必要な説明にはTeXを使う。
+- 研究計画は `docs/plans/`、実験手順は `docs/runbooks/` に置く。詳細は [`docs/README.md`](docs/README.md)。
+- `docs/*.pdf` と `docs/translated_paper/` はローカル文献資産であり、Git管理外とする。
 - 文献は原論文、公式ドキュメント、公式データページを優先し、URLと書誌情報を確認する。
 - AIが生成した架空の論文、DOI、数値、引用を残さない。
 - CPU pilotとGPU本結果、観測事実と推測、支持された仮説と未支持の仮説を区別する。
