@@ -755,6 +755,8 @@ GPU_RUN1では少数層FTの全層同等性が支持されたが、3 seedsのred
 ### 11.1 次に行うGPU_RUN2
 
 GPU_RUN2の詳細は [`plan/20260729_GPU_RUN2.md`](plan/20260729_GPU_RUN2.md) に記載する。
+同計画のrev.2は、保存済みJSONを問題単位で再集計した
+[`results/GPU_RUN1_reanalysis_report.md`](results/GPU_RUN1_reanalysis_report.md) の指摘を反映している。
 主要な変更は次のとおりである。
 
 1. **固定commitの独立run**：GPU_RUN1の継続成果物をseed反復として混ぜず、Phase 0–9を一貫した設定で実行する。
@@ -767,14 +769,26 @@ GPU_RUN2の詳細は [`plan/20260729_GPU_RUN2.md`](plan/20260729_GPU_RUN2.md) �
 8. **CPU/GPU分離**：PySR、集計、図表、archiveなどCPU中心処理をローカルへ移す。
 9. **構造と安全性を主評価**：NMSEだけでなく、exact/skeleton recovery、variable F1、valid rate、
    危険演算子、分母margin、外挿安定性を評価する。
+10. **test集合の2層化**：訓練骨格のheld-outインスタンスと未知骨格を分け、
+    式回復の寄与と外挿限界を別々に報告する。GPU_RUN1のtestは未知骨格のみで構成されていた。
+11. **指標と統計の事前登録**：skeleton比較を代数正規形へ置き換え、
+    equivalence marginを `0.05` から `0.02` へ狭め、random層集合のdraw数と抽出母集団を事前に固定する。
+12. **微分推定のsanity check**：DREAM4本実行の前に、真のODE微分を与えた場合との比較で、
+    転移時のNMSE約0.9が微分推定由来かモデル由来かを切り分ける。
+13. **手法間budgetの統一**：NeSymReS、TPSR、PySRへ同一のwall-clock budgetとoperator setを与え、
+    候補評価回数とfine-tuning GPU時間を併記する。
 
 ### 11.2 研究上の課題
 
-- **正しい式構造の回復**：現在はNMSEが良くてもexact/skeleton recoveryがほぼ0である。
+- **正しい式構造の回復**：exact一致とsympy同値判定は全条件で0である。skeleton recoveryは
+  未知骨格のtestでは0だが、訓練済み骨格のvalidationでは全層FTで `0.653` に達し、層別に単調な差を示す。
+  したがって「回復はほぼ0」と書くときは、必ずどのsplitの話かを明示する必要がある。
 - **全層FT基準の成立確認**：full FTがpretrainedを改善しない指標では正規化寄与度を使わず、正規化前の絶対改善量を報告する。
 - **探索空間の生物学的制約**：`tan` や危険な除算を無制限に許すと、局所的に合うが不自然な式が生まれる。
 - **特異点対策**：評価範囲内外で分母が0へ近づく式へ罰則を与える必要がある。
-- **regulator preselection**：DREAM4 Size100ではこの段階の誤りがSR性能を支配している。
+- **regulator preselection**：DREAM4 Size100では経験的selectorのedge F1が約0.05と低い。
+  ただしoracle regulators（edge F1約0.85）を与えてもpenalized NMSEは `0.855`–`0.943` にとどまるため、
+  selectionは転移失敗の主因とは確認されていない。改良の優先度は微分推定の切り分けより後である。
 - **導関数推定**：少数時点の有限差分は不安定であり、smoothing、Gaussian process、integral matchingなどとの比較が必要である。
 - **domain shift**：合成Hill式、SBML teacher、DREAM4 FD、ヒトRNA-seqの分布差を定量化する必要がある。
 - **比較の公平性**：PySR、beam、TPSRで計算時間または候補評価回数をそろえた比較が必要である。
