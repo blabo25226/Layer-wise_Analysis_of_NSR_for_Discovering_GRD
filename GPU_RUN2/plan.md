@@ -1,528 +1,402 @@
-# GPU_RUN2 計画案
+# GPU_RUN2 計画
 
 作成日: 2026-07-29
 
 GPU_RUN1結果反映: 2026-07-30
 
-## 1. 目的
+方針改訂: 2026-08-12
 
-GPU_RUN2では、GPU_RUN1で判明した計算量爆発、Colab切断、CPU律速、設定の途中変更を解消し、Phase 0–9を最初から一貫した計算budgetで再実行する。
+## 1. 目的と範囲
 
-READMEで定めた研究目標に従い、GPU_RUN2の目的を次の順で置く。
+GPU_RUN2では、GPU_RUN1で判明した計算量、CPU律速、設定の途中変更、symbolic recoveryが0だった問題を踏まえ、
+**合成データだけ**を用いてNeSymReSの層解析と数式構造回復を検証する。
 
-1. **メイン目標**：遺伝子制御ネットワークの動的方程式を求めるニューラルシンボリック回帰の層を解析する。
-2. **サブ目標1**：層解析の知見を利用し、シンボリック回帰としてのsymbolic recovery精度を向上させる。
-3. **サブ目標2**：合成データで検証した方法をDREAM4とヒト時系列へ適用し、新しいGRN候補方程式を発見する。
+目的は次の3点である。
 
-したがって、少数層fine-tuningによる計算削減だけを成功条件にしない。層表現のprobe、fine-tuning、
-ablation、表現類似度、activation介入がどの程度一致するかを調べ、各層が入力表現、変数選択、
-token生成、式構造回復のどこへ寄与するかを主結果として残す。
+1. encoder・decoder各層の役割をprobe、DecoderLens、fine-tuning、ablation、表現類似度、activation介入から調べる。
+2. 少数の重要層だけをfine-tuningした条件が、全層学習およびrandom層学習と比べて、数値精度だけでなく
+   正しい式の構造を回復できるか検証する。
+3. 真の式と各手法の予測式をproblem単位で直接見比べられる成果物を残す。
 
-中心目的は、単に短時間で終えることではなく、次を同時に満たすことである。
+GPU_RUN2では次を扱わず、GPU_RUN3以降へ保留する。
 
-1. validation/test分離とpaired seedを守る
-2. 全条件へ同じ探索budgetを与える
-3. pathologicalなtargetに総時間を支配させない
-4. failureを隠さず保存する
-5. Colab GPU時間とcompute unitsをGPUが必要な処理へ集中させる
-6. 切断後に完了済みtarget/foldを再計算しない
+- 有限差分で微分値を近似する問題
+- DREAM4
+- ヒト時系列データ
+- empirical regulator selectorなど、oracle以外の変数選択
+- 実データからの新規GRN候補方程式の提案
 
-GPU_RUN1の確定結果と詳細な考察は
+したがって、GPU_RUN2の主張は「既知の真式を持つ合成データ上での層解析とsymbolic recovery」に限定する。
+DREAM4やヒトデータへの転移性能、有限差分誤差への頑健性、regulator selection性能はGPU_RUN2の結果から主張しない。
+
+GPU_RUN1の確定結果と限界は
 [`results/GPU_RUN1_report.md`](../results/GPU_RUN1_report.md)を参照する。
-GPU_RUN2はGPU_RUN1を無かったことにして同じ探索を繰り返すrunではない。
-GPU_RUN1で支持された少数層fine-tuningの全層同等性を独立に確認するとともに、
-未確定だったtop層とrandom層の差、層ごとの機能、高次元変数選択、構造回復、
-公平なPySR/TPSR比較、新しい候補方程式の提示を重点的に検証する。
 
-### 1.1 GPU_RUN1で確定した出発点
+### 1.1 GPU_RUN1からの出発点
 
 | 観測 | GPU_RUN2での扱い |
 |---|---|
-| Phase 4で`decoder_2`〜`decoder_4`の寄与が安定して高かった | probingで再確認し、testを見る前に候補を固定する |
-| Top 1〜3は全層FTとNMSE同等性margin内で同等だった | 独立runで再現性とresource削減を確認する |
-| Top 3対random 3の95%信頼区間は0を含んだ | random集合反復を増やし、rankingの付加価値を主検証する |
-| Phase 5 testのsymbolic recoveryは全条件で0だった | NMSEだけでなく構造回復を主判定へ昇格する |
-| TPSRは小さい追加改善に対して約55倍の記録elapsedを要した | 全条件で当然に実行せず、事前profilerを通った場合だけ副次比較する |
-| DREAM4 Size100の経験的selector F1は約0.05だった | 数式生成とregulator selectionを分離し、selector改善を中心課題にする |
-| Phase 7主集計はnetworks 1–3に縮小された | networks 1–5の完全比較を完了条件にする |
-| ヒトLODOではPySRのholdout NMSEが最小だった | 同一operator・統一timeout・決定性をそろえて再比較する |
-| `tan`と危険な除算を含む式が多かった | operator allowlistと強化した安全性検査を必須にする |
+| `decoder_2`〜`decoder_4`の寄与が高かった | 独立runのprobeとDecoderLensで再確認し、testを見る前に候補を固定する |
+| Top 1〜3は全層FTとNMSE同等性margin内で同等だった | 独立runで再現性、symbolic recovery、計算資源削減を確認する |
+| Top 3対random 3の差は未確定だった | 事前生成した複数のrandom層集合とpaired比較する |
+| symbolic recoveryは全条件で0だった | 真式対予測式の比較を主成果物にし、失敗理由まで保存する |
+| TPSRの追加改善に大きな計算時間を要した | profilerとGo/No-Goを通った場合だけ副次比較する |
+| DREAM4の経験的selector F1が低かった | GPU_RUN2では変数選択問題を切り離し、oracle変数だけを入力する |
+| `tan`と危険な除算を含む式が多かった | 合成データの真式と整合するoperator allowlist、安全性検査を使う |
 
 ### 1.2 事前に固定する主判定
 
-GPU_RUN2では、結果を見てから成功基準を組み替えない。最低限、次を別々に判定する。
+1. **層の役割と再現性**：probe、DecoderLens、単一層fine-tuning、ablation、表現類似度、
+   activation介入が示す重要層と機能を比較する。相関的な結果と介入結果を区別する。
+2. **全層同等性**：Top 1〜3と全層FTのfailure-penalized NMSE差について、95% Studentのt区間全体が
+   事前margin `[-0.05, 0.05]`へ入るかを判定する。
+3. **rankingの付加価値**：Top条件と事前生成したrandom層集合平均のpaired NMSE差を報告する。
+   95% t区間が0をまたぐ場合、優越性または同等性を主張しない。
+4. **構造回復**：exact、skeleton、symbolic equivalence、complexityを条件別に報告する。
+   NMSEが小さくても構造回復が失敗した場合は、数式回復成功と判定しない。
+5. **noise頑健性**：`noise=0.0`と`noise=0.1`を独立条件として比較し、結果を混ぜて集計しない。
 
-1. **層の役割と再現性**：probe、単一層fine-tuning、ablation、表現類似度、activation介入が示す
-   重要層と機能を比較し、その順位と役割がseed、motif、GRN networkを越えて安定するかを報告する。
-   相関的なprobe結果と、ablation・介入による因果的な寄与の証拠を区別する。
-2. **全層同等性**：Top 1〜3と全層FTのfailure-penalized NMSE差について、95% t区間全体が
-   事前margin `[-0.05, 0.05]`へ入るか。
-3. **rankingの付加価値**：Top条件と事前生成したrandom層集合平均のpaired NMSE差について、
-   95% t区間全体が0未満になるか。非有意差を同等性または優越性と呼ばない。
-4. **構造回復**：exact、skeleton、symbolic equivalence、variable F1を条件別に報告する。
-   NMSEが同等でも構造回復が0なら、数式回復仮説は支持しない。
-5. **高次元転移**：DREAM4 Size100の全5 networksで、経験的selectorとoracleのedge F1および
-   failure-penalized NMSEの差を報告する。
-6. **実データ比較**：ヒトLODOではdonor fold内平均をseed単位に集約し、NeSymReSとPySRを同一operator・
-   同一timeout方針で比較する。これは予測的applicationであり、因果ODE回復の検定ではない。
-7. **候補方程式の発見**：DREAM4とヒト時系列では、低NMSEだけで候補を選ばず、holdout性能、valid rate、
-   variable F1、式複雑度、特異点、外挿安定性、非負性を併記する。ヒトデータの式は「真の方程式」や
-   「因果機構」ではなく、後続実験で検証すべき候補方程式として扱う。
+seed数、random集合数、学習budget、decode budgetはvalidation pilot後かつtest評価前に固定する。
 
-seed数とrandom集合数は、本実行前にvalidation/pilot分散から検出力を検討して固定する。
-計算資源だけを理由に減らす場合は、結果を見る前に計画を改訂し、縮小runとして明示する。
+## 2. GPU_RUN2で固定する前提
 
-## 2. GPU_RUN1から引き継ぐ前提
+- Python 3.10を維持する。
+- データは第3節で定める合成データだけを使用する。
+- noiseは`0.0`と`0.1`の2条件とする。
+- 変数選択はoracleだけとし、各真式に実際に含まれる変数だけをモデルへ渡す。
+- 解析的に計算した真の微分値を教師値とし、有限差分は使用しない。
+- Phase 4の層選択とhyperparameter選択にはvalidationだけを使う。
+- testは方法、層、operator、timeout、budgetを固定した後に一度だけ評価する。
+- 同じseed内の比較条件では、初期checkpoint、データ順、乱数状態をそろえる。
+- failure-penalized NMSE、valid rate、真式、予測式、候補式、失敗理由を保存する。
+- GPU_RUN1とGPU_RUN2は独立runとして保存し、同一世代のseed反復へ混ぜない。
+- 実行中にsource commitまたは主設定を変更しない。
 
-- Python 3.10を維持する
-- noiseは`0.1`だけを使用する
-- Google Driveを永続保存先にする
-- data、checkpoint、大規模成果物はGitへ入れない
-- Phase 4の層選択はvalidationだけで行う
-- testは方法固定後の最終評価だけに使う
-- failure-penalized NMSE、valid rate、出力式、失敗理由を保存する
-- seed内の比較条件では初期checkpoint、データ順、乱数状態をそろえる
-- Colab上のcode commitを固定し、実行中にcodeを変更しない
-- GPU_RUN1のtest結果を使ってGPU_RUN2の層、timeout、operatorを途中変更しない
-- GPU_RUN1とGPU_RUN2を独立runとして保存し、結果を同一世代のseed反復へ混ぜない
+## 3. 合成データ仕様
 
-## 3. GPU_RUN2の主要変更
+### 3.1 観測値の作り方
 
-### 3.1 層解析とprobingを先に行う
+GPU_RUN2では、ODE軌道から有限差分を計算しない。各problemについてoracle変数の入力点
+$`\mathbf{x}`$を生成し、既知の真式$`f(\mathbf{x})`$を直接評価して教師値$`y`$を作る。
 
-全層・全条件を本budgetで直接走らせる前に、validation上の軽量probingを行う。
-
-probingの目的:
-
-- 各層の表現がGRN式、変数選択、微分予測へどれだけ有用かを安価に測る
-- 明らかに寄与の小さい層を高価なPhase 4候補から除外する
-- encoder/decoderのどちらへ寄与が集中するか確認する
-- full fine-tuningを基準として、単一層・少数層の改善方向を確認する
-- 各層が入力表現、変数選択、token生成、式構造回復のどの段階へ寄与するかを仮説化する
-
-候補となるprobing:
-
-- frozen modelの各層hidden stateに対するlinear probe
-- validation NMSEまたはtoken CEの小規模probe
-- 少数の固定validation問題に対する層ごとの勾配norm
-- CKAなどによる層表現の類似度
-- 層ablationとactivation patchingなどの介入
-- activation差分またはparameter update感度
-- Phase 3の短時間layer scan
-
-probingの結果から層候補を固定してから本実行へ進む。test結果を候補選択へ使わない。
-GPU_RUN1で`decoder_2`〜`decoder_4`が上位だったことは再現対象であり、
-GPU_RUN2のprobe結果を上書きする固定rankingとしては使わない。
-linear probe、CKA、勾配normは相関的な証拠、ablationとactivation介入は機能的・因果的寄与に近い証拠として
-区別して保存する。単一指標だけから層の役割を断定しない。
-
-想定フロー:
-
-```text
-全層
-  ↓ validation probing
-上位候補層を5–8層へ絞る
-  ↓ 小規模なpaired contribution評価
-top / middle / bottomを固定
-  ↓ GPU本実行
-Phase 4–8
+```math
+y=f(\mathbf{x})+\epsilon
 ```
 
-候補削減用のprobeはvalidation手続きとしてmanifestへ記録する。一方、固定済みの解析設計で行う
-層表現・ablation・activation介入の比較は、メイン目標に対応する主結果として保存する。
+- 各入力変数の範囲は`[0.1, 2.0]`とする。
+- data seedは`101`、`202`、`303`の3個、model training seedは`0`、`1`、`2`の3個とする。
+- 各problem・各data seedについて、学習用1,024点、独立したID評価用256点、OOD評価用256点を
+  Latin hypercube samplingで生成する。
+- `noise=0.0`では$`\epsilon=0`$とする。
+- `noise=0.1`では、clean targetの学習用1,024点における標準偏差を$`s_y`$として、
+  $`\epsilon\sim\mathcal{N}(0,(0.1s_y)^2)`$とする。
+- 入力点とnoiseのseedをmanifestへ保存する。
+- 同一のclean入力点を`noise=0.0`と`noise=0.1`で共有し、noiseだけを変えるpaired設計にする。
+- train、validation、testはproblem ID単位で分離する。行を混ぜてproblemの分割を作らない。
+- ID評価点は`[0.1, 2.0]`、OOD評価点は`[0.05, 2.5]`から生成し、学習点とは共有しない。
 
-### 3.2 演算子セットを制限する
+### 3.2 正しい式を持つ基準problem
 
-GPU_RUN1では、`tan`、三角関数、危険な除算、特異点を含む式が生成され、BFGS・簡約・外挿評価の時間と不安定性を増やした。
+次をGPU_RUN2 synthetic benchmark v1の基準式とする。$`x_1`$は対象変数、$`x_2,x_3`$は
+oracle regulatorである。モデルへ渡す変数は「oracle入力」列だけとし、不要変数を追加しない。
 
-GPU_RUN2の基本演算子候補:
+| eq_id | motif | oracle入力 | 正しい式 $`f(\mathbf{x})`$ |
+|---|---|---|---|
+| `S01` | 自己減衰 | $`x_1`$ | $`-0.7x_1`$ |
+| `S02` | 線形活性化＋減衰 | $`x_1,x_2`$ | $`1.2x_2-0.7x_1`$ |
+| `S03` | 線形抑制＋減衰 | $`x_1,x_2`$ | $`1.4-0.9x_2-0.6x_1`$ |
+| `S04` | Hill活性化＋減衰 | $`x_1,x_2`$ | $`2.0x_2^2/(0.5^2+x_2^2)-0.8x_1`$ |
+| `S05` | Hill抑制＋減衰 | $`x_1,x_2`$ | $`1.5\,0.7^2/(0.7^2+x_2^2)-0.6x_1`$ |
+| `S06` | 2因子加算制御 | $`x_1,x_2,x_3`$ | $`1.1x_2/(0.4+x_2)+0.8x_3-0.5x_1`$ |
+| `S07` | 2因子積制御 | $`x_1,x_2,x_3`$ | $`1.3x_2x_3-0.6x_1`$ |
+| `S08` | 活性化・抑制混合 | $`x_1,x_2,x_3`$ | $`1.8x_2^2/(0.6^2+x_2^2)+1.0\,0.8^2/(0.8^2+x_3^2)-0.7x_1`$ |
+
+この表は、実装時に式文字列、canonical SymPy式、使用変数、operator集合、係数を機械可読な設定ファイルへ
+一度だけ定義する。文書と実装に式を重複して手入力したままにせず、テストで表との一致を確認する。
+
+8式だけでは統計的検出力が不足するため、各motifについて30個、合計240個の係数variantを生成する。
+各非ゼロ係数は表の基準値の`[0.8, 1.2]`倍から一様分布で生成し、符号と式構造は維持する。
+variant生成seedは`20260812`とし、motifごとに18 problemsをtrain、6 problemsをvalidation、
+6 problemsをtestへ割り当てる。割り当ては同じseedから一度だけ生成し、`eq_id`、split、全係数、展開前の真式、
+canonical真式をmanifestへ明示する。同一variantまたはその入力行を複数splitへ入れない。
+
+このsplitは同じmotif内の係数一般化を測る設計であり、未知の式構造への一般化を測るものではない。
+式構造そのものをholdoutする評価はGPU_RUN2の主集計へ後付けせず、別設定として事前計画した場合だけ副次的に行う。
+基準式8個は可読性と実装検証のgolden problemsとして必ず全て保存し、探索結果の都合で削除しない。
+
+### 3.3 operator allowlist
+
+基準式を表現できる次の演算子だけを主実行で許可する。
 
 - `+`
 - `-`
 - `*`
-- safe divisionまたは厳しく制限した`/`
+- `/`
 - `square`
-- 必要なら整数の小さいべき乗
 
-初期の主実行から除外する候補:
+`sin`、`cos`、`tan`、逆三角関数、任意実数べき乗、`exp`、`log`は主実行から除外する。
+除算候補は分母の最小絶対値、ID/OOD grid上の有限性を検査する。許可外operatorを含む候補や
+特異点を持つ候補は成功扱いにせず、理由付きfailureとして保存する。
 
-- `sin`
-- `cos`
-- `tan`
-- 逆三角関数
-- 任意実数べき乗
-- 無制限の`exp`
-- 無制限の`log`
-- 特異点を作りやすい入れ子除算
+## 4. 層解析
 
-実装上の注意:
+### 4.1 probing
 
-- NeSymReSのpretrained vocabulary自体を不用意に変更しない。
-- decode時のtoken mask、候補filter、または許可演算子のみを通す後段検査で対応する。
-- PySR、NeSymReS、TPSRで可能な限り同じ演算子集合を使用する。
-- 除外によって真の合成式を表現不能にしないよう、合成データgeneratorの式集合と整合させる。
-- operator制限後のvalid rate、NMSE、complexity、variable F1を記録する。
-- 三角関数が必要な別研究質問は、主実行と混ぜずoperator ablationとして分ける。
-- token mask後に許可外演算子が残った候補は成功扱いにせず、理由付きfailureとして保存する。
-- safe divisionは分母の最小絶対値、外挿grid、trajectory上の有限性を検査し、手法間で同じ判定を使う。
+validation上で次を実行し、高価なfine-tuningへ渡す候補層と選択規則をtest評価前に凍結する。
 
-### 3.3 timeoutを最初から15秒へ統一する
+- 各層hidden stateに対するlinear probe
+- validation NMSEまたはtoken cross entropyの小規模probe
+- 固定validation problemに対する層ごとのgradient norm
+- CKAなどによる層表現類似度
+- 層ablationと固定したactivation介入
+- parameter update感度
 
-GPU_RUN2では、1 targetのdecode hard timeoutを原則15秒にする。
+GPU_RUN1で`decoder_2`〜`decoder_4`が上位だったことは再現対象とし、GPU_RUN2のrankingを上書きする
+固定結果としては使わない。
+
+### 4.2 DecoderLens
+
+DecoderLensを追加し、decoderの各中間層表現から最終出力headを通して、token候補と式候補がどのように
+変化するかを観察する。最低限、problem・layer・decode stepごとに次を保存する。
+
+- top-k tokenと確率またはlogit
+- ground-truth tokenの順位
+- その層までの暫定token列とparse可否
+- 完成可能な場合のraw equationとsimplified equation
+- 正しい式とのtoken、skeleton、symbolic equivalenceの差
+- noise条件、seed、checkpoint、oracle変数対応
+
+DecoderLensは原則として観察的解析であり、層の因果的役割はablationやactivation介入の結果と分けて解釈する。
+最終出力headを中間層へ直接適用することによる分布ずれを限界として明記する。
+
+### 4.3 CTC_NSRの参照
+
+CTC_NSRは、層解析またはsymbolic recovery設計を検討する際の参照候補に加える。
+現時点では採用する構成要素、比較条件、実装範囲が未確定であるため、GPU_RUN2の必須ベースラインにはしない。
+本実行前に原典と利用可能な実装を確認し、採用する場合は次を計画へ追記してからsource commitを固定する。
+
+- 参照する論文・実装・version
+- 借用する考え方または比較対象
+- NeSymReS、TPSR、PySRとのbudget対応
+- operator、入力変数、データsplit、評価指標の差
+
+未確定のまま結果説明へCTC_NSRとの性能比較や優劣を記載しない。
+
+## 5. symbolic recoveryの記録と比較
+
+各problemの出力は集約値だけでなく、最低限次を含む1 recordとして保存する。
+
+- `eq_id`、motif、split、noise、data seed、training seed、condition
+- oracle変数名とモデル内変数名の対応
+- 正しい式のraw表記、canonical表記、skeleton
+- 予測式のraw表記、簡約後表記、canonical表記、skeleton
+- beamまたは探索で得た候補式と順位
+- exact、skeleton、symbolic equivalence
+- ID/OOD NMSE、$`R^2`$、complexity、valid判定
+- timeout、parse error、NaN、Inf、特異点などのfailure reason
+- search時間、総process時間、候補評価数
+
+レポートには、全problemについて少なくとも次の比較表を機械的に生成する。
+
+| eq_id | condition | noise | 正しい式 | 予測式 | exact | skeleton | symbolic equivalent | ID NMSE | OOD NMSE | valid / failure |
+|---|---|---:|---|---|---:|---:|---:|---:|---:|---|
+| `S01` | TBD | 0.0 | $`-0.7x_1`$ | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
+
+成功例だけを抜粋せず、各条件の代表的な成功、近似的成功、構造誤り、decode失敗を併記する。
+係数違いだけ、代数的に同値、不要項を含む、正しい変数だが演算子が違う、という失敗型を区別する。
+
+## 6. timeoutとcheckpoint
+
+### 6.1 timeout
+
+GPU_RUN2の1 problemあたりの基本decode/search timeoutを**60秒**へ緩和する。
 
 ```text
-LANSR_DECODE_TIMEOUT_SEC=15
-LANSR_PHASE8_DECODE_TIMEOUT_SEC=15
+LANSR_DECODE_TIMEOUT_SEC=60
 ```
 
-重要事項:
-
-- run途中でtimeoutを変更しない。
-- 同じ比較に含めるseed、network、conditionでは同じ15秒を適用する。
+- 同じ比較に含めるseed、condition、noiseでは同じ60秒を使う。
+- search内部timeoutと親processのhard timeoutを区別し、親process側には終了処理用のgraceを加える。
 - timeoutを空の成功結果として扱わず、`DecodeTimeout`として保存する。
 - valid rateとfailure-penalized指標へ反映する。
-- target単位の実時間分布を保存する。
-- p50、p90、p95、最大値、timeout率をPhase・条件別に可視化する。
-- search内部timeoutと親processのhard timeoutを区別して保存する。
+- p50、p90、p95、最大時間、timeout率を条件別に保存する。
+- 60秒で完了しないproblemだけを結果確認後に延長して主集計へ混ぜない。
 
-15秒の妥当性は本実行前のvalidation probeで確認する。
+60秒の動作確認として、validation subsetで30秒、60秒、120秒を測定してもよい。ただし主実行の60秒は
+test結果を見て変更しない。変更が必要な場合は本実行前に計画を改訂する。
 
-候補:
+### 6.2 checkpoint / resume
 
-- 5秒
-- 10秒
-- 15秒
-- 30秒
+最低保存単位は次とする。
 
-ただしGPU_RUN2の主実行budgetは、事前に15秒へ固定する想定である。比較後に都合のよいtimeoutをtest結果から選ばない。
+- Phase 4: seed × layer × condition × noise
+- Phase 5: seed × condition × noise × problem
+- Phase 6: seed × method × noise × problem
 
-### 3.4 CPUを100%使用する計算はローカルへ移す
+各checkpointには完了problem ID、固有seed、elapsed、真式、raw/simplified予測式、候補式、metrics、
+failure reason、timeout flag、候補評価数を保存する。resume時に完了problemを再計算しない。
 
-Colab L4上でCPU処理を長時間実行すると、GPUが遊んでいてもcompute unitsを消費する。
-
-原則としてローカルへ移す処理:
-
-- PySR
-- データdownloadとchecksum
-- CPUだけの前処理
-- JSON/CSV集計
-- confidence interval計算
-- manifest検査
-- 図表生成
-- archive作成
-- CPUだけで完結するparameter fitting
-
-個別判断が必要な処理:
-
-- TPSR
-  - MCTSはCPU負荷が高いが、Transformer推論はGPUを使える。
-  - profilerでGPU利用率が低ければローカルまたはCPU専用queueへ分離する。
-- NeSymReS + BFGS
-  - Transformer推論はGPU、BFGSはCPU側である。
-  - 完全なローカル移行ではなく、短いtimeoutとoperator制限でCPU律速を抑える。
-
-ローカルとColabの成果物は同じrun IDとseed/fold/network命名規則を使い、統合時に次を照合する。
-
-- source commit
-- data fingerprint
-- seed
-- operator set
-- timeout / iteration budget
-- equation schema
-- PySR/Julia version
-- CPU情報
-- parallelismとdeterministic設定
-- search timeoutとprocess hard timeout
-
-### 3.5 decodeを一度だけ行い複数splitで評価する
-
-train/validation/testまたはin-donor/holdoutごとに同じ式を再生成しない。
-
-正しい流れ:
-
-```text
-train dataで式を1回生成
-  ↓
-生成式を固定
-  ├─ train/in-donorで評価
-  ├─ validationで評価
-  └─ 最終的にtest/holdoutで評価
-```
-
-これにより計算量を減らし、splitごとに異なる式を生成して比較が曖昧になる問題も防ぐ。
-
-### 3.6 target/fold単位checkpointを全長時間Phaseへ適用する
-
-最低保存単位:
-
-- Phase 4: seed × layer × condition
-- Phase 5: seed × condition
-- Phase 6: seed × method × problem
-- Phase 7: seed × size × network × condition × target
-- Phase 8: seed × donor fold × method × target
-
-保存内容:
-
-- 完了target ID
-- RNG stateまたはfold/target固有seed
-- elapsed seconds
-- raw/simplified equation
-- candidate equations
-- metric
-- failure reason
-- timeout flag
-- search時間と総process時間
-- 使用operatorと候補評価数
-
-Drive同期は2–3分ごとに行い、workerは一定target数ごとにrecycleする。
-
-### 3.7 smokeは最小限にする
-
-smokeは研究結果として使用しない。
-
-本実行前に確認するのは次だけとする。
-
-- import
-- CUDA認識
-- checkpoint architecture
-- 1–2 targetのdecode
-- output schema
-- Drive同期
-- resume
-- timeout
-- failure保存
-
-smokeが通った後は同じ本設定で直ちに本実行へ進む。
-
-## 4. Phase別実行案
+## 7. Phase別実行案
 
 ### Phase 0: environment / preflight
 
-- Python 3.10
-- source commit lock
-- CUDA、checkpoint、data checksum
-- operator mask確認
-- 15秒timeout確認
-- Drive write/read確認
-- local/Colab成果物schema確認
+- Python 3.10、source commit、checkpoint SHA256を固定する。
+- RTX 2070、CUDA、64 GB RAM、CPU情報を確認する。
+- Intel Core i7の正確な世代・型番はOSから取得し、manifestへ記録する。
+- operator mask、60秒timeout、出力schema、checkpoint/resume、failure保存をsmokeで確認する。
 
-### Phase 1: data
+### Phase 1: synthetic data
 
-- noise=`0.1`
-- motif・式構造・問題単位split
-- data fingerprint保存
-- operator制限後も真式が表現可能か検査
+- 第3節の基準式とvariant設定を機械可読ファイルへ定義する。
+- `noise=0.0`と`noise=0.1`をpaired生成する。
+- oracle変数だけを入力へ含める。
+- motif・式構造・problem単位splitとdata fingerprintを保存する。
+- 真式、canonical式、入力範囲、clean/noisy targetを保存し、有限差分を呼び出していないことをテストする。
 
 ### Phase 2: baseline
 
-- NeSymReS GPU baselineはColab
-- PySR baselineはローカル
-- 同じproblem、seed、operator set、候補budgetを使用
-- 成功式だけでなく全problem recordを保存
+- NeSymReS baselineとPySR baselineを同じproblem、seed、oracle変数、operator集合で実行する。
+- 候補評価回数とwall timeを併記する。
+- 成功式だけでなく全problem recordを保存する。
 
-### Phase 3: probing / layer scan
+### Phase 3: probing / DecoderLens
 
-- validationだけで軽量probing
-- 高価なPhase 4へ渡す候補層を削減
-- layer候補と選択規則を凍結
-- 各層のlinear probe、CKAまたは同等の表現類似度、勾配・更新感度を保存
-- 入力表現、変数選択、token生成、式構造回復に対応するprobe targetを分ける
+- validationだけで軽量probingを実行する。
+- DecoderLensでlayer・decode stepごとのtoken候補と暫定式を保存する。
+- 高価なPhase 4へ渡す候補層と選択規則を凍結する。
+- test problemを層選択や可視化対象の選別に使わない。
 
 ### Phase 4: contribution
 
-- probeで残った候補をpaired seedで比較
-- 単一層fine-tuningだけでなく、層ablationと固定したactivation介入を比較
-- probe順位、fine-tuning順位、ablation効果、介入効果の一致度をseed別に報告
-- full FTがbaseを改善しない指標は正規化rankingへ混ぜない
-- raw base/full/layer scoreを保存
-- beamとdecode timeoutを統一
+- probeで残った候補層をpaired seedで比較する。
+- 単一層fine-tuning、層ablation、固定したactivation介入を比較する。
+- probe順位、DecoderLens上の変化、fine-tuning順位、ablation効果、介入効果の一致度をseed別に報告する。
+- full FTがbaseを改善しない指標は正規化rankingへ混ぜず、raw scoreを保存する。
 
-### Phase 5: selective fine-tuning
+### Phase 5: selective fine-tuning / symbolic recovery
 
-- top/random/middle/bottom/fullの公平な比較
-- random層集合を十分な回数反復し、top対randomのpaired差を主検証する
-- 同じ初期checkpoint、データ順、候補数
-- early stoppingと選択はvalidationのみ
-- testは条件固定後に1回
-- 全層同等性とtop対random優越性を別の仮説として判定する
-- NMSE同等でもsymbolic recoveryが0なら、数式回復成功とは判定しない
+- top、random、middle、bottom、full、frozen baselineを公平に比較する。
+- random層集合を事前に複数生成し、top対randomのpaired差を検証する。
+- early stoppingと選択はvalidationだけで行い、testは条件固定後に一度だけ評価する。
+- `noise=0.0`と`noise=0.1`を別々に集計する。
+- 真式対予測式の全problem比較表を生成する。
 
-### Phase 6: TPSR
+### Phase 6: TPSR / CTC_NSR参照
 
-- MCTS、BFGS、Transformer推論を個別profile
-- GPU利用率が低ければlocal/Colab分離
-- rollout、width、horizon、timeoutを事前固定
-- NeSymReS beamとの候補評価回数またはwall timeを併記
-- validation subsetで追加NMSE、valid rate、complexity、elapsedのGo/No-Go判定を行う
-- GPU_RUN1と同程度の費用対効果なら、全規模TPSRは行わず副次的な負の結果として確定する
+- TPSRはMCTS、BFGS、Transformer推論を個別にprofileする。
+- NeSymReS beamとの候補評価回数またはwall timeを併記する。
+- validation subsetで追加NMSE、symbolic recovery、valid rate、complexity、elapsedを確認し、
+  費用対効果が低い場合は全規模実行を行わず副次的な結果として残す。
+- CTC_NSRは第4.3節の未確定事項が解消した場合だけ、固定した範囲で参照または比較する。
 
-### Phase 7: DREAM4
+### Phase 7: validate / archive
 
-- 3 seeds × Size10/100 × network 1–5を維持する
-- noiseは独立設定として記録
-- target checkpointを最初から使用
-- timeoutは全target一律15秒
-- operator setを制限
-- targetごとのelapsed distributionを保存
-- network単位の完了を待たずDriveへ同期
-- 主集計は全seed・全network完了後だけ作る
-- oracle selectorと経験的selectorを分け、SR性能とregulator selection誤差を分解する
-- network・targetごとに生の式、簡約式、実遺伝子名対応、holdout指標、安全性検査を保存する
-- 新規性を主張する候補は既知の正解・既存辺との一致と不一致を分け、未検証候補として一覧化する
-- 一部networkだけが完了した場合は主結果を作らず、未完了runとして保存する
+- 必須ファイル、equation schema、failure reasonを検査する。
+- config、commit、data checksum、checkpoint checksumを照合する。
+- 真式対予測式の表、DecoderLens図、集約表を生成する。
+- archiveとSHA256を作成する。
 
-Size100の約2,820 evaluationsがすべて15秒へ到達する場合:
+旧計画のDREAM4 Phase、human LODO Phase、有限差分評価は削除せず、GPU_RUN3以降の計画で再設計する。
+GPU_RUN2のPhase番号をGPU_RUN1のPhase 7・8と対応するものとして解釈しない。
 
-```text
-2820 × 15 / 3600 = 11.75時間
-```
+## 8. 計算資源と開発体制
 
-最大2 seed並列で3 seedを2組に分けて進める場合、各seedの負荷が同程度ならdecode上限は約7.8時間である。model load、fine-tuning、I/O、集計を含むため、Phase 7の安全な計画枠は8–14時間とする。
-これは保証値ではなく、15秒hard timeoutから得られるbudget上限の目安である。
+### 8.1 実行環境
 
-### Phase 8: human LODO
+常時利用できる次のローカルPCをGPU_RUN2の実行環境とする。
 
-- NeSymReSはColab GPU
-- PySRはローカルCPU
-- 1式をin-donor/holdoutで再利用
-- 4 donor foldをcheckpoint
-- timeoutは全target15秒
-- PySRの全foldへ同じ15秒search timeoutと親process hard timeoutを適用する
-- PySRはdeterministic serial、または事前規定した複数のmultithread反復のどちらかへ統一する
-- NeSymReS、PySRのoperator差をなくし、候補評価数とwall timeを併記する
-- donor holdoutで安定した候補式について、実遺伝子名、式複雑度、特異点、外挿安定性、非負性を保存する
-- human application demoとして限定解釈し、候補式を真の制御ODEまたは因果機構と呼ばない
+- GPU: NVIDIA GeForce RTX 2070
+- memory: 64 GB RAM
+- CPU: Intel Core i7（世代・型番はpreflightで取得してmanifestへ記録）
 
-### Phase 9: validate / archive
+Google Colabは使用しない。Google Drive同期、Colab Notebook、compute unitsを前提とする設計もGPU_RUN2から外す。
+成果物は`results/runs/<run-id>/`へ保存し、定期checkpointとローカルarchiveで切断・中断へ備える。
+RTX 2070のVRAMに収まらない設定は暗黙に条件変更せず、batch size、gradient accumulation、precisionを
+validation前に決めてmanifestへ記録する。
 
-- Colabとローカル成果物を統合
-- 必須ファイル、equation schema、failure reasonを検査
-- config、commit、data checksumを照合
-- archiveとSHA256作成
-- graphs/tables生成
+| 処理 | 実行場所 |
+|---|---|
+| NeSymReS fine-tuning / decode | ローカルRTX 2070 |
+| probing / DecoderLens | ローカルRTX 2070 |
+| TPSR | ローカルPC（GPU/CPU内訳をprofile） |
+| PySR | ローカルPCのCPU |
+| data生成・集計・図表・archive | ローカルPC |
 
-## 5. probingとtimeoutの事前確認
+### 8.2 AIとコーディングの役割
 
-本実行前にvalidation subsetで次の表を作る。
+- **Cursor**：実装、局所的な修正、テスト作成、短い反復を基本担当とする。
+- **ChatGPT / チャッピー**：研究計画の整理、実験設計、結果の統合的レビュー、主張と限界の確認を基本担当とする。
+- **その他のAI**：必要に応じて独立レビュー、統計、文献確認を担当する。担当内容と根拠を引き継ぎへ残す。
 
-| timeout | valid rate | penalized NMSE | p50時間 | p90時間 | timeout率 |
-|---:|---:|---:|---:|---:|---:|
-| 5秒 | TBD | TBD | TBD | TBD | TBD |
-| 10秒 | TBD | TBD | TBD | TBD | TBD |
-| 15秒 | TBD | TBD | TBD | TBD | TBD |
-| 30秒 | TBD | TBD | TBD | TBD | TBD |
+役割は責任範囲を明確にするための基本方針であり、生成物は担当AIにかかわらず現在のコード、テスト、保存済み結果で検証する。
 
-採用判断:
+## 9. 実装が必要な項目
 
-- 15秒でvalid rateが30秒から大きく低下しない
-- 主要条件間の相対順位が極端に変わらない
-- timeoutが特定条件だけへ集中しない
-- target分布の長いtailを十分切れる
-- symbolic recovery、variable F1、安全性が30秒条件から許容不能に悪化しない
-
-これを満たさない場合は、本実行開始前にtimeoutを再検討し、新しい計画版として固定する。
-
-## 6. 計算資源の割り当て
-
-| 処理 | 実行場所 | 理由 |
-|---|---|---|
-| NeSymReS FT | Colab L4以上 | GPU学習 |
-| NeSymReS beam decode | Colab GPU | Transformer推論 |
-| TPSR | profiler後に決定 | GPU推論とCPU MCTSの混合 |
-| PySR | ローカル | CPU/Julia中心。全foldで同一budgetを使う |
-| probing | Colab GPUまたはローカル | probeの種類による |
-| data前処理 | ローカル | GPU不要 |
-| aggregation/statistics | ローカル | GPU不要 |
-| graphs/tables | ローカル | GPU不要 |
-| archive/checksum | ローカル | GPU不要 |
-
-上位GPUへ変更する判断は、GPU utilizationとdecode内訳を測ってから行う。CPU律速のままA100へ変更しても、units消費だけ増える可能性がある。
-
-## 7. 想定時間
-
-現時点の暫定枠:
-
-- Phase 0–3: 1–2時間
-- Phase 4–5: 2–5時間
-- Phase 6: profiler結果に依存
-- Phase 7: 8–14時間
-- Phase 8 NeSymReS: 0.25–1時間
-- PySRおよび集計: ローカルで並行実行
-
-Colab GPU時間の目標は合計12–24時間以内とする。
-これはGPU_RUN1の実測と15秒timeout上限から置いた計画枠であり、事前probe後に更新する。
-
-## 8. 実装が必要な項目
-
-- [ ] 全Phase共通のoperator allowlist
+- [ ] synthetic benchmark v1の機械可読な式定義と生成器
+- [ ] analytic targetとnoise 2条件のpaired生成
+- [ ] oracle変数だけを渡す入力schema
+- [ ] 有限差分コードを通らないことのテスト
+- [ ] 全手法共通operator allowlist
 - [ ] NeSymReS decode token maskまたは候補filter
-- [ ] TPSRへの同一operator制限
-- [ ] PySRへの同一operator制限
-- [ ] PySRの全fold統一timeoutと決定性設定
-- [ ] 共通15秒decode timeout
-- [ ] 全Phase共通target timing schema
-- [ ] timing histogram生成
+- [ ] PySR、TPSRへの同一operator制限
+- [ ] 共通60秒decode/search timeout
+- [ ] 全Phase共通problem timing schema
+- [ ] problem単位checkpoint / resume
 - [ ] probing scriptと保存schema
-- [ ] 層別linear probeと表現類似度の保存schema
-- [ ] 層ablationとactivation介入の固定プロトコル
-- [ ] probe・fine-tuning・ablation・介入順位の一致度集計
-- [ ] Phase 4候補層のprobe連携
-- [ ] Phase 6 profiler
-- [ ] strengthened singularity検査（`tan`の極、分母margin、外挿grid）
+- [ ] DecoderLensのlayer・step別出力と可視化
+- [ ] 層別linear probe、表現類似度、ablation、activation介入の固定プロトコル
+- [ ] probe・DecoderLens・fine-tuning・ablation・介入順位の一致度集計
 - [ ] random層集合反復数と検出力の事前決定
-- [ ] local/Colab成果物merge検証
-- [ ] fold/target checkpointの不足箇所
-- [ ] worker recycling設定
-- [ ] GPU_RUN2用Notebook
-- [ ] GPU_RUN2用run IDとsource commit固定
+- [ ] 真式対予測式の比較表を生成するreporter
+- [ ] exact / skeleton / symbolic equivalenceの検証テスト
+- [ ] ID/OOD安全性と除算分母marginの検査
+- [ ] TPSR profilerとGo/No-Go
+- [ ] CTC_NSRの原典、実装、採用範囲の確定
+- [ ] GPU_RUN2用run ID、source commit、環境manifestの固定
 
-## 9. Go / No-Go条件
+## 10. Go / No-Go条件
 
 本実行開始条件:
 
-- operator setが全手法で固定済み
-- 15秒timeoutがvalidation probeで確認済み
-- source commitが固定済み
-- 1–2 targetでcheckpoint/resume確認済み
-- Colabとローカルのschemaが一致
-- Phase 7 target timingが保存される
-- Drive復元テストが成功
+- synthetic benchmarkの全真式とcanonical式がテスト済みである。
+- `noise=0.0`と`noise=0.1`の生成、paired入力、data fingerprintが確認済みである。
+- oracle以外の変数がモデル入力へ入らない。
+- 有限差分処理がGPU_RUN2 pipelineから呼ばれない。
+- operator set、60秒timeout、seed、random集合、budgetが固定済みである。
+- validationだけで層候補とhyperparameterを選択できる。
+- RTX 2070でsmokeが成功し、OOM時にfail fastする。
+- problem record、真式、予測式、failure、checkpoint/resumeが保存される。
 
 本実行を開始しない条件:
 
-- testを見て層・timeout・operatorを変更した
-- methodごとに説明のない異なるbudgetがある
-- PySRの一部foldだけtimeoutまたはparallelismが異なる
-- timeout失敗が保存されない
-- run途中でsource commitを変更する必要がある
-- 完了targetをresume時に再計算する
-- CPU-only処理のために高価なGPU runtimeを占有する
+- testを見て層、timeout、operator、係数variantを変更した。
+- methodごとに説明のない異なるbudgetがある。
+- timeout、parse error、NaN、Infが保存されない。
+- run途中でsource commitまたはデータ仕様を変更する必要がある。
+- 完了problemをresume時に再計算する。
+- DREAM4、ヒトデータ、有限差分結果をGPU_RUN2主集計へ混ぜる。
+- empirical selectorの結果をoracle条件と混ぜる。
 
-## 10. GPU_RUN2で最終的に残す成果物
+## 11. GPU_RUN2で残す成果物
 
-- run manifest
-- source lock
-- environment versions
-- data/checkpoint SHA256
+- run manifest、source lock、environment versions
+- data、checkpoint、archiveのSHA256
+- synthetic benchmark仕様、全真式、canonical式、split、data fingerprint
+- noise 2条件のpaired dataと設定
 - probing結果
-- 層別のprobe、表現類似度、ablation、activation介入結果
-- 層順位のseed・motif・network間安定性
+- DecoderLensのlayer・step別token候補、暫定式、図表
+- 層別の表現類似度、ablation、activation介入結果
+- 層順位のseed・motif・noise間安定性
 - operator allowlist
-- target/fold timing
-- timeout分布
-- per-problem equations
-- candidate equations
-- failure reasons
-- failure-penalized metrics
-- valid rate
-- exact / skeleton / symbolic equivalence
-- variable precision / recall / F1
-- near-singularity、分母margin、外挿validity
-- paired seed comparisons
-- DREAM4全network結果
-- human LODO結果
-- DREAM4・ヒト時系列の候補方程式一覧と安全性・holdout評価
-- local PySR結果
-- validation report
-- figures/tables
-- archiveとSHA256
+- problem timingとtimeout分布
+- 全problemの真式、raw予測式、簡約式、canonical式、候補式
+- 真式対予測式の一覧表
+- failure reasons、failure-penalized metrics、valid rate
+- exact、skeleton、symbolic equivalence、complexity
+- ID/OOD NMSE、$`R^2`$、特異点、分母margin、OOD validity
+- paired seed比較とnoise別集計
+- PySR結果、Go条件を通った場合のTPSR結果
+- CTC_NSRを参照した場合の原典、version、比較条件
+- validation report、figures、tables、archive
+
+独立した図表は`graphs/<run-id>/figures/`と`graphs/<run-id>/tables/`へ保存する。
