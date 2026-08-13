@@ -133,7 +133,8 @@ oracle集合は合成problemを生成した機械可読な真式から自動抽�
 この条件はregulator selection誤差を除去し、**与えられた正しい変数集合の下で式構造を回復できるか**を
 測る上限評価である。未知データで利用可能な現実的変数選択法ではなく、変数選択に成功したことも意味しない。
 したがってGPU_RUN2では、oracle条件のvariable precision、recall、F1は構成上すべて1で情報を持たないため
-主性能指標にしない。代わりにexact、skeleton、symbolic equivalence、ID/OOD NMSE、complexity、valid rateを
+主性能指標にしない。代わりにexact、skeleton、symbolic equivalence、domain-ID / domain-OOD NMSE、
+complexity、valid rateを
 主に報告する。oracle metadataはtest problemにも使用するが、これは事前宣言した実験条件であり、
 層選択、hyperparameter選択、early stoppingにtestの予測結果を使うこととは区別する。
 
@@ -150,7 +151,8 @@ y=f(\mathbf{x})+\epsilon
 
 - 各入力変数の範囲は`[0.1, 2.0]`とする。
 - data seedは`101`、`202`、`303`の3個、model training seedは`0`、`1`、`2`の3個とする。
-- 各problem・各data seedについて、学習用1,024点、独立したID評価用256点、OOD評価用256点を
+- 各problem・各data seedについて、学習用1,024点、独立したdomain-ID評価用256点、
+  domain-OOD評価用256点を
   Latin hypercube samplingで生成する。
 - `noise=0.0`では$`\epsilon=0`$とする。
 - `noise=0.1`では、clean targetの学習用1,024点における標準偏差を$`s_y`$として、
@@ -158,7 +160,22 @@ y=f(\mathbf{x})+\epsilon
 - 入力点とnoiseのseedをmanifestへ保存する。
 - 同一のclean入力点を`noise=0.0`と`noise=0.1`で共有し、noiseだけを変えるpaired設計にする。
 - train、validation、testはproblem ID単位で分離する。行を混ぜてproblemの分割を作らない。
-- ID評価点は`[0.1, 2.0]`、OOD評価点は`[0.05, 2.5]`から生成し、学習点とは共有しない。
+- domain-ID評価点は`[0.1, 2.0]`、domain-OOD評価点は`[0.05, 2.5]`から生成し、学習点とは共有しない。
+
+#### 3.1.1 domain OODとstructure OODの名称
+
+GPU_RUN2では、入力値域の外挿と未見数式構造への一般化を混同しないよう、次の2軸を独立に記録する。
+
+- **domain-ID**：学習入力と同じ値域`[0.1, 2.0]`にある独立評価点。
+- **domain-OOD**：同じ式構造・同じparameter variantを保ったまま、入力値域だけを`[0.05, 2.5]`へ広げた評価点。
+- **structure-ID**：fine-tuning時に出現したGNW familyに属する式。主splitのtestはparameter variantが未見でも
+  familyは既知なのでstructure-IDとする。
+- **structure-OOD**：fine-tuning時に出現しないGNW familyに属する式。第3.2節の`G07`–`G08`だけを指す。
+
+各評価recordには`domain_regime={id,ood}`、`structure_regime={id,ood}`、`parameter_split`を別fieldで保存する。
+したがってstructure-OOD problemにもdomain-ID点とdomain-OOD点の両方が存在する。表と本文では裸の「OOD」や
+`ood_nmse`を使用せず、`domain_ood_nmse`、`structure_ood`、または
+`structure-OOD / domain-OOD`のように対象軸を必ず明記する。
 
 ### 3.2 GNWから採用する数式
 
@@ -254,7 +271,7 @@ CTC_NSRの再現バイアス診断用に、同じ240 problemsから別の固定v
 
 - structure-train: `G01`–`G05`
 - structure-validation: `G06`
-- structure-test (`not included`相当): `G07`–`G08`
+- structure-test（structure-OOD、`not included`相当）: `G07`–`G08`
 
 このviewを使うモデルはstructure-trainだけでfine-tuningし、structure-validationだけで設定を固定した後、
 structure-testを一度だけ評価する。主splitで学習したcheckpointを流用しない。
@@ -297,7 +314,7 @@ PySRの実装とoperator設定の参照論文はCranmerのPySR論文
   parse後に同じ規則を再検査し、違反を`DisallowedPowerExponent`として保存する。
 - `sin`、`cos`、`tan`、逆三角関数、双曲線関数、`sqrt`、`abs`、`exp`、`ln`、`log`は、
   GNW benchmark v1の真式に不要なため主実行から除外する。
-- 除算候補は分母の最小絶対値、train / validation / ID / OOD点上の有限性、および事前固定した
+- 除算候補は分母の最小絶対値、train / validation / domain-ID / domain-OOD点上の有限性、および事前固定した
   denominator marginを検査する。0除算、NaN、Inf、評価範囲内の特異点は理由付きfailureとする。
 - NeSymReS、PySR、TPSRへ同じ意味上の探索空間を与え、表記上の違いによる候補数の差をmanifestへ記録する。
 - 一般の実数べき乗を調べる場合は、主結果へ混ぜず、validationだけで設定を固定した別operator-ablationとする。
@@ -375,7 +392,7 @@ fingerprintを入手できない限り、事前学習corpus全体に対する再
 
 - reproduced rateとnovel rate
 - reproduced / novel別のexact、skeleton、symbolic equivalence
-- reproduced / novel別のID/OOD NMSEと$`R^2`$
+- reproduced / novel別のdomain-ID / domain-OOD NMSEと$`R^2`$
 - 正しい未見GNW構造を回復したnovel predictionの割合
 - beam size、候補評価数、wall time、timeout率
 - frozen、full、top、random間のpaired差
@@ -403,15 +420,15 @@ GPU_RUN2主比較へ同名の簡略版を混ぜない。まずvalidation 5 probl
 - 予測式のraw表記、簡約後表記、canonical表記、skeleton
 - beamまたは探索で得た候補式と順位
 - exact、skeleton、symbolic equivalence
-- ID/OOD NMSE、$`R^2`$、complexity、valid判定
+- domain-ID / domain-OOD NMSE、$`R^2`$、complexity、valid判定
 - timeout、parse error、NaN、Inf、特異点などのfailure reason
 - search時間、総process時間、候補評価数
 
 レポートには、全problemについて少なくとも次の比較表を機械的に生成する。
 
-| eq_id | condition | noise | 正しい式 | 予測式 | exact | skeleton | symbolic equivalent | ID NMSE | OOD NMSE | valid / failure |
-|---|---|---:|---|---|---:|---:|---:|---:|---:|---|
-| `G02_variant_001` | TBD | 0.0 | GNW single-activator式 | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
+| eq_id | condition | noise | structure regime | 正しい式 | 予測式 | exact | skeleton | symbolic equivalent | domain-ID NMSE | domain-OOD NMSE | valid / failure |
+|---|---|---:|---|---|---|---:|---:|---:|---:|---:|---|
+| `G02_variant_001` | TBD | 0.0 | structure-ID | GNW single-activator式 | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
 
 成功例だけを抜粋せず、各条件の代表的な成功、近似的成功、構造誤り、decode失敗を併記する。
 係数違いだけ、代数的に同値、不要項を含む、正しい変数だが演算子が違う、という失敗型を区別する。
@@ -507,7 +524,7 @@ failure reason、timeout flag、候補評価数を保存する。resume時に完
 - NeSymReS beamとの候補評価回数またはwall timeを併記する。
 - validation subsetで追加NMSE、symbolic recovery、valid rate、complexity、elapsedを確認し、
   費用対効果が低い場合は全規模実行を行わず副次的な結果として残す。
-- standard beam、large beam、Go条件を通ったTPSRについて、structure-test上の再現率、novel recovery、
+- standard beam、large beam、Go条件を通ったTPSRについて、structure-OOD上の再現率、novel recovery、
   候補評価数、wall timeを比較する。
 - NSR-gvsは第4.3節のvalidation feasibility probeだけを行い、60秒budgetへ収まった場合に限り
   事前固定した小規模比較へ進める。
@@ -518,6 +535,32 @@ failure reason、timeout flag、候補評価数を保存する。resume時に完
 - config、commit、data checksum、checkpoint checksumを照合する。
 - 真式対予測式の表、DecoderLens図、集約表を生成する。
 - archiveとSHA256を作成する。
+
+### 7.1 Phaseごとの予定decode数と概算計算量
+
+資源見積もりでは、data seedとmodel/search seedを`(101,0)`、`(202,1)`、`(303,2)`の3組として対応させる。
+1条件・1splitあたりの基本単位は`48 problems × 3 seed bundles × 2 noise = 288 decodes`である。
+Phase 3のencoder層数はcheckpoint設定どおり5、Phase 4へ残す候補層は暫定5、Phase 4のdecodeを伴う解析は
+IOLE・ablation・activation介入の3種とする。Phase 5は`frozen`、`full`、`top 1`、`top 2`、`top 3`、
+`middle`、`bottom`、random 5集合の計12条件として見積もる。これらの暫定数はvalidation pilot後かつtest前に凍結する。
+
+| Phase | decode数の算出 | 予定decode / search数 | 追加学習run | 60秒timeoutを全件使った直列上限 | 主なdevice・備考 |
+|---|---|---:|---:|---:|---|
+| 0: preflight | smoke最大10件 | 最大10 | 0 | 0.17時間 | RTX 2070 / CPU。機能確認だけ |
+| 1: synthetic data | 数式を解析評価するためdecodeなし | 0 | 0 | 0時間 | CPU。240 problemsと評価点を生成 |
+| 2: baseline | 48 × 2 splits × 3 bundles × 2 noise × 2 methods | 1,152 | 0 | 19.2時間 | NeSymReSはGPU、PySRはCPU |
+| 3: probing / DecoderLens | 48 validation × 3 bundles × 2 noise × 5 encoder layers | 1,440 | 0 | 24.0時間 | RTX 2070。通常forwardだけのprobeはdecode数に含めない |
+| 4: contribution | 48 validation × 3 bundles × 2 noise × 5 candidate layers × 3 analyses | 4,320 | 最大30 | 72.0時間 | RTX 2070。追加学習はIOLEの5層 × 3 bundles × 2 noise |
+| 5: selective FT | 48 × 2 splits × 3 bundles × 2 noise × 12 conditions | 6,912 | 最大66 | 115.2時間 | RTX 2070。frozen以外の11条件 × 3 bundles × 2 noise。完全一致checkpointは再利用可 |
+| 6: TPSR / CTC_NSR | 60 structure-OOD × 3 bundles × 2 noise × 3 strategies + NSR-gvs 5 × 3 × 2 | 最大1,110 | 原則0 | 18.5時間 | GPU / CPU。TPSRとNSR-gvsはGo条件を通った範囲だけ |
+| 7: validate / archive | 保存済みrecordの検査・集計 | 0 | 0 | 0時間 | CPU |
+| **合計** | Phase 0–7 | **最大14,944** | **最大96 + feasibilityで必要な追加分** | **249.1時間** | 学習時間、batch化による短縮、CPU/GPU並行実行は直列上限に含めない |
+
+60秒から得た時間は予想実時間ではなく、安全側のsearch/decode上限である。追加学習時間はRTX 2070 smokeから
+IOLE、少数層、full FTを別々に実測し、`学習run数 × 条件別中央値`として本実行前に追記する。
+seedを3組ではなくdata seedとmodel seedの全直積9通りに変更する場合、上表のseed依存decode数と学習run数は
+原則3倍になるため、計画改訂なしに変更しない。Phase間でcheckpointやdecode結果を再利用する場合は、source、data、
+operator、seed、noise、budgetのfingerprintが完全一致した場合だけ重複計算を省く。
 
 旧計画のDREAM4 Phase、human LODO Phase、有限差分評価は削除せず、GPU_RUN3以降の計画で再設計する。
 GPU_RUN2のPhase番号をGPU_RUN1のPhase 7・8と対応するものとして解釈しない。
@@ -589,7 +632,7 @@ Google Driveは実験実行基盤ではなく、完了済み成果物の外部�
 - [ ] random層集合反復数と検出力の事前決定
 - [ ] 真式対予測式の比較表を生成するreporter
 - [ ] exact / skeleton / symbolic equivalenceの検証テスト
-- [ ] ID/OOD安全性と除算分母marginの検査
+- [ ] domain-ID / domain-OOD安全性と除算分母marginの検査
 - [ ] TPSR profilerとGo/No-Go
 - [ ] CTC_NSR準拠のtemplate canonicalizationとcorpus fingerprint
 - [ ] reproduced / novel別の性能集計
@@ -636,13 +679,64 @@ Google Driveは実験実行基盤ではなく、完了済み成果物の外部�
 - 真式対予測式の一覧表
 - failure reasons、failure-penalized metrics、valid rate
 - exact、skeleton、symbolic equivalence、complexity
-- ID/OOD NMSE、$`R^2`$、特異点、分母margin、OOD validity
+- domain-ID / domain-OOD NMSE、$`R^2`$、特異点、分母margin、domain-OOD validity
 - paired seed比較とnoise別集計
 - CTC_NSR準拠のfine-tuning-corpus reproduced / novel集計
-- structure-testにおけるnovel symbolic recoveryとtest-time strategy比較
+- structure-OODにおけるnovel symbolic recoveryとtest-time strategy比較
 - PySR結果、Go条件を通った場合のTPSR結果
 - CTC_NSR原典、公式実装commit、再現判定規則、NSR-gvs feasibility結果
 - validation report、figures、tables、archive
 - Google Drive同期を使用した場合の`backup_status`、同期日時、保存先、SHA256照合結果
 
 独立した図表は`graphs/<run-id>/figures/`と`graphs/<run-id>/tables/`へ保存する。
+
+## 12. 既存・新規ファイルの配置計画
+
+実装時は共通機能を`src/`、Phase入口を`scripts/phases/`、運用処理を`scripts/ops/`、設定を`configs/`、
+GPU_RUN2固有テストを`GPU_RUN2/tests/`へ置く。次表の「新規」は予定であり、この計画書更新時点では未作成である。
+
+| パス | 状態 | 用途 |
+|---|---|---|
+| `GPU_RUN2/plan.md` | 既存・更新 | 本計画の正本 |
+| `GPU_RUN2/README.md` | 既存・更新予定 | 実行順、run ID、主要入口への案内。Colab前提の記述をローカルPC用へ直す |
+| `GPU_RUN2/notebooks/` | 既存 | 任意の結果閲覧用。実験実行の必須入口にはしない。実file追加時は不要な`.gitkeep`を削除する |
+| `GPU_RUN2/tests/README.md` | 既存・更新予定 | GPU_RUN2固有テストの範囲と実行方法 |
+| `GPU_RUN2/tests/test_gnw_synthetic.py` | 新規 | GNW式、240 problems、noise、domain範囲のgolden test |
+| `GPU_RUN2/tests/test_oracle_and_splits.py` | 新規 | oracle入力、主split、structure-OOD split、seed bundleの検査 |
+| `GPU_RUN2/tests/test_operator_policy.py` | 新規 | 制限付き`pow`、除算安全性、手法間operator対応の検査 |
+| `GPU_RUN2/tests/test_records_and_resume.py` | 新規 | equation record、2軸OOD field、failure、checkpoint / resumeの検査 |
+| `configs/gpu_run2/base.yaml` | 新規 | seed、noise、timeout、budget、checkpoint、出力先の共通設定 |
+| `configs/gpu_run2/operators.yaml` | 新規 | semantic allowlistとNeSymReS / PySR / TPSRのoperator mapping |
+| `configs/gpu_run2/splits.yaml` | 新規 | 主split、structure-holdout、domain-ID / domain-OOD範囲 |
+| `src/data/synthetic_grn.py` | 既存・再利用 | samplingとnoise処理。legacy挙動を壊さず共通処理だけを再利用する |
+| `src/data/gnw_synthetic.py` | 新規 | G01–G08、GNW parameter生成、canonical真式、oracle metadata |
+| `src/data/splits.py` | 既存・拡張 | problem単位splitとstructure-holdout view |
+| `src/evaluation/equation_metrics.py` | 既存・拡張 | exact、skeleton、symbolic equivalence、domain別数値指標 |
+| `src/evaluation/equation_records.py` | 既存・拡張 | 真式・予測式、`domain_regime`、`structure_regime`、failure schema |
+| `src/evaluation/decode_timeout.py` | 既存・再利用 | 共通60秒timeoutとfailure記録 |
+| `src/evaluation/layer_contribution.py` | 既存・拡張 | probe、IOLE、ablation、介入の層別集計 |
+| `src/evaluation/reproduction_bias.py` | 新規 | CTC_NSR準拠template canonicalizationとreproduced / novel集計 |
+| `src/interpretability/__init__.py` | 新規 | 層解釈moduleの公開入口 |
+| `src/interpretability/decoder_lens.py` | 新規 | encoder中間表現を元のdecoderへ渡すDecoderLens |
+| `src/models/nesymres_adapter.py` | 既存・拡張 | operator制約、層hook、共通decode出力 |
+| `src/models/tpsr_adapter.py` | 既存・拡張 | TPSR operator制約、profile、候補数記録 |
+| `src/baselines/pysr_runner.py` | 既存・拡張 | PySR operator制約、search budget、候補式保存 |
+| `src/training/single_layer.py` | 既存・拡張 | IOLE条件の単一層freeze / train制御 |
+| `src/training/selective_layers.py` | 既存・拡張 | top、random、middle、bottom条件の学習制御 |
+| `src/resumable_evaluation.py` | 既存・拡張 | problem単位checkpoint、fingerprint検証、resume |
+| `scripts/phases/gpu_run2_phase0_preflight.py` | 新規 | ローカルRTX 2070のpreflightとsmoke |
+| `scripts/phases/gpu_run2_phase1_data.py` | 新規 | GNW synthetic benchmark生成 |
+| `scripts/phases/gpu_run2_phase2_baseline.py` | 新規 | NeSymReS / PySR baseline |
+| `scripts/phases/gpu_run2_phase3_interpret.py` | 新規 | probing、CKA、DecoderLens |
+| `scripts/phases/gpu_run2_phase4_contribution.py` | 新規 | IOLE、ablation、activation介入 |
+| `scripts/phases/gpu_run2_phase5_selective_ft.py` | 新規 | selective FTとsymbolic recovery |
+| `scripts/phases/gpu_run2_phase6_test_time.py` | 新規 | TPSR、CTC_NSR、NSR-gvs feasibility |
+| `scripts/phases/gpu_run2_phase7_validate.py` | 新規 | schema検査、集計、真式対予測式表、archive |
+| `scripts/ops/run_gpu_run2.ps1` | 新規 | WindowsローカルPCでのPhase順次実行と停止・再開 |
+| `scripts/ops/backup_gpu_run2.py` | 新規 | 完了archiveのGoogle Drive同期用stagingとSHA256照合 |
+| `results/runs/<run-id>/` | 実行時生成・Git管理外 | manifest、problem records、checkpoint、logs、archive |
+| `graphs/<run-id>/figures/` | 実行時生成 | DecoderLens、層解析、性能図 |
+| `graphs/<run-id>/tables/` | 実行時生成 | 真式対予測式、集約値、計算量、failure表 |
+
+同名機能が既存moduleにある場合は新規fileを増やさず既存moduleを拡張する。`GitHubSourceCode/`、
+Google Drive同期folder、`GPU_RUN2/notebooks/`をruntime import先にしない。
