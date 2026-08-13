@@ -56,6 +56,9 @@ def instantiate_expr(ds: SampledDataset) -> str:
         )
     if fam == "dream4_sbml":
         return ds.spec.motif
+    if fam in {"G01", "G02", "G03", "G04", "G05", "G06", "G07", "G08"}:
+        # GPU_RUN2 GNW families: teacher is the stored canonical expression.
+        return ds.spec.target_expr or ds.spec.motif
     raise ValueError(fam)
 
 

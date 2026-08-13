@@ -51,10 +51,13 @@ Invoke-Phase -Phase 0 -Script $phase0[0] -ExtraArgs $phase0[1..($phase0.Length-1
 
 Invoke-Phase -Phase 1 -Script "scripts/phases/gpu_run2_phase1_data.py" -ExtraArgs $common
 Invoke-Phase -Phase 2 -Script "scripts/phases/gpu_run2_phase2_baseline.py" -ExtraArgs ($common + @("--split", "validation"))
+Invoke-Phase -Phase 2 -Script "scripts/phases/gpu_run2_phase2_baseline.py" -ExtraArgs ($common + @("--split", "test"))
 Invoke-Phase -Phase 3 -Script "scripts/phases/gpu_run2_phase3_interpret.py" -ExtraArgs $common
 Invoke-Phase -Phase 4 -Script "scripts/phases/gpu_run2_phase4_contribution.py" -ExtraArgs $common
 Invoke-Phase -Phase 5 -Script "scripts/phases/gpu_run2_phase5_selective_ft.py" -ExtraArgs ($common + @("--view", "main", "--split", "validation"))
 Invoke-Phase -Phase 5 -Script "scripts/phases/gpu_run2_phase5_selective_ft.py" -ExtraArgs ($common + @("--view", "structure_holdout", "--split", "validation"))
+Invoke-Phase -Phase 5 -Script "scripts/phases/gpu_run2_phase5_selective_ft.py" -ExtraArgs ($common + @("--view", "main", "--split", "test"))
+Invoke-Phase -Phase 5 -Script "scripts/phases/gpu_run2_phase5_selective_ft.py" -ExtraArgs ($common + @("--view", "structure_holdout", "--split", "test"))
 
 $finalize = @("scripts/ops/finalize_gpu_run2.py", "--run-id", $RunId)
 if ($SkipArchive) { $finalize += "--skip-archive" }

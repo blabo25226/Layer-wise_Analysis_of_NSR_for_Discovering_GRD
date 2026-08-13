@@ -125,13 +125,32 @@ def main() -> int:
         by_key = {
             f"{row['eq_id']}::noise{row['noise']}::seed{row['data_seed']}": row for row in rows
         }
+        nesymres_model = None
+        nesymres_params = None
+        if method == "nesymres" and not args.dry_run:
+            from models.nesymres_adapter import load_nesymres
+
+            paths = nesymres_paths(config)
+            if not paths["weights"].is_file():
+                raise FileNotFoundError(f"NeSymReS checkpoint missing: {paths['weights']}")
+            nesymres_model, nesymres_params = load_nesymres(
+                paths["weights"], paths["config"], paths["eq_setting"]
+            )
         for key in remaining:
             row = by_key[key]
             started = time.perf_counter()
             if args.dry_run:
                 record = _dummy_record(row, method, timeout_sec)
             else:
-                record = _run_one(row, method, timeout_sec, config, phase1)
+                record = _run_one(
+                    row,
+                    method,
+                    timeout_sec,
+                    config,
+                    phase1,
+                    nesymres_model=nesymres_model,
+                    nesymres_params=nesymres_params,
+                )
             record["process_seconds"] = time.perf_counter() - started
             stored.append(record)
             completed.append(key)
@@ -161,7 +180,16 @@ def main() -> int:
     return 0
 
 
-def _run_one(row: dict, method: str, timeout_sec: float, config: dict, phase1: Path) -> dict:
+def _run_one(
+    row: dict,
+    method: str,
+    timeout_sec: float,
+    config: dict,
+    phase1: Path,
+    *,
+    nesymres_model=None,
+    nesymres_params=None,
+) -> dict:
     from data.gnw_synthetic import load_problem_npz
 
     npz = load_problem_npz(phase1 / "data" / row["file"])
@@ -194,14 +222,24 @@ def _run_one(row: dict, method: str, timeout_sec: float, config: dict, phase1: P
         candidates = [pred] if pred else []
         n_eval = len(candidates)
     elif method == "nesymres":
-        from models.nesymres_adapter import load_nesymres, predict_equation_gpu_run2
+        from models.nesymres_adapter import predict_equation_gpu_run2
 
-        paths = nesymres_paths(config)
-        if not paths["weights"].is_file():
-            raise FileNotFoundError(f"NeSymReS checkpoint missing: {paths['weights']}")
-        model, params = load_nesymres(paths["weights"], paths["config"], paths["eq_setting"])
+        if nesymres_model is None or nesymres_params is None:
+            from models.nesymres_adapter import load_nesymres
+
+            paths = nesymres_paths(config)
+            if not paths["weights"].is_file():
+                raise FileNotFoundError(f"NeSymReS checkpoint missing: {paths['weights']}")
+            nesymres_model, nesymres_params = load_nesymres(
+                paths["weights"], paths["config"], paths["eq_setting"]
+            )
         result = predict_equation_gpu_run2(
-            model, params, X, y, timeout_sec=timeout_sec, operator_config=config.get("operators")
+            nesymres_model,
+            nesymres_params,
+            X,
+            y,
+            timeout_sec=timeout_sec,
+            operator_config=config.get("operators"),
         )
         pred = str(result.get("equation") or "")
         reason = result.get("failure_reason")

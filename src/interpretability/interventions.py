@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Any
+from contextlib import contextmanager
+from typing import Any, Iterator
 
 import numpy as np
+import torch
+from torch import nn
 
 
 def ablation_zero_output(activation: np.ndarray) -> np.ndarray:
@@ -45,3 +48,91 @@ def intervention_delta(
     if higher_is_better:
         return float(intervened_score - baseline_score)
     return float(baseline_score - intervened_score)
+
+
+def _as_tensor_output(output: Any) -> torch.Tensor:
+    if isinstance(output, tuple):
+        return output[0]
+    if not isinstance(output, torch.Tensor):
+        raise TypeError(f"expected tensor output, got {type(output)!r}")
+    return output
+
+
+def register_zero_output_hook(module: nn.Module) -> Any:
+    """Hard ablation: replace the module output with zeros."""
+
+    def hook(_mod: nn.Module, _inputs: Any, output: Any) -> Any:
+        tensor = _as_tensor_output(output)
+        zeros = torch.zeros_like(tensor)
+        if isinstance(output, tuple):
+            return (zeros, *output[1:])
+        return zeros
+
+    return module.register_forward_hook(hook)
+
+
+def register_replace_output_hook(module: nn.Module, replacement: torch.Tensor) -> Any:
+    """Replace the module output with a broadcast copy of ``replacement``."""
+
+    def hook(_mod: nn.Module, _inputs: Any, output: Any) -> Any:
+        tensor = _as_tensor_output(output)
+        ref = replacement.to(device=tensor.device, dtype=tensor.dtype)
+        while ref.ndim < tensor.ndim:
+            ref = ref.unsqueeze(0)
+        if ref.shape != tensor.shape:
+            try:
+                ref = ref.expand(tensor.shape)
+            except RuntimeError as exc:
+                raise RuntimeError(
+                    f"intervention replacement shape {tuple(replacement.shape)} "
+                    f"cannot broadcast to {tuple(tensor.shape)}"
+                ) from exc
+        if isinstance(output, tuple):
+            return (ref, *output[1:])
+        return ref
+
+    return module.register_forward_hook(hook)
+
+
+def capture_module_activation(
+    model: nn.Module,
+    module: nn.Module,
+    batch: tuple[torch.Tensor, torch.Tensor],
+    *,
+    device: torch.device | None = None,
+) -> torch.Tensor:
+    """Run one teacher-forcing forward and return the named module's output."""
+    device = device or getattr(model, "device", batch[0].device)
+    captured: dict[str, torch.Tensor] = {}
+
+    def hook(_mod: nn.Module, _inputs: Any, output: Any) -> None:
+        captured["act"] = _as_tensor_output(output).detach()
+
+    handle = module.register_forward_hook(hook)
+    model.eval()
+    try:
+        with torch.no_grad():
+            model.forward([batch[0].to(device), batch[1].to(device)])
+    finally:
+        handle.remove()
+    if "act" not in captured:
+        raise RuntimeError("module produced no activation during capture")
+    return captured["act"]
+
+
+@contextmanager
+def zero_output_context(module: nn.Module) -> Iterator[None]:
+    handle = register_zero_output_hook(module)
+    try:
+        yield
+    finally:
+        handle.remove()
+
+
+@contextmanager
+def replace_output_context(module: nn.Module, replacement: torch.Tensor) -> Iterator[None]:
+    handle = register_replace_output_hook(module, replacement)
+    try:
+        yield
+    finally:
+        handle.remove()

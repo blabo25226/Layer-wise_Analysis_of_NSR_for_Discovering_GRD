@@ -5,9 +5,19 @@ from .decoder_lens import (
     DecoderLensStep,
     apply_final_encoder_pool,
     encoder_memory_at_layer,
+    prefix_tokens_to_equation,
+    run_decoder_lens,
     summarize_decoder_lens_steps,
+    write_decoder_lens_rank_heatmap,
 )
-from .interventions import ablation_zero_output, interpolate_activations
+from .interventions import (
+    ablation_zero_output,
+    interpolate_activations,
+    register_replace_output_hook,
+    register_zero_output_hook,
+    replace_output_context,
+    zero_output_context,
+)
 from .probes import fit_linear_probe, gradient_norms, parameter_update_sensitivity
 
 __all__ = [
@@ -20,5 +30,12 @@ __all__ = [
     "interpolate_activations",
     "linear_cka",
     "parameter_update_sensitivity",
+    "prefix_tokens_to_equation",
+    "register_replace_output_hook",
+    "register_zero_output_hook",
+    "replace_output_context",
+    "run_decoder_lens",
     "summarize_decoder_lens_steps",
+    "write_decoder_lens_rank_heatmap",
+    "zero_output_context",
 ]

@@ -26,6 +26,9 @@ powershell -File scripts/ops/run_gpu_run2.ps1
 ```
 
 `-FromPhase 3` で途中再開できる。実行中の正本は常にローカルの `results/runs/<run-id>/` である。
+Phase 2 と Phase 5 は validation のあと、条件凍結済みの **test を一度だけ** 評価する。Phase 5 の structure-holdout は Phase 4 の `conditions_structure_holdout.json`（G01–G06 パネル）を使う。
+
+`--dry-run` はcheckpointを読まず、schema用のdummy出力だけを書く。checkpointがある live run（`--dry-run` なし）では、Phase 3 が validation probe / DecoderLens、Phase 4 が IOLE・ablation・activation介入、Phase 5 が selective FT + beam decode を実行する。OOM時はbatch/precisionを変えず fail fast する。
 
 ## 設定
 

@@ -12,3 +12,4 @@ python -m pytest -q GPU_RUN2/tests
 | `test_oracle_and_splits.py` | oracle入力、主split、structure-OOD、seed bundle |
 | `test_operator_policy.py` | 制限付き`pow`、除算安全性、NeSymReS / PySR operator対応 |
 | `test_records_and_resume.py` | equation record、2軸OOD field、failure、checkpoint / resume、random 3 |
+| `test_live_paths.py` | GNW→fine-tune式、dummy record、DecoderLens parse、ablation hook、Phase 4 ranking / runner test split |

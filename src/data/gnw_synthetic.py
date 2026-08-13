@@ -822,6 +822,68 @@ def save_problem_npz(problem: GnwSampledProblem, path: Path) -> Path:
     return path
 
 
+def to_sampled_dataset(
+    problem: "GnwSampledProblem",
+    *,
+    xy: str = "train",
+) -> "SampledDataset":
+    """Wrap a GNW sampled problem as the existing fine-tune ``SampledDataset``."""
+    from data.synthetic_grn import EquationSpec, SampledDataset
+
+    if xy == "train":
+        X, y = problem.X_train, problem.y_train
+    elif xy in {"id", "domain_id"}:
+        X, y = problem.X_id, problem.y_id
+    elif xy in {"ood", "domain_ood"}:
+        X, y = problem.X_ood, problem.y_ood
+    else:
+        raise ValueError(f"xy must be train/id/ood, got {xy!r}")
+    return SampledDataset(
+        spec=EquationSpec(
+            eq_id=problem.spec.eq_id,
+            family=problem.spec.family_id,
+            target_expr=problem.spec.canonical_expr,
+            variable_names=list(problem.spec.oracle_inputs),
+            parameters={"noise": float(problem.noise)},
+            split=problem.spec.main_split,
+            motif=problem.spec.canonical_expr,
+        ),
+        X=np.asarray(X, dtype=float),
+        y=np.asarray(y, dtype=float).ravel(),
+        noise_std=float(problem.noise_std),
+    )
+
+
+def sampled_dataset_from_npz(path: Path, *, xy: str = "train") -> "SampledDataset":
+    """Load one Phase-1 GNW npz as ``SampledDataset`` for NeSymReS fine-tuning."""
+    from data.synthetic_grn import EquationSpec, SampledDataset
+
+    payload = load_problem_npz(path)
+    meta = payload["meta"]
+    if xy == "train":
+        X, y = payload["X_train"], payload["y_train"]
+    elif xy in {"id", "domain_id"}:
+        X, y = payload["X_id"], payload["y_id"]
+    elif xy in {"ood", "domain_ood"}:
+        X, y = payload["X_ood"], payload["y_ood"]
+    else:
+        raise ValueError(f"xy must be train/id/ood, got {xy!r}")
+    return SampledDataset(
+        spec=EquationSpec(
+            eq_id=str(meta["eq_id"]),
+            family=str(meta["family_id"]),
+            target_expr=str(meta.get("canonical_expr") or ""),
+            variable_names=list(meta["oracle_inputs"]),
+            parameters={"noise": float(meta.get("noise", 0.0))},
+            split=str(meta.get("main_split") or "train"),
+            motif=str(meta.get("canonical_expr") or ""),
+        ),
+        X=np.asarray(X, dtype=float),
+        y=np.asarray(y, dtype=float).ravel(),
+        noise_std=float(meta.get("noise_std", 0.0)),
+    )
+
+
 def load_problem_npz(path: Path) -> dict[str, Any]:
     data = np.load(path, allow_pickle=True)
     meta_raw = data["meta"]

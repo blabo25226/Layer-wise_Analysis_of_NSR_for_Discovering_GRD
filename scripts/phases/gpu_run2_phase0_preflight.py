@@ -11,7 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from evaluation.decode_timeout import DecodeTimeout, decode_time_limit  # noqa: E402
+from evaluation.decode_timeout import DecodeTimeout, decode_time_limit, run_with_timeout  # noqa: E402
 from evaluation.equation_records import GPU_RUN2_REQUIRED_FIELDS, make_gpu_run2_equation_record  # noqa: E402
 from evaluation.operator_policy import (  # noqa: E402
     filter_prefix_tokens,
@@ -29,6 +29,12 @@ from gpu_run2_runtime import (  # noqa: E402
     utc_now,
     write_json,
 )
+
+
+def _preflight_sleep(seconds: float) -> None:
+    import time
+
+    time.sleep(float(seconds))
 
 
 def parse_args() -> argparse.Namespace:
@@ -55,12 +61,16 @@ def smoke_operator_and_timeout(timeout_sec: float) -> dict:
     try:
         with decode_time_limit(0.01):
             if hasattr(os, "fork") or sys.platform != "win32":
-                # Best-effort: a tiny sleep is enough when SIGALRM exists.
                 import time
 
                 time.sleep(0.2)
     except DecodeTimeout:
         timeout_fired = True
+    if not timeout_fired:
+        try:
+            run_with_timeout(_preflight_sleep, 0.2, timeout_sec=0.01)
+        except DecodeTimeout:
+            timeout_fired = True
     dummy = make_gpu_run2_equation_record(
         eq_id="G02_variant_000",
         predicted_expr="x_1",
@@ -110,7 +120,7 @@ def smoke_operator_and_timeout(timeout_sec: float) -> dict:
         "tan_rejected": (not bad_fn) and str(reason_fn).startswith("DisallowedOperator"),
         "prefix_integer_pow_ok": prefix_ok,
         "prefix_variable_pow_rejected": (not prefix_bad) and prefix_reason == "DisallowedPowerExponent",
-        "timeout_mechanism_present": timeout_fired or sys.platform.startswith("win"),
+        "timeout_mechanism_present": timeout_fired,
         "record_schema_missing": missing,
         "timeout_budget_sec": timeout_sec,
     }

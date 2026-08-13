@@ -37,3 +37,13 @@ train_batch_size: 16
 gradient_accumulation: 1
 precision: fp32
 fail_fast_on_oom: true
+finetune:
+  lr: 1.0e-4
+  epochs: 5
+  patience: 2
+  min_delta: 1.0e-4
+  max_points: 80
+  lr_grid: [1.0e-4]
+  epoch_grid: [5]
+decoder_lens_topk: 5
+intervention_alpha: 1.0
