@@ -21,6 +21,7 @@ from evaluation.operator_policy import (  # noqa: E402
 def test_integer_pow_2_to_5_allowed_variable_exponent_rejected():
     assert check_power_exponents("x_1**2 + x_2**5") is None
     assert check_power_exponents("x_1**3 / (1 + x_2**4)") is None
+    assert check_power_exponents("x_2**2 / (1 + x_2**2)") is None
     assert check_power_exponents("x_1**x_2") == "DisallowedPowerExponent"
     assert check_power_exponents("x_1**0.7") == "DisallowedPowerExponent"
     assert check_power_exponents("x_1**(-2)") == "DisallowedPowerExponent"

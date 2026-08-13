@@ -42,7 +42,20 @@ from interpretability.decoder_lens import (  # noqa: E402
     run_decoder_lens,
     write_decoder_lens_rank_heatmap,
 )
-from interpretability.probes import fit_linear_probe, gradient_norms  # noqa: E402
+from interpretability.probes import (  # noqa: E402
+    expression_structure_attributes,
+    fit_linear_classifier_probe,
+    fit_linear_probe,
+    gradient_norms,
+    mean_rank_layer_scores,
+    ranking_from_mean_rank,
+)
+
+CANDIDATE_SELECTION_METRICS = {
+    "template_accuracy": True,
+    "next_token_accuracy": True,
+    "n_operators_r2": True,
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -58,18 +71,55 @@ def _placeholder_layers(n_encoder: int = 5, n_decoder: int = 5) -> list[str]:
     return [f"encoder_{i}" for i in range(n_encoder)] + [f"decoder_{i}" for i in range(n_decoder)]
 
 
-def _dummy_probe(layers: list[str]) -> tuple[dict[str, float], dict[str, float], dict[str, float]]:
+def _dummy_structure_probes(layers: list[str]) -> dict[str, dict[str, float]]:
     rng = np.random.default_rng(0)
-    dummy_target = rng.normal(size=32)
+    dummy_hidden = rng.normal(size=(32, 16))
     dummy_base = rng.normal(size=(32, 16))
-    probe_scores = {}
+    template_labels = np.array(["T01_basal", "T02_single_regulator", "T04_two_independent_activators", "T07_two_module_mixture"] * 8)
+    next_tokens = rng.integers(2, 12, size=32)
+    n_ops = rng.integers(1, 6, size=32).astype(np.float64)
+    template_acc = {}
+    next_token_acc = {}
+    n_ops_r2 = {}
     cka_scores = {}
     for name in layers:
-        hidden = dummy_base + 0.05 * rng.normal(size=dummy_base.shape)
-        probe_scores[name] = fit_linear_probe(hidden, dummy_target)["nmse_var"]
+        hidden = dummy_hidden + 0.05 * rng.normal(size=dummy_hidden.shape)
+        template_acc[name] = fit_linear_classifier_probe(hidden, template_labels)["accuracy"]
+        next_token_acc[name] = fit_linear_classifier_probe(hidden, next_tokens)["accuracy"]
+        n_ops_r2[name] = fit_linear_probe(hidden, n_ops)["r2"]
         cka_scores[name] = linear_cka(dummy_base, hidden)
     grads = gradient_norms({name: rng.normal(size=8) for name in layers})
-    return probe_scores, cka_scores, grads
+    return {
+        "template_accuracy": template_acc,
+        "next_token_accuracy": next_token_acc,
+        "n_operators_r2": n_ops_r2,
+        "cka": cka_scores,
+        "gradient_norms": grads,
+    }
+
+
+def _labels_for_eq_ids(eq_ids: list[str], catalogue_by_id: dict[str, dict]) -> tuple[list[str], np.ndarray, np.ndarray]:
+    template_ids = []
+    n_operators = []
+    n_variables = []
+    for eq_id in eq_ids:
+        row = catalogue_by_id.get(eq_id, {})
+        template_id = row.get("template_id")
+        family_id = row.get("family_id")
+        if not template_id:
+            raise KeyError(f"catalogue row {eq_id!r} missing template_id")
+        if str(template_id) == str(family_id):
+            raise ValueError(
+                f"template_id must be an algebraic template, not family_id, for {eq_id}: {template_id}"
+            )
+        template_ids.append(str(template_id))
+        attrs = expression_structure_attributes(
+            str(row.get("canonical_expr") or ""),
+            variable_names=list(row.get("oracle_inputs") or []),
+        )
+        n_operators.append(attrs["n_operators"])
+        n_variables.append(attrs["n_variables"])
+    return template_ids, np.asarray(n_operators, dtype=np.float64), np.asarray(n_variables, dtype=np.float64)
 
 
 def main() -> int:
@@ -86,13 +136,19 @@ def main() -> int:
     if args.smoke:
         val_ids = val_ids[:4]
     val_specs = [row for row in catalogue if row["eq_id"] in set(val_ids)]
+    catalogue_by_id = {row["eq_id"]: row for row in catalogue}
     train_templates = [row["canonical_expr"] for row in catalogue if row["main_split"] == "train"]
     corpus = corpus_fingerprint(train_templates)
     write_json(out_dir / "finetune_corpus_fingerprint.json", corpus)
 
     if args.dry_run:
         layers = _placeholder_layers(int(config.get("encoder_layers", 5)))
-        probe_scores, cka_scores, grads = _dummy_probe(layers)
+        dummy = _dummy_structure_probes(layers)
+        template_acc = dummy["template_accuracy"]
+        next_token_acc = dummy["next_token_accuracy"]
+        n_ops_r2 = dummy["n_operators_r2"]
+        cka_scores = dummy["cka"]
+        grads = dummy["gradient_norms"]
         decoder_lens_rows = []
         for spec in val_specs:
             for layer in range(int(config.get("encoder_layers", 5))):
@@ -117,9 +173,11 @@ def main() -> int:
     else:
         require_nesymres_checkpoint(config)
         model, params_fit = load_nesymres_gpu_run2(config)
-        layers = selectable_layer_names(model)
+        layers = selectable_layer_names(model, include_head=False)
         hp = finetune_hparams(config)
-        probe_accum: dict[str, list[float]] = {name: [] for name in layers}
+        template_accum: dict[str, list[float]] = {name: [] for name in layers}
+        next_token_accum: dict[str, list[float]] = {name: [] for name in layers}
+        n_ops_accum: dict[str, list[float]] = {name: [] for name in layers}
         cka_accum: dict[str, list[float]] = {name: [] for name in layers}
         grad_accum: dict[str, list[float]] = {name: [] for name in layers}
         decoder_lens_rows = []
@@ -144,20 +202,33 @@ def main() -> int:
                 seed=model_seed,
                 shuffle=False,
             )
-            hidden, targets = collect_layer_representations(
+            collected = collect_layer_representations(
                 model,
                 loader,
                 max_batches=2 if args.smoke else 8,
                 layer_names=layers,
             )
+            hidden = collected["hidden"]
+            template_ids, n_operators, _n_variables = _labels_for_eq_ids(
+                list(collected["eq_ids"]), catalogue_by_id
+            )
+            next_tokens = collected["next_token_ids"]
             encoder_hidden = {
                 name: hidden[name]
                 for name in layers
                 if name.startswith("encoder_") and name in hidden
             }
             encoder_names = [name for name in layers if name in encoder_hidden]
+            hidden_ns = [arr.shape[0] for arr in hidden.values()] or [len(template_ids)]
+            n_examples = min(len(template_ids), len(next_tokens), *hidden_ns)
+            template_ids = template_ids[:n_examples]
+            n_operators = n_operators[:n_examples]
+            next_tokens = next_tokens[:n_examples]
             for name, array in hidden.items():
-                probe_accum[name].append(fit_linear_probe(array, targets)["nmse_var"])
+                array = array[:n_examples]
+                template_accum[name].append(fit_linear_classifier_probe(array, template_ids)["accuracy"])
+                next_token_accum[name].append(fit_linear_classifier_probe(array, next_tokens)["accuracy"])
+                n_ops_accum[name].append(fit_linear_probe(array, n_operators)["r2"])
             for idx, name in enumerate(encoder_names):
                 if idx == 0:
                     cka_accum[name].append(1.0)
@@ -194,7 +265,9 @@ def main() -> int:
                             }
                         )
                         decoder_lens_rows.append(payload_step)
-        probe_scores = {name: float(np.mean(vals)) for name, vals in probe_accum.items() if vals}
+        template_acc = {name: float(np.mean(vals)) for name, vals in template_accum.items() if vals}
+        next_token_acc = {name: float(np.mean(vals)) for name, vals in next_token_accum.items() if vals}
+        n_ops_r2 = {name: float(np.mean(vals)) for name, vals in n_ops_accum.items() if vals}
         cka_scores = {name: float(np.mean(vals)) for name, vals in cka_accum.items() if vals}
         grads = {name: float(np.mean(vals)) for name, vals in grad_accum.items() if vals}
         decoder_rank_scores: dict[str, list[float]] = {}
@@ -214,26 +287,41 @@ def main() -> int:
             figures / "phase3_decoder_lens_gt_rank.png",
         )
 
-    probe_ranking = sorted(probe_scores, key=lambda key: probe_scores[key])
+    mean_ranks = mean_rank_layer_scores(
+        {
+            "template_accuracy": template_acc,
+            "next_token_accuracy": next_token_acc,
+            "n_operators_r2": n_ops_r2,
+        },
+        higher_is_better=CANDIDATE_SELECTION_METRICS,
+    )
+    probe_ranking = ranking_from_mean_rank(mean_ranks)
     cka_ranking = sorted(cka_scores, key=lambda key: -cka_scores[key])
     candidates = freeze_candidate_layers(probe_ranking, k=args.candidate_k)
+    if any(name == "output_head" or str(name).endswith("_head") for name in candidates):
+        raise RuntimeError(f"selective-FT candidates must not include heads: {candidates}")
     write_json(
         out_dir / "probe_scores.json",
         {
-            "probe_nmse_var": probe_scores,
+            "template_accuracy": template_acc,
+            "next_token_accuracy": next_token_acc,
+            "n_operators_r2": n_ops_r2,
             "cka": cka_scores,
             "gradient_norms": grads,
+            "mean_rank": mean_ranks,
             "probe_ranking": probe_ranking,
             "cka_ranking": cka_ranking,
             "decoder_lens_ranking": decoder_lens_ranking,
+            "selection_metrics": {
+                name: {"higher_is_better": hib} for name, hib in CANDIDATE_SELECTION_METRICS.items()
+            },
             "placeholder": not live,
             "note": (
-                "dry-run uses synthetic hidden states. A live RTX 2070 run "
-                "overwrites this file with encoder/decoder activations from "
-                "validation problems only."
-            )
-            if args.dry_run
-            else "live probe scores from validation teacher-forcing activations",
+                "Candidate freeze uses mean rank of template / next-token / n_operators "
+                "probes. Point-mean regression of encoder inputs is not used. "
+                "output_head is excluded. Phase 4 IOLE/ablation/intervention remain "
+                "the causal layer rankings."
+            ),
         },
     )
     write_json(out_dir / "decoder_lens.json", decoder_lens_rows)
@@ -257,7 +345,8 @@ def main() -> int:
         {
             "candidates": candidates,
             "k": args.candidate_k,
-            "source": "probe_nmse_var",
+            "source": "mean_rank_template_next_token_n_operators",
+            "include_output_head": False,
             "frozen_before_test": True,
             "rank_agreement": rank_agreement_table(
                 {
@@ -279,6 +368,7 @@ def main() -> int:
             "dry_run": bool(args.dry_run),
             "smoke": bool(args.smoke),
             "live_model": live,
+            "candidate_source": "mean_rank_template_next_token_n_operators",
             "corpus_fingerprint": corpus["fingerprint"],
         },
     )

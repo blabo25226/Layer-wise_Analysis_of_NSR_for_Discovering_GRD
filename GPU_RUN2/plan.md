@@ -243,16 +243,16 @@ f_{\mathrm{rep}}(x_i,x_r)
 GPU_RUN2 synthetic benchmark v1では、GNW式から次の8構造を固定する。$`x_1`$は対象mRNA、
 $`x_2,x_3`$はoracle regulatorである。
 
-| family ID | GNW由来の構造 | oracle入力 | module構成 |
-|---|---|---|---|
-| `G01` | 入力なし | $`x_1`$ | basal transcriptionとmRNA分解 |
-| `G02` | 単一activator | $`x_1,x_2`$ | enhancer module 1個 |
-| `G03` | 単一repressor | $`x_1,x_2`$ | repressor module 1個 |
-| `G04` | 2 activators、独立結合 | $`x_1,x_2,x_3`$ | enhancer module 1個、`bindsAsComplex=false` |
-| `G05` | 2 activators、複合体結合 | $`x_1,x_2,x_3`$ | enhancer module 1個、`bindsAsComplex=true` |
-| `G06` | activator＋deactivator | $`x_1,x_2,x_3`$ | enhancer module 1個、独立結合 |
-| `G07` | enhancer＋repressor | $`x_1,x_2,x_3`$ | 独立なmodule 2個 |
-| `G08` | 2 enhancer modules | $`x_1,x_2,x_3`$ | 独立なenhancer module 2個 |
+| family ID | algebraic template ID | GNW由来の構造 | oracle入力 | module構成 |
+|---|---|---|---|---|
+| `G01` | `T01_basal` | 入力なし | $`x_1`$ | basal transcriptionとmRNA分解 |
+| `G02` | `T02_single_regulator` | 単一activator | $`x_1,x_2`$ | enhancer module 1個 |
+| `G03` | `T02_single_regulator` | 単一repressor | $`x_1,x_2`$ | repressor module 1個 |
+| `G04` | `T04_two_independent_activators` | 2 activators、独立結合 | $`x_1,x_2,x_3`$ | enhancer module 1個、`bindsAsComplex=false` |
+| `G05` | `T05_two_complex_activators` | 2 activators、複合体結合 | $`x_1,x_2,x_3`$ | enhancer module 1個、`bindsAsComplex=true` |
+| `G06` | `T06_activator_deactivator` | activator＋deactivator | $`x_1,x_2,x_3`$ | enhancer module 1個、独立結合 |
+| `G07` | `T07_two_module_mixture` | enhancer＋repressor | $`x_1,x_2,x_3`$ | 独立なmodule 2個 |
+| `G08` | `T07_two_module_mixture` | 2 enhancer modules | $`x_1,x_2,x_3`$ | 独立なenhancer module 2個 |
 
 #### 3.2.1 G01–G08のtemplate式
 
@@ -325,7 +325,10 @@ $`\alpha_{10}>\alpha_{00}`$、$`\alpha_{01}>\alpha_{00}`$となる向きを持�
 GNWのmodule効果の加算と`[0,1]`へのtruncateに従って生成し、独立な自由係数として無制約にsamplingしない。
 
 G07とG08は同じ4状態混合の代数templateを持つが、moduleの符号と$`\alpha`$の制約が異なるため別familyとする。
-各problem manifestには上記template IDだけでなく、$`q_r`$、$`A`$、$`B`$を展開したraw真式、
+G02とG03も同じ単一regulatorの $`A(h_2)`$ templateを共有し、係数の向きだけが異なる。
+manifestの `template_id` はこの代数templateであり、`family_id` と同一ではない。
+G02/G03は `T02_single_regulator`、G07/G08は `T07_two_module_mixture` を共有する。
+各problem manifestには上記template IDだけでなく、$`q_r`、$`A`、$`B`$を展開したraw真式、
 全定数を代入した式、canonical SymPy式をすべて保存する。
 
 NeSymReSの主実行operator集合で真式を厳密に表現できるよう、Hill係数は
@@ -408,12 +411,18 @@ optimizer、学習率、学習budgetはNeSymReS用にvalidationで固定し、�
 
 validation上で次を実行し、高価なfine-tuningへ渡す候補層と選択規則をtest評価前に凍結する。
 
-- 各層hidden stateに対するlinear probe
-- validation NMSEまたはtoken cross entropyの小規模probe
+- 各層hidden stateに対するlinear probe。目的変数は algebraic template ID（分類）、
+  teacher-forcingの次token（分類）、演算子数（回帰）に限定する。
+  入力点の平均など、数式構造と無関係なスカラーは層選択に使わない。
+- 候補層凍結は上記probeのmean rankによる。因果的な層寄与の主判定はPhase 4の
+  IOLE / ablation / activation介入に残す。
 - 固定validation problemに対する層ごとのgradient norm
 - CKAなどによる層表現類似度
 - 層ablationと固定したactivation介入
 - parameter update感度
+
+selective-FTの候補はencoder / decoder blockだけとする。`output_head`（`fc_out`）は
+別controlであり、top 3 / random 3の層集合に混ぜない。
 
 GPU_RUN1で`decoder_2`〜`decoder_4`が上位だったことは再現対象とし、GPU_RUN2のrankingを上書きする
 固定結果としては使わない。

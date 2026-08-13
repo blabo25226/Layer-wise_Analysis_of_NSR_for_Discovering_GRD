@@ -18,15 +18,27 @@ from .interventions import (
     replace_output_context,
     zero_output_context,
 )
-from .probes import fit_linear_probe, gradient_norms, parameter_update_sensitivity
+from .probes import (
+    expression_structure_attributes,
+    fit_linear_classifier_probe,
+    fit_linear_probe,
+    gradient_norms,
+    mean_rank_layer_scores,
+    parameter_update_sensitivity,
+    ranking_from_mean_rank,
+)
 
 __all__ = [
     "DecoderLensStep",
     "ablation_zero_output",
     "apply_final_encoder_pool",
     "encoder_memory_at_layer",
+    "expression_structure_attributes",
+    "fit_linear_classifier_probe",
     "fit_linear_probe",
     "gradient_norms",
+    "mean_rank_layer_scores",
+    "ranking_from_mean_rank",
     "interpolate_activations",
     "linear_cka",
     "parameter_update_sensitivity",

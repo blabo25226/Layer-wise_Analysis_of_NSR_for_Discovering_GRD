@@ -53,20 +53,42 @@ class RegulatoryModuleSpec:
 @dataclass(frozen=True)
 class FamilySpec:
     family_id: str
+    template_id: str
     description: str
     oracle_regulators: tuple[str, ...]
     modules: tuple[RegulatoryModuleSpec, ...]
 
 
+# Algebraic templates. Sign / module polarity differences keep distinct family_ids.
+ALGEBRAIC_TEMPLATE_IDS = {
+    "G01": "T01_basal",
+    "G02": "T02_single_regulator",
+    "G03": "T02_single_regulator",
+    "G04": "T04_two_independent_activators",
+    "G05": "T05_two_complex_activators",
+    "G06": "T06_activator_deactivator",
+    "G07": "T07_two_module_mixture",
+    "G08": "T07_two_module_mixture",
+}
+
+
+def algebraic_template_id(family_id: str) -> str:
+    if family_id not in ALGEBRAIC_TEMPLATE_IDS:
+        raise KeyError(f"unknown family {family_id}")
+    return ALGEBRAIC_TEMPLATE_IDS[family_id]
+
+
 FAMILY_SPECS: dict[str, FamilySpec] = {
     "G01": FamilySpec(
         family_id="G01",
+        template_id=ALGEBRAIC_TEMPLATE_IDS["G01"],
         description="no inputs; basal transcription and mRNA degradation",
         oracle_regulators=(),
         modules=(),
     ),
     "G02": FamilySpec(
         family_id="G02",
+        template_id=ALGEBRAIC_TEMPLATE_IDS["G02"],
         description="single activator",
         oracle_regulators=("x_2",),
         modules=(
@@ -80,6 +102,7 @@ FAMILY_SPECS: dict[str, FamilySpec] = {
     ),
     "G03": FamilySpec(
         family_id="G03",
+        template_id=ALGEBRAIC_TEMPLATE_IDS["G03"],
         description="single repressor",
         oracle_regulators=("x_2",),
         modules=(
@@ -93,6 +116,7 @@ FAMILY_SPECS: dict[str, FamilySpec] = {
     ),
     "G04": FamilySpec(
         family_id="G04",
+        template_id=ALGEBRAIC_TEMPLATE_IDS["G04"],
         description="two activators, independent binding",
         oracle_regulators=("x_2", "x_3"),
         modules=(
@@ -106,6 +130,7 @@ FAMILY_SPECS: dict[str, FamilySpec] = {
     ),
     "G05": FamilySpec(
         family_id="G05",
+        template_id=ALGEBRAIC_TEMPLATE_IDS["G05"],
         description="two activators, complex binding",
         oracle_regulators=("x_2", "x_3"),
         modules=(
@@ -119,6 +144,7 @@ FAMILY_SPECS: dict[str, FamilySpec] = {
     ),
     "G06": FamilySpec(
         family_id="G06",
+        template_id=ALGEBRAIC_TEMPLATE_IDS["G06"],
         description="activator plus deactivator, independent binding",
         oracle_regulators=("x_2", "x_3"),
         modules=(
@@ -132,6 +158,7 @@ FAMILY_SPECS: dict[str, FamilySpec] = {
     ),
     "G07": FamilySpec(
         family_id="G07",
+        template_id=ALGEBRAIC_TEMPLATE_IDS["G07"],
         description="enhancer module plus repressor module",
         oracle_regulators=("x_2", "x_3"),
         modules=(
@@ -151,6 +178,7 @@ FAMILY_SPECS: dict[str, FamilySpec] = {
     ),
     "G08": FamilySpec(
         family_id="G08",
+        template_id=ALGEBRAIC_TEMPLATE_IDS["G08"],
         description="two independent enhancer modules",
         oracle_regulators=("x_2", "x_3"),
         modules=(
@@ -482,7 +510,7 @@ def define_gnw_problems(
                     oracle_inputs=list(oracle["oracle_inputs"]),
                     variable_order=list(oracle["variable_order"]),
                     parameters=_jsonable_parameters(parameters),
-                    template_id=family_id,
+                    template_id=family.template_id,
                     raw_gnw_formula=formulas["raw_gnw_formula"],
                     substituted_formula=formulas["substituted_formula"],
                     canonical_expr=formulas["canonical_expr"],

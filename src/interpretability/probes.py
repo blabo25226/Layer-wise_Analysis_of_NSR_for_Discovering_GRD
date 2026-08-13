@@ -2,9 +2,48 @@
 
 from __future__ import annotations
 
+import sys
 from typing import Any, Iterable, Mapping, Sequence
 
 import numpy as np
+import sympy as sp
+
+from evaluation.equation_metrics import extract_variables
+
+
+def _dense_matmul(left: np.ndarray, right: np.ndarray) -> np.ndarray:
+    torch_mod = sys.modules.get("torch")
+    if torch_mod is not None:
+        return (
+            torch_mod.as_tensor(left, dtype=torch_mod.float64)
+            @ torch_mod.as_tensor(right, dtype=torch_mod.float64)
+        ).detach().cpu().numpy()
+    return np.asarray(left) @ np.asarray(right)
+
+
+def _ridge_weights(h: np.ndarray, y: np.ndarray, ridge: float) -> np.ndarray:
+    """Solve ``(HᵀH + λI) w = Hᵀy``.
+
+    After PyTorch is imported, NumPy/MKL ``linalg`` can abort on this Windows
+    stack, so prefer ``torch.linalg`` when torch is already loaded.
+    """
+    h = np.asarray(h, dtype=np.float64)
+    y = np.asarray(y, dtype=np.float64).ravel()
+    torch_mod = sys.modules.get("torch")
+    if torch_mod is not None:
+        H = torch_mod.as_tensor(h, dtype=torch_mod.float64)
+        target = torch_mod.as_tensor(y, dtype=torch_mod.float64)
+        xtx = H.T @ H + float(ridge) * torch_mod.eye(H.shape[1], dtype=H.dtype)
+        try:
+            return torch_mod.linalg.solve(xtx, H.T @ target).detach().cpu().numpy()
+        except Exception:
+            return torch_mod.linalg.lstsq(xtx, H.T @ target, rcond=None).solution.detach().cpu().numpy()
+    xtx = h.T @ h + float(ridge) * np.eye(h.shape[1])
+    xty = h.T @ y
+    try:
+        return np.linalg.solve(xtx, xty)
+    except np.linalg.LinAlgError:
+        return np.linalg.pinv(xtx) @ xty
 
 
 def fit_linear_probe(
@@ -22,14 +61,8 @@ def fit_linear_probe(
         raise ValueError(f"hidden must be 2D or 3D, got {h.shape}")
     if len(h) != len(y):
         raise ValueError("hidden and targets must have the same number of examples")
-    n_features = h.shape[1]
-    xtx = h.T @ h + ridge * np.eye(n_features)
-    xty = h.T @ y
-    try:
-        weights = np.linalg.solve(xtx, xty)
-    except np.linalg.LinAlgError:
-        weights = np.linalg.pinv(xtx) @ xty
-    pred = h @ weights
+    weights = _ridge_weights(h, y, ridge)
+    pred = _dense_matmul(h, weights)
     residual = y - pred
     mse = float(np.mean(residual**2))
     denom = float(np.mean((y - np.mean(y)) ** 2)) + 1e-12
@@ -40,6 +73,95 @@ def fit_linear_probe(
         "n_examples": float(len(y)),
         "n_features": float(n_features),
     }
+
+
+def fit_linear_classifier_probe(
+    hidden: np.ndarray,
+    labels: Sequence[Any],
+    *,
+    ridge: float = 1e-4,
+) -> dict[str, float]:
+    """One-vs-rest ridge classifier probe. Reports accuracy, not NMSE."""
+    h = np.asarray(hidden, dtype=np.float64)
+    if h.ndim == 3:
+        h = h.reshape(h.shape[0], -1)
+    if h.ndim != 2:
+        raise ValueError(f"hidden must be 2D or 3D, got {h.shape}")
+    encoded = np.asarray([str(label) for label in labels], dtype=object)
+    if len(h) != len(encoded):
+        raise ValueError("hidden and labels must have the same number of examples")
+    classes, inv = np.unique(encoded, return_inverse=True)
+    n_examples, n_features = h.shape
+    if len(classes) < 2:
+        return {
+            "accuracy": float("nan"),
+            "majority_baseline": 1.0 if n_examples else float("nan"),
+            "n_classes": float(len(classes)),
+            "n_examples": float(n_examples),
+            "n_features": float(n_features),
+        }
+    scores = np.zeros((n_examples, len(classes)), dtype=np.float64)
+    for index in range(len(classes)):
+        y = np.where(inv == index, 1.0, -1.0)
+        weights = _ridge_weights(h, y, ridge)
+        scores[:, index] = _dense_matmul(h, weights)
+    predicted = scores.argmax(axis=1)
+    counts = np.bincount(inv, minlength=len(classes))
+    return {
+        "accuracy": float(np.mean(predicted == inv)),
+        "majority_baseline": float(np.max(counts) / max(n_examples, 1)),
+        "n_classes": float(len(classes)),
+        "n_examples": float(n_examples),
+        "n_features": float(n_features),
+    }
+
+
+def expression_structure_attributes(expr: str, *, variable_names: Sequence[str] | None = None) -> dict[str, float]:
+    """Scalar symbolic-structure targets for regression probes."""
+    text = str(expr or "").strip()
+    n_variables = float(len(extract_variables(text))) if text else 0.0
+    if n_variables == 0.0 and variable_names:
+        n_variables = float(len(variable_names))
+    n_operators = 0.0
+    if text:
+        try:
+            tree = sp.sympify(text.replace("^", "**"))
+            n_operators = float(
+                sum(1 for node in sp.preorder_traversal(tree) if node.is_Add or node.is_Mul or node.is_Pow)
+            )
+        except Exception:
+            n_operators = float("nan")
+    return {"n_variables": n_variables, "n_operators": n_operators}
+
+
+def mean_rank_layer_scores(
+    tables: Mapping[str, Mapping[str, float]],
+    *,
+    higher_is_better: Mapping[str, bool],
+) -> dict[str, float]:
+    """Average per-metric ranks. Rank 1 is best. Missing metrics are skipped."""
+    layers = sorted({name for table in tables.values() for name in table})
+    ranks: dict[str, list[float]] = {name: [] for name in layers}
+    for metric, table in tables.items():
+        usable = {
+            name: float(value)
+            for name, value in table.items()
+            if value is not None and np.isfinite(float(value))
+        }
+        if len(usable) < 2:
+            continue
+        hib = bool(higher_is_better.get(metric, True))
+        ordered = sorted(usable, key=lambda name: usable[name], reverse=hib)
+        rank_map = {name: float(index + 1) for index, name in enumerate(ordered)}
+        for name in layers:
+            if name in rank_map:
+                ranks[name].append(rank_map[name])
+    return {name: float(np.mean(values)) for name, values in ranks.items() if values}
+
+
+def ranking_from_mean_rank(mean_ranks: Mapping[str, float]) -> list[str]:
+    """Best → worst by mean rank (ties broken by layer name)."""
+    return sorted(mean_ranks, key=lambda name: (float(mean_ranks[name]), str(name)))
 
 
 def gradient_norms(

@@ -149,9 +149,12 @@ def check_power_exponents(
     def _walk(node: sp.Expr) -> str | None:
         if isinstance(node, sp.Pow):
             exponent = node.exp
-            if exponent.is_Integer and int(exponent) in allowed_set:
+            # SymPy encodes a/b as a * b**(-1). That is division, not integer pow.
+            if exponent == -1:
                 return _walk(node.base)
             if exponent == 1:
+                return _walk(node.base)
+            if exponent.is_Integer and int(exponent) in allowed_set:
                 return _walk(node.base)
             return "DisallowedPowerExponent"
         for arg in getattr(node, "args", ()):

@@ -361,13 +361,31 @@ def mean_penalized_nmse(
     return mean_nmse_for_families(records, families=families, key=key)
 
 
-def selectable_layer_names(model) -> list[str]:
+def filter_selective_ft_layers(
+    registry: Mapping[str, Any],
+    *,
+    include_head: bool = False,
+) -> list[str]:
+    """Encoder/decoder blocks only. ``output_head`` is a separate control, not a layer rank."""
+    allowed = {"encoder", "decoder"}
+    if include_head:
+        allowed.add("head")
+    return [name for name, spec in registry.items() if getattr(spec, "kind", None) in allowed]
+
+
+def selectable_layer_names(model, *, include_head: bool = False) -> list[str]:
+    from models.layer_selector import get_layer_registry
+
+    return filter_selective_ft_layers(get_layer_registry(model), include_head=include_head)
+
+
+def head_layer_names(model) -> list[str]:
     from models.layer_selector import get_layer_registry
 
     return [
         name
         for name, spec in get_layer_registry(model).items()
-        if spec.kind in {"encoder", "decoder", "head"}
+        if spec.kind == "head"
     ]
 
 
@@ -398,7 +416,12 @@ def collect_layer_representations(
     device=None,
     max_batches: int = 8,
     layer_names: Sequence[str] | None = None,
-) -> tuple[dict[str, np.ndarray], np.ndarray]:
+) -> dict[str, Any]:
+    """Collect per-example hidden states plus symbolic probe labels.
+
+    Does **not** return point-mean scalar targets. Those are not a valid
+    surrogate for symbolic-regression layer importance.
+    """
     import torch
     from models.layer_selector import get_layer_registry
 
@@ -406,7 +429,9 @@ def collect_layer_representations(
     registry = get_layer_registry(model)
     names = list(layer_names or registry)
     captured: dict[str, list[np.ndarray]] = {name: [] for name in names}
-    targets: list[np.ndarray] = []
+    eq_ids: list[str] = []
+    next_token_ids: list[int] = []
+    batch_sizes: list[int] = []
     hooks = []
 
     def make_hook(name: str):
@@ -427,29 +452,33 @@ def collect_layer_representations(
                 nums = batch[0].to(device)
                 tokens = batch[1].to(device)
                 model.forward([nums, tokens])
-                targets.append(nums[:, -1, :].mean(dim=1).detach().cpu().numpy())
+                batch_eq_ids = list(batch[2]) if len(batch) > 2 else [f"batch{i}_{j}" for j in range(nums.shape[0])]
+                eq_ids.extend(str(eq_id) for eq_id in batch_eq_ids)
+                token_col = tokens[:, 1] if tokens.shape[1] > 1 else tokens[:, 0]
+                next_token_ids.extend(int(value) for value in token_col.detach().cpu().tolist())
+                batch_sizes.append(int(nums.shape[0]))
     except RuntimeError as exc:
         reraise_oom(exc)
     finally:
         for handle in hooks:
             handle.remove()
-    if not targets:
+    if not eq_ids:
         raise RuntimeError("no batches available for layer representation collection")
-    y = np.concatenate(targets, axis=0)
     out: dict[str, np.ndarray] = {}
     for name, chunks in captured.items():
         if not chunks:
             continue
         aligned = [
-            flatten_activation_to_batch(chunk, batch_size=int(chunk.shape[0] if chunk.ndim else 1))
-            for chunk in chunks
+            flatten_activation_to_batch(chunk, batch_size=int(bsz))
+            for chunk, bsz in zip(chunks, batch_sizes)
         ]
         out[name] = np.concatenate(aligned, axis=0)
-    if y.shape[0] and out:
-        n = min(y.shape[0], min(arr.shape[0] for arr in out.values()))
-        y = y[:n]
-        out = {name: arr[:n] for name, arr in out.items()}
-    return out, y
+    n = min(len(eq_ids), min((arr.shape[0] for arr in out.values()), default=len(eq_ids)))
+    return {
+        "hidden": {name: arr[:n] for name, arr in out.items()},
+        "eq_ids": eq_ids[:n],
+        "next_token_ids": np.asarray(next_token_ids[:n], dtype=np.int64),
+    }
 
 
 def layer_gradient_norms_from_loader(

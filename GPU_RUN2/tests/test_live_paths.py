@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 import sys
 from pathlib import Path
 
@@ -20,7 +21,19 @@ from evaluation.gpu_run2_rankings import (  # noqa: E402
     phase4_agreement,
     phase4_conditions,
 )
-from gpu_run2_experiment import dummy_gnw_record, filter_index_rows  # noqa: E402
+from gpu_run2_experiment import (  # noqa: E402
+    collect_layer_representations,
+    dummy_gnw_record,
+    filter_index_rows,
+    filter_selective_ft_layers,
+)
+from interpretability.probes import (  # noqa: E402
+    expression_structure_attributes,
+    fit_linear_classifier_probe,
+    mean_rank_layer_scores,
+    ranking_from_mean_rank,
+)
+from models.layer_selector import LayerSpec  # noqa: E402
 from interpretability.decoder_lens import prefix_tokens_to_equation  # noqa: E402
 from interpretability.interventions import (  # noqa: E402
     register_replace_output_hook,
@@ -58,6 +71,7 @@ def test_dummy_record_accepts_catalogue_row_without_noise():
     row = {
         "eq_id": "G03_variant_018",
         "family_id": "G03",
+        "template_id": "T02_single_regulator",
         "canonical_expr": "x_1 + x_2",
         "raw_gnw_formula": "V*A-delta*x_1",
         "skeleton_expr": "x_1 + x_2",
@@ -73,6 +87,44 @@ def test_dummy_record_accepts_catalogue_row_without_noise():
     assert GPU_RUN2_REQUIRED_FIELDS.issubset(record)
     assert record["noise"] == 0.0
     assert record["data_seed"] == 101
+
+
+def test_selective_ft_candidates_exclude_output_head():
+    registry = {
+        "encoder_0": LayerSpec("encoder_0", "encoder", "enc.selfatt1", 0),
+        "decoder_2": LayerSpec("decoder_2", "decoder", "decoder_transfomer.layers.2", 2),
+        "output_head": LayerSpec("output_head", "head", "fc_out"),
+    }
+    names = filter_selective_ft_layers(registry)
+    assert names == ["encoder_0", "decoder_2"]
+    assert "output_head" not in names
+    assert "output_head" in filter_selective_ft_layers(registry, include_head=True)
+
+
+def test_template_and_next_token_probes_are_not_point_mean_regression():
+    hidden = np.zeros((32, 2), dtype=np.float64)
+    hidden[:16, 0] = 1.0
+    hidden[16:, 1] = 1.0
+    labels = ["T02_single_regulator"] * 16 + ["T07_two_module_mixture"] * 16
+    classified = fit_linear_classifier_probe(hidden, labels)
+    assert classified["accuracy"] == pytest.approx(1.0)
+    assert "nums[:, -1" not in inspect.getsource(collect_layer_representations)
+    attrs = expression_structure_attributes("x_2**2/(1+x_2**2)-x_1", variable_names=["x_1", "x_2"])
+    assert attrs["n_variables"] == 2
+    assert attrs["n_operators"] >= 2
+    mean_ranks = mean_rank_layer_scores(
+        {
+            "template_accuracy": {"decoder_2": 0.9, "encoder_0": 0.2},
+            "next_token_accuracy": {"decoder_2": 0.8, "encoder_0": 0.3},
+            "n_operators_r2": {"decoder_2": 0.5, "encoder_0": 0.1},
+        },
+        higher_is_better={
+            "template_accuracy": True,
+            "next_token_accuracy": True,
+            "n_operators_r2": True,
+        },
+    )
+    assert ranking_from_mean_rank(mean_ranks)[0] == "decoder_2"
 
 
 def test_filter_index_rows_by_seed_noise_and_split():

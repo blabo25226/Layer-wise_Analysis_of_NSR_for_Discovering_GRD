@@ -12,7 +12,7 @@ GPU_RUN2は、合成GNW式だけを使った層解析とsymbolic recoveryの確�
 | 0 | [`scripts/phases/gpu_run2_phase0_preflight.py`](../scripts/phases/gpu_run2_phase0_preflight.py) | 環境、checkpoint SHA256、30秒timeout、operator、schema smoke |
 | 1 | [`scripts/phases/gpu_run2_phase1_data.py`](../scripts/phases/gpu_run2_phase1_data.py) | GNW G01–G08、240 problems、oracle入力、paired noise |
 | 2 | [`scripts/phases/gpu_run2_phase2_baseline.py`](../scripts/phases/gpu_run2_phase2_baseline.py) | NeSymReS / PySR baseline |
-| 3 | [`scripts/phases/gpu_run2_phase3_interpret.py`](../scripts/phases/gpu_run2_phase3_interpret.py) | probe、CKA、DecoderLens（validationのみ） |
+| 3 | [`scripts/phases/gpu_run2_phase3_interpret.py`](../scripts/phases/gpu_run2_phase3_interpret.py) | template / next-token / n_operators probe、CKA、DecoderLens（validationのみ。候補はencoder/decoderのみ） |
 | 4 | [`scripts/phases/gpu_run2_phase4_contribution.py`](../scripts/phases/gpu_run2_phase4_contribution.py) | IOLE、ablation、activation介入 |
 | 5 | [`scripts/phases/gpu_run2_phase5_selective_ft.py`](../scripts/phases/gpu_run2_phase5_selective_ft.py) | frozen / full / top1 / top3 / random3、再現バイアス |
 | 完了 | [`scripts/ops/finalize_gpu_run2.py`](../scripts/ops/finalize_gpu_run2.py) | schema検査、真式対予測式表、archive |

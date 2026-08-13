@@ -14,8 +14,10 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from data import gnw_synthetic as gnw  # noqa: E402
 from data.gnw_synthetic import (  # noqa: E402
+    ALGEBRAIC_TEMPLATE_IDS,
     FAMILY_IDS,
     FAMILY_SPECS,
+    algebraic_template_id,
     build_paired_noise_problems,
     define_gnw_problems,
     evaluate_family,
@@ -68,6 +70,21 @@ def test_independent_and_complex_activation_match_gnw_formulas():
     )
     expected_ad = xi[0] / ((1 + xi[0]) * (1 + xi[1]))
     np.testing.assert_allclose(act_deact, expected_ad)
+
+
+def test_algebraic_template_ids_group_sign_flipped_families():
+    specs = define_gnw_problems(n_variants_per_family=1)
+    by_family = {spec.family_id: spec.template_id for spec in specs}
+    assert by_family["G02"] == by_family["G03"] == "T02_single_regulator"
+    assert by_family["G07"] == by_family["G08"] == "T07_two_module_mixture"
+    assert by_family["G01"] == "T01_basal"
+    assert by_family["G04"] != by_family["G05"]
+    assert by_family["G02"] != by_family["G01"]
+    assert len(set(by_family.values())) == 6
+    for family_id in FAMILY_IDS:
+        assert FAMILY_SPECS[family_id].template_id == algebraic_template_id(family_id)
+        assert algebraic_template_id(family_id) == ALGEBRAIC_TEMPLATE_IDS[family_id]
+        assert FAMILY_SPECS[family_id].template_id != family_id
 
 
 def test_full_catalogue_has_240_problems_and_fixed_splits():
