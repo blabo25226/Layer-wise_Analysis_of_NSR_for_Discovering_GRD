@@ -93,3 +93,65 @@ def predict_equation(
         "all_preds": [str(p) for p in preds],
         "raw": {k: v for k, v in output.items() if k != "raw"},
     }
+
+
+def predict_equation_gpu_run2(
+    model: Model,
+    params_fit: FitParams,
+    X: np.ndarray,
+    y: np.ndarray,
+    *,
+    timeout_sec: float = 30.0,
+    operator_config: dict | None = None,
+    quiet: bool = True,
+) -> Dict[str, Any]:
+    """Decode with the GPU_RUN2 operator filter and timeout bookkeeping."""
+    import time
+
+    from evaluation.decode_timeout import DecodeTimeout, run_with_timeout
+    from evaluation.operator_policy import validate_candidate_expression
+
+    started = time.perf_counter()
+    timeout = False
+    failure_reason = None
+    try:
+        result = run_with_timeout(
+            predict_equation,
+            model,
+            params_fit,
+            X,
+            y,
+            timeout_sec=timeout_sec,
+            quiet=quiet,
+        )
+    except DecodeTimeout:
+        timeout = True
+        failure_reason = "DecodeTimeout"
+        result = {
+            "equation": "",
+            "bfgs_loss": float("inf"),
+            "all_preds": [],
+            "raw": {},
+        }
+    elapsed = time.perf_counter() - started
+    equation = str(result.get("equation") or "")
+    candidates = [str(p) for p in result.get("all_preds") or []]
+    if equation and not failure_reason:
+        ok, reason = validate_candidate_expression(
+            equation,
+            point_sets={"train": (np.asarray(X), [f"x_{i+1}" for i in range(np.asarray(X).shape[1])])},
+        )
+        if not ok:
+            failure_reason = reason
+            equation = ""
+    return {
+        **result,
+        "equation": equation,
+        "all_preds": candidates,
+        "timeout": timeout,
+        "timeout_budget_sec": float(timeout_sec),
+        "search_seconds": float(elapsed),
+        "n_candidate_evals": len(candidates),
+        "failure_reason": failure_reason,
+        "operator_config_fingerprint": None if operator_config is None else str(sorted(operator_config)),
+    }

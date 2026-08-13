@@ -19,6 +19,21 @@ def clone_model(model: torch.nn.Module) -> torch.nn.Module:
     return copy.deepcopy(model)
 
 
+def train_iole(
+    model: torch.nn.Module,
+    train_loader: DataLoader,
+    layer_name: str,
+    **kwargs: Any,
+) -> Dict[str, Any]:
+    """IOLE-style single-layer fine-tuning: train one layer, freeze the rest.
+
+    This is the NeSymReS adaptation of Zhang et al. (arXiv:2607.01232v2).
+    Optimizer and budget are validation-selected for NeSymReS and are not a
+    reproduction of the original RL paper's hyperparameters.
+    """
+    return train_selective(model, train_loader, [layer_name], **kwargs)
+
+
 def train_selective(
     model: torch.nn.Module,
     train_loader: DataLoader,

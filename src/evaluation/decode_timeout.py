@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import signal
 import threading
+from concurrent.futures import ProcessPoolExecutor, TimeoutError as FuturesTimeout
 from contextlib import contextmanager
-from typing import Iterator
+from typing import Any, Callable, Iterator, TypeVar
+
+T = TypeVar("T")
 
 
 class DecodeTimeout(Exception):
@@ -16,8 +19,9 @@ class DecodeTimeout(Exception):
 def decode_time_limit(seconds: float) -> Iterator[None]:
     """Limit a decode on the POSIX main thread using ``SIGALRM``.
 
-    Colab and the supported Linux GPU environment execute phase loops on the
-    main thread. Unsupported platforms and worker threads run unguarded.
+    Colab and Linux GPU environments execute phase loops on the main thread.
+    Windows has no SIGALRM; callers should use :func:`run_with_timeout` or a
+    parent-process hard timeout with grace.
     """
     if (
         seconds <= 0
@@ -37,3 +41,33 @@ def decode_time_limit(seconds: float) -> Iterator[None]:
     finally:
         signal.setitimer(signal.ITIMER_REAL, 0)
         signal.signal(signal.SIGALRM, old_handler)
+
+
+def run_with_timeout(
+    func: Callable[..., T],
+    /,
+    *args: Any,
+    timeout_sec: float,
+    **kwargs: Any,
+) -> T:
+    """Run ``func`` with a hard wall-clock limit.
+
+    POSIX main threads use SIGALRM so the call stays in-process. Elsewhere a
+    one-worker process pool is used; ``func`` must be picklable.
+    """
+    seconds = float(timeout_sec)
+    if seconds <= 0:
+        return func(*args, **kwargs)
+    if (
+        hasattr(signal, "SIGALRM")
+        and threading.current_thread() is threading.main_thread()
+    ):
+        with decode_time_limit(seconds):
+            return func(*args, **kwargs)
+    with ProcessPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(func, *args, **kwargs)
+        try:
+            return future.result(timeout=seconds)
+        except FuturesTimeout as exc:
+            future.cancel()
+            raise DecodeTimeout(f"decode exceeded {seconds:.0f}s") from exc

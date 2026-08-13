@@ -1,0 +1,52 @@
+# Semantic operator allowlist shared by NeSymReS and PySR for GPU_RUN2 v1.
+semantic_allowlist:
+  - add
+  - sub
+  - mul
+  - div
+  - pow_int_2_5
+  - constant
+allowed_pow_exponents: [2, 3, 4, 5]
+disallowed_functions:
+  - sin
+  - cos
+  - tan
+  - asin
+  - acos
+  - atan
+  - sinh
+  - cosh
+  - tanh
+  - coth
+  - exp
+  - ln
+  - log
+  - sqrt
+  - abs
+nesymres:
+  tokens: [add, sub, mul, div, pow]
+  allowed_pow_exponents: [2, 3, 4, 5]
+  disallowed_tokens:
+    - sin
+    - cos
+    - tan
+    - asin
+    - acos
+    - atan
+    - sinh
+    - cosh
+    - tanh
+    - coth
+    - exp
+    - ln
+    - sqrt
+    - abs
+pysr:
+  binary_operators: ["+", "-", "*", "/"]
+  unary_operators:
+    - square
+    - cube
+    - pow4
+    - pow5
+  # binary ^ is not allowed; integer powers are unary only.
+denominator_margin: 1.0e-6

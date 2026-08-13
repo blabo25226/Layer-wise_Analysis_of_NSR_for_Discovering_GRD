@@ -316,3 +316,71 @@ def score_prediction(
     if X is not None:
         result.update(expression_safety(predicted_expr, X, variable_names or true_vars))
     return result
+
+
+FAILURE_NMSE = 1e6
+FAILURE_R2 = -1.0
+
+
+def failure_penalized_nmse(nmse_value: float, *, valid: bool, penalty: float = FAILURE_NMSE) -> float:
+    if valid and np.isfinite(nmse_value):
+        return float(nmse_value)
+    return float(penalty)
+
+
+def score_domain_predictions(
+    *,
+    y_id: np.ndarray,
+    pred_id: Optional[np.ndarray],
+    y_ood: np.ndarray,
+    pred_ood: Optional[np.ndarray],
+    predicted_expr: str,
+    true_vars: Sequence[str],
+    true_expr: str = "",
+    X_id: Optional[np.ndarray] = None,
+    X_ood: Optional[np.ndarray] = None,
+    variable_names: Optional[Sequence[str]] = None,
+) -> Dict[str, float]:
+    """Score domain-ID and domain-OOD points separately; never label the result bare OOD."""
+    id_scores = score_prediction(
+        y_id,
+        pred_id,
+        predicted_expr,
+        true_vars,
+        true_expr=true_expr,
+        X=X_id,
+        variable_names=variable_names,
+    )
+    ood_scores = score_prediction(
+        y_ood,
+        pred_ood,
+        predicted_expr,
+        true_vars,
+        true_expr=true_expr,
+        X=X_ood,
+        variable_names=variable_names,
+    )
+    valid = bool(id_scores.get("valid_pred", 0.0)) and bool(ood_scores.get("valid_pred", 0.0))
+    return {
+        **{f"id_{key}": value for key, value in id_scores.items()},
+        **{f"domain_ood_{key}": value for key, value in ood_scores.items()},
+        "domain_id_nmse": id_scores["nmse"],
+        "domain_ood_nmse": ood_scores["nmse"],
+        "domain_id_r2": id_scores["r2"],
+        "domain_ood_r2": ood_scores["r2"],
+        "penalized_domain_id_nmse": failure_penalized_nmse(id_scores["nmse"], valid=bool(id_scores["valid_pred"])),
+        "penalized_domain_ood_nmse": failure_penalized_nmse(
+            ood_scores["nmse"], valid=bool(ood_scores["valid_pred"])
+        ),
+        "nmse": failure_penalized_nmse(id_scores["nmse"], valid=bool(id_scores["valid_pred"])),
+        "r2": id_scores["r2"] if id_scores.get("valid_pred") else FAILURE_R2,
+        "valid_pred": 1.0 if valid else 0.0,
+        "sym_exact": id_scores["sym_exact"],
+        "sym_skeleton": id_scores["sym_skeleton"],
+        "sym_equiv": id_scores["sym_equiv"],
+        "sym_recovery": id_scores["sym_recovery"],
+        "complexity": id_scores["complexity"],
+        "var_f1": id_scores["var_f1"],
+        "var_precision": id_scores["var_precision"],
+        "var_recall": id_scores["var_recall"],
+    }

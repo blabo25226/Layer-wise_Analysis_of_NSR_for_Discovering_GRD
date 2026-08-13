@@ -1,0 +1,20 @@
+# Problem-level splits. Rows are never mixed across problems.
+main:
+  train_per_family: 18
+  validation_per_family: 6
+  test_per_family: 6
+  # Variant indices 0..29: train 0-17, validation 18-23, test 24-29.
+  train_variant_indices: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
+  validation_variant_indices: [18, 19, 20, 21, 22, 23]
+  test_variant_indices: [24, 25, 26, 27, 28, 29]
+structure_holdout:
+  train_families: [G01, G02, G03, G04, G05]
+  validation_families: [G06]
+  test_families: [G07, G08]
+phase4_panel:
+  # Smallest two validation variant indices per family, fixed before any prediction.
+  validation_variants_per_family: 2
+  structure_ood_families: [G01, G02, G03, G04, G05, G06]
+domain:
+  id: [0.1, 2.0]
+  ood: [0.05, 2.5]

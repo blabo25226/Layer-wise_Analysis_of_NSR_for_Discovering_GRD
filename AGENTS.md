@@ -36,7 +36,7 @@ $$
 実行専用資産の置き場は次のとおりである。
 
 - GPU_RUN1: [`GPU_RUN1/`](GPU_RUN1/)
-- GPU_RUN2: [`GPU_RUN2/`](GPU_RUN2/)（現状は計画と空の `notebooks/` のみ）
+- GPU_RUN2: [`GPU_RUN2/`](GPU_RUN2/)（計画・固有テスト。共通コードは `src/`、Phase入口は `scripts/phases/gpu_run2_*.py`）
 - CPU_RUN: [`CPU_RUN/`](CPU_RUN/)
 - 共通コード: `src/`、共通Phase入口: `scripts/`
 

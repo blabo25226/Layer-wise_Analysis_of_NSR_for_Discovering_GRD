@@ -125,3 +125,66 @@ def completed_prefix(
             f"checkpoint={observed}\nexpected={expected}"
         )
     return len(rows)
+
+
+PROBLEM_JSON_CHECKPOINT_VERSION = 1
+
+
+def save_problem_json_checkpoint(
+    path: Path,
+    *,
+    identity: Mapping[str, Any],
+    completed_eq_ids: Sequence[str],
+    records: Sequence[Mapping[str, Any]],
+    extra: Mapping[str, Any] | None = None,
+) -> None:
+    """Atomic JSON checkpoint for GPU_RUN2 problem-level resume."""
+    import json
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "version": PROBLEM_JSON_CHECKPOINT_VERSION,
+        "identity": dict(identity),
+        "completed_eq_ids": [str(eq_id) for eq_id in completed_eq_ids],
+        "records": [dict(row) for row in records],
+        "extra": dict(extra or {}),
+        "rng_state": capture_rng_state(),
+    }
+    partial = path.with_name(path.name + ".partial")
+    partial.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
+    os.replace(partial, path)
+
+
+def load_problem_json_checkpoint(
+    path: Path,
+    *,
+    expected_identity: Mapping[str, Any],
+) -> dict[str, Any] | None:
+    import json
+
+    if not path.is_file():
+        return None
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if payload.get("version") != PROBLEM_JSON_CHECKPOINT_VERSION:
+        raise RuntimeError(
+            f"problem checkpoint version mismatch: {payload.get('version')} "
+            f"!= {PROBLEM_JSON_CHECKPOINT_VERSION}"
+        )
+    if payload.get("identity") != dict(expected_identity):
+        raise RuntimeError(
+            "problem checkpoint identity mismatch; refuse to mix evaluations:\n"
+            f"checkpoint={payload.get('identity')}\nexpected={dict(expected_identity)}"
+        )
+    return payload
+
+
+def remaining_eq_ids(
+    expected_eq_ids: Sequence[str],
+    completed_eq_ids: Sequence[str],
+) -> list[str]:
+    """Return unfinished ids, requiring completed ids to be an exact prefix."""
+    n_done = completed_prefix(
+        [{"eq_id": eq_id} for eq_id in completed_eq_ids],
+        list(expected_eq_ids),
+    )
+    return [str(eq_id) for eq_id in expected_eq_ids[n_done:]]

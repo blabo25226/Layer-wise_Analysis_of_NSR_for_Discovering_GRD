@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 import itertools
-from typing import Dict, Iterable, List, Mapping, Optional
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
 
 
 def reference_improves(
@@ -170,3 +170,30 @@ def ranking_stability(
             "mean_kendall": sum(kendall_values) / len(kendall_values) if kendall_values else float("nan"),
         }
     return output
+
+
+def rank_agreement_table(
+    rankings: Mapping[str, Sequence[str]],
+) -> dict[str, Any]:
+    """Pairwise Spearman/Kendall agreement among named layer rankings.
+
+    Used to compare probe, IOLE fine-tuning, ablation, activation intervention,
+    and DecoderLens orderings without mixing them into one causal claim.
+    """
+    names = sorted(rankings)
+    pairwise = []
+    for left, right in itertools.combinations(names, 2):
+        score_a = {layer: -float(i) for i, layer in enumerate(rankings[left])}
+        score_b = {layer: -float(i) for i, layer in enumerate(rankings[right])}
+        corr = rank_correlations(score_a, score_b)
+        pairwise.append({"left": left, "right": right, **corr})
+    return {"methods": names, "pairwise": pairwise}
+
+
+def freeze_candidate_layers(
+    ranking: Sequence[str],
+    *,
+    k: int = 5,
+) -> list[str]:
+    """Take the top-k probe ranking as the Phase 4/5 candidate pool."""
+    return [str(name) for name in ranking[: max(0, int(k))]]

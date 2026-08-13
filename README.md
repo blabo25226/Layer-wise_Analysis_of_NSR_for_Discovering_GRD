@@ -618,19 +618,17 @@ GPU_RUN1では少数層FTの全層同等性が支持されたが、3 seedsのred
 
 ### 11.1 次に行うGPU_RUN2
 
-GPU_RUN2の詳細は [`GPU_RUN2/plan.md`](GPU_RUN2/plan.md) に記載する。
-主要な変更は次のとおりである。
+GPU_RUN2の詳細は [`GPU_RUN2/plan.md`](GPU_RUN2/plan.md)、実行入口は [`GPU_RUN2/README.md`](GPU_RUN2/README.md) を参照する。
+合成GNW式だけを用い、ローカルRTX 2070でPhase 0–5を実行する。DREAM4、ヒトデータ、有限差分、TPSR / NSR-gvs は GPU_RUN3 以降へ保留する。
 
-1. **固定commitの独立run**：GPU_RUN1の継続成果物をseed反復として混ぜず、Phase 0–9を一貫した設定で実行する。
-2. **validation probing**：全層を高budgetで走らせる前に候補を5〜8層へ絞り、testを見る前にrankingを固定する。
-3. **演算子制限**：`tan`などの三角関数と危険な除算を主探索から除き、NeSymReS、TPSR、PySRのoperatorをそろえる。
-4. **15秒timeout**：validation probeで妥当性を確認してから全条件へ固定し、p50、p90、p95、最大時間、timeout率を保存する。
-5. **top対randomの確認**：random層集合の反復を増やし、全層同等性とは別にrankingの付加価値を検証する。
-6. **TPSRのGo/No-Go**：MCTS、BFGS、Transformer推論をprofileし、費用対効果が低ければ大規模実行しない。
-7. **DREAM4全network**：Size10/100、networks 1–5を同じbudgetで完了し、regulator selectionとSR誤差を分解する。
-8. **CPU/GPU分離**：PySR、集計、図表、archiveなどCPU中心処理をローカルへ移す。
-9. **構造と安全性を主評価**：NMSEだけでなく、exact/skeleton recovery、variable F1、valid rate、
-   危険演算子、分母margin、外挿安定性を評価する。
+1. **固定commitの独立run**：GPU_RUN1の継続成果物をseed反復として混ぜない。
+2. **oracle変数のみ**：真式に現れる変数だけを入力し、変数選択誤差を切り離す。
+3. **解析的教師値**：有限差分は使わず、既知のGNW式を直接評価する。
+4. **validation probing / DecoderLens**：testを見る前に候補層と選択規則を凍結する。
+5. **演算子制限**：`tan` などを除外し、整数べき `2`–`5` と安全除算だけを主実行で許す。
+6. **30秒timeout**：seed・condition・noiseで共通とし、timeoutは失敗として保存する。
+7. **top 3対固定random 3**：1個のrandom層集合とのpaired比較に限定する。
+8. **構造回復と再現バイアス**：exact / skeleton / symbolic equivalenceと、fine-tuning corpusに対する reproduced / novel を分ける。
 
 ### 11.2 研究上の課題
 
@@ -691,7 +689,7 @@ scripts/ops/run_gpu_pipeline.sh           GPU一括実行
 
 ```text
 GPU_RUN1/           GPU_RUN1実行専用（手順・Notebook・補助script）
-GPU_RUN2/           GPU_RUN2実行専用（現在は計画のみ）
+GPU_RUN2/           GPU_RUN2実行専用（計画・固有テスト。Phase入口は scripts/phases/）
 CPU_RUN/            CPU pilot叙述（旧 README_CPU.md）
 docs/plans/         一般の研究計画・レビューメモ
 src/                データ処理、モデル、学習、評価の共通コード

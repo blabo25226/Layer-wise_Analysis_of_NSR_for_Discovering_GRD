@@ -674,30 +674,30 @@ Google Driveは実験実行基盤ではなく、完了済み成果物の外部�
 
 ## 9. 実装が必要な項目
 
-- [ ] GNW synthetic benchmark v1の機械可読なmodule・式定義と生成器
-- [ ] GNW source commitとの数式一致を検証するgolden test
-- [ ] analytic targetとnoise 2条件のpaired生成
-- [ ] oracle変数だけを渡す入力schema
-- [ ] 有限差分コードを通らないことのテスト
-- [ ] 主splitとCTC_NSR用structure-holdout viewの固定manifest
-- [ ] 全手法共通operator allowlist
-- [ ] NeSymReS decode token maskまたは候補filter
-- [ ] PySRへの同一operator制限
-- [ ] 共通30秒decode/search timeout
-- [ ] 全Phase共通problem timing schema
-- [ ] problem単位checkpoint / resume
-- [ ] 完了archiveのGoogle Drive同期とSHA256照合（同期を使用する場合）
-- [ ] probing scriptと保存schema
-- [ ] DecoderLensのencoder layer・decode step別出力と可視化
-- [ ] 層別linear probe、表現類似度、ablation、activation介入の固定プロトコル
-- [ ] probe・DecoderLens・fine-tuning・ablation・介入順位の一致度集計
-- [ ] random 3層集合1個の固定seed、抽出規則、限界の事前記録
-- [ ] 真式対予測式の比較表を生成するreporter
-- [ ] exact / skeleton / symbolic equivalenceの検証テスト
-- [ ] domain-ID / domain-OOD安全性と除算分母marginの検査
-- [ ] CTC_NSR準拠のtemplate canonicalizationとcorpus fingerprint
-- [ ] reproduced / novel別の性能集計
-- [ ] GPU_RUN2用run ID、source commit、環境manifestの固定
+- [x] GNW synthetic benchmark v1の機械可読なmodule・式定義と生成器
+- [x] GNW source commitとの数式一致を検証するgolden test
+- [x] analytic targetとnoise 2条件のpaired生成
+- [x] oracle変数だけを渡す入力schema
+- [x] 有限差分コードを通らないことのテスト
+- [x] 主splitとCTC_NSR用structure-holdout viewの固定manifest
+- [x] 全手法共通operator allowlist
+- [x] NeSymReS decode token maskまたは候補filter
+- [x] PySRへの同一operator制限
+- [x] 共通30秒decode/search timeout
+- [x] 全Phase共通problem timing schema
+- [x] problem単位checkpoint / resume
+- [x] 完了archiveのGoogle Drive同期とSHA256照合（同期を使用する場合）
+- [x] probing scriptと保存schema
+- [x] DecoderLensのencoder layer・decode step別出力と可視化
+- [x] 層別linear probe、表現類似度、ablation、activation介入の固定プロトコル
+- [x] probe・DecoderLens・fine-tuning・ablation・介入順位の一致度集計
+- [x] random 3層集合1個の固定seed、抽出規則、限界の事前記録
+- [x] 真式対予測式の比較表を生成するreporter
+- [x] exact / skeleton / symbolic equivalenceの検証テスト
+- [x] domain-ID / domain-OOD安全性と除算分母marginの検査
+- [x] CTC_NSR準拠のtemplate canonicalizationとcorpus fingerprint
+- [x] reproduced / novel別の性能集計
+- [x] GPU_RUN2用run ID、source commit、環境manifestの固定
 
 ## 10. Go / No-Go条件
 

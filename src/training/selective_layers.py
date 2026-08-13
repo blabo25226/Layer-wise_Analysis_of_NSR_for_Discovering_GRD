@@ -304,3 +304,56 @@ def build_phase5_conditions(
     cond[f"bottom_{k}"] = bottom_k(ranking, k)
     cond["all_params"] = None
     return cond
+
+
+def sample_random_layers_gpu_run2(
+    candidates: Sequence[str],
+    k: int,
+    seed: int,
+    *,
+    top_layers: Sequence[str] | None = None,
+) -> list[str]:
+    """Draw one random k-set from all candidates; redraw only if it equals top-k.
+
+    GPU_RUN2 uses a single fixed random-3 control. Do not interpret this as an
+    average over random layer sets. Unlike :func:`random_k`, top layers are not
+    excluded a priori.
+    """
+    pool = list(dict.fromkeys(str(name) for name in candidates))
+    if k <= 0:
+        return []
+    if k > len(pool):
+        raise ValueError(f"cannot sample {k} layers from {len(pool)} candidates")
+    target = set(str(name) for name in (top_layers or []))
+    rng = random.Random(int(seed))
+    chosen = rng.sample(pool, k)
+    if target and set(chosen) == target:
+        chosen = rng.sample(pool, k)
+        if set(chosen) == target:
+            raise RuntimeError(
+                "random layer draw matched top layers twice; change random_3_seed"
+            )
+    return list(chosen)
+
+
+def build_gpu_run2_conditions(
+    ranking: Sequence[str],
+    *,
+    random_seed: int,
+    candidate_layers: Sequence[str] | None = None,
+) -> dict[str, list[str] | None]:
+    """GPU_RUN2 Phase 5 conditions: frozen / full / top 1 / top 3 / random 3."""
+    ranking = list(ranking)
+    candidates = list(candidate_layers or ranking)
+    top1 = top_k(ranking, 1)
+    top3 = top_k(ranking, 3)
+    random3 = sample_random_layers_gpu_run2(
+        candidates, 3, random_seed, top_layers=top3
+    )
+    return {
+        "frozen": [],
+        "full": None,
+        "top_1": top1,
+        "top_3": top3,
+        "random_3": random3,
+    }
