@@ -26,6 +26,7 @@ GPU_RUN2では次を扱わず、GPU_RUN3以降へ保留する。
 - ヒト時系列データ
 - empirical regulator selectorなど、oracle以外の変数選択
 - 実データからの新規GRN候補方程式の提案
+- TPSR、NSR-gvs、large beam、その他のtest-time computation比較
 
 したがって、GPU_RUN2の主張は「既知の真式を持つ合成データ上での層解析とsymbolic recovery」に限定する。
 DREAM4やヒトデータへの転移性能、有限差分誤差への頑健性、regulator selection性能はGPU_RUN2の結果から主張しない。
@@ -39,9 +40,9 @@ GPU_RUN1の確定結果と限界は
 |---|---|
 | `decoder_2`〜`decoder_4`の寄与が高かった | 独立runのprobe、fine-tuning、ablationで再確認し、testを見る前に候補を固定する |
 | Top 1〜3は全層FTとNMSE同等性margin内で同等だった | 独立runで再現性、symbolic recovery、計算資源削減を確認する |
-| Top 3対random 3の差は未確定だった | 事前生成した複数のrandom層集合とpaired比較する |
+| Top 3対random 3の差は未確定だった | 事前生成した1個のrandom 3層集合とpaired比較する |
 | symbolic recoveryは全条件で0だった | 真式対予測式の比較を主成果物にし、失敗理由まで保存する |
-| TPSRの追加改善に大きな計算時間を要した | profilerとGo/No-Goを通った場合だけ副次比較する |
+| TPSRの追加改善に大きな計算時間を要した | 層解析へ直接必要でないため、NSR-gvsとともにGPU_RUN3以降へ回す |
 | DREAM4の経験的selector F1が低かった | GPU_RUN2では変数選択問題を切り離し、oracle変数だけを入力する |
 | `tan`と危険な除算を含む式が多かった | 合成データの真式と整合するoperator allowlist、安全性検査を使う |
 
@@ -51,13 +52,13 @@ GPU_RUN1の確定結果と限界は
    重要層と機能を比較し、encoder層ではDecoderLensの結果も照合する。相関的な結果と介入結果を区別する。
 2. **全層同等性**：Top 1〜3と全層FTのfailure-penalized NMSE差について、95% Studentのt区間全体が
    事前margin `[-0.05, 0.05]`へ入るかを判定する。
-3. **rankingの付加価値**：Top条件と事前生成したrandom層集合平均のpaired NMSE差を報告する。
+3. **rankingの付加価値**：Top 3条件と事前生成したrandom 3層条件のpaired NMSE差を報告する。
    95% t区間が0をまたぐ場合、優越性または同等性を主張しない。
 4. **構造回復**：exact、skeleton、symbolic equivalence、complexityを条件別に報告する。
    NMSEが小さくても構造回復が失敗した場合は、数式回復成功と判定しない。
 5. **noise頑健性**：`noise=0.0`と`noise=0.1`を独立条件として比較し、結果を混ぜて集計しない。
 
-seed数、random集合数、学習budget、decode budgetはvalidation pilot後かつtest評価前に固定する。
+seed数、random層集合、学習budget、decode budgetはvalidation pilot後かつtest評価前に固定する。
 
 ### 1.3 特定論文を参照する内容
 
@@ -73,8 +74,7 @@ Go / No-Go条件は、特定の1論文を再現するものではなく、本研
 | DecoderLens | Langedijk et al., “DecoderLens: Layerwise Interpretation of Encoder-Decoder Transformers,” arXiv:2310.03686v2（[`DecoderLens_translated.md`](../docs/translated_paper/DecoderLens_translated.md)） | encoder中間層の表現を最終decoderへ渡し、生成結果の変化を観察する解析 |
 | GNW合成式 | Schaffter, Marbach, and Floreano, “GeneNetWeaver,” *Bioinformatics* 2011（[`GNW_translated.md`](../docs/translated_paper/GNW_translated.md)） | Hill型転写制御式、regulatory module、状態混合 |
 | PySR baseline | Cranmer, “Interpretable Machine Learning for Science with PySR and SymbolicRegression.jl,” arXiv:2305.01582v3（[`PySR_translated.md`](../docs/translated_paper/PySR_translated.md)） | genetic programmingによるbaselineの位置付け。探索budgetとoperatorはGPU_RUN2側で公平に固定する |
-| TPSR | Shojaee et al., “Transformer-based Planning for Symbolic Regression,” NeurIPS 2023（[`TPSR_translated.md`](../docs/translated_paper/TPSR_translated.md)） | MCTSを用いるtest-time探索と計算量比較 |
-| 再現バイアスとNSR-gvs | Sato and Sato, “Can Test-time Computation Mitigate Reproduction Bias in Neural Symbolic Regression?”, arXiv:2505.22081v2（[`CTC_NSR_translated.md`](../docs/translated_paper/CTC_NSR_translated.md)） | template再現率、included / not-included相当の比較、NSR-gvs feasibility |
+| 再現バイアス評価 | Sato and Sato, “Can Test-time Computation Mitigate Reproduction Bias in Neural Symbolic Regression?”, arXiv:2505.22081v2（[`CTC_NSR_translated.md`](../docs/translated_paper/CTC_NSR_translated.md)） | template再現率とincluded / not-included相当の評価定義だけを参照する。TPSRとNSR-gvsの実行はGPU_RUN3以降 |
 
 ## 2. GPU_RUN2で固定する前提
 
@@ -93,7 +93,7 @@ Go / No-Go条件は、特定の1論文を再現するものではなく、本研
 ### 2.1 oracle変数条件の定義
 
 GPU_RUN2におけるoracleとは、各problemの真式に実際に現れる入力変数の集合を、変数選択器を介さず
-NeSymReS、PySR、TPSRへ直接与える実験条件を指す。対象遺伝子を$`i`$、真式を$`f_i`$とすると、
+NeSymReSとPySRへ直接与える実験条件を指す。対象遺伝子を$`i`$、真式を$`f_i`$とすると、
 oracle regulator集合を次で定義する。
 
 ```math
@@ -227,7 +227,8 @@ $`\alpha_{i,s}\in[0,1]`$とすると、gene全体の相対活性はGNWと同じ�
 \prod_{j=1}^{M}m_{ij}^{s_j}(1-m_{ij})^{1-s_j}
 ```
 
-単一regulatorの場合には、上式から次の標準的なHill活性化・抑制を得る。
+単一regulatorで$`\alpha_0=0,\alpha_1=1`$または$`\alpha_0=1,\alpha_1=0`$とした特殊ケースには、
+上式から次の標準的なHill活性化・抑制を得る。
 
 ```math
 f_{\mathrm{act}}(x_i,x_r)
@@ -252,6 +253,80 @@ $`x_2,x_3`$はoracle regulatorである。
 | `G06` | activator＋deactivator | $`x_1,x_2,x_3`$ | enhancer module 1個、独立結合 |
 | `G07` | enhancer＋repressor | $`x_1,x_2,x_3`$ | 独立なmodule 2個 |
 | `G08` | 2 enhancer modules | $`x_1,x_2,x_3`$ | 独立なenhancer module 2個 |
+
+#### 3.2.1 G01–G08のtemplate式
+
+各familyの正解templateを次のように固定する。これは新しい制御式を考案したものではなく、上記GNWのmodule活性と
+状態混合を、G01–G08のmodule構成へ代入した式である。まずregulator $`r\in\{2,3\}`$について次を定義する。
+
+```math
+q_r=\left(\frac{x_r}{K_r}\right)^{n_r},
+\qquad
+h_r=\frac{q_r}{1+q_r}
+```
+
+単一moduleのinactive / active状態を混合する関数を$`A`$、2 moduleの4状態を混合する関数を$`B`$とする。
+
+```math
+A(m;\alpha_0,\alpha_1)
+=\alpha_0(1-m)+\alpha_1m
+```
+
+```math
+\begin{aligned}
+B(m_1,m_2;\alpha_{00},\alpha_{10},\alpha_{01},\alpha_{11})
+={}&\alpha_{00}(1-m_1)(1-m_2)
++\alpha_{10}m_1(1-m_2)\\
+&+\alpha_{01}(1-m_1)m_2
++\alpha_{11}m_1m_2 .
+\end{aligned}
+```
+
+この記法を用いた8 familyのtemplateは次である。
+
+```math
+\begin{aligned}
+G01:\quad f_1(x_1)
+&=V-\delta x_1,\\[2mm]
+G02:\quad f_1(x_1,x_2)
+&=V A(h_2;\alpha_0,\alpha_1)-\delta x_1,
+\qquad \alpha_1>\alpha_0,\\[2mm]
+G03:\quad f_1(x_1,x_2)
+&=V A(h_2;\alpha_0,\alpha_1)-\delta x_1,
+\qquad \alpha_1<\alpha_0,\\[2mm]
+G04:\quad f_1(x_1,x_2,x_3)
+&=V A\!\left(
+\frac{q_2q_3}{(1+q_2)(1+q_3)};
+\alpha_0,\alpha_1\right)-\delta x_1,
+\qquad \alpha_1>\alpha_0,\\[2mm]
+G05:\quad f_1(x_1,x_2,x_3)
+&=V A\!\left(
+\frac{q_2q_3}{1+q_2q_3};
+\alpha_0,\alpha_1\right)-\delta x_1,
+\qquad \alpha_1>\alpha_0,\\[2mm]
+G06:\quad f_1(x_1,x_2,x_3)
+&=V A\!\left(
+\frac{q_2}{(1+q_2)(1+q_3)};
+\alpha_0,\alpha_1\right)-\delta x_1,
+\qquad \alpha_1>\alpha_0,\\[2mm]
+G07:\quad f_1(x_1,x_2,x_3)
+&=V B(h_2,h_3;
+\alpha_{00},\alpha_{10},\alpha_{01},\alpha_{11})-\delta x_1,\\[2mm]
+G08:\quad f_1(x_1,x_2,x_3)
+&=V B(h_2,h_3;
+\alpha_{00},\alpha_{10},\alpha_{01},\alpha_{11})-\delta x_1.
+\end{aligned}
+```
+
+G06では$`x_2`$をenhancer moduleのactivator、$`x_3`$を同じmoduleのdeactivatorとする。
+G07では第1 moduleを$`x_2`$のenhancer、第2 moduleを$`x_3`$のrepressorとし、GNW初期化により
+$`\alpha_{10}>\alpha_{00}`$、$`\alpha_{01}<\alpha_{00}`$となる向きを持たせる。G08では両moduleをenhancerとし、
+$`\alpha_{10}>\alpha_{00}`$、$`\alpha_{01}>\alpha_{00}`$となる向きを持たせる。$`\alpha_{11}`$を含む全状態係数は、
+GNWのmodule効果の加算と`[0,1]`へのtruncateに従って生成し、独立な自由係数として無制約にsamplingしない。
+
+G07とG08は同じ4状態混合の代数templateを持つが、moduleの符号と$`\alpha`$の制約が異なるため別familyとする。
+各problem manifestには上記template IDだけでなく、$`q_r`$、$`A`$、$`B`$を展開したraw真式、
+全定数を代入した式、canonical SymPy式をすべて保存する。
 
 NeSymReSの主実行operator集合で真式を厳密に表現できるよう、Hill係数は
 $`n\in\{1,2,3,4,5\}`$に制限する。$`n=1`$はべき乗tokenを使わず、$`n=2,3,4,5`$は
@@ -297,7 +372,7 @@ $`a^{-2}`$などは不許可である。負の整数べきが必要な場合も�
 
 | 手法・段階 | 許可する表現 |
 |---|---|
-| NeSymReS / TPSR token列 | `add`、`sub`、`mul`、`div`、および指数childがliteral `2`–`5`の`pow` |
+| NeSymReS token列 | `add`、`sub`、`mul`、`div`、および指数childがliteral `2`–`5`の`pow` |
 | PySR探索 | binary `+`、`-`、`*`、`/`と、unary `square`、`cube`、`pow4`、`pow5`。binary `^`は使わない |
 | 共通評価 | すべてSymPyの`Add`、`Mul`、`Pow(base,k)`へcanonicalizeして比較 |
 
@@ -316,7 +391,7 @@ PySRの実装とoperator設定の参照論文はCranmerのPySR論文
   GNW benchmark v1の真式に不要なため主実行から除外する。
 - 除算候補は分母の最小絶対値、train / validation / domain-ID / domain-OOD点上の有限性、および事前固定した
   denominator marginを検査する。0除算、NaN、Inf、評価範囲内の特異点は理由付きfailureとする。
-- NeSymReS、PySR、TPSRへ同じ意味上の探索空間を与え、表記上の違いによる候補数の差をmanifestへ記録する。
+- NeSymReSとPySRへ同じ意味上の探索空間を与え、表記上の違いによる候補数の差をmanifestへ記録する。
 - 一般の実数べき乗を調べる場合は、主結果へ混ぜず、validationだけで設定を固定した別operator-ablationとする。
 
 ## 4. 層解析
@@ -363,7 +438,7 @@ DecoderLensは原則として観察的解析であり、層の因果的役割は
 decoder中間層へ最終出力headを直接適用する解析を追加する場合は、DecoderLensとは呼ばず、decoder-side
 logit-lens型の探索的解析として結果を分離する。
 
-### 4.3 CTC_NSR：再現バイアスとtest-time computation
+### 4.3 CTC_NSR：再現バイアス評価
 
 ここでCTC_NSRとは、Sato and Sato, “Can Test-time Computation Mitigate Reproduction Bias in Neural Symbolic
 Regression?”, arXiv:2505.22081v2 (2026)を指す。ローカル資料は
@@ -372,9 +447,8 @@ Regression?”, arXiv:2505.22081v2 (2026)を指す。ローカル資料は
 [Shun-0922/Mem-Bias-NSR](https://github.com/Shun-0922/Mem-Bias-NSR)である。
 
 同論文は、定数を除いた生成式の構造が学習template集合に含まれる場合を「再現」と定義し、
-素朴なNSR生成が学習式をコピーする再現バイアスを持つこと、verified subtreeをtest-time promptとして反復利用する
-NSR-gvsがそのバイアスを緩和し得ることを報告している。GPU_RUN2では、少数層fine-tuningがこの再現バイアスを
-強めるか弱めるかを、数値精度およびsymbolic recoveryとは別の研究質問として調べる。
+素朴なNSR生成が学習式をコピーする再現バイアスを持つことを報告している。GPU_RUN2では同論文の評価定義だけを使い、
+少数層fine-tuningがこの再現バイアスを強めるか弱めるかを、数値精度およびsymbolic recoveryとは別に調べる。
 
 GPU_RUN2での再現判定は次のように行う。
 
@@ -394,21 +468,12 @@ fingerprintを入手できない限り、事前学習corpus全体に対する再
 - reproduced / novel別のexact、skeleton、symbolic equivalence
 - reproduced / novel別のdomain-ID / domain-OOD NMSEと$`R^2`$
 - 正しい未見GNW構造を回復したnovel predictionの割合
-- beam size、候補評価数、wall time、timeout率
+- 標準beamのbeam size、候補評価数、wall time、timeout率
 - frozen、full、top、random間のpaired差
 
-test-time strategyは、同じ候補評価数またはwall-time上限を併記して比較する。
-
-- 標準beam search
-- validationで事前固定したlarge beam
-- Phase 6のGo条件を通ったTPSR
-- NSR-gvs feasibility probe
-
-NSR-gvsはsubtree promptを受け取るよう修正したモデルの追加学習と反復推論を必要とする。原論文は100 data points、
-30反復、beam size 5を使い、A100上でも1式あたり約3–10分と報告している。したがってRTX 2070、基本60秒timeoutの
-GPU_RUN2主比較へ同名の簡略版を混ぜない。まずvalidation 5 problems以下で、公式実装の固定commit、prompt model、
-候補数、反復数、実時間を記録するfeasibility probeだけを行う。60秒budgetへ収まらない場合は負の実行可能性結果として
-残し、全testへ拡張しない。部分木を単にrerankする独自手法をNSR-gvsと呼ばない。
+GPU_RUN2では全条件に同じ標準beam searchだけを使う。large beam、TPSR、NSR-gvs、MCTS、subtree prompt、
+反復推論などのtest-time computation比較は層解析の主質問から外れるため、GPU_RUN3以降へ保留する。
+したがってGPU_RUN2の再現バイアス結果は、test-time探索法の優劣ではなくfine-tuning条件間の差として解釈する。
 
 ## 5. symbolic recoveryの記録と比較
 
@@ -437,20 +502,20 @@ GPU_RUN2主比較へ同名の簡略版を混ぜない。まずvalidation 5 probl
 
 ### 6.1 timeout
 
-GPU_RUN2の1 problemあたりの基本decode/search timeoutを**60秒**へ緩和する。
+GPU_RUN2の1 problemあたりの基本decode/search timeoutを**30秒**とする。
 
 ```text
-LANSR_DECODE_TIMEOUT_SEC=60
+LANSR_DECODE_TIMEOUT_SEC=30
 ```
 
-- 同じ比較に含めるseed、condition、noiseでは同じ60秒を使う。
+- 同じ比較に含めるseed、condition、noiseでは同じ30秒を使う。
 - search内部timeoutと親processのhard timeoutを区別し、親process側には終了処理用のgraceを加える。
 - timeoutを空の成功結果として扱わず、`DecodeTimeout`として保存する。
 - valid rateとfailure-penalized指標へ反映する。
 - p50、p90、p95、最大時間、timeout率を条件別に保存する。
-- 60秒で完了しないproblemだけを結果確認後に延長して主集計へ混ぜない。
+- 30秒で完了しないproblemだけを結果確認後に延長して主集計へ混ぜない。
 
-60秒の動作確認として、validation subsetで30秒、60秒、120秒を測定してもよい。ただし主実行の60秒は
+30秒の動作確認として、validation subsetで15秒、30秒、60秒を測定してもよい。ただし主実行の30秒は
 test結果を見て変更しない。変更が必要な場合は本実行前に計画を改訂する。
 
 ### 6.2 checkpoint / resume
@@ -459,7 +524,6 @@ test結果を見て変更しない。変更が必要な場合は本実行前に�
 
 - Phase 4: seed × layer × condition × noise
 - Phase 5: seed × condition × noise × problem
-- Phase 6: seed × method × noise × problem
 
 各checkpointには完了problem ID、固有seed、elapsed、真式、raw/simplified予測式、候補式、metrics、
 failure reason、timeout flag、候補評価数を保存する。resume時に完了problemを再計算しない。
@@ -471,7 +535,7 @@ failure reason、timeout flag、候補評価数を保存する。resume時に完
 - Python 3.10、source commit、checkpoint SHA256を固定する。
 - RTX 2070、CUDA、64 GB RAM、CPU情報を確認する。
 - Intel Core i7の正確な世代・型番はOSから取得し、manifestへ記録する。
-- operator mask、60秒timeout、出力schema、checkpoint/resume、failure保存をsmokeで確認する。
+- operator mask、30秒timeout、出力schema、checkpoint/resume、failure保存をsmokeで確認する。
 
 ### Phase 1: synthetic data
 
@@ -501,69 +565,68 @@ failure reason、timeout flag、候補評価数を保存する。resume時に完
 
 ### Phase 4: contribution
 
-- probeで残った候補層をpaired seedで比較する。
+- G01–G08の各familyについて、主splitのvalidation variantを`eq_id`のvariant番号で昇順に並べ、
+  最小の2件を選ぶ。計16 problemsの固定パネルを、予測値や難易度を確認する前にmanifestへ保存する。
+- probeで残った候補5層を、この16 problemsとpaired seedで比較する。
 - IOLE条件（単一層fine-tuning）、層ablation、固定したactivation介入を比較する。
 - probe順位、fine-tuning順位、ablation効果、介入効果の一致度をseed別に報告し、encoder層については
   DecoderLens上の変化との一致度も報告する。
 - full FTがbaseを改善しない指標は正規化rankingへ混ぜず、raw scoreを保存する。
+- structure-OOD用の層・設定固定では、この16件のうちG01–G06の12件だけを集計し、G07–G08の結果を参照しない。
+  全familyを用いる主解析と、structure-OOD用のleakage-free解析を別名・別manifestで保存する。
 
-### Phase 5: selective fine-tuning / symbolic recovery
+### Phase 5: selective fine-tuning / symbolic recovery / reproduction-bias analysis
 
-- top、random、middle、bottom、full、frozen baselineを公平に比較する。
-- random層集合を事前に複数生成し、top対randomのpaired差を検証する。
+- 比較条件を`frozen`、`full`、`top 1`、`top 3`、`random 3`の5条件へ限定する。
+- `random 3`は`top 3`とtrainable層数をそろえる。全候補層から3層を重複なしで固定seedにより1回だけ抽出し、
+  `top 3`と完全一致した場合だけ再抽出する。抽出規則と結果をvalidation評価前にmanifestへ固定する。
+- random集合が1個だけなので、random層集合全体に対する平均性能や一般的優越性は主張せず、固定controlとの比較と呼ぶ。
 - early stoppingと選択はvalidationだけで行い、testは条件固定後に一度だけ評価する。
 - `noise=0.0`と`noise=0.1`を別々に集計する。
 - 真式対予測式の全problem比較表を生成する。
+- CTC_NSR評価用には、同じ5条件をstructure-trainだけで学習し、G06でearly stoppingした別checkpointを作る。
+  条件固定後にG07–G08の60 structure-OOD problemsを標準beamで一度だけdecodeする。
+- Sato and SatoのCTC_NSR論文（[`CTC_NSR_translated.md`](../docs/translated_paper/CTC_NSR_translated.md)）から、
+  template再現率とincluded / not-included相当の評価定義だけを参照する。
+- Phase 5の保存済み標準beam予測式から、追加decodeなしでreproduced / novelを集計する。
+- 主splitとstructure-OODを分け、5条件の再現率、novel recovery、数値精度をpaired比較する。
+- TPSR、NSR-gvs、large beam、その他のtest-time computation比較はGPU_RUN3以降へ保留する。
 
-### Phase 6: TPSR / CTC_NSR test-time computation
+### run完了処理
 
-- TPSRはShojaee et al.のTPSR論文（[`TPSR_translated.md`](../docs/translated_paper/TPSR_translated.md)）、
-  再現バイアスとNSR-gvsはSato and SatoのCTC_NSR論文
-  （[`CTC_NSR_translated.md`](../docs/translated_paper/CTC_NSR_translated.md)）を参照する。
-- TPSRはMCTS、BFGS、Transformer推論を個別にprofileする。
-- NeSymReS beamとの候補評価回数またはwall timeを併記する。
-- validation subsetで追加NMSE、symbolic recovery、valid rate、complexity、elapsedを確認し、
-  費用対効果が低い場合は全規模実行を行わず副次的な結果として残す。
-- standard beam、large beam、Go条件を通ったTPSRについて、structure-OOD上の再現率、novel recovery、
-  候補評価数、wall timeを比較する。
-- NSR-gvsは第4.3節のvalidation feasibility probeだけを行い、60秒budgetへ収まった場合に限り
-  事前固定した小規模比較へ進める。
-
-### Phase 7: validate / archive
+以下は独立した実験Phaseとせず、Phase 0–5の全必須処理が完了した後に共通処理として1回実行する。
 
 - 必須ファイル、equation schema、failure reasonを検査する。
 - config、commit、data checksum、checkpoint checksumを照合する。
 - 真式対予測式の表、DecoderLens図、集約表を生成する。
 - archiveとSHA256を作成する。
 
-### 7.1 Phaseごとの予定decode数と概算計算量
+### Phaseごとの予定decode数と概算計算量
 
 資源見積もりでは、data seedとmodel/search seedを`(101,0)`、`(202,1)`、`(303,2)`の3組として対応させる。
 1条件・1splitあたりの基本単位は`48 problems × 3 seed bundles × 2 noise = 288 decodes`である。
-Phase 3のencoder層数はcheckpoint設定どおり5、Phase 4へ残す候補層は暫定5、Phase 4のdecodeを伴う解析は
-IOLE・ablation・activation介入の3種とする。Phase 5は`frozen`、`full`、`top 1`、`top 2`、`top 3`、
-`middle`、`bottom`、random 5集合の計12条件として見積もる。これらの暫定数はvalidation pilot後かつtest前に凍結する。
+Phase 3のencoder層数はcheckpoint設定どおり5とする。Phase 4はG01–G08から機械的に2件ずつ選んだ16 problems、
+候補層5、IOLE・ablation・activation介入の3解析を使う。Phase 5は`frozen`、`full`、`top 1`、`top 3`、
+`random 3`の5条件とする。候補層数とrandom 3の実体はvalidation pilot後かつtest前に凍結する。
 
-| Phase | decode数の算出 | 予定decode / search数 | 追加学習run | 60秒timeoutを全件使った直列上限 | 主なdevice・備考 |
+| Phase | decode数の算出 | 予定decode / search数 | 追加学習run | 30秒timeoutを全件使った直列上限 | 主なdevice・備考 |
 |---|---|---:|---:|---:|---|
-| 0: preflight | smoke最大10件 | 最大10 | 0 | 0.17時間 | RTX 2070 / CPU。機能確認だけ |
+| 0: preflight | smoke最大10件 | 最大10 | 0 | 0.08時間 | RTX 2070 / CPU。機能確認だけ |
 | 1: synthetic data | 数式を解析評価するためdecodeなし | 0 | 0 | 0時間 | CPU。240 problemsと評価点を生成 |
-| 2: baseline | 48 × 2 splits × 3 bundles × 2 noise × 2 methods | 1,152 | 0 | 19.2時間 | NeSymReSはGPU、PySRはCPU |
-| 3: probing / DecoderLens | 48 validation × 3 bundles × 2 noise × 5 encoder layers | 1,440 | 0 | 24.0時間 | RTX 2070。通常forwardだけのprobeはdecode数に含めない |
-| 4: contribution | 48 validation × 3 bundles × 2 noise × 5 candidate layers × 3 analyses | 4,320 | 最大30 | 72.0時間 | RTX 2070。追加学習はIOLEの5層 × 3 bundles × 2 noise |
-| 5: selective FT | 48 × 2 splits × 3 bundles × 2 noise × 12 conditions | 6,912 | 最大66 | 115.2時間 | RTX 2070。frozen以外の11条件 × 3 bundles × 2 noise。完全一致checkpointは再利用可 |
-| 6: TPSR / CTC_NSR | 60 structure-OOD × 3 bundles × 2 noise × 3 strategies + NSR-gvs 5 × 3 × 2 | 最大1,110 | 原則0 | 18.5時間 | GPU / CPU。TPSRとNSR-gvsはGo条件を通った範囲だけ |
-| 7: validate / archive | 保存済みrecordの検査・集計 | 0 | 0 | 0時間 | CPU |
-| **合計** | Phase 0–7 | **最大14,944** | **最大96 + feasibilityで必要な追加分** | **249.1時間** | 学習時間、batch化による短縮、CPU/GPU並行実行は直列上限に含めない |
+| 2: baseline | 48 × 2 splits × 3 bundles × 2 noise × 2 methods | 1,152 | 0 | 9.6時間 | NeSymReSはGPU、PySRはCPU |
+| 3: probing / DecoderLens | 48 validation × 3 bundles × 2 noise × 5 encoder layers | 1,440 | 0 | 12.0時間 | RTX 2070。通常forwardだけのprobeはdecode数に含めない |
+| 4: contribution | 16 fixed validation × 3 bundles × 2 noise × 5 candidate layers × 3 analyses | 1,440 | 最大30 | 12.0時間 | RTX 2070。各G01–G08からvariant番号最小の2件 |
+| 5: selective FT / symbolic recovery / reproduction bias | 主split: 48 × 2 splits × 3 bundles × 2 noise × 5 conditions、structure-OOD: 60 × 3 × 2 × 5 | 4,680 | 最大48 | 39.0時間 | RTX 2070。mainとstructure-holdoutは別checkpoint。再現バイアス集計自体は追加decodeなし |
+| **合計** | Phase 0–5 | **最大8,722** | **最大78** | **72.7時間** | 学習時間、run完了処理、batch化による短縮、CPU/GPU並行実行は直列上限に含めない |
 
-60秒から得た時間は予想実時間ではなく、安全側のsearch/decode上限である。追加学習時間はRTX 2070 smokeから
+30秒から得た時間は予想実時間ではなく、安全側のsearch/decode上限である。追加学習時間はRTX 2070 smokeから
 IOLE、少数層、full FTを別々に実測し、`学習run数 × 条件別中央値`として本実行前に追記する。
 seedを3組ではなくdata seedとmodel seedの全直積9通りに変更する場合、上表のseed依存decode数と学習run数は
 原則3倍になるため、計画改訂なしに変更しない。Phase間でcheckpointやdecode結果を再利用する場合は、source、data、
 operator、seed、noise、budgetのfingerprintが完全一致した場合だけ重複計算を省く。
 
 旧計画のDREAM4 Phase、human LODO Phase、有限差分評価は削除せず、GPU_RUN3以降の計画で再設計する。
-GPU_RUN2のPhase番号をGPU_RUN1のPhase 7・8と対応するものとして解釈しない。
+GPU_RUN2のPhase 0–5をGPU_RUN1の同番号Phaseと対応するものとして解釈しない。
 
 ## 8. 計算資源と開発体制
 
@@ -586,7 +649,6 @@ validation前に決めてmanifestへ記録する。
 |---|---|
 | NeSymReS fine-tuning / decode | ローカルRTX 2070 |
 | probing / DecoderLens | ローカルRTX 2070 |
-| TPSR | ローカルPC（GPU/CPU内訳をprofile） |
 | PySR | ローカルPCのCPU |
 | data生成・集計・図表・archive | ローカルPC |
 
@@ -620,8 +682,8 @@ Google Driveは実験実行基盤ではなく、完了済み成果物の外部�
 - [ ] 主splitとCTC_NSR用structure-holdout viewの固定manifest
 - [ ] 全手法共通operator allowlist
 - [ ] NeSymReS decode token maskまたは候補filter
-- [ ] PySR、TPSRへの同一operator制限
-- [ ] 共通60秒decode/search timeout
+- [ ] PySRへの同一operator制限
+- [ ] 共通30秒decode/search timeout
 - [ ] 全Phase共通problem timing schema
 - [ ] problem単位checkpoint / resume
 - [ ] 完了archiveのGoogle Drive同期とSHA256照合（同期を使用する場合）
@@ -629,14 +691,12 @@ Google Driveは実験実行基盤ではなく、完了済み成果物の外部�
 - [ ] DecoderLensのencoder layer・decode step別出力と可視化
 - [ ] 層別linear probe、表現類似度、ablation、activation介入の固定プロトコル
 - [ ] probe・DecoderLens・fine-tuning・ablation・介入順位の一致度集計
-- [ ] random層集合反復数と検出力の事前決定
+- [ ] random 3層集合1個の固定seed、抽出規則、限界の事前記録
 - [ ] 真式対予測式の比較表を生成するreporter
 - [ ] exact / skeleton / symbolic equivalenceの検証テスト
 - [ ] domain-ID / domain-OOD安全性と除算分母marginの検査
-- [ ] TPSR profilerとGo/No-Go
 - [ ] CTC_NSR準拠のtemplate canonicalizationとcorpus fingerprint
 - [ ] reproduced / novel別の性能集計
-- [ ] NSR-gvs公式実装のcommit固定とRTX 2070 feasibility probe
 - [ ] GPU_RUN2用run ID、source commit、環境manifestの固定
 
 ## 10. Go / No-Go条件
@@ -647,7 +707,7 @@ Google Driveは実験実行基盤ではなく、完了済み成果物の外部�
 - `noise=0.0`と`noise=0.1`の生成、paired入力、data fingerprintが確認済みである。
 - oracle以外の変数がモデル入力へ入らない。
 - 有限差分処理がGPU_RUN2 pipelineから呼ばれない。
-- operator set、60秒timeout、seed、random集合、budgetが固定済みである。
+- operator set、30秒timeout、seed、random 3層集合、budgetが固定済みである。
 - 主splitとstructure-holdout viewが固定され、template集合のfingerprintが保存される。
 - validationだけで層候補とhyperparameterを選択できる。
 - RTX 2070でsmokeが成功し、OOM時にfail fastする。
@@ -682,9 +742,9 @@ Google Driveは実験実行基盤ではなく、完了済み成果物の外部�
 - domain-ID / domain-OOD NMSE、$`R^2`$、特異点、分母margin、domain-OOD validity
 - paired seed比較とnoise別集計
 - CTC_NSR準拠のfine-tuning-corpus reproduced / novel集計
-- structure-OODにおけるnovel symbolic recoveryとtest-time strategy比較
-- PySR結果、Go条件を通った場合のTPSR結果
-- CTC_NSR原典、公式実装commit、再現判定規則、NSR-gvs feasibility結果
+- structure-OODにおけるnovel symbolic recoveryとfine-tuning条件比較
+- PySR結果
+- CTC_NSR原典、fine-tuning corpus fingerprint、再現判定規則
 - validation report、figures、tables、archive
 - Google Drive同期を使用した場合の`backup_status`、同期日時、保存先、SHA256照合結果
 
@@ -706,32 +766,30 @@ GPU_RUN2固有テストを`GPU_RUN2/tests/`へ置く。次表の「新規」は�
 | `GPU_RUN2/tests/test_operator_policy.py` | 新規 | 制限付き`pow`、除算安全性、手法間operator対応の検査 |
 | `GPU_RUN2/tests/test_records_and_resume.py` | 新規 | equation record、2軸OOD field、failure、checkpoint / resumeの検査 |
 | `configs/gpu_run2/base.yaml` | 新規 | seed、noise、timeout、budget、checkpoint、出力先の共通設定 |
-| `configs/gpu_run2/operators.yaml` | 新規 | semantic allowlistとNeSymReS / PySR / TPSRのoperator mapping |
+| `configs/gpu_run2/operators.yaml` | 新規 | semantic allowlistとNeSymReS / PySRのoperator mapping |
 | `configs/gpu_run2/splits.yaml` | 新規 | 主split、structure-holdout、domain-ID / domain-OOD範囲 |
 | `src/data/synthetic_grn.py` | 既存・再利用 | samplingとnoise処理。legacy挙動を壊さず共通処理だけを再利用する |
 | `src/data/gnw_synthetic.py` | 新規 | G01–G08、GNW parameter生成、canonical真式、oracle metadata |
 | `src/data/splits.py` | 既存・拡張 | problem単位splitとstructure-holdout view |
 | `src/evaluation/equation_metrics.py` | 既存・拡張 | exact、skeleton、symbolic equivalence、domain別数値指標 |
 | `src/evaluation/equation_records.py` | 既存・拡張 | 真式・予測式、`domain_regime`、`structure_regime`、failure schema |
-| `src/evaluation/decode_timeout.py` | 既存・再利用 | 共通60秒timeoutとfailure記録 |
+| `src/evaluation/decode_timeout.py` | 既存・再利用 | 共通30秒timeoutとfailure記録 |
 | `src/evaluation/layer_contribution.py` | 既存・拡張 | probe、IOLE、ablation、介入の層別集計 |
 | `src/evaluation/reproduction_bias.py` | 新規 | CTC_NSR準拠template canonicalizationとreproduced / novel集計 |
 | `src/interpretability/__init__.py` | 新規 | 層解釈moduleの公開入口 |
 | `src/interpretability/decoder_lens.py` | 新規 | encoder中間表現を元のdecoderへ渡すDecoderLens |
 | `src/models/nesymres_adapter.py` | 既存・拡張 | operator制約、層hook、共通decode出力 |
-| `src/models/tpsr_adapter.py` | 既存・拡張 | TPSR operator制約、profile、候補数記録 |
 | `src/baselines/pysr_runner.py` | 既存・拡張 | PySR operator制約、search budget、候補式保存 |
 | `src/training/single_layer.py` | 既存・拡張 | IOLE条件の単一層freeze / train制御 |
-| `src/training/selective_layers.py` | 既存・拡張 | top、random、middle、bottom条件の学習制御 |
+| `src/training/selective_layers.py` | 既存・拡張 | top 1、top 3、random 3条件の学習制御 |
 | `src/resumable_evaluation.py` | 既存・拡張 | problem単位checkpoint、fingerprint検証、resume |
 | `scripts/phases/gpu_run2_phase0_preflight.py` | 新規 | ローカルRTX 2070のpreflightとsmoke |
 | `scripts/phases/gpu_run2_phase1_data.py` | 新規 | GNW synthetic benchmark生成 |
 | `scripts/phases/gpu_run2_phase2_baseline.py` | 新規 | NeSymReS / PySR baseline |
 | `scripts/phases/gpu_run2_phase3_interpret.py` | 新規 | probing、CKA、DecoderLens |
 | `scripts/phases/gpu_run2_phase4_contribution.py` | 新規 | IOLE、ablation、activation介入 |
-| `scripts/phases/gpu_run2_phase5_selective_ft.py` | 新規 | selective FTとsymbolic recovery |
-| `scripts/phases/gpu_run2_phase6_test_time.py` | 新規 | TPSR、CTC_NSR、NSR-gvs feasibility |
-| `scripts/phases/gpu_run2_phase7_validate.py` | 新規 | schema検査、集計、真式対予測式表、archive |
+| `scripts/phases/gpu_run2_phase5_selective_ft.py` | 新規 | selective FT、symbolic recovery、CTC_NSR準拠の再現バイアス集計 |
+| `scripts/ops/finalize_gpu_run2.py` | 新規 | Phase 0–5完了後のschema検査、集計、真式対予測式表、archive |
 | `scripts/ops/run_gpu_run2.ps1` | 新規 | WindowsローカルPCでのPhase順次実行と停止・再開 |
 | `scripts/ops/backup_gpu_run2.py` | 新規 | 完了archiveのGoogle Drive同期用stagingとSHA256照合 |
 | `results/runs/<run-id>/` | 実行時生成・Git管理外 | manifest、problem records、checkpoint、logs、archive |
