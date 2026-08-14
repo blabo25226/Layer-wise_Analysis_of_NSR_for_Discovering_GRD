@@ -1065,12 +1065,21 @@ def _to_skeleton_expr(expr: sp.Expr) -> sp.Expr:
 
 
 def _scaled_main_split(variant_index: int, n_variants: int) -> str:
-    """For smoke tests with fewer than 30 variants, keep the 18:6:6 ratio."""
+    """For catalogues smaller than 30 variants, keep an 18:6:6-like ratio.
+
+    Smoke must use ``n_variants >= 3`` so each family has train/validation/test.
+    Smaller catalogues are allowed for unit tests that only need formulas; they
+    put every variant in train.
+    """
+    if n_variants < 3:
+        return "train"
     n_train = max(1, round(n_variants * 18 / 30))
     n_val = max(1, round(n_variants * 6 / 30))
-    if n_train + n_val >= n_variants:
-        n_val = max(1, n_variants - n_train - 1) if n_variants >= 3 else 0
-        n_train = max(1, n_variants - n_val - (1 if n_variants >= 3 else 0))
+    n_test = n_variants - n_train - n_val
+    if n_test < 1 or n_train < 1 or n_val < 1:
+        # Deterministic fallback (e.g. n_variants == 3): 1/1/1.
+        n_train, n_val = 1, 1
+        n_test = n_variants - 2
     if variant_index < n_train:
         return "train"
     if variant_index < n_train + n_val:

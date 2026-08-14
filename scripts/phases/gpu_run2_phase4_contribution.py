@@ -189,6 +189,7 @@ def main() -> int:
                 batch_size=hp["batch_size"],
                 seed=model_seed,
                 shuffle=True,
+                max_token_len=int(pretrained.cfg.length_eq),
             )
             panel_loader = build_finetune_loader(
                 phase1,
@@ -198,6 +199,7 @@ def main() -> int:
                 batch_size=hp["batch_size"],
                 seed=model_seed,
                 shuffle=False,
+                max_token_len=int(pretrained.cfg.length_eq),
             )
             pre_ce = eval_teacher_forcing_ce(pretrained, panel_loader)
             _pre_records, pre_nmse = _decode_panel(

@@ -47,5 +47,7 @@ def test_run_with_timeout_falls_back_for_unpicklable_callable() -> None:
 
 
 def test_run_with_timeout_inprocess_late_return_is_timeout() -> None:
-    with pytest.raises(DecodeTimeout, match="in-process fallback"):
+    # POSIX main thread uses SIGALRM ("decode exceeded"); Windows falls back to
+    # the in-process late-return message.
+    with pytest.raises(DecodeTimeout, match=r"(in-process fallback|decode exceeded)"):
         run_with_timeout(_UnpicklableSlow(), timeout_sec=0.01)

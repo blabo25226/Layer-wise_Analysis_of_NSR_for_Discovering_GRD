@@ -95,15 +95,25 @@ class GRNFinetuneDataset(Dataset):
         word2id: Dict[str, int],
         max_points: int = 100,
         seed: int = 0,
+        max_token_len: int | None = None,
     ):
         self.word2id = word2id
         self.max_points = max_points
+        self.max_token_len = max_token_len
         self.rng = np.random.default_rng(seed)
         self.items: List[Tuple[torch.Tensor, List[int], str]] = []
+        self.skipped_long: List[str] = []
+        self.skipped_tokenize: List[str] = []
         for ds in problems:
             expr = instantiate_expr(ds)
             toks = expression_to_tokens(expr, word2id)
             if toks is None:
+                self.skipped_tokenize.append(ds.spec.eq_id)
+                continue
+            if max_token_len is not None and len(toks) > int(max_token_len):
+                # NeSymReS pos_embedding size is cfg.length_eq; longer teacher
+                # sequences raise CUDA/CPU index errors in Model.forward.
+                self.skipped_long.append(ds.spec.eq_id)
                 continue
             n = ds.X.shape[0]
             idx = self.rng.choice(n, size=min(max_points, n), replace=False)

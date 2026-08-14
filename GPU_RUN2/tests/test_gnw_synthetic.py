@@ -87,6 +87,16 @@ def test_algebraic_template_ids_group_sign_flipped_families():
         assert FAMILY_SPECS[family_id].template_id != family_id
 
 
+def test_scaled_smoke_catalogue_has_train_val_test_per_family():
+    specs = define_gnw_problems(n_variants_per_family=3)
+    for family_id in FAMILY_IDS:
+        members = [s for s in specs if s.family_id == family_id]
+        assert {s.main_split for s in members} == {"train", "validation", "test"}
+        assert sum(s.main_split == "train" for s in members) == 1
+        assert sum(s.main_split == "validation" for s in members) == 1
+        assert sum(s.main_split == "test" for s in members) == 1
+
+
 def test_full_catalogue_has_240_problems_and_fixed_splits():
     specs = define_gnw_problems()
     assert len(specs) == 240

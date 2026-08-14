@@ -38,6 +38,12 @@ def fit_pysr_expression(
         temp_equation_file=True,
         random_state=random_state,
         parallelism="multithreading",
+        extra_sympy_mappings={
+            "square": lambda x: x**2,
+            "cube": lambda x: x**3,
+            "pow4": lambda x: x**4,
+            "pow5": lambda x: x**5,
+        },
     )
     if timeout_in_seconds is not None:
         kwargs["timeout_in_seconds"] = float(timeout_in_seconds)

@@ -31,6 +31,7 @@ from gpu_run2_experiment import (  # noqa: E402
     require_nesymres_checkpoint,
     select_hparams_on_validation,
     train_layers,
+    try_build_finetune_loader,
 )
 from gpu_run2_runtime import (  # noqa: E402
     decode_timeout_sec,
@@ -207,7 +208,7 @@ def main() -> int:
                     model, params_fit = pretrained, params
                     metrics = {"trainable": 0, "epochs": 0, "best_val_ce": float("nan")}
                 else:
-                    train_loader = build_finetune_loader(
+                    train_loader = try_build_finetune_loader(
                         phase1,
                         train_rows,
                         params.word2id,
@@ -215,8 +216,9 @@ def main() -> int:
                         batch_size=hp["batch_size"],
                         seed=model_seed,
                         shuffle=True,
+                        max_token_len=int(pretrained.cfg.length_eq),
                     )
-                    val_loader = build_finetune_loader(
+                    val_loader = try_build_finetune_loader(
                         phase1,
                         val_rows,
                         params.word2id,
@@ -224,30 +226,47 @@ def main() -> int:
                         batch_size=hp["batch_size"],
                         seed=model_seed,
                         shuffle=False,
+                        max_token_len=int(pretrained.cfg.length_eq),
                     )
-                    hp_key = f"{condition}::seed{data_seed}::noise{noise:g}"
-                    if args.split == "validation" and hp_key not in hp_choices:
-                        hp_choices[hp_key] = select_hparams_on_validation(
-                            config,
+                    if train_loader is None or val_loader is None:
+                        if not args.smoke:
+                            raise RuntimeError(
+                                f"Phase 5 {args.view} cannot build finetune loaders under "
+                                f"length_eq={pretrained.cfg.length_eq} "
+                                f"(train_empty={train_loader is None}, "
+                                f"val_empty={val_loader is None})"
+                            )
+                        model, params_fit = pretrained, params
+                        metrics = {
+                            "trainable": 0,
+                            "epochs": 0,
+                            "best_val_ce": float("nan"),
+                            "ft_skipped": "teacher_token_length_exceeds_length_eq",
+                        }
+                    else:
+                        hp_key = f"{condition}::seed{data_seed}::noise{noise:g}"
+                        if args.split == "validation" and hp_key not in hp_choices:
+                            hp_choices[hp_key] = select_hparams_on_validation(
+                                config,
+                                layer_names=layer_names,
+                                train_loader=train_loader,
+                                val_loader=val_loader,
+                                seed=model_seed,
+                            )
+                        chosen = hp_choices.get(hp_key, {"lr": hp["lr"], "epochs": hp["epochs"]})
+                        trial_config = dict(config)
+                        trial_ft = dict(config.get("finetune") or {})
+                        trial_ft["lr"] = float(chosen["lr"])
+                        trial_ft["epochs"] = int(chosen["epochs"])
+                        trial_config["finetune"] = trial_ft
+                        model, params_fit, metrics = train_layers(
+                            trial_config,
                             layer_names=layer_names,
                             train_loader=train_loader,
                             val_loader=val_loader,
                             seed=model_seed,
                         )
-                    chosen = hp_choices.get(hp_key, {"lr": hp["lr"], "epochs": hp["epochs"]})
-                    trial_config = dict(config)
-                    trial_ft = dict(config.get("finetune") or {})
-                    trial_ft["lr"] = float(chosen["lr"])
-                    trial_ft["epochs"] = int(chosen["epochs"])
-                    trial_config["finetune"] = trial_ft
-                    model, params_fit, metrics = train_layers(
-                        trial_config,
-                        layer_names=layer_names,
-                        train_loader=train_loader,
-                        val_loader=val_loader,
-                        seed=model_seed,
-                    )
-                    del pretrained
+                        del pretrained
                 by_eval_key = {_problem_key(row): row for row in eval_rows}
                 for key in remaining:
                     row = by_eval_key[key]
@@ -265,7 +284,14 @@ def main() -> int:
                     )
                     record["ft_metrics"] = {
                         metric_key: metrics[metric_key]
-                        for metric_key in ("trainable", "epochs", "best_val_ce", "best_epoch", "stopped_epoch")
+                        for metric_key in (
+                            "trainable",
+                            "epochs",
+                            "best_val_ce",
+                            "best_epoch",
+                            "stopped_epoch",
+                            "ft_skipped",
+                        )
                         if metric_key in metrics
                     }
                     stored.append(record)

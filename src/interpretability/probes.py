@@ -22,23 +22,39 @@ def _dense_matmul(left: np.ndarray, right: np.ndarray) -> np.ndarray:
 
 
 def _ridge_weights(h: np.ndarray, y: np.ndarray, ridge: float) -> np.ndarray:
-    """Solve ``(HᵀH + λI) w = Hᵀy``.
+    """Solve ridge regression in the cheaper primal/dual form.
 
-    After PyTorch is imported, NumPy/MKL ``linalg`` can abort on this Windows
-    stack, so prefer ``torch.linalg`` when torch is already loaded.
+    Uses the dual ``(HHᵀ + λI)α = y``, ``w = Hᵀα`` when ``n_features > n_examples``,
+    otherwise the primal ``(HᵀH + λI)w = Hᵀy``. The primal alone is catastrophic for
+    NeSymReS activations flattened to tens of thousands of features with few rows.
     """
     h = np.asarray(h, dtype=np.float64)
     y = np.asarray(y, dtype=np.float64).ravel()
+    n_examples, n_features = h.shape
     torch_mod = sys.modules.get("torch")
     if torch_mod is not None:
         H = torch_mod.as_tensor(h, dtype=torch_mod.float64)
         target = torch_mod.as_tensor(y, dtype=torch_mod.float64)
-        xtx = H.T @ H + float(ridge) * torch_mod.eye(H.shape[1], dtype=H.dtype)
+        if n_features > n_examples:
+            hht = H @ H.T + float(ridge) * torch_mod.eye(n_examples, dtype=H.dtype)
+            try:
+                alpha = torch_mod.linalg.solve(hht, target)
+            except Exception:
+                alpha = torch_mod.linalg.lstsq(hht, target, rcond=None).solution
+            return (H.T @ alpha).detach().cpu().numpy()
+        xtx = H.T @ H + float(ridge) * torch_mod.eye(n_features, dtype=H.dtype)
         try:
             return torch_mod.linalg.solve(xtx, H.T @ target).detach().cpu().numpy()
         except Exception:
             return torch_mod.linalg.lstsq(xtx, H.T @ target, rcond=None).solution.detach().cpu().numpy()
-    xtx = h.T @ h + float(ridge) * np.eye(h.shape[1])
+    if n_features > n_examples:
+        hht = h @ h.T + float(ridge) * np.eye(n_examples)
+        try:
+            alpha = np.linalg.solve(hht, y)
+        except np.linalg.LinAlgError:
+            alpha = np.linalg.pinv(hht) @ y
+        return h.T @ alpha
+    xtx = h.T @ h + float(ridge) * np.eye(n_features)
     xty = h.T @ y
     try:
         return np.linalg.solve(xtx, xty)
@@ -71,7 +87,7 @@ def fit_linear_probe(
         "nmse_var": float(np.sum(residual**2) / denom),
         "r2": 1.0 - float(np.sum(residual**2) / denom),
         "n_examples": float(len(y)),
-        "n_features": float(n_features),
+        "n_features": float(h.shape[1]),
     }
 
 

@@ -134,8 +134,14 @@ def main() -> int:
     index = load_phase1_index(phase1)
     val_ids = list(splits["main"]["validation"])
     if args.smoke:
-        val_ids = val_ids[:4]
+        # Prefer covering short and longer families; length_eq filter drops overflow.
+        val_ids = val_ids[:8]
     val_specs = [row for row in catalogue if row["eq_id"] in set(val_ids)]
+    if not args.dry_run and not val_ids:
+        raise RuntimeError(
+            "Phase 3 live path requires non-empty main validation IDs; "
+            "Phase 1 smoke must use n_variants_per_family >= 3"
+        )
     catalogue_by_id = {row["eq_id"]: row for row in catalogue}
     train_templates = [row["canonical_expr"] for row in catalogue if row["main_split"] == "train"]
     corpus = corpus_fingerprint(train_templates)
@@ -201,6 +207,7 @@ def main() -> int:
                 batch_size=hp["batch_size"],
                 seed=model_seed,
                 shuffle=False,
+                max_token_len=int(model.cfg.length_eq),
             )
             collected = collect_layer_representations(
                 model,
@@ -298,6 +305,10 @@ def main() -> int:
     probe_ranking = ranking_from_mean_rank(mean_ranks)
     cka_ranking = sorted(cka_scores, key=lambda key: -cka_scores[key])
     candidates = freeze_candidate_layers(probe_ranking, k=args.candidate_k)
+    if not args.dry_run and not candidates:
+        raise RuntimeError(
+            "Phase 3 produced empty candidate_layers; check validation coverage and probes"
+        )
     if any(name == "output_head" or str(name).endswith("_head") for name in candidates):
         raise RuntimeError(f"selective-FT candidates must not include heads: {candidates}")
     write_json(

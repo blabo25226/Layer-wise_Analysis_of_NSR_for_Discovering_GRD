@@ -47,7 +47,10 @@ def main() -> int:
     out_dir = run_dir / "phase1"
     data_dir = out_dir / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
-    n_variants = args.n_variants or (2 if args.smoke else int(config["n_variants_per_family"]))
+    # Smoke needs >=3 variants/family so train/validation/test are all non-empty.
+    n_variants = args.n_variants or (3 if args.smoke else int(config["n_variants_per_family"]))
+    if args.smoke and n_variants < 3:
+        raise ValueError("GPU_RUN2 smoke requires n_variants_per_family >= 3 for non-empty splits")
     n_train = args.n_train or (16 if args.smoke else int(config["n_train_points"]))
     n_eval = args.n_eval or (8 if args.smoke else int(config["n_eval_points"]))
     data_seeds = args.data_seeds or list(config["data_seeds"])
@@ -56,6 +59,9 @@ def main() -> int:
     support_id = tuple(config["support_id"])
     support_ood = tuple(config["support_ood"])
     noises = [float(x) for x in config["noises"]]
+    if args.smoke:
+        # Match smoke_test.md: one seed bundle and noise=0.0 only.
+        noises = noises[:1]
 
     specs = define_gnw_problems(
         n_variants_per_family=n_variants,

@@ -111,6 +111,7 @@ def build_finetune_loader(
     batch_size: int,
     seed: int,
     shuffle: bool,
+    max_token_len: int | None = None,
 ):
     from torch.utils.data import DataLoader
 
@@ -122,11 +123,18 @@ def build_finetune_loader(
         dict(word2id),
         max_points=int(max_points),
         seed=int(seed),
+        max_token_len=max_token_len,
     )
     if len(dataset) == 0:
+        detail = []
+        if getattr(dataset, "skipped_long", None):
+            detail.append(f"too_long={dataset.skipped_long}")
+        if getattr(dataset, "skipped_tokenize", None):
+            detail.append(f"tokenize_fail={dataset.skipped_tokenize}")
         raise RuntimeError(
             "GRNFinetuneDataset is empty after tokenizing GNW expressions. "
-            "Check operator allowlist / teacher formulas."
+            "Check operator allowlist / teacher formulas / length_eq. "
+            + (" ".join(detail) if detail else "")
         )
     return DataLoader(
         dataset,
@@ -134,6 +142,20 @@ def build_finetune_loader(
         shuffle=bool(shuffle),
         collate_fn=collate_finetune,
     )
+
+
+def try_build_finetune_loader(
+    *args: Any,
+    **kwargs: Any,
+):
+    """Like :func:`build_finetune_loader`, but return ``None`` when every formula is skipped."""
+    try:
+        return build_finetune_loader(*args, **kwargs)
+    except RuntimeError as exc:
+        if "GRNFinetuneDataset is empty" in str(exc):
+            return None
+        raise
+
 
 
 def finetune_hparams(config: Mapping[str, Any]) -> dict[str, Any]:
