@@ -20,7 +20,6 @@ from resumable_evaluation import (  # noqa: E402
     save_problem_json_checkpoint,
 )
 from gpu_run2_experiment import (  # noqa: E402
-    build_finetune_loader,
     decode_gnw_row,
     dummy_gnw_record,
     filter_index_rows,
@@ -28,7 +27,10 @@ from gpu_run2_experiment import (  # noqa: E402
     iter_seed_noise,
     load_nesymres_gpu_run2,
     load_phase1_index,
+    load_phase5_finetuned_checkpoint,
+    phase5_model_checkpoint_path,
     require_nesymres_checkpoint,
+    save_phase5_finetuned_checkpoint,
     select_hparams_on_validation,
     train_layers,
     try_build_finetune_loader,
@@ -141,11 +143,14 @@ def main() -> int:
                 aggregate_prediction_scores(records),
             )
     else:
+        hp_path = out_dir / f"hp_selected_{args.view}.json"
         if args.split == "test":
             # Layer sets and HP must already be frozen from validation.
-            hp_path = out_dir / f"hp_selected_{args.view}.json"
-            if hp_path.is_file():
-                hp_choices = json.loads(hp_path.read_text(encoding="utf-8"))
+            if not hp_path.is_file():
+                raise FileNotFoundError(
+                    f"Phase 5 test requires validation HP freeze file: {hp_path}"
+                )
+            hp_choices = json.loads(hp_path.read_text(encoding="utf-8"))
         require_nesymres_checkpoint(config)
         index = load_phase1_index(phase1)
         hp = finetune_hparams(config)
@@ -203,11 +208,30 @@ def main() -> int:
                 if not remaining:
                     condition_records.extend(stored)
                     continue
-                pretrained, params = load_nesymres_gpu_run2(config)
-                if condition == "frozen" or layer_names == []:
-                    model, params_fit = pretrained, params
+
+                is_frozen = condition == "frozen" or layer_names == []
+                model_ckpt = phase5_model_checkpoint_path(
+                    out_dir,
+                    view=args.view,
+                    condition=condition,
+                    data_seed=data_seed,
+                    noise=noise,
+                )
+                if is_frozen:
+                    model, params_fit = load_nesymres_gpu_run2(config)
                     metrics = {"trainable": 0, "epochs": 0, "best_val_ce": float("nan")}
+                elif args.split == "test":
+                    if not model_ckpt.is_file():
+                        raise FileNotFoundError(
+                            "Phase 5 test must reuse validation FT checkpoints; "
+                            f"missing {model_ckpt}"
+                        )
+                    model, params_fit, ft_payload = load_phase5_finetuned_checkpoint(
+                        config, model_ckpt
+                    )
+                    metrics = dict(ft_payload.get("metrics") or {})
                 else:
+                    pretrained, params = load_nesymres_gpu_run2(config)
                     train_loader = try_build_finetune_loader(
                         phase1,
                         train_rows,
@@ -243,9 +267,10 @@ def main() -> int:
                             "best_val_ce": float("nan"),
                             "ft_skipped": "teacher_token_length_exceeds_length_eq",
                         }
+                        chosen = {"lr": hp["lr"], "epochs": hp["epochs"]}
                     else:
                         hp_key = f"{condition}::seed{data_seed}::noise{noise:g}"
-                        if args.split == "validation" and hp_key not in hp_choices:
+                        if hp_key not in hp_choices:
                             hp_choices[hp_key] = select_hparams_on_validation(
                                 config,
                                 layer_names=layer_names,
@@ -267,6 +292,13 @@ def main() -> int:
                             seed=model_seed,
                         )
                         del pretrained
+                    save_phase5_finetuned_checkpoint(
+                        model_ckpt,
+                        model,
+                        metrics=metrics,
+                        hp=chosen,
+                        layer_names=layer_names,
+                    )
                 by_eval_key = {_problem_key(row): row for row in eval_rows}
                 for key in remaining:
                     row = by_eval_key[key]
@@ -314,7 +346,7 @@ def main() -> int:
                 out_dir / f"{args.view}_{args.split}_{condition}_aggregate.json",
                 aggregate_prediction_scores(condition_records),
             )
-        if args.split == "validation" and hp_choices:
+        if args.split == "validation":
             write_json(out_dir / f"hp_selected_{args.view}.json", hp_choices)
 
     reproduction = {}
@@ -352,6 +384,7 @@ def main() -> int:
             "live_model": live,
             "placeholder_decode": bool(args.dry_run),
             "used_test_for_selection": False,
+            "test_reuses_validation_checkpoints": True,
         },
     )
     print(f"Phase 5 complete: view={args.view} split={args.split}")

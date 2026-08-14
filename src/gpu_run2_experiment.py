@@ -569,6 +569,65 @@ def train_layers(
     return model, params_fit, metrics
 
 
+def phase5_model_checkpoint_path(
+    phase5_dir: Path,
+    *,
+    view: str,
+    condition: str,
+    data_seed: int,
+    noise: float,
+) -> Path:
+    """Validation FT weights reused on test (non-frozen conditions)."""
+    return (
+        Path(phase5_dir)
+        / "models"
+        / f"{view}_{condition}_seed{int(data_seed)}_noise{float(noise):g}.pt"
+    )
+
+
+def save_phase5_finetuned_checkpoint(
+    path: Path,
+    model,
+    *,
+    metrics: Mapping[str, Any],
+    hp: Mapping[str, Any],
+    layer_names: Sequence[str] | None,
+) -> None:
+    import torch
+
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    torch.save(
+        {
+            "state_dict": {key: value.detach().cpu() for key, value in model.state_dict().items()},
+            "metrics": dict(metrics),
+            "hp": dict(hp),
+            "layer_names": None if layer_names is None else list(layer_names),
+        },
+        path,
+    )
+
+
+def load_phase5_finetuned_checkpoint(
+    config: Mapping[str, Any],
+    path: Path,
+):
+    """Load pretrained architecture then apply a validation FT state_dict."""
+    import torch
+
+    path = Path(path)
+    if not path.is_file():
+        raise FileNotFoundError(f"Phase 5 FT checkpoint missing: {path}")
+    model, params_fit = load_nesymres_gpu_run2(config)
+    device = getattr(model, "device", torch.device("cpu"))
+    payload = torch.load(path, map_location=device)
+    if "state_dict" not in payload:
+        raise KeyError(f"Phase 5 checkpoint missing state_dict: {path}")
+    model.load_state_dict(payload["state_dict"])
+    model.eval()
+    return model, params_fit, payload
+
+
 def select_hparams_on_validation(
     config: Mapping[str, Any],
     *,

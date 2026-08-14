@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import inspect
 import sys
 from pathlib import Path
@@ -41,11 +42,21 @@ from interpretability.interventions import (  # noqa: E402
 )
 
 
+def _load_phase3_module():
+    path = ROOT / "scripts" / "phases" / "gpu_run2_phase3_interpret.py"
+    spec = importlib.util.spec_from_file_location("gpu_run2_phase3_interpret", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def test_to_sampled_dataset_preserves_oracle_columns():
     class _Spec:
         eq_id = "G01_variant_000"
         family_id = "G01"
         canonical_expr = "1 - x_1"
+        teacher_expr = "1 - x_1"
         oracle_inputs = ["x_1"]
         main_split = "train"
 
@@ -171,6 +182,43 @@ def test_structure_holdout_nmse_drops_g07_g08():
     assert holdout == pytest.approx(0.2)
 
 
+def test_structure_safe_eq_ids_excludes_g07_g08():
+    phase3 = _load_phase3_module()
+    catalogue_by_id = {
+        "G01_a": {"eq_id": "G01_a", "family_id": "G01"},
+        "G06_b": {"eq_id": "G06_b", "family_id": "G06"},
+        "G07_c": {"eq_id": "G07_c", "family_id": "G07"},
+        "G08_d": {"eq_id": "G08_d", "family_id": "G08"},
+    }
+    safe = phase3._structure_safe_eq_ids(
+        ["G01_a", "G06_b", "G07_c", "G08_d"],
+        catalogue_by_id,
+    )
+    assert safe == ["G01_a", "G06_b"]
+    assert "G07_c" not in safe and "G08_d" not in safe
+
+
+def test_phase3_writes_dual_candidate_layer_files():
+    source = (ROOT / "scripts" / "phases" / "gpu_run2_phase3_interpret.py").read_text(
+        encoding="utf-8"
+    )
+    assert "candidate_layers_main.json" in source
+    assert "candidate_layers_structure_holdout.json" in source
+    assert 'write_json(out_dir / "candidate_layers.json", main_payload)' in source
+
+
+def test_phase4_loads_dual_candidate_lists():
+    source = (ROOT / "scripts" / "phases" / "gpu_run2_phase4_contribution.py").read_text(
+        encoding="utf-8"
+    )
+    assert "candidate_layers_main.json" in source
+    assert "candidate_layers_structure_holdout.json" in source
+    assert "candidates_union" in source
+    assert "raise FileNotFoundError" in source
+    assert "candidate_layers=candidates_main" in source
+    assert "candidate_layers=candidates_sh" in source
+
+
 def test_phase4_agreement_includes_decoder_lens_and_holdout_conditions_are_separate():
     candidates = ["decoder_0", "decoder_1", "decoder_2", "decoder_3", "decoder_4"]
     agreement = phase4_agreement(
@@ -195,6 +243,26 @@ def test_phase4_agreement_includes_decoder_lens_and_holdout_conditions_are_separ
     )
     assert main["top_1"] != holdout["top_1"]
     assert set(main) == {"frozen", "full", "top_1", "top_3", "random_3"}
+
+
+def test_phase5_test_requires_hp_and_does_not_train():
+    source = (ROOT / "scripts" / "phases" / "gpu_run2_phase5_selective_ft.py").read_text(
+        encoding="utf-8"
+    )
+    assert 'if args.split == "test":' in source
+    assert "Phase 5 test requires validation HP freeze file" in source
+    assert "raise FileNotFoundError" in source
+    assert "load_phase5_finetuned_checkpoint" in source
+    assert 'elif args.split == "test":' in source
+    assert "save_phase5_finetuned_checkpoint" in source
+    assert "test_reuses_validation_checkpoints" in source
+    # train_layers only under validation FT branch, never under test load branch.
+    train_idx = source.index("train_layers(")
+    test_load_idx = source.index('elif args.split == "test":')
+    assert train_idx > test_load_idx
+    between = source[test_load_idx:train_idx]
+    assert "train_layers" not in between
+    assert "load_phase5_finetuned_checkpoint" in between
 
 
 def test_runner_script_evaluates_test_after_validation_freeze():

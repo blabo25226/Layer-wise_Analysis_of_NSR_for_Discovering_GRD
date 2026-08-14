@@ -577,7 +577,9 @@ failure reason、timeout flag、候補評価数を保存する。resume時に完
 
 - validationだけで軽量probingを実行する。
 - DecoderLensでencoder layer・decode stepごとのtoken候補と暫定式を保存する。
-- 高価なPhase 4へ渡す候補層と選択規則を凍結する。
+- 高価なPhase 4へ渡す候補層をview別に凍結する。
+  `candidate_layers_main.json`はmain validation（G01–G08）から、
+  `candidate_layers_structure_holdout.json`はG07/G08を一切使わないvalidation部分集合（G01–G06）から選ぶ。
 - test problemを層選択や可視化対象の選別に使わない。
 - fine-tuning train template集合のfingerprintとCTC_NSR再現判定規則を凍結する。
 
@@ -600,6 +602,8 @@ failure reason、timeout flag、候補評価数を保存する。resume時に完
   `top 3`と完全一致した場合だけ再抽出する。抽出規則と結果をvalidation評価前にmanifestへ固定する。
 - random集合が1個だけなので、random層集合全体に対する平均性能や一般的優越性は主張せず、固定controlとの比較と呼ぶ。
 - early stoppingと選択はvalidationだけで行い、testは条件固定後に一度だけ評価する。
+- validationでFTしたモデル重みをcheckpoint保存し、testでは再学習せずそのcheckpointを読み込んでdecodeする。
+  `hp_selected_<view>.json`が無いtest呼び出しはfail-fastする。
 - `noise=0.0`と`noise=0.1`を別々に集計する。
 - 真式対予測式の全problem比較表を生成する。
 - CTC_NSR評価用には、同じ5条件をstructure-trainだけで学習し、G06でearly stoppingした別checkpointを作る。

@@ -10,7 +10,7 @@ set -eo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$REPO_ROOT"
 
-RUN_ID="${LANSR_RUN_ID:-gpu_run2_local}"
+RUN_ID="${LANSR_RUN_ID:-gpu_run2_20260815}"
 FROM_PHASE=0
 SMOKE=0
 DRY_RUN=0

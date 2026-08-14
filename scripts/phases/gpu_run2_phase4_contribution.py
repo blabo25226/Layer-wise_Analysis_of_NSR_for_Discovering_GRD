@@ -89,8 +89,29 @@ def main() -> int:
     out_dir = run_dir / "phase4"
     out_dir.mkdir(parents=True, exist_ok=True)
     splits = json.loads((phase1 / "splits.json").read_text(encoding="utf-8"))
-    candidates_payload = json.loads((phase3 / "candidate_layers.json").read_text(encoding="utf-8"))
-    candidates = list(candidates_payload["candidates"])
+    main_cand_path = phase3 / "candidate_layers_main.json"
+    if not main_cand_path.is_file():
+        main_cand_path = phase3 / "candidate_layers.json"
+    if not main_cand_path.is_file():
+        raise FileNotFoundError(
+            f"Phase 3 candidates missing: tried candidate_layers_main.json and candidate_layers.json under {phase3}"
+        )
+    candidates_main = list(
+        json.loads(main_cand_path.read_text(encoding="utf-8"))["candidates"]
+    )
+    structure_cand_path = phase3 / "candidate_layers_structure_holdout.json"
+    if not structure_cand_path.is_file():
+        raise FileNotFoundError(
+            f"Phase 3 structure-holdout candidates missing (fail-fast): {structure_cand_path}"
+        )
+    candidates_sh = list(
+        json.loads(structure_cand_path.read_text(encoding="utf-8"))["candidates"]
+    )
+    candidates_union = sorted(set(candidates_main) | set(candidates_sh))
+    candidate_sources = {
+        "main": main_cand_path.name,
+        "structure_holdout": structure_cand_path.name,
+    }
     panel_ids = list(splits["phase4_panel"])
     if args.smoke:
         panel_ids = panel_ids[:4]
@@ -108,7 +129,12 @@ def main() -> int:
     probe_scores_path = phase3 / "probe_scores.json"
     if probe_scores_path.is_file():
         probe_payload = json.loads(probe_scores_path.read_text(encoding="utf-8"))
-    probe_ranking = list(probe_payload.get("probe_ranking") or candidates)
+    probe_main = probe_payload.get("main") if isinstance(probe_payload.get("main"), dict) else {}
+    probe_ranking = list(
+        probe_main.get("probe_ranking")
+        or probe_payload.get("probe_ranking")
+        or candidates_main
+    )
     decoder_lens_ranking = list(probe_payload.get("decoder_lens_ranking") or [])
     seed_snapshots: list[dict[str, dict[str, float]]] = []
     layer_scores_sh: dict[str, float] = {}
@@ -121,7 +147,7 @@ def main() -> int:
         ablation_scores = {"pretrained": base, "all_params": full}
         intervention_scores = {"pretrained": base, "all_params": full}
         ce_scores = {"pretrained": 2.0, "all_params": 1.4}
-        for layer in candidates:
+        for layer in candidates_union:
             layer_scores[layer] = float(full + rng.uniform(-0.03, 0.08))
             ablation_scores[layer] = float(base - rng.uniform(0.0, 0.1))
             intervention_scores[layer] = float(base - rng.uniform(0.0, 0.08))
@@ -139,11 +165,11 @@ def main() -> int:
                     },
                     "ablation": {
                         name: float(ablation_scores[name] + rng.uniform(-0.01, 0.01))
-                        for name in candidates
+                        for name in candidates_union
                     },
                     "intervention": {
                         name: float(intervention_scores[name] + rng.uniform(-0.01, 0.01))
-                        for name in candidates
+                        for name in candidates_union
                     },
                 }
             )
@@ -157,7 +183,7 @@ def main() -> int:
         ablation_nmse: dict[str, list[float]] = {"pretrained": [], "all_params": []}
         intervention_nmse: dict[str, list[float]] = {"pretrained": [], "all_params": []}
         iole_nmse_sh: dict[str, list[float]] = {"pretrained": [], "all_params": []}
-        for name in candidates:
+        for name in candidates_union:
             iole_nmse.setdefault(name, [])
             iole_ce.setdefault(name, [])
             ablation_nmse.setdefault(name, [])
@@ -248,7 +274,7 @@ def main() -> int:
             del full_model
 
             ref_batch = next(iter(train_loader))
-            for layer in candidates:
+            for layer in candidates_union:
                 iole_model, iole_params, _iole_metrics = train_layers(
                     config,
                     layer_names=[layer],
@@ -320,20 +346,20 @@ def main() -> int:
         layer_scores_sh = {name: _mean_or_nan(vals) for name, vals in iole_nmse_sh.items()}
         live = True
 
-    iole_rank, contrib = iole_ranking(layer_scores, candidates)
+    iole_rank, contrib = iole_ranking(layer_scores, candidates_main)
     absolute = absolute_improvements(layer_scores, higher_is_better=False)
-    ablation_rank = ablation_ranking(ablation_scores, candidates)
-    intervention_rank = intervention_ranking(intervention_scores, candidates)
+    ablation_rank = ablation_ranking(ablation_scores, candidates_main)
+    intervention_rank = intervention_ranking(intervention_scores, candidates_main)
     conditions = phase4_conditions(
         iole_rank,
         random_seed=int(config["random_3_seed"]),
-        candidate_layers=candidates,
+        candidate_layers=candidates_main,
     )
-    iole_rank_sh, contrib_sh = iole_ranking(layer_scores_sh or layer_scores, candidates)
+    iole_rank_sh, contrib_sh = iole_ranking(layer_scores_sh or layer_scores, candidates_sh)
     conditions_sh = phase4_conditions(
         iole_rank_sh,
         random_seed=int(config["random_3_seed"]),
-        candidate_layers=candidates,
+        candidate_layers=candidates_sh,
     )
     stability_rows = [
         {
@@ -379,9 +405,12 @@ def main() -> int:
         {
             "conditions": conditions,
             "random_3_seed": int(config["random_3_seed"]),
+            "candidate_layers": list(candidates_main),
+            "candidate_source": candidate_sources["main"],
             "source_panel": "main_all_families",
             "note": (
-                "random_3 is one fixed control set. Do not claim average random-set performance."
+                "random_3 is one fixed control set. Do not claim average random-set performance. "
+                f"Layer candidates loaded from Phase 3 {candidate_sources['main']}."
             ),
         },
     )
@@ -397,6 +426,8 @@ def main() -> int:
         {
             "conditions": conditions_sh,
             "random_3_seed": int(config["random_3_seed"]),
+            "candidate_layers": list(candidates_sh),
+            "candidate_source": candidate_sources["structure_holdout"],
             "source_panel": "g01_g06_only",
             "selection_families": sorted(structure_ood_families),
             "excluded_families": ["G07", "G08"],
@@ -406,7 +437,9 @@ def main() -> int:
             ],
             "note": (
                 "Structure-OOD layer freeze uses G01–G06 panel scores only. "
-                "G07–G08 panel rows are stored but not used for selection."
+                "G07–G08 panel rows are stored but not used for selection. "
+                f"Candidates from Phase 3 {candidate_sources['structure_holdout']} "
+                "(G07/G08 excluded at probe selection)."
             ),
         },
     )
@@ -424,6 +457,10 @@ def main() -> int:
             "live_model": live,
             "dry_run": bool(args.dry_run),
             "smoke": bool(args.smoke),
+            "candidate_sources": candidate_sources,
+            "candidates_main": list(candidates_main),
+            "candidates_structure_holdout": list(candidates_sh),
+            "candidates_union": list(candidates_union),
         },
     )
     print(f"Phase 4 complete: conditions={list(conditions)}")

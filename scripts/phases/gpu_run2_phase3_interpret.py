@@ -16,7 +16,7 @@ sys.path.insert(0, str(ROOT / "third_party" / "nesymres"))
 
 from evaluation.layer_contribution import freeze_candidate_layers, rank_agreement_table  # noqa: E402
 from evaluation.reproduction_bias import corpus_fingerprint  # noqa: E402
-from data.gnw_synthetic import load_problem_npz  # noqa: E402
+from data.gnw_synthetic import STRUCTURE_TEST_FAMILIES, load_problem_npz  # noqa: E402
 from gpu_run2_experiment import (  # noqa: E402
     build_finetune_loader,
     collect_layer_representations,
@@ -122,6 +122,101 @@ def _labels_for_eq_ids(eq_ids: list[str], catalogue_by_id: dict[str, dict]) -> t
     return template_ids, np.asarray(n_operators, dtype=np.float64), np.asarray(n_variables, dtype=np.float64)
 
 
+def _structure_safe_eq_ids(eq_ids: list[str], catalogue_by_id: dict[str, dict]) -> list[str]:
+    """Drop G07/G08 so structure-holdout candidates never see holdout families."""
+    excluded = set(STRUCTURE_TEST_FAMILIES)
+    safe: list[str] = []
+    for eq_id in eq_ids:
+        family = str(catalogue_by_id.get(eq_id, {}).get("family_id") or "")
+        if family in excluded:
+            continue
+        safe.append(eq_id)
+    return safe
+
+
+def _mean_accum(accum: dict[str, list[float]]) -> dict[str, float]:
+    return {name: float(np.mean(vals)) for name, vals in accum.items() if vals}
+
+
+def _append_probe_batch(
+    *,
+    template_accum: dict[str, list[float]],
+    next_token_accum: dict[str, list[float]],
+    n_ops_accum: dict[str, list[float]],
+    hidden: dict[str, np.ndarray],
+    template_ids: list[str],
+    next_tokens: np.ndarray,
+    n_operators: np.ndarray,
+    keep_indices: list[int] | None = None,
+) -> None:
+    if keep_indices is not None:
+        if len(keep_indices) < 2:
+            return
+        template_ids = [template_ids[i] for i in keep_indices]
+        next_tokens = np.asarray(next_tokens)[keep_indices]
+        n_operators = np.asarray(n_operators)[keep_indices]
+        hidden = {name: array[keep_indices] for name, array in hidden.items()}
+    for name, array in hidden.items():
+        template_accum.setdefault(name, []).append(
+            fit_linear_classifier_probe(array, template_ids)["accuracy"]
+        )
+        next_token_accum.setdefault(name, []).append(
+            fit_linear_classifier_probe(array, next_tokens)["accuracy"]
+        )
+        n_ops_accum.setdefault(name, []).append(fit_linear_probe(array, n_operators)["r2"])
+
+
+def _freeze_from_probe_scores(
+    template_acc: dict[str, float],
+    next_token_acc: dict[str, float],
+    n_ops_r2: dict[str, float],
+    *,
+    candidate_k: int,
+) -> tuple[list[str], list[str], dict[str, float]]:
+    mean_ranks = mean_rank_layer_scores(
+        {
+            "template_accuracy": template_acc,
+            "next_token_accuracy": next_token_acc,
+            "n_operators_r2": n_ops_r2,
+        },
+        higher_is_better=CANDIDATE_SELECTION_METRICS,
+    )
+    probe_ranking = ranking_from_mean_rank(mean_ranks)
+    candidates = freeze_candidate_layers(probe_ranking, k=candidate_k)
+    return candidates, probe_ranking, mean_ranks
+
+
+def _candidate_payload(
+    *,
+    candidates: list[str],
+    candidate_k: int,
+    probe_ranking: list[str],
+    cka_ranking: list[str],
+    decoder_lens_ranking: list[str],
+    selection_eq_ids: list[str],
+    excluded_families: list[str],
+    view: str,
+) -> dict:
+    return {
+        "candidates": candidates,
+        "k": candidate_k,
+        "view": view,
+        "source": "mean_rank_template_next_token_n_operators",
+        "include_output_head": False,
+        "frozen_before_test": True,
+        "selection_eq_ids": list(selection_eq_ids),
+        "excluded_families": list(excluded_families),
+        "probe_ranking": list(probe_ranking),
+        "rank_agreement": rank_agreement_table(
+            {
+                "probe": probe_ranking,
+                "cka": cka_ranking,
+                "decoder_lens": decoder_lens_ranking,
+            }
+        ),
+    }
+
+
 def main() -> int:
     args = parse_args()
     config = load_gpu_run2_configs()
@@ -136,16 +231,25 @@ def main() -> int:
     if args.smoke:
         # Prefer covering short and longer families; length_eq filter drops overflow.
         val_ids = val_ids[:8]
+    catalogue_by_id = {row["eq_id"]: row for row in catalogue}
+    structure_val_ids = _structure_safe_eq_ids(val_ids, catalogue_by_id)
     val_specs = [row for row in catalogue if row["eq_id"] in set(val_ids)]
     if not args.dry_run and not val_ids:
         raise RuntimeError(
             "Phase 3 live path requires non-empty main validation IDs; "
             "Phase 1 smoke must use n_variants_per_family >= 3"
         )
-    catalogue_by_id = {row["eq_id"]: row for row in catalogue}
+    if not args.dry_run and not structure_val_ids:
+        raise RuntimeError(
+            "Phase 3 structure-holdout candidates require non-empty G01–G06 validation IDs "
+            "(G07/G08 must be excluded from structure candidate selection)"
+        )
     train_templates = [row["canonical_expr"] for row in catalogue if row["main_split"] == "train"]
     corpus = corpus_fingerprint(train_templates)
     write_json(out_dir / "finetune_corpus_fingerprint.json", corpus)
+
+    structure_val_set = set(structure_val_ids)
+    excluded_structure_families = sorted(STRUCTURE_TEST_FAMILIES)
 
     if args.dry_run:
         layers = _placeholder_layers(int(config.get("encoder_layers", 5)))
@@ -153,6 +257,9 @@ def main() -> int:
         template_acc = dummy["template_accuracy"]
         next_token_acc = dummy["next_token_accuracy"]
         n_ops_r2 = dummy["n_operators_r2"]
+        template_acc_sh = dict(template_acc)
+        next_token_acc_sh = dict(next_token_acc)
+        n_ops_r2_sh = dict(n_ops_r2)
         cka_scores = dummy["cka"]
         grads = dummy["gradient_norms"]
         decoder_lens_rows = []
@@ -184,6 +291,9 @@ def main() -> int:
         template_accum: dict[str, list[float]] = {name: [] for name in layers}
         next_token_accum: dict[str, list[float]] = {name: [] for name in layers}
         n_ops_accum: dict[str, list[float]] = {name: [] for name in layers}
+        template_accum_sh: dict[str, list[float]] = {name: [] for name in layers}
+        next_token_accum_sh: dict[str, list[float]] = {name: [] for name in layers}
+        n_ops_accum_sh: dict[str, list[float]] = {name: [] for name in layers}
         cka_accum: dict[str, list[float]] = {name: [] for name in layers}
         grad_accum: dict[str, list[float]] = {name: [] for name in layers}
         decoder_lens_rows = []
@@ -216,8 +326,9 @@ def main() -> int:
                 layer_names=layers,
             )
             hidden = collected["hidden"]
+            eq_ids_batch = list(collected["eq_ids"])
             template_ids, n_operators, _n_variables = _labels_for_eq_ids(
-                list(collected["eq_ids"]), catalogue_by_id
+                eq_ids_batch, catalogue_by_id
             )
             next_tokens = collected["next_token_ids"]
             encoder_hidden = {
@@ -231,11 +342,28 @@ def main() -> int:
             template_ids = template_ids[:n_examples]
             n_operators = n_operators[:n_examples]
             next_tokens = next_tokens[:n_examples]
-            for name, array in hidden.items():
-                array = array[:n_examples]
-                template_accum[name].append(fit_linear_classifier_probe(array, template_ids)["accuracy"])
-                next_token_accum[name].append(fit_linear_classifier_probe(array, next_tokens)["accuracy"])
-                n_ops_accum[name].append(fit_linear_probe(array, n_operators)["r2"])
+            eq_ids_batch = eq_ids_batch[:n_examples]
+            hidden = {name: array[:n_examples] for name, array in hidden.items()}
+            _append_probe_batch(
+                template_accum=template_accum,
+                next_token_accum=next_token_accum,
+                n_ops_accum=n_ops_accum,
+                hidden=hidden,
+                template_ids=template_ids,
+                next_tokens=next_tokens,
+                n_operators=n_operators,
+            )
+            keep_sh = [i for i, eq_id in enumerate(eq_ids_batch) if eq_id in structure_val_set]
+            _append_probe_batch(
+                template_accum=template_accum_sh,
+                next_token_accum=next_token_accum_sh,
+                n_ops_accum=n_ops_accum_sh,
+                hidden=hidden,
+                template_ids=template_ids,
+                next_tokens=next_tokens,
+                n_operators=n_operators,
+                keep_indices=keep_sh,
+            )
             for idx, name in enumerate(encoder_names):
                 if idx == 0:
                     cka_accum[name].append(1.0)
@@ -272,11 +400,14 @@ def main() -> int:
                             }
                         )
                         decoder_lens_rows.append(payload_step)
-        template_acc = {name: float(np.mean(vals)) for name, vals in template_accum.items() if vals}
-        next_token_acc = {name: float(np.mean(vals)) for name, vals in next_token_accum.items() if vals}
-        n_ops_r2 = {name: float(np.mean(vals)) for name, vals in n_ops_accum.items() if vals}
-        cka_scores = {name: float(np.mean(vals)) for name, vals in cka_accum.items() if vals}
-        grads = {name: float(np.mean(vals)) for name, vals in grad_accum.items() if vals}
+        template_acc = _mean_accum(template_accum)
+        next_token_acc = _mean_accum(next_token_accum)
+        n_ops_r2 = _mean_accum(n_ops_accum)
+        template_acc_sh = _mean_accum(template_accum_sh)
+        next_token_acc_sh = _mean_accum(next_token_accum_sh)
+        n_ops_r2_sh = _mean_accum(n_ops_accum_sh)
+        cka_scores = _mean_accum(cka_accum)
+        grads = _mean_accum(grad_accum)
         decoder_rank_scores: dict[str, list[float]] = {}
         for row in decoder_lens_rows:
             if row.get("gt_token_rank") is None:
@@ -294,33 +425,82 @@ def main() -> int:
             figures / "phase3_decoder_lens_gt_rank.png",
         )
 
-    mean_ranks = mean_rank_layer_scores(
-        {
-            "template_accuracy": template_acc,
-            "next_token_accuracy": next_token_acc,
-            "n_operators_r2": n_ops_r2,
-        },
-        higher_is_better=CANDIDATE_SELECTION_METRICS,
+    candidates_main, probe_ranking, mean_ranks = _freeze_from_probe_scores(
+        template_acc,
+        next_token_acc,
+        n_ops_r2,
+        candidate_k=args.candidate_k,
     )
-    probe_ranking = ranking_from_mean_rank(mean_ranks)
+    candidates_sh, probe_ranking_sh, mean_ranks_sh = _freeze_from_probe_scores(
+        template_acc_sh,
+        next_token_acc_sh,
+        n_ops_r2_sh,
+        candidate_k=args.candidate_k,
+    )
     cka_ranking = sorted(cka_scores, key=lambda key: -cka_scores[key])
-    candidates = freeze_candidate_layers(probe_ranking, k=args.candidate_k)
-    if not args.dry_run and not candidates:
+    if not args.dry_run and not candidates_main:
         raise RuntimeError(
-            "Phase 3 produced empty candidate_layers; check validation coverage and probes"
+            "Phase 3 produced empty candidate_layers_main; check validation coverage and probes"
         )
-    if any(name == "output_head" or str(name).endswith("_head") for name in candidates):
-        raise RuntimeError(f"selective-FT candidates must not include heads: {candidates}")
+    if not args.dry_run and not candidates_sh:
+        raise RuntimeError(
+            "Phase 3 produced empty candidate_layers_structure_holdout; "
+            "check G01–G06 validation coverage and probes"
+        )
+    for label, cand in (("main", candidates_main), ("structure_holdout", candidates_sh)):
+        if any(name == "output_head" or str(name).endswith("_head") for name in cand):
+            raise RuntimeError(f"selective-FT {label} candidates must not include heads: {cand}")
+
+    main_payload = _candidate_payload(
+        candidates=candidates_main,
+        candidate_k=args.candidate_k,
+        probe_ranking=probe_ranking,
+        cka_ranking=cka_ranking,
+        decoder_lens_ranking=decoder_lens_ranking,
+        selection_eq_ids=val_ids,
+        excluded_families=[],
+        view="main",
+    )
+    structure_payload = _candidate_payload(
+        candidates=candidates_sh,
+        candidate_k=args.candidate_k,
+        probe_ranking=probe_ranking_sh,
+        cka_ranking=cka_ranking,
+        decoder_lens_ranking=decoder_lens_ranking,
+        selection_eq_ids=structure_val_ids,
+        excluded_families=excluded_structure_families,
+        view="structure_holdout",
+    )
     write_json(
         out_dir / "probe_scores.json",
         {
+            "main": {
+                "template_accuracy": template_acc,
+                "next_token_accuracy": next_token_acc,
+                "n_operators_r2": n_ops_r2,
+                "mean_rank": mean_ranks,
+                "probe_ranking": probe_ranking,
+                "selection_eq_ids": list(val_ids),
+                "excluded_families": [],
+            },
+            "structure_holdout": {
+                "template_accuracy": template_acc_sh,
+                "next_token_accuracy": next_token_acc_sh,
+                "n_operators_r2": n_ops_r2_sh,
+                "mean_rank": mean_ranks_sh,
+                "probe_ranking": probe_ranking_sh,
+                "selection_eq_ids": list(structure_val_ids),
+                "excluded_families": excluded_structure_families,
+            },
+            # Backward-compatible aliases (= main panel).
             "template_accuracy": template_acc,
             "next_token_accuracy": next_token_acc,
             "n_operators_r2": n_ops_r2,
-            "cka": cka_scores,
-            "gradient_norms": grads,
             "mean_rank": mean_ranks,
             "probe_ranking": probe_ranking,
+            "selection_eq_ids": list(val_ids),
+            "cka": cka_scores,
+            "gradient_norms": grads,
             "cka_ranking": cka_ranking,
             "decoder_lens_ranking": decoder_lens_ranking,
             "selection_metrics": {
@@ -328,9 +508,10 @@ def main() -> int:
             },
             "placeholder": not live,
             "note": (
-                "Candidate freeze uses mean rank of template / next-token / n_operators "
-                "probes. Point-mean regression of encoder inputs is not used. "
-                "output_head is excluded. Phase 4 IOLE/ablation/intervention remain "
+                "Main candidates use all main-validation eq_ids. Structure-holdout candidates "
+                "exclude G07/G08 entirely. Candidate freeze uses mean rank of template / "
+                "next-token / n_operators probes. Point-mean regression of encoder inputs is "
+                "not used. output_head is excluded. Phase 4 IOLE/ablation/intervention remain "
                 "the causal layer rankings."
             ),
         },
@@ -351,23 +532,9 @@ def main() -> int:
             ),
         },
     )
-    write_json(
-        out_dir / "candidate_layers.json",
-        {
-            "candidates": candidates,
-            "k": args.candidate_k,
-            "source": "mean_rank_template_next_token_n_operators",
-            "include_output_head": False,
-            "frozen_before_test": True,
-            "rank_agreement": rank_agreement_table(
-                {
-                    "probe": probe_ranking,
-                    "cka": cka_ranking,
-                    "decoder_lens": decoder_lens_ranking,
-                }
-            ),
-        },
-    )
+    write_json(out_dir / "candidate_layers_main.json", main_payload)
+    write_json(out_dir / "candidate_layers_structure_holdout.json", structure_payload)
+    write_json(out_dir / "candidate_layers.json", main_payload)
     write_json(
         out_dir / "manifest.json",
         {
@@ -375,15 +542,24 @@ def main() -> int:
             "status": "complete",
             "at_utc": utc_now(),
             "n_validation_problems": len(val_specs),
+            "n_structure_safe_validation": len(structure_val_ids),
             "used_test_problems": False,
             "dry_run": bool(args.dry_run),
             "smoke": bool(args.smoke),
             "live_model": live,
             "candidate_source": "mean_rank_template_next_token_n_operators",
+            "candidate_views": {
+                "main": "candidate_layers_main.json",
+                "structure_holdout": "candidate_layers_structure_holdout.json",
+                "alias_main": "candidate_layers.json",
+            },
+            "excluded_families_structure_holdout": excluded_structure_families,
             "corpus_fingerprint": corpus["fingerprint"],
         },
     )
-    print(f"Phase 3 complete: candidates={candidates}")
+    print(
+        f"Phase 3 complete: main={candidates_main} structure_holdout={candidates_sh}"
+    )
     return 0
 
 

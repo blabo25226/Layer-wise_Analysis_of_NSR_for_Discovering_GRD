@@ -5,7 +5,7 @@
 #   powershell -File scripts/ops/run_gpu_run2.ps1 -FromPhase 3
 #   powershell -File scripts/ops/run_gpu_run2.ps1 -DryRun
 param(
-    [string]$RunId = $(if ($env:LANSR_RUN_ID) { $env:LANSR_RUN_ID } else { "gpu_run2_local" }),
+    [string]$RunId = $(if ($env:LANSR_RUN_ID) { $env:LANSR_RUN_ID } else { "gpu_run2_20260815" }),
     [int]$FromPhase = 0,
     [switch]$Smoke,
     [switch]$DryRun,

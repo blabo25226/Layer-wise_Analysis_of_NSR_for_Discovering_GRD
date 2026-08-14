@@ -1,6 +1,6 @@
 # GPU_RUN2 common run settings. Validation-only choices stay here; test is unused
 # until Phase 5 evaluation after every method/layer/budget is frozen.
-run_name: gpu_run2_local
+run_name: gpu_run2_20260815
 python_requires: "3.10"
 decode_timeout_sec: 30
 parent_timeout_grace_sec: 5
