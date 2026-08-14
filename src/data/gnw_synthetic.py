@@ -218,6 +218,7 @@ class GnwProblemSpec:
     substituted_formula: str
     canonical_expr: str
     skeleton_expr: str
+    teacher_expr: str
     oracle_source_equation_id: str
     gnw_source_commit: str = GNW_SOURCE_COMMIT
     variant_seed: int = VARIANT_SEED
@@ -515,6 +516,7 @@ def define_gnw_problems(
                     substituted_formula=formulas["substituted_formula"],
                     canonical_expr=formulas["canonical_expr"],
                     skeleton_expr=formulas["skeleton_expr"],
+                    teacher_expr=formulas["teacher_expr"],
                     oracle_source_equation_id=eq_id,
                     variant_seed=int(variant_seed),
                 )
@@ -559,7 +561,13 @@ def sample_family_parameters(family: FamilySpec, rng: np.random.Generator) -> di
 
 
 def build_family_formulas(family: FamilySpec, parameters: Mapping[str, Any]) -> dict[str, str]:
-    """Expand A/B templates into raw, substituted, and canonical SymPy strings."""
+    """Expand A/B templates into raw, substituted, canonical, and FT teacher strings.
+
+    ``canonical_expr`` is the canceled rational used as the true equation for
+    evaluation. ``teacher_expr`` is a compact, algebraically equivalent Hill form
+    used only as the NeSymReS fine-tuning teacher so prefix token length stays
+    within ``length_eq`` (nested multilinear / Kn-fused Hills; not ``cancel``).
+    """
     x1, x2, x3 = sp.symbols("x_1 x_2 x_3", positive=True)
     v = sp.Symbol("V", positive=True)
     delta = sp.Symbol("delta", positive=True)
@@ -616,29 +624,19 @@ def build_family_formulas(family: FamilySpec, parameters: Mapping[str, Any]) -> 
     else:  # pragma: no cover
         raise KeyError(fid)
 
-    subs: dict[sp.Symbol, float | int] = {
-        v: float(parameters["V"]),
-        delta: float(parameters["delta"]),
-    }
-    if "K_x_2" in parameters:
-        subs[k2] = float(parameters["K_x_2"])
-        subs[n2] = int(parameters["n_x_2"])
-    if "K_x_3" in parameters:
-        subs[k3] = float(parameters["K_x_3"])
-        subs[n3] = int(parameters["n_x_3"])
-    for i, value in enumerate(parameters["alpha"]):
-        subs[alpha[i]] = float(value)
-
-    # Rebuild with integer exponents after substitution for a fully numeric tree.
-    # Avoid sp.simplify: G07/G08 rational trees can take unbounded time.
-    numeric_raw = sp.together(_numeric_family_expression(family, parameters))
+    # Canonical: cancel of the direct numeric GNW expansion.
+    # Teacher: separate compact equivalent form for NeSymReS length_eq.
+    numeric = _numeric_family_expression(family, parameters)
+    numeric_raw = sp.together(numeric)
     canonical = sp.cancel(numeric_raw)
+    teacher = _compact_teacher_expression(family, parameters)
     skeleton = _to_skeleton_expr(canonical)
     return {
         "raw_gnw_formula": str(raw),
         "substituted_formula": str(numeric_raw),
         "canonical_expr": str(canonical),
         "skeleton_expr": str(skeleton),
+        "teacher_expr": str(teacher),
     }
 
 
@@ -692,6 +690,86 @@ def _numeric_family_expression(family: FamilySpec, parameters: Mapping[str, Any]
             * B(h(q(x2, "x_2")), h(q(x3, "x_3")), alphas[0], alphas[1], alphas[2], alphas[3])
             - delta * x1
         )
+    raise KeyError(fid)
+
+
+def _hill_kn(var: sp.Expr, kn: float, n: int) -> sp.Expr:
+    """Hill activation ``x^n / (K^n + x^n)`` with fused ``K^n`` as one Float."""
+    kn_f = sp.Float(kn)
+    if int(n) == 1:
+        return var / (kn_f + var)
+    return (var ** int(n)) / (kn_f + var ** int(n))
+
+
+def _compact_teacher_expression(family: FamilySpec, parameters: Mapping[str, Any]) -> sp.Expr:
+    """Algebraically equivalent FT teacher with short NeSymReS prefix length.
+
+    Uses Kn-fused Hills and, for G07/G08, the nested multilinear form
+    ``(A0 + A1 m1) + m2 (A2 + A3 m1) - delta x1`` so token length stays ≤60.
+    Do not use ``cancel`` here: the canceled rational is longer for G07/G08.
+    """
+    x1, x2, x3 = sp.symbols("x_1 x_2 x_3", positive=True)
+    v = float(parameters["V"])
+    delta = float(parameters["delta"])
+    alphas = [float(a) for a in parameters["alpha"]]
+    fid = family.family_id
+
+    if fid == "G01":
+        return sp.Float(v) - sp.Float(delta) * x1
+
+    if fid in {"G02", "G03"}:
+        n2 = int(parameters["n_x_2"])
+        kn2 = float(parameters["K_x_2"]) ** n2
+        m = _hill_kn(x2, kn2, n2)
+        return sp.Float(v * alphas[0]) + sp.Float(v * (alphas[1] - alphas[0])) * m - sp.Float(delta) * x1
+
+    if fid == "G04":
+        n2 = int(parameters["n_x_2"])
+        n3 = int(parameters["n_x_3"])
+        kn2 = float(parameters["K_x_2"]) ** n2
+        kn3 = float(parameters["K_x_3"]) ** n3
+        m = _hill_kn(x2, kn2, n2) * _hill_kn(x3, kn3, n3)
+        return sp.Float(v * alphas[0]) + sp.Float(v * (alphas[1] - alphas[0])) * m - sp.Float(delta) * x1
+
+    if fid == "G05":
+        def q(var: sp.Expr, name: str) -> sp.Expr:
+            k = float(parameters[f"K_{name}"])
+            n_val = int(parameters[f"n_{name}"])
+            if n_val == 1:
+                return var / sp.Float(k)
+            return (var / sp.Float(k)) ** n_val
+
+        q2, q3 = q(x2, "x_2"), q(x3, "x_3")
+        m = (q2 * q3) / (1 + q2 * q3)
+        return sp.Float(v * alphas[0]) + sp.Float(v * (alphas[1] - alphas[0])) * m - sp.Float(delta) * x1
+
+    if fid == "G06":
+        n2 = int(parameters["n_x_2"])
+        n3 = int(parameters["n_x_3"])
+        kn2 = float(parameters["K_x_2"]) ** n2
+        kn3 = float(parameters["K_x_3"]) ** n3
+        m_act = _hill_kn(x2, kn2, n2)
+        m_rep = sp.Float(kn3) / (sp.Float(kn3) + (x3 if n3 == 1 else x3**n3))
+        m = m_act * m_rep
+        return sp.Float(v * alphas[0]) + sp.Float(v * (alphas[1] - alphas[0])) * m - sp.Float(delta) * x1
+
+    if fid in {"G07", "G08"}:
+        n2 = int(parameters["n_x_2"])
+        n3 = int(parameters["n_x_3"])
+        kn2 = float(parameters["K_x_2"]) ** n2
+        kn3 = float(parameters["K_x_3"]) ** n3
+        m1 = _hill_kn(x2, kn2, n2)
+        m2 = _hill_kn(x3, kn3, n3)
+        a0, a1, a2, a3 = alphas
+        # V * B(m1,m2,...) = A0 + A1 m1 + A2 m2 + A3 m1 m2, nested for shorter tokens.
+        a0_t = v * a0
+        a1_t = v * (a1 - a0)
+        a2_t = v * (a2 - a0)
+        a3_t = v * (a3 - a1 - a2 + a0)
+        return (sp.Float(a0_t) + sp.Float(a1_t) * m1) + m2 * (sp.Float(a2_t) + sp.Float(a3_t) * m1) - sp.Float(
+            delta
+        ) * x1
+
     raise KeyError(fid)
 
 
@@ -870,7 +948,8 @@ def to_sampled_dataset(
         spec=EquationSpec(
             eq_id=problem.spec.eq_id,
             family=problem.spec.family_id,
-            target_expr=problem.spec.canonical_expr,
+            # FT teacher is the compact Hill form; motif keeps the true canonical.
+            target_expr=problem.spec.teacher_expr,
             variable_names=list(problem.spec.oracle_inputs),
             parameters={"noise": float(problem.noise)},
             split=problem.spec.main_split,
@@ -900,7 +979,7 @@ def sampled_dataset_from_npz(path: Path, *, xy: str = "train") -> "SampledDatase
         spec=EquationSpec(
             eq_id=str(meta["eq_id"]),
             family=str(meta["family_id"]),
-            target_expr=str(meta.get("canonical_expr") or ""),
+            target_expr=str(meta.get("teacher_expr") or meta.get("canonical_expr") or ""),
             variable_names=list(meta["oracle_inputs"]),
             parameters={"noise": float(meta.get("noise", 0.0))},
             split=str(meta.get("main_split") or "train"),
@@ -1085,3 +1164,107 @@ def _scaled_main_split(variant_index: int, n_variants: int) -> str:
     if variant_index < n_train + n_val:
         return "validation"
     return "test"
+
+
+def teacher_equiv_canonical(
+    teacher_expr: str,
+    canonical_expr: str,
+    *,
+    n_numeric_checks: int = 8,
+    seed: int = 0,
+) -> bool:
+    """Return True when ``teacher_expr`` and ``canonical_expr`` are algebraically equal.
+
+    Prefer ``cancel(teacher - canonical) == 0``. If that is inconclusive, compare
+    evaluations on random positive points (Hill domains are positive).
+    """
+    teacher = sp.sympify(teacher_expr)
+    canonical = sp.sympify(canonical_expr)
+    try:
+        if sp.cancel(teacher - canonical) == 0:
+            return True
+    except Exception:
+        pass
+    symbols = sorted(teacher.free_symbols | canonical.free_symbols, key=str)
+    if not symbols:
+        return bool(teacher == canonical)
+    rng = np.random.default_rng(seed)
+    for _ in range(int(n_numeric_checks)):
+        subs = {sym: float(rng.uniform(0.1, 2.0)) for sym in symbols}
+        try:
+            tv = complex(teacher.subs(subs).evalf())
+            cv = complex(canonical.subs(subs).evalf())
+        except Exception:
+            return False
+        if not np.isfinite(tv.real) or not np.isfinite(cv.real):
+            continue
+        if abs(tv - cv) > 1e-8 * (1.0 + abs(cv)):
+            return False
+    return True
+
+
+def teacher_token_length(teacher_expr: str, word2id: Mapping[str, int]) -> int | None:
+    """NeSymReS prefix token length of a teacher expression, or None if tokenize fails."""
+    from data.nesymres_tokenize import expression_to_tokens
+
+    tokens = expression_to_tokens(str(teacher_expr), dict(word2id))
+    return None if tokens is None else len(tokens)
+
+
+def audit_teacher_token_lengths(
+    specs: Sequence[GnwProblemSpec],
+    word2id: Mapping[str, int],
+    *,
+    max_token_len: int,
+) -> dict[str, Any]:
+    """Check every problem's ``teacher_expr`` fits ``max_token_len`` (``length_eq``)."""
+    rows: list[dict[str, Any]] = []
+    overflows: list[dict[str, Any]] = []
+    tokenize_failures: list[str] = []
+    for spec in specs:
+        length = teacher_token_length(spec.teacher_expr, word2id)
+        row = {
+            "eq_id": spec.eq_id,
+            "family_id": spec.family_id,
+            "main_split": spec.main_split,
+            "structure_split": spec.structure_split,
+            "token_length": length,
+            "max_token_len": int(max_token_len),
+            "ok": length is not None and length <= int(max_token_len),
+        }
+        rows.append(row)
+        if length is None:
+            tokenize_failures.append(spec.eq_id)
+        elif length > int(max_token_len):
+            overflows.append(row)
+    return {
+        "n_problems": len(specs),
+        "max_token_len": int(max_token_len),
+        "n_ok": sum(1 for row in rows if row["ok"]),
+        "n_overflow": len(overflows),
+        "n_tokenize_fail": len(tokenize_failures),
+        "overflows": overflows,
+        "tokenize_failures": tokenize_failures,
+        "max_observed": max((row["token_length"] or -1) for row in rows) if rows else None,
+        "rows": rows,
+    }
+
+
+def assert_all_teachers_within_length_eq(
+    specs: Sequence[GnwProblemSpec],
+    word2id: Mapping[str, int],
+    *,
+    max_token_len: int,
+) -> dict[str, Any]:
+    """Fail fast if any teacher exceeds NeSymReS ``length_eq``."""
+    report = audit_teacher_token_lengths(specs, word2id, max_token_len=max_token_len)
+    if report["n_overflow"] or report["n_tokenize_fail"]:
+        overflow_ids = [row["eq_id"] for row in report["overflows"][:12]]
+        fail_ids = list(report["tokenize_failures"][:12])
+        raise RuntimeError(
+            "GPU_RUN2 teacher_expr token audit failed: "
+            f"overflow={report['n_overflow']} tokenize_fail={report['n_tokenize_fail']} "
+            f"max_observed={report['max_observed']} length_eq={max_token_len} "
+            f"overflow_ids={overflow_ids} tokenize_fail_ids={fail_ids}"
+        )
+    return report

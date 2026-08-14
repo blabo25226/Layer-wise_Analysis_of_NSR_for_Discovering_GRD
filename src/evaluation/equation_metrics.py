@@ -124,7 +124,7 @@ def _normalize_expr_str(expr: str) -> str:
 def to_skeleton(expr: str) -> Optional[Expr]:
     """Parse expression and replace numeric constants with symbol c (best-effort)."""
     try:
-        from nesymres.architectures.data import constants_to_placeholder
+        from data.nesymres_tokenize import constants_to_placeholder
 
         sk = constants_to_placeholder(_normalize_expr_str(expr))
         return _timed_simplify(sympify(sk))

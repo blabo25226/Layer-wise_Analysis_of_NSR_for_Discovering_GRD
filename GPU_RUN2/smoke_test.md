@@ -333,6 +333,23 @@ estimated_full_runtime_hours_p90
 
 目標は20時間程度。
 
+### 追記（teacher_expr修正後のFT microbench）
+
+`canonical_expr`とは別のコンパクト`teacher_expr`（Kn融合Hill + G07/G08入れ子多重線形）を導入し、
+全240式で`token length ≤ 60`（実測max 49）とSymPy同値を確認した。
+
+GPU PC上のFT microbench（`gpu_run2_ft_microbench_02`、main train 144 / val 48、epochs=5）:
+
+| condition | mean seconds |
+| --- | ---: |
+| full FT | 3.18 |
+| single-layer FT | 1.63 |
+| top3 FT | 1.83 |
+
+smoke_06のdecode p90推定（約11.05 h）に、Phase4/5学習run数で外挿したFT時間（約0.04 h）を足すと
+**combined ≈ 11.1 h**。decodeが律速で、現行5 epoch設定ならFTは本番20 h目標に対してほぼ無視できる。
+（PySRやPhase 6以降は別途加算。）
+
 Smoke後の判定
 
 Smokeが成功しただけで即本番にはせず、計算時間も見る。

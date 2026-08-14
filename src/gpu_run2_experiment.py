@@ -616,7 +616,7 @@ def gt_token_ids_for_row(row: Mapping[str, Any], word2id: Mapping[str, int]) -> 
         spec=EquationSpec(
             eq_id=str(row["eq_id"]),
             family=str(row["family_id"]),
-            target_expr=str(row.get("canonical_expr") or ""),
+            target_expr=str(row.get("teacher_expr") or row.get("canonical_expr") or ""),
             variable_names=list(row["oracle_inputs"]),
             parameters={"noise": float(row.get("noise", 0.0))},
             split=str(row.get("main_split") or "validation"),

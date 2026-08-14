@@ -168,3 +168,39 @@ def test_each_family_template_evaluates_finite(family_id):
     assert set(specs[0].oracle_regulators) <= set(family.oracle_regulators)
     extra = set(specs[0].oracle_inputs) - {"x_1"} - set(family.oracle_regulators)
     assert not extra
+
+
+def _nesymres_word2id() -> dict[str, int]:
+    import json
+
+    path = ROOT / "assets/nesymres/jupyter/100M/eq_setting.json"
+    return {str(k): int(v) for k, v in json.loads(path.read_text(encoding="utf-8"))["word2id"].items()}
+
+
+def test_teacher_expr_equiv_canonical_and_shorter_tokens():
+    from data.gnw_synthetic import assert_all_teachers_within_length_eq, teacher_equiv_canonical, teacher_token_length
+
+    specs = define_gnw_problems(n_variants_per_family=3)
+    word2id = _nesymres_word2id()
+    for spec in specs:
+        assert teacher_equiv_canonical(spec.teacher_expr, spec.canonical_expr), spec.eq_id
+        teacher_len = teacher_token_length(spec.teacher_expr, word2id)
+        canonical_len = teacher_token_length(spec.canonical_expr, word2id)
+        assert teacher_len is not None
+        assert teacher_len <= 60, (spec.eq_id, teacher_len)
+        # Compact teacher should not be longer than the canceled evaluation form.
+        if canonical_len is not None:
+            assert teacher_len <= canonical_len, (spec.eq_id, teacher_len, canonical_len)
+    report = assert_all_teachers_within_length_eq(specs, word2id, max_token_len=60)
+    assert report["n_ok"] == len(specs)
+    assert report["n_overflow"] == 0
+
+
+def test_full_catalogue_teachers_fit_length_eq():
+    from data.gnw_synthetic import assert_all_teachers_within_length_eq
+
+    specs = define_gnw_problems()
+    assert len(specs) == 240
+    report = assert_all_teachers_within_length_eq(specs, _nesymres_word2id(), max_token_len=60)
+    assert report["n_ok"] == 240
+    assert report["max_observed"] <= 60

@@ -10,9 +10,10 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
-from nesymres.architectures.data import constants_to_placeholder, tokenize, tokens_padding
-from nesymres.dataset.generator import Generator, UnknownSymPyOperator
-
+from .nesymres_tokenize import (
+    expression_to_tokens as _expression_to_tokens,
+    tokens_padding,
+)
 from .synthetic_grn import SampledDataset, load_problem
 
 
@@ -57,18 +58,15 @@ def instantiate_expr(ds: SampledDataset) -> str:
     if fam == "dream4_sbml":
         return ds.spec.motif
     if fam in {"G01", "G02", "G03", "G04", "G05", "G06", "G07", "G08"}:
-        # GPU_RUN2 GNW families: teacher is the stored canonical expression.
+        # GPU_RUN2: FT uses compact teacher_expr (stored in target_expr);
+        # motif retains canonical_expr for human-readable truth.
         return ds.spec.target_expr or ds.spec.motif
     raise ValueError(fam)
 
 
 def expression_to_tokens(expr: str, word2id: Dict[str, int]) -> Optional[List[int]]:
-    try:
-        skeleton = constants_to_placeholder(expr)
-        prefix = Generator.sympy_to_prefix(skeleton)
-        return tokenize(prefix, word2id)
-    except (UnknownSymPyOperator, KeyError, RecursionError, Exception):
-        return None
+    """Tokenize an infix expression to NeSymReS prefix ids (S … F)."""
+    return _expression_to_tokens(expr, word2id)
 
 
 def points_to_nesymres_tensor(X: np.ndarray, y: np.ndarray, n_vars: int = 3) -> torch.Tensor:

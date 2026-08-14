@@ -12,6 +12,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from data.gnw_synthetic import (  # noqa: E402
     FAMILY_IDS,
+    assert_all_teachers_within_length_eq,
     build_paired_noise_problems,
     catalogue_fingerprint,
     define_gnw_problems,
@@ -23,10 +24,24 @@ from data.gnw_synthetic import (  # noqa: E402
 from gpu_run2_runtime import (  # noqa: E402
     fingerprint_json,
     load_gpu_run2_configs,
+    nesymres_paths,
     resolve_run_dir,
     utc_now,
     write_json,
 )
+
+
+def _load_word2id_and_length_eq(config: dict) -> tuple[dict[str, int], int]:
+    import json
+
+    import yaml
+
+    paths = nesymres_paths(config)
+    eq_setting = json.loads(paths["eq_setting"].read_text(encoding="utf-8"))
+    cfg = yaml.safe_load(paths["config"].read_text(encoding="utf-8"))
+    architecture = cfg.get("architecture") or {}
+    length_eq = int(architecture.get("length_eq", cfg.get("length_eq", 60)))
+    return {str(k): int(v) for k, v in eq_setting["word2id"].items()}, length_eq
 
 
 def parse_args() -> argparse.Namespace:
@@ -68,6 +83,13 @@ def main() -> int:
         variant_seed=int(config["variant_seed"]),
         family_ids=FAMILY_IDS,
     )
+    word2id, length_eq = _load_word2id_and_length_eq(config)
+    teacher_audit = assert_all_teachers_within_length_eq(
+        specs,
+        word2id,
+        max_token_len=length_eq,
+    )
+    write_json(out_dir / "teacher_token_audit.json", teacher_audit)
     catalogue = [spec.to_dict() for spec in specs]
     write_json(out_dir / "catalogue.json", catalogue)
     write_json(
@@ -128,6 +150,11 @@ def main() -> int:
         "analytic_targets": True,
         "oracle_only_inputs": True,
         "smoke": bool(args.smoke),
+        "teacher_token_audit": {
+            "max_token_len": teacher_audit["max_token_len"],
+            "max_observed": teacher_audit["max_observed"],
+            "n_ok": teacher_audit["n_ok"],
+        },
     }
     write_json(out_dir / "manifest.json", manifest)
     print(f"Phase 1 complete: {len(specs)} problems, {len(sampled_index)} sampled records")

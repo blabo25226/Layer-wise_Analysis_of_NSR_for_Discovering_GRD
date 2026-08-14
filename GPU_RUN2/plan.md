@@ -145,6 +145,15 @@ complexity、valid rateを
 GPU_RUN2では、ODE軌道から有限差分を計算しない。各problemについてoracle変数の入力点
 $`\mathbf{x}`$を生成し、既知の真式$`f(\mathbf{x})`$を直接評価して教師値$`y`$を作る。
 
+評価用の真式（`canonical_expr`）と、NeSymReS fine-tuning用の教師式（`teacher_expr`）は分離する。
+`teacher_expr`は`canonical_expr`と代数的に同値だが、NeSymReSのprefixが短くなる形にする。
+具体的にはKnを融合したHill項と、G07/G08では入れ子の多重線形形
+$`(A_0+A_1 m_1)+m_2(A_2+A_3 m_1)-\delta x_1`$を使う（`cancel`後の有理式や素の因数分解形ではない）。
+単純な「因数分解したcanonical」や`cancel`前の生Hillをそのまま`str`すると、SymPy経由のtoken化で
+かえって長くなり`length_eq=60`を超える。真式と教師式はSymPy上で同値であることをテストし、
+Phase 1で全problemのtoken長をfail-fast検査する。評価指標・真式対予測式の比較は常に
+`canonical_expr`を用いる。
+
 ```math
 y=f(\mathbf{x})+\epsilon
 ```
