@@ -48,6 +48,9 @@ Phase 2 と Phase 5 は validation のあと、条件凍結済みの **test を�
 | [`configs/gpu_run2/operators.yaml`](../configs/gpu_run2/operators.yaml) | 共通operator allowlist |
 | [`configs/gpu_run2/splits.yaml`](../configs/gpu_run2/splits.yaml) | 主splitとstructure-holdout |
 
+合成problemごとに1,024学習点を保存するが、decode/searchは`decode_max_points: 80`で固定した同一subsetを
+全手法・条件へ渡す。性能評価は独立した256点のdomain-ID / domain-OOD集合で行う。
+
 ## テスト
 
 ```powershell

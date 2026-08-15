@@ -29,6 +29,7 @@ from gpu_run2_experiment import (  # noqa: E402
     filter_index_rows,
     filter_selective_ft_layers,
     flatten_activation_to_batch,
+    select_decode_points,
 )
 from interpretability.probes import (  # noqa: E402
     expression_structure_attributes,
@@ -171,6 +172,18 @@ def test_flatten_activation_pools_variable_sequence_lengths():
     assert stacked.shape == (8, 512)
     assert np.allclose(flat_short, 1.0)
     assert np.allclose(flat_long, 2.0)
+
+
+def test_decode_point_subset_is_deterministic_and_spans_saved_order():
+    X = np.arange(2048, dtype=float).reshape(1024, 2)
+    y = np.arange(1024, dtype=float)
+    X_selected, y_selected, indices = select_decode_points(X, y, max_points=80)
+    assert X_selected.shape == (80, 2)
+    assert y_selected.shape == (80,)
+    assert indices[0] == 0 and indices[-1] == 1023
+    assert len(np.unique(indices)) == 80
+    again = select_decode_points(X, y, max_points=80)
+    assert np.array_equal(indices, again[2])
 
 
 def test_decoder_probe_uses_causal_sequence_position():

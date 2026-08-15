@@ -74,6 +74,7 @@ def _decode_panel(model, params, phase1, rows, *, condition, timeout_sec, traini
             training_seed=training_seed,
             decoder=f"nesymres_{condition}",
             operator_config=config.get("operators"),
+            decode_max_points=int(config.get("decode_max_points", 80)),
         )
         for row in rows
     ]

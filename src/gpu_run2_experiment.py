@@ -172,6 +172,35 @@ def finetune_hparams(config: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+def select_decode_points(
+    X: np.ndarray,
+    y: np.ndarray,
+    *,
+    max_points: int,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Select one deterministic, condition-independent subset for decoding.
+
+    NeSymReS constructs a symbolic BFGS loss from every supplied point. Passing
+    all 1,024 stored training points makes that expression too large for the
+    fixed 30-second budget on the RTX 2070. Evenly spaced indices over the
+    already shuffled LHS order keep every method and fine-tuning condition on
+    the same predeclared subset while retaining all points for training storage
+    and safety checks.
+    """
+    X_arr = np.asarray(X)
+    y_arr = np.asarray(y).ravel()
+    if len(X_arr) != len(y_arr):
+        raise ValueError("decode X and y must contain the same number of rows")
+    limit = int(max_points)
+    if limit <= 0:
+        raise ValueError("decode max_points must be positive")
+    if len(X_arr) <= limit:
+        indices = np.arange(len(X_arr), dtype=int)
+    else:
+        indices = np.linspace(0, len(X_arr) - 1, num=limit, dtype=int)
+    return X_arr[indices], y_arr[indices], indices
+
+
 def eval_teacher_forcing_ce(model, loader, *, device=None) -> float:
     import torch
 
@@ -339,23 +368,29 @@ def decode_gnw_row(
     training_seed: int,
     decoder: str,
     operator_config: Mapping[str, Any] | None = None,
+    decode_max_points: int = 80,
 ) -> dict[str, Any]:
     from models.nesymres_adapter import predict_equation_gpu_run2
 
     npz = _load_npz(phase1_dir, row)
+    decode_X, decode_y, decode_indices = select_decode_points(
+        npz["X_train"],
+        npz["y_train"],
+        max_points=int(decode_max_points),
+    )
     try:
         result = predict_equation_gpu_run2(
             model,
             params_fit,
-            npz["X_train"],
-            npz["y_train"],
+            decode_X,
+            decode_y,
             timeout_sec=float(timeout_sec),
             operator_config=dict(operator_config) if operator_config is not None else None,
         )
     except RuntimeError as exc:
         reraise_oom(exc)
         raise
-    return score_gnw_prediction(
+    record = score_gnw_prediction(
         phase1_dir,
         row,
         str(result.get("equation") or ""),
@@ -370,6 +405,9 @@ def decode_gnw_row(
         n_candidate_evals=int(result.get("n_candidate_evals") or 0),
         timeout=bool(result.get("timeout")),
     )
+    record["decode_input_points"] = int(len(decode_indices))
+    record["decode_point_selection"] = "evenly_spaced_lhs_order"
+    return record
 
 
 def mean_penalized_nmse(

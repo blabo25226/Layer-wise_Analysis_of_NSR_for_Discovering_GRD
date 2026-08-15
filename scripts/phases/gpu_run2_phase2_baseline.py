@@ -26,6 +26,7 @@ from gpu_run2_runtime import (  # noqa: E402
     utc_now,
     write_json,
 )
+from gpu_run2_experiment import select_decode_points  # noqa: E402
 from resumable_evaluation import (  # noqa: E402
     load_problem_json_checkpoint,
     remaining_eq_ids,
@@ -118,6 +119,7 @@ def main() -> int:
             "method": method,
             "split": args.split,
             "timeout_sec": timeout_sec,
+            "decode_max_points": int(config.get("decode_max_points", 80)),
         }
         payload = load_problem_json_checkpoint(ckpt_path, expected_identity=identity)
         completed = list(payload["completed_eq_ids"]) if payload else []
@@ -172,6 +174,7 @@ def main() -> int:
             "n_problems": len(rows),
             "dry_run": bool(args.dry_run),
             "timeout_sec": timeout_sec,
+            "decode_max_points": int(config.get("decode_max_points", 80)),
             "pysr_operators": pysr_operator_kwargs(config.get("operators")),
         }
     write_json(out_dir / f"manifest_{args.split}.json", split_manifest)
@@ -206,8 +209,13 @@ def _run_one(
     from data.gnw_synthetic import load_problem_npz
 
     npz = load_problem_npz(phase1 / "data" / row["file"])
-    X = npz["X_train"]
-    y = npz["y_train"]
+    X_full = npz["X_train"]
+    y_full = npz["y_train"]
+    X, y, decode_indices = select_decode_points(
+        X_full,
+        y_full,
+        max_points=int(config.get("decode_max_points", 80)),
+    )
     names = list(row["oracle_inputs"])
     pred = ""
     reason = None
@@ -265,7 +273,7 @@ def _run_one(
     ok, op_reason = validate_candidate_expression(
         pred,
         point_sets={
-            "train": (X, names),
+            "train": (X_full, names),
             "id": (npz["X_id"], names),
             "ood": (npz["X_ood"], names),
         },
@@ -289,7 +297,7 @@ def _run_one(
     )
     if reason:
         scores["valid_pred"] = 0.0
-    return make_gpu_run2_equation_record(
+    record = make_gpu_run2_equation_record(
         eq_id=row["eq_id"],
         predicted_expr=pred,
         variable_names=names,
@@ -321,6 +329,9 @@ def _run_one(
         timeout=timeout,
         timeout_budget_sec=timeout_sec,
     )
+    record["decode_input_points"] = int(len(decode_indices))
+    record["decode_point_selection"] = "evenly_spaced_lhs_order"
+    return record
 
 
 if __name__ == "__main__":

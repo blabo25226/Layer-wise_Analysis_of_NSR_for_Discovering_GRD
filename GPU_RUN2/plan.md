@@ -163,6 +163,9 @@ y=f(\mathbf{x})+\epsilon
 - 各problem・各data seedについて、学習用1,024点、独立したdomain-ID評価用256点、
   domain-OOD評価用256点を
   Latin hypercube samplingで生成する。
+- 1,024学習点は保存と学習母集団に使う。NeSymReSのBFGSが全点から巨大なsymbolic lossを作ることを避け、
+  30秒budget内で全条件を比較するため、decode/searchにはLHS保存順を等間隔に選んだ固定80点を使う。
+  同じproblemのNeSymReS、PySR、fine-tuning条件は同一index集合を共有し、256点の評価集合は削減しない。
 - `noise=0.0`では$`\epsilon=0`$とする。
 - `noise=0.1`では、clean targetの学習用1,024点における標準偏差を$`s_y`$として、
   $`\epsilon\sim\mathcal{N}(0,(0.1s_y)^2)`$とする。
