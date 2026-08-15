@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -15,7 +16,13 @@ from evaluation.equation_records import (  # noqa: E402
     GPU_RUN2_REQUIRED_FIELDS,
     make_gpu_run2_equation_record,
 )
-from evaluation.reproduction_bias import classify_reproduction, corpus_fingerprint  # noqa: E402
+import evaluation.reproduction_bias as reproduction_bias  # noqa: E402
+from evaluation.reproduction_bias import (  # noqa: E402
+    aggregate_reproduction,
+    canonical_prefix_tree,
+    classify_reproduction,
+    corpus_fingerprint,
+)
 from resumable_evaluation import (  # noqa: E402
     load_problem_json_checkpoint,
     remaining_eq_ids,
@@ -189,3 +196,35 @@ def test_reproduction_bias_uses_finetuning_corpus_templates():
     )
     assert hit["reproduced"] is True
     assert miss["novel"] is True
+
+
+def test_reproduction_canonicalization_falls_back_after_timeout(monkeypatch):
+    def slow_simplify(expr):
+        time.sleep(1.0)
+        return expr
+
+    monkeypatch.setattr(reproduction_bias.sp, "simplify", slow_simplify)
+    started = time.monotonic()
+    tree = canonical_prefix_tree("x_1 + 1", timeout_sec=0.01)
+    elapsed = time.monotonic() - started
+    assert tree is not None
+    assert elapsed < 0.5
+
+
+def test_reproduction_aggregate_caches_training_template_fingerprints(monkeypatch):
+    calls = 0
+    original = reproduction_bias.canonical_prefix_tree
+
+    def counted(expr, **kwargs):
+        nonlocal calls
+        calls += 1
+        return original(expr, **kwargs)
+
+    monkeypatch.setattr(reproduction_bias, "canonical_prefix_tree", counted)
+    rows = [
+        {"pred_simplified": "x_1 + 1", "true_canonical": "x_1 + 1", "valid_pred": 1.0},
+        {"pred_simplified": "x_1 - 1", "true_canonical": "x_1 - 1", "valid_pred": 1.0},
+    ]
+    result = aggregate_reproduction(rows, train_templates=["x_1 + 1", "x_2 + 1"])
+    assert result["n_total"] == 2
+    assert calls == 2
