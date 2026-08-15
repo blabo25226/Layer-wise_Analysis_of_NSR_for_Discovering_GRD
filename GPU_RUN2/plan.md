@@ -409,6 +409,7 @@ PySRの実装とoperator設定の参照論文はCranmerのPySR論文
 - 除算候補は分母の最小絶対値、train / validation / domain-ID / domain-OOD点上の有限性、および事前固定した
   denominator marginを検査する。0除算、NaN、Inf、評価範囲内の特異点は理由付きfailureとする。
 - NeSymReSとPySRへ同じ意味上の探索空間を与え、表記上の違いによる候補数の差をmanifestへ記録する。
+- PySRは`random_state`に加えて`deterministic=True`とserial searchを固定し、並列探索のschedule差をseed差へ混ぜない。
 - 一般の実数べき乗を調べる場合は、主結果へ混ぜず、validationだけで設定を固定した別operator-ablationとする。
 
 ## 4. 層解析

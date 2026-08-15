@@ -62,6 +62,32 @@ def test_pysr_adapter_uses_reduced_budget(monkeypatch) -> None:
     assert captured["timeout_in_seconds"] == 15.0
 
 
+def test_gpu_run2_pysr_search_is_serial_and_deterministic(monkeypatch) -> None:
+    captured = {}
+
+    class FakeRegressor:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+        def fit(self, X, y, variable_names):
+            pass
+
+        def get_best(self):
+            return {"equation": "x_1"}
+
+    monkeypatch.setitem(sys.modules, "pysr", SimpleNamespace(PySRRegressor=FakeRegressor))
+    fit_pysr_expression(
+        np.ones((2, 1)),
+        np.ones(2),
+        ["x_1"],
+        niterations=2,
+        random_state=7,
+        operator_set="gpu_run2",
+    )
+    assert captured["parallelism"] == "serial"
+    assert captured["deterministic"] is True
+
+
 def test_phase8_aggregate_merges_local_pysr(tmp_path, monkeypatch) -> None:
     run = tmp_path / "run"
     nesymres = run / "phase8_lodo_seed0"

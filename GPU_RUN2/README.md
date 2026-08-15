@@ -50,6 +50,7 @@ Phase 2 と Phase 5 は validation のあと、条件凍結済みの **test を�
 
 合成problemごとに1,024学習点を保存するが、decode/searchは`decode_max_points: 80`で固定した同一subsetを
 全手法・条件へ渡す。性能評価は独立した256点のdomain-ID / domain-OOD集合で行う。
+PySRは固定`random_state`に加えてdeterministic serial searchを使う。
 
 ## テスト
 

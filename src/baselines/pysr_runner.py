@@ -28,6 +28,7 @@ def fit_pysr_expression(
         mapped = pysr_operator_kwargs()
         binary_operators = binary_operators or mapped["binary_operators"]
         unary_operators = unary_operators or mapped["unary_operators"]
+    gpu_run2 = operator_set == "gpu_run2"
     kwargs = dict(
         niterations=niterations,
         binary_operators=list(binary_operators or ["+", "-", "*", "/"]),
@@ -37,7 +38,7 @@ def fit_pysr_expression(
         verbosity=0,
         temp_equation_file=True,
         random_state=random_state,
-        parallelism="multithreading",
+        parallelism="serial" if gpu_run2 else "multithreading",
         extra_sympy_mappings={
             "square": lambda x: x**2,
             "cube": lambda x: x**3,
@@ -45,6 +46,8 @@ def fit_pysr_expression(
             "pow5": lambda x: x**5,
         },
     )
+    if gpu_run2:
+        kwargs["deterministic"] = True
     if timeout_in_seconds is not None:
         kwargs["timeout_in_seconds"] = float(timeout_in_seconds)
     model = PySRRegressor(**kwargs)

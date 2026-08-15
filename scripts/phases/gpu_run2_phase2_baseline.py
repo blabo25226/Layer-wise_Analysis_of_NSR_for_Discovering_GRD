@@ -27,13 +27,6 @@ from gpu_run2_runtime import (  # noqa: E402
     write_json,
 )
 from gpu_run2_experiment import select_decode_points  # noqa: E402
-from resumable_evaluation import (  # noqa: E402
-    load_problem_json_checkpoint,
-    remaining_eq_ids,
-    save_problem_json_checkpoint,
-)
-
-
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="GPU_RUN2 Phase 2 baselines")
     parser.add_argument("--run-id", default=os.environ.get("LANSR_RUN_ID"))
@@ -100,6 +93,16 @@ def _dummy_record(row: dict, method: str, timeout_sec: float, reason: str | None
 
 def main() -> int:
     args = parse_args()
+    # juliacall warns that importing torch first can segfault. Initialize the
+    # PySR/Julia bridge before the checkpoint helper imports torch.
+    if "pysr" in args.methods and not args.dry_run:
+        import pysr  # noqa: F401
+    from resumable_evaluation import (
+        load_problem_json_checkpoint,
+        remaining_eq_ids,
+        save_problem_json_checkpoint,
+    )
+
     config = load_gpu_run2_configs()
     run_dir = resolve_run_dir(args.run_id, config=config)
     phase1 = run_dir / "phase1"
