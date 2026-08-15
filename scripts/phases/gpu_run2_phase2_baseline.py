@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 import time
@@ -127,7 +128,7 @@ def main() -> int:
         }
         nesymres_model = None
         nesymres_params = None
-        if method == "nesymres" and not args.dry_run:
+        if method == "nesymres" and not args.dry_run and remaining:
             from models.nesymres_adapter import load_nesymres
 
             paths = nesymres_paths(config)
@@ -162,9 +163,7 @@ def main() -> int:
             )
         records[method] = stored
         write_json(out_dir / f"{method}_{args.split}_records.json", stored)
-    write_json(
-        out_dir / "manifest.json",
-        {
+    split_manifest = {
             "phase": 2,
             "status": "complete",
             "at_utc": utc_now(),
@@ -174,6 +173,20 @@ def main() -> int:
             "dry_run": bool(args.dry_run),
             "timeout_sec": timeout_sec,
             "pysr_operators": pysr_operator_kwargs(config.get("operators")),
+        }
+    write_json(out_dir / f"manifest_{args.split}.json", split_manifest)
+    split_manifests = {}
+    for split in ("validation", "test"):
+        path = out_dir / f"manifest_{split}.json"
+        if path.is_file():
+            split_manifests[split] = json.loads(path.read_text(encoding="utf-8"))
+    write_json(
+        out_dir / "manifest.json",
+        {
+            "phase": 2,
+            "status": "complete" if set(split_manifests) == {"validation", "test"} else "running",
+            "at_utc": utc_now(),
+            "splits": split_manifests,
         },
     )
     print(f"Phase 2 complete: {out_dir}")

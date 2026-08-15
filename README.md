@@ -624,8 +624,8 @@ GPU_RUN2の詳細は [`GPU_RUN2/plan.md`](GPU_RUN2/plan.md)、実行入口は [`
 1. **固定commitの独立run**：GPU_RUN1の継続成果物をseed反復として混ぜない。
 2. **oracle変数のみ**：真式に現れる変数だけを入力し、変数選択誤差を切り離す。
 3. **解析的教師値**：有限差分は使わず、既知のGNW式を直接評価する。
-4. **validation probing / DecoderLens**：testを見る前に候補層と選択規則を凍結する。
-5. **演算子制限**：`tan` などを除外し、整数べき `2`–`5` と安全除算だけを主実行で許す。
+4. **validation probing / DecoderLens**：validation内でもprobeのfit例とscore例を分離し、testを見る前に候補層と選択規則を凍結する。
+5. **演算子制限**：beam生成中から`tan`など、oracle外変数、不正文法をmaskし、整数べき `2`–`5` と安全除算だけを主実行で許す。
 6. **30秒timeout**：seed・condition・noiseで共通とし、timeoutは失敗として保存する。
 7. **top 3対固定random 3**：1個のrandom層集合とのpaired比較に限定する。
 8. **構造回復と再現バイアス**：exact / skeleton / symbolic equivalenceと、fine-tuning corpusに対する reproduced / novel を分ける。

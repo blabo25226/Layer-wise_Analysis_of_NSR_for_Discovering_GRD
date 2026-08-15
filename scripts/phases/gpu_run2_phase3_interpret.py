@@ -144,6 +144,8 @@ def _append_probe_batch(
     next_token_accum: dict[str, list[float]],
     n_ops_accum: dict[str, list[float]],
     hidden: dict[str, np.ndarray],
+    next_token_hidden: dict[str, np.ndarray],
+    eq_ids: list[str],
     template_ids: list[str],
     next_tokens: np.ndarray,
     n_operators: np.ndarray,
@@ -156,14 +158,59 @@ def _append_probe_batch(
         next_tokens = np.asarray(next_tokens)[keep_indices]
         n_operators = np.asarray(n_operators)[keep_indices]
         hidden = {name: array[keep_indices] for name, array in hidden.items()}
+        next_token_hidden = {
+            name: array[keep_indices] for name, array in next_token_hidden.items()
+        }
+        eq_ids = [eq_ids[i] for i in keep_indices]
+    train_indices, eval_indices = _probe_train_eval_indices(eq_ids)
     for name, array in hidden.items():
         template_accum.setdefault(name, []).append(
-            fit_linear_classifier_probe(array, template_ids)["accuracy"]
+            fit_linear_classifier_probe(
+                array[train_indices],
+                [template_ids[i] for i in train_indices],
+                eval_hidden=array[eval_indices],
+                eval_labels=[template_ids[i] for i in eval_indices],
+            )["accuracy"]
         )
+        token_array = next_token_hidden[name]
         next_token_accum.setdefault(name, []).append(
-            fit_linear_classifier_probe(array, next_tokens)["accuracy"]
+            fit_linear_classifier_probe(
+                token_array[train_indices],
+                next_tokens[train_indices],
+                eval_hidden=token_array[eval_indices],
+                eval_labels=next_tokens[eval_indices],
+            )["accuracy"]
         )
-        n_ops_accum.setdefault(name, []).append(fit_linear_probe(array, n_operators)["r2"])
+        n_ops_accum.setdefault(name, []).append(
+            fit_linear_probe(
+                array[train_indices],
+                n_operators[train_indices],
+                eval_hidden=array[eval_indices],
+                eval_targets=n_operators[eval_indices],
+            )["r2"]
+        )
+
+
+def _probe_train_eval_indices(eq_ids: list[str]) -> tuple[np.ndarray, np.ndarray]:
+    """Hold out two of six validation variants per family for probe scoring."""
+    if len(eq_ids) < 2:
+        raise RuntimeError("probe split needs at least two examples")
+    train_indices: list[int] = []
+    eval_indices: list[int] = []
+    for index, eq_id in enumerate(eq_ids):
+        try:
+            variant = int(str(eq_id).rsplit("_", 1)[-1])
+        except ValueError:
+            variant = index
+        (eval_indices if variant % 3 == 2 else train_indices).append(index)
+    if not train_indices or not eval_indices:
+        # Smoke and structure-filtered views can omit the nominal held-out
+        # variants. Keep their scoring disjoint with a deterministic global
+        # fallback instead of reverting to in-sample probe accuracy.
+        n_eval = max(1, len(eq_ids) // 3)
+        eval_indices = list(range(len(eq_ids) - n_eval, len(eq_ids)))
+        train_indices = list(range(0, len(eq_ids) - n_eval))
+    return np.asarray(train_indices, dtype=int), np.asarray(eval_indices, dtype=int)
 
 
 def _freeze_from_probe_scores(
@@ -326,6 +373,7 @@ def main() -> int:
                 layer_names=layers,
             )
             hidden = collected["hidden"]
+            next_token_hidden = collected["next_token_hidden"]
             eq_ids_batch = list(collected["eq_ids"])
             template_ids, n_operators, _n_variables = _labels_for_eq_ids(
                 eq_ids_batch, catalogue_by_id
@@ -344,11 +392,16 @@ def main() -> int:
             next_tokens = next_tokens[:n_examples]
             eq_ids_batch = eq_ids_batch[:n_examples]
             hidden = {name: array[:n_examples] for name, array in hidden.items()}
+            next_token_hidden = {
+                name: array[:n_examples] for name, array in next_token_hidden.items()
+            }
             _append_probe_batch(
                 template_accum=template_accum,
                 next_token_accum=next_token_accum,
                 n_ops_accum=n_ops_accum,
                 hidden=hidden,
+                next_token_hidden=next_token_hidden,
+                eq_ids=eq_ids_batch,
                 template_ids=template_ids,
                 next_tokens=next_tokens,
                 n_operators=n_operators,
@@ -359,6 +412,8 @@ def main() -> int:
                 next_token_accum=next_token_accum_sh,
                 n_ops_accum=n_ops_accum_sh,
                 hidden=hidden,
+                next_token_hidden=next_token_hidden,
+                eq_ids=eq_ids_batch,
                 template_ids=template_ids,
                 next_tokens=next_tokens,
                 n_operators=n_operators,

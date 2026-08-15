@@ -421,14 +421,48 @@ def resolve_layer_module(model, layer_name: str):
 
 
 def flatten_activation_to_batch(array: np.ndarray, batch_size: int) -> np.ndarray:
+    """Map a hooked activation tensor to shape ``(batch_size, n_features)``.
+
+    NeSymReS DataLoader batches pad tokens / points only *within* a batch, so
+    sequence lengths differ across batches. Flattening ``(B, S, H)`` therefore
+    yields incompatible feature widths (e.g. 10240 vs 16384). Mean-pool every
+    non-batch axis except the last feature axis so probes/CKA see a fixed
+    ``(B, H)`` layout.
+    """
     arr = np.asarray(array)
     if arr.ndim == 1:
         return arr.reshape(1, -1)
-    for axis, size in enumerate(arr.shape):
-        if size == batch_size:
-            moved = np.moveaxis(arr, axis, 0)
-            return moved.reshape(batch_size, -1)
-    return arr.reshape(arr.shape[0], -1)
+    batch_axes = [axis for axis, size in enumerate(arr.shape) if size == batch_size]
+    if not batch_axes:
+        return arr.reshape(arr.shape[0], -1)
+    moved = np.moveaxis(arr, batch_axes[0], 0)
+    if moved.shape[0] != batch_size:
+        return moved.reshape(moved.shape[0], -1)
+    if moved.ndim == 2:
+        return moved
+    # (B, ..., H) -> mean over intermediate axes -> (B, H)
+    reduce_axes = tuple(range(1, moved.ndim - 1))
+    return np.asarray(moved.mean(axis=reduce_axes), dtype=arr.dtype)
+
+
+def activation_at_sequence_position(
+    array: np.ndarray,
+    batch_size: int,
+    *,
+    position: int,
+) -> np.ndarray:
+    """Return a decoder activation as ``(batch, features)`` at one position."""
+    arr = np.asarray(array)
+    batch_axes = [axis for axis, size in enumerate(arr.shape) if size == batch_size]
+    if not batch_axes:
+        return flatten_activation_to_batch(arr, batch_size)
+    # torch.nn.TransformerDecoderLayer returns (sequence, batch, hidden).
+    batch_axis = 1 if arr.ndim >= 3 and arr.shape[1] == batch_size else batch_axes[0]
+    moved = np.moveaxis(arr, batch_axis, 0)
+    if moved.ndim < 3:
+        return moved.reshape(batch_size, -1)
+    index = min(max(int(position), 0), moved.shape[1] - 1)
+    return np.take(moved, index, axis=1).reshape(batch_size, -1)
 
 
 def collect_layer_representations(
@@ -476,7 +510,9 @@ def collect_layer_representations(
                 model.forward([nums, tokens])
                 batch_eq_ids = list(batch[2]) if len(batch) > 2 else [f"batch{i}_{j}" for j in range(nums.shape[0])]
                 eq_ids.extend(str(eq_id) for eq_id in batch_eq_ids)
-                token_col = tokens[:, 1] if tokens.shape[1] > 1 else tokens[:, 0]
+                # Position 1 is usually the common root operator. Probe the next
+                # teacher token and use the causal decoder state at position 1.
+                token_col = tokens[:, 2] if tokens.shape[1] > 2 else tokens[:, -1]
                 next_token_ids.extend(int(value) for value in token_col.detach().cpu().tolist())
                 batch_sizes.append(int(nums.shape[0]))
     except RuntimeError as exc:
@@ -487,6 +523,7 @@ def collect_layer_representations(
     if not eq_ids:
         raise RuntimeError("no batches available for layer representation collection")
     out: dict[str, np.ndarray] = {}
+    next_token_out: dict[str, np.ndarray] = {}
     for name, chunks in captured.items():
         if not chunks:
             continue
@@ -494,12 +531,36 @@ def collect_layer_representations(
             flatten_activation_to_batch(chunk, batch_size=int(bsz))
             for chunk, bsz in zip(chunks, batch_sizes)
         ]
+        widths = {int(chunk.shape[1]) for chunk in aligned if chunk.ndim == 2}
+        if len(widths) > 1:
+            # Defensive: rare hooks may still emit mismatched feature widths.
+            max_width = max(widths)
+            padded = []
+            for chunk in aligned:
+                if chunk.ndim != 2:
+                    raise ValueError(f"expected 2D activation for {name}, got {chunk.shape}")
+                if chunk.shape[1] == max_width:
+                    padded.append(chunk)
+                    continue
+                pad = np.zeros((chunk.shape[0], max_width - chunk.shape[1]), dtype=chunk.dtype)
+                padded.append(np.concatenate([chunk, pad], axis=1))
+            aligned = padded
         out[name] = np.concatenate(aligned, axis=0)
+        if getattr(registry[name], "kind", None) == "decoder":
+            token_aligned = [
+                activation_at_sequence_position(chunk, int(bsz), position=1)
+                for chunk, bsz in zip(chunks, batch_sizes)
+            ]
+            next_token_out[name] = np.concatenate(token_aligned, axis=0)
+        else:
+            next_token_out[name] = out[name]
     n = min(len(eq_ids), min((arr.shape[0] for arr in out.values()), default=len(eq_ids)))
     return {
         "hidden": {name: arr[:n] for name, arr in out.items()},
+        "next_token_hidden": {name: arr[:n] for name, arr in next_token_out.items()},
         "eq_ids": eq_ids[:n],
         "next_token_ids": np.asarray(next_token_ids[:n], dtype=np.int64),
+        "next_token_position": 2,
     }
 
 

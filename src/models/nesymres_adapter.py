@@ -85,6 +85,14 @@ def predict_equation(
 
     preds = output.get("best_bfgs_preds") or output.get("all_bfgs_preds") or []
     losses = output.get("best_bfgs_loss") or output.get("all_bfgs_loss") or []
+    if isinstance(preds, str):
+        preds = [preds]
+    elif not isinstance(preds, (list, tuple)):
+        preds = [preds]
+    if np.isscalar(losses):
+        losses = [losses]
+    elif not isinstance(losses, (list, tuple)):
+        losses = list(losses)
     best_expr = preds[0] if preds else ""
     best_loss = float(losses[0]) if losses else float("inf")
     return {
@@ -109,7 +117,27 @@ def predict_equation_gpu_run2(
     import time
 
     from evaluation.decode_timeout import DecodeTimeout, run_with_timeout
-    from evaluation.operator_policy import validate_candidate_expression
+    from evaluation.operator_policy import (
+        allowed_pow_exponents,
+        nesymres_allowed_token_ids,
+        validate_candidate_expression,
+    )
+
+    operator_cfg = dict(operator_config or {})
+    n_variables = int(np.asarray(X).shape[1])
+    params_fit.allowed_token_ids = sorted(
+        nesymres_allowed_token_ids(params_fit.word2id, config=operator_cfg)
+    )
+    params_fit.allowed_pow_exponent_ids = sorted(
+        int(params_fit.word2id[str(value)])
+        for value in allowed_pow_exponents(operator_cfg)
+        if str(value) in params_fit.word2id
+    )
+    params_fit.allowed_variable_ids = sorted(
+        int(params_fit.word2id[f"x_{index}"])
+        for index in range(1, n_variables + 1)
+        if f"x_{index}" in params_fit.word2id
+    )
 
     started = time.perf_counter()
     timeout = False
@@ -154,4 +182,5 @@ def predict_equation_gpu_run2(
         "n_candidate_evals": len(candidates),
         "failure_reason": failure_reason,
         "operator_config_fingerprint": None if operator_config is None else str(sorted(operator_config)),
+        "decode_mask_active": True,
     }

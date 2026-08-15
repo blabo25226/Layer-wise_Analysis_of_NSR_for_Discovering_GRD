@@ -46,36 +46,36 @@ if [[ "$DRY_RUN" -eq 1 ]]; then COMMON+=(--dry-run); fi
 
 run_phase() {
   local phase="$1"
-  shift
+  local label="$2"
+  shift 2
   if [[ "$phase" -lt "$FROM_PHASE" ]]; then
     echo "Skipping Phase $phase (FROM_PHASE=$FROM_PHASE)"
     return 0
   fi
-  echo "=== GPU_RUN2 Phase $phase ==="
+  echo "=== GPU_RUN2 Phase $phase ($label) ==="
   local started
   started="$(date +%s)"
   python "$@"
   local ended elapsed
   ended="$(date +%s)"
   elapsed=$((ended - started))
-  echo "Phase $phase finished in ${elapsed}s"
-  echo "$elapsed" > "$RUN_DIR/phase${phase}_wall_seconds.txt"
+  echo "Phase $phase ($label) finished in ${elapsed}s"
+  echo "$elapsed" > "$RUN_DIR/phase${phase}_${label}_wall_seconds.txt"
 }
 
 PHASE0=(scripts/phases/gpu_run2_phase0_preflight.py --run-id "$RUN_ID")
 if [[ "$ALLOW_CPU" -eq 1 ]]; then PHASE0+=(--allow-cpu); fi
-run_phase 0 "${PHASE0[@]}"
+run_phase 0 preflight "${PHASE0[@]}"
 
-run_phase 1 scripts/phases/gpu_run2_phase1_data.py "${COMMON[@]}"
-run_phase 2 scripts/phases/gpu_run2_phase2_baseline.py "${COMMON[@]}" --split validation
-run_phase 2 scripts/phases/gpu_run2_phase2_baseline.py "${COMMON[@]}" --split test
-# Overwrite phase2 wall with combined note: keep last; also accumulate below via python summary later
-run_phase 3 scripts/phases/gpu_run2_phase3_interpret.py "${COMMON[@]}"
-run_phase 4 scripts/phases/gpu_run2_phase4_contribution.py "${COMMON[@]}"
-run_phase 5 scripts/phases/gpu_run2_phase5_selective_ft.py "${COMMON[@]}" --view main --split validation
-run_phase 5 scripts/phases/gpu_run2_phase5_selective_ft.py "${COMMON[@]}" --view structure_holdout --split validation
-run_phase 5 scripts/phases/gpu_run2_phase5_selective_ft.py "${COMMON[@]}" --view main --split test
-run_phase 5 scripts/phases/gpu_run2_phase5_selective_ft.py "${COMMON[@]}" --view structure_holdout --split test
+run_phase 1 data scripts/phases/gpu_run2_phase1_data.py "${COMMON[@]}"
+run_phase 2 validation scripts/phases/gpu_run2_phase2_baseline.py "${COMMON[@]}" --split validation
+run_phase 2 test scripts/phases/gpu_run2_phase2_baseline.py "${COMMON[@]}" --split test
+run_phase 3 interpret scripts/phases/gpu_run2_phase3_interpret.py "${COMMON[@]}"
+run_phase 4 contribution scripts/phases/gpu_run2_phase4_contribution.py "${COMMON[@]}"
+run_phase 5 main_validation scripts/phases/gpu_run2_phase5_selective_ft.py "${COMMON[@]}" --view main --split validation
+run_phase 5 structure_validation scripts/phases/gpu_run2_phase5_selective_ft.py "${COMMON[@]}" --view structure_holdout --split validation
+run_phase 5 main_test scripts/phases/gpu_run2_phase5_selective_ft.py "${COMMON[@]}" --view main --split test
+run_phase 5 structure_test scripts/phases/gpu_run2_phase5_selective_ft.py "${COMMON[@]}" --view structure_holdout --split test
 
 echo "=== GPU_RUN2 finalize ==="
 FINALIZE=(scripts/ops/finalize_gpu_run2.py --run-id "$RUN_ID")
@@ -89,9 +89,12 @@ from pathlib import Path
 run_dir = Path(r"""$RUN_DIR""")
 phase_secs = {}
 for p in range(0, 6):
-    f = run_dir / f"phase{p}_wall_seconds.txt"
-    if f.is_file():
-        phase_secs[f"phase{p}_seconds"] = float(f.read_text().strip())
+    files = sorted(run_dir.glob(f"phase{p}_*_wall_seconds.txt"))
+    if files:
+        phase_secs[f"phase{p}_seconds"] = sum(float(f.read_text().strip()) for f in files)
+        for f in files:
+            label = f.name[len(f"phase{p}_"):-len("_wall_seconds.txt")]
+            phase_secs[f"phase{p}_{label}_seconds"] = float(f.read_text().strip())
 
 decode_secs = []
 timeouts = 0
@@ -144,7 +147,7 @@ def pct(vals, q):
         return s[f]
     return s[f] + (s[c] - s[f]) * (k - f)
 
-total = sum(phase_secs.values())
+total = sum(phase_secs.get(f"phase{p}_seconds", 0.0) for p in range(0, 6))
 summary = {
     **phase_secs,
     "total_seconds": total,
