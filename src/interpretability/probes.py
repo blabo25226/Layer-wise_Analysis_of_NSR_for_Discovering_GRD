@@ -67,8 +67,10 @@ def fit_linear_probe(
     targets: np.ndarray,
     *,
     ridge: float = 1e-4,
+    eval_hidden: np.ndarray | None = None,
+    eval_targets: np.ndarray | None = None,
 ) -> dict[str, float]:
-    """Ridge linear probe of scalar targets from flattened hidden states."""
+    """Ridge probe, optionally scored on a disjoint held-out set."""
     h = np.asarray(hidden, dtype=np.float64)
     y = np.asarray(targets, dtype=np.float64).ravel()
     if h.ndim == 3:
@@ -78,15 +80,22 @@ def fit_linear_probe(
     if len(h) != len(y):
         raise ValueError("hidden and targets must have the same number of examples")
     weights = _ridge_weights(h, y, ridge)
-    pred = _dense_matmul(h, weights)
-    residual = y - pred
+    h_eval = h if eval_hidden is None else np.asarray(eval_hidden, dtype=np.float64)
+    y_eval = y if eval_targets is None else np.asarray(eval_targets, dtype=np.float64).ravel()
+    if h_eval.ndim == 3:
+        h_eval = h_eval.reshape(h_eval.shape[0], -1)
+    if h_eval.ndim != 2 or len(h_eval) != len(y_eval):
+        raise ValueError("eval_hidden and eval_targets must be aligned 2D data")
+    pred = _dense_matmul(h_eval, weights)
+    residual = y_eval - pred
     mse = float(np.mean(residual**2))
-    denom = float(np.mean((y - np.mean(y)) ** 2)) + 1e-12
+    denom = float(np.sum((y_eval - np.mean(y_eval)) ** 2)) + 1e-12
     return {
         "mse": mse,
         "nmse_var": float(np.sum(residual**2) / denom),
         "r2": 1.0 - float(np.sum(residual**2) / denom),
-        "n_examples": float(len(y)),
+        "n_examples": float(len(y_eval)),
+        "n_train_examples": float(len(y)),
         "n_features": float(h.shape[1]),
     }
 
@@ -96,8 +105,10 @@ def fit_linear_classifier_probe(
     labels: Sequence[Any],
     *,
     ridge: float = 1e-4,
+    eval_hidden: np.ndarray | None = None,
+    eval_labels: Sequence[Any] | None = None,
 ) -> dict[str, float]:
-    """One-vs-rest ridge classifier probe. Reports accuracy, not NMSE."""
+    """One-vs-rest ridge classifier, optionally scored on held-out examples."""
     h = np.asarray(hidden, dtype=np.float64)
     if h.ndim == 3:
         h = h.reshape(h.shape[0], -1)
@@ -116,18 +127,29 @@ def fit_linear_classifier_probe(
             "n_examples": float(n_examples),
             "n_features": float(n_features),
         }
-    scores = np.zeros((n_examples, len(classes)), dtype=np.float64)
+    h_eval = h if eval_hidden is None else np.asarray(eval_hidden, dtype=np.float64)
+    labels_eval = encoded if eval_labels is None else np.asarray(
+        [str(label) for label in eval_labels], dtype=object
+    )
+    if h_eval.ndim == 3:
+        h_eval = h_eval.reshape(h_eval.shape[0], -1)
+    if h_eval.ndim != 2 or len(h_eval) != len(labels_eval):
+        raise ValueError("eval_hidden and eval_labels must be aligned 2D data")
+    class_to_index = {label: index for index, label in enumerate(classes)}
+    scores = np.zeros((len(h_eval), len(classes)), dtype=np.float64)
     for index in range(len(classes)):
         y = np.where(inv == index, 1.0, -1.0)
         weights = _ridge_weights(h, y, ridge)
-        scores[:, index] = _dense_matmul(h, weights)
+        scores[:, index] = _dense_matmul(h_eval, weights)
     predicted = scores.argmax(axis=1)
+    expected = np.asarray([class_to_index.get(label, -1) for label in labels_eval])
     counts = np.bincount(inv, minlength=len(classes))
     return {
-        "accuracy": float(np.mean(predicted == inv)),
+        "accuracy": float(np.mean(predicted == expected)),
         "majority_baseline": float(np.max(counts) / max(n_examples, 1)),
         "n_classes": float(len(classes)),
-        "n_examples": float(n_examples),
+        "n_examples": float(len(labels_eval)),
+        "n_train_examples": float(n_examples),
         "n_features": float(n_features),
     }
 

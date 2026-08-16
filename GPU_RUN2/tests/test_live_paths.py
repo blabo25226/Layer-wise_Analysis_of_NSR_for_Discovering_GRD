@@ -23,11 +23,13 @@ from evaluation.gpu_run2_rankings import (  # noqa: E402
     phase4_conditions,
 )
 from gpu_run2_experiment import (  # noqa: E402
+    activation_at_sequence_position,
     collect_layer_representations,
     dummy_gnw_record,
     filter_index_rows,
     filter_selective_ft_layers,
     flatten_activation_to_batch,
+    select_decode_points,
 )
 from interpretability.probes import (  # noqa: E402
     expression_structure_attributes,
@@ -46,6 +48,15 @@ from interpretability.interventions import (  # noqa: E402
 def _load_phase3_module():
     path = ROOT / "scripts" / "phases" / "gpu_run2_phase3_interpret.py"
     spec = importlib.util.spec_from_file_location("gpu_run2_phase3_interpret", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _load_phase4_module():
+    path = ROOT / "scripts" / "phases" / "gpu_run2_phase4_contribution.py"
+    spec = importlib.util.spec_from_file_location("gpu_run2_phase4_contribution", path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -163,6 +174,26 @@ def test_flatten_activation_pools_variable_sequence_lengths():
     assert np.allclose(flat_long, 2.0)
 
 
+def test_decode_point_subset_is_deterministic_and_spans_saved_order():
+    X = np.arange(2048, dtype=float).reshape(1024, 2)
+    y = np.arange(1024, dtype=float)
+    X_selected, y_selected, indices = select_decode_points(X, y, max_points=80)
+    assert X_selected.shape == (80, 2)
+    assert y_selected.shape == (80,)
+    assert indices[0] == 0 and indices[-1] == 1023
+    assert len(np.unique(indices)) == 80
+    again = select_decode_points(X, y, max_points=80)
+    assert np.array_equal(indices, again[2])
+
+
+def test_decoder_probe_uses_causal_sequence_position():
+    seq_first = np.zeros((5, 3, 4), dtype=np.float32)
+    seq_first[1, :, :] = 7.0
+    selected = activation_at_sequence_position(seq_first, 3, position=1)
+    assert selected.shape == (3, 4)
+    assert np.allclose(selected, 7.0)
+
+
 def test_prefix_tokens_to_equation_parses_add():
     text, parseable = prefix_tokens_to_equation(["add", "x_1", "x_2"], variables=["x_1", "x_2"])
     assert parseable
@@ -224,6 +255,17 @@ def test_structure_safe_eq_ids_excludes_g07_g08():
     assert "G07_c" not in safe and "G08_d" not in safe
 
 
+def test_phase3_probe_split_is_disjoint_and_has_smoke_fallback():
+    phase3 = _load_phase3_module()
+    train, evaluation = phase3._probe_train_eval_indices(
+        ["G01_variant_000", "G02_variant_000", "G03_variant_000"]
+    )
+    assert set(train).isdisjoint(set(evaluation))
+    assert sorted(np.concatenate([train, evaluation]).tolist()) == [0, 1, 2]
+    assert len(train) == 2
+    assert len(evaluation) == 1
+
+
 def test_phase3_writes_dual_candidate_layer_files():
     source = (ROOT / "scripts" / "phases" / "gpu_run2_phase3_interpret.py").read_text(
         encoding="utf-8"
@@ -243,6 +285,28 @@ def test_phase4_loads_dual_candidate_lists():
     assert "raise FileNotFoundError" in source
     assert "candidate_layers=candidates_main" in source
     assert "candidate_layers=candidates_sh" in source
+
+
+def test_phase4_unit_checkpoint_is_atomic_and_identity_checked(tmp_path):
+    phase4 = _load_phase4_module()
+    identity = {
+        "phase": 4,
+        "data_seed": 101,
+        "model_seed": 0,
+        "noise": 0.0,
+        "analysis": "iole",
+        "condition": "encoder_1",
+        "panel_ids": ["G01_variant_018"],
+        "timeout_sec": 30.0,
+        "source_commit": "abc",
+    }
+    path = tmp_path / "unit.json"
+    phase4._save_unit(path, identity, nmse=0.2, records=[{"eq_id": "x"}])
+    loaded = phase4._load_unit(path, identity)
+    assert loaded["results"]["nmse"] == pytest.approx(0.2)
+    bad = dict(identity, condition="encoder_2")
+    with pytest.raises(RuntimeError, match="identity mismatch"):
+        phase4._load_unit(path, bad)
 
 
 def test_phase4_agreement_includes_decoder_lens_and_holdout_conditions_are_separate():

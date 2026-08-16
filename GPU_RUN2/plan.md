@@ -163,6 +163,9 @@ y=f(\mathbf{x})+\epsilon
 - 各problem・各data seedについて、学習用1,024点、独立したdomain-ID評価用256点、
   domain-OOD評価用256点を
   Latin hypercube samplingで生成する。
+- 1,024学習点は保存と学習母集団に使う。NeSymReSのBFGSが全点から巨大なsymbolic lossを作ることを避け、
+  30秒budget内で全条件を比較するため、decode/searchにはLHS保存順を等間隔に選んだ固定80点を使う。
+  同じproblemのNeSymReS、PySR、fine-tuning条件は同一index集合を共有し、256点の評価集合は削減しない。
 - `noise=0.0`では$`\epsilon=0`$とする。
 - `noise=0.1`では、clean targetの学習用1,024点における標準偏差を$`s_y`$として、
   $`\epsilon\sim\mathcal{N}(0,(0.1s_y)^2)`$とする。
@@ -399,11 +402,14 @@ PySRの実装とoperator設定の参照論文はCranmerのPySR論文
 
 - decode中に`pow`を選んだ場合、指数childをliteral `2`–`5`へ制限する。候補filterだけで実装する場合も、
   parse後に同じ規則を再検査し、違反を`DisallowedPowerExponent`として保存する。
+- NeSymReSのbeam logitsへprefix文法maskを適用し、未完成式での終了、oracle入力に存在しない変数、
+  禁止関数を生成候補から除外する。decode後の安全性検査も残し、maskだけをvalid判定の根拠にしない。
 - `sin`、`cos`、`tan`、逆三角関数、双曲線関数、`sqrt`、`abs`、`exp`、`ln`、`log`は、
   GNW benchmark v1の真式に不要なため主実行から除外する。
 - 除算候補は分母の最小絶対値、train / validation / domain-ID / domain-OOD点上の有限性、および事前固定した
   denominator marginを検査する。0除算、NaN、Inf、評価範囲内の特異点は理由付きfailureとする。
 - NeSymReSとPySRへ同じ意味上の探索空間を与え、表記上の違いによる候補数の差をmanifestへ記録する。
+- PySRは`random_state`に加えて`deterministic=True`とserial searchを固定し、並列探索のschedule差をseed差へ混ぜない。
 - 一般の実数べき乗を調べる場合は、主結果へ混ぜず、validationだけで設定を固定した別operator-ablationとする。
 
 ## 4. 層解析
@@ -423,6 +429,8 @@ validation上で次を実行し、高価なfine-tuningへ渡す候補層と選�
 - 各層hidden stateに対するlinear probe。目的変数は algebraic template ID（分類）、
   teacher-forcingの次token（分類）、演算子数（回帰）に限定する。
   入力点の平均など、数式構造と無関係なスカラーは層選択に使わない。
+- probeはvalidation内のparameter variantを学習用と評価用へ決定的に分け、層順位にはheld-out accuracy /
+  $`R^2`$だけを使う。decoderの次token probeは、予測対象tokenより前のcausal hidden stateを使う。
 - 候補層凍結は上記probeのmean rankによる。因果的な層寄与の主判定はPhase 4の
   IOLE / ablation / activation介入に残す。
 - 固定validation problemに対する層ごとのgradient norm
@@ -544,7 +552,9 @@ test結果を見て変更しない。変更が必要な場合は本実行前に�
 - Phase 5: seed × condition × noise × problem
 
 各checkpointには完了problem ID、固有seed、elapsed、真式、raw/simplified予測式、候補式、metrics、
-failure reason、timeout flag、候補評価数を保存する。resume時に完了problemを再計算しない。
+failure reason、timeout flag、候補評価数を保存する。Phase 4の単位checkpointにはsource commit、panel ID、
+analysis、condition、seed、noise、timeoutもidentityとして保存し、一致しないcheckpointではfail fastする。
+resume時に完了problemまたは完了単位を再計算しない。
 
 ## 7. Phase別実行案
 

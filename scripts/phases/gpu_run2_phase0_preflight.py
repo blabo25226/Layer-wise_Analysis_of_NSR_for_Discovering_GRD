@@ -10,6 +10,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT / "third_party" / "nesymres"))
 
 from evaluation.decode_timeout import DecodeTimeout, decode_time_limit, run_with_timeout  # noqa: E402
 from evaluation.equation_records import GPU_RUN2_REQUIRED_FIELDS, make_gpu_run2_equation_record  # noqa: E402
@@ -52,11 +53,36 @@ def checkpoint_sha256(path: Path) -> str | None:
 
 
 def smoke_operator_and_timeout(timeout_sec: float) -> dict:
+    import torch
+    from types import SimpleNamespace
+
+    from nesymres.architectures.model import _gpu_run2_mask_scores
+
     ok_pow, reason_pow = validate_candidate_expression("x_1**2 / (1 + x_2**3) - 0.2*x_1")
     bad_pow, reason_bad = validate_candidate_expression("x_1**x_2")
     bad_fn, reason_fn = validate_candidate_expression("tan(x_1) + x_2")
     prefix_ok, _ = filter_prefix_tokens(["mul", "x_1", "pow", "x_2", "3"])
     prefix_bad, prefix_reason = filter_prefix_tokens(["pow", "x_1", "x_2"])
+    word2id = {"P": 0, "S": 1, "F": 2, "c": 3, "x_1": 4, "x_2": 5, "add": 6, "sin": 7}
+    mask_params = SimpleNamespace(
+        word2id=word2id,
+        id2word={token_id: token for token, token_id in word2id.items()},
+        allowed_token_ids={0, 1, 2, 3, 4, 5, 6},
+        allowed_pow_exponent_ids=set(),
+        allowed_variable_ids={word2id["x_1"]},
+    )
+    masked = _gpu_run2_mask_scores(
+        torch.zeros((1, len(word2id))),
+        torch.tensor([[word2id["S"], 0]]),
+        1,
+        mask_params,
+    )
+    decode_mask_ok = (
+        torch.isfinite(masked[0, word2id["x_1"]]).item()
+        and not torch.isfinite(masked[0, word2id["x_2"]]).item()
+        and not torch.isfinite(masked[0, word2id["sin"]]).item()
+        and not torch.isfinite(masked[0, word2id["F"]]).item()
+    )
     timeout_fired = False
     try:
         with decode_time_limit(0.01):
@@ -120,6 +146,7 @@ def smoke_operator_and_timeout(timeout_sec: float) -> dict:
         "tan_rejected": (not bad_fn) and str(reason_fn).startswith("DisallowedOperator"),
         "prefix_integer_pow_ok": prefix_ok,
         "prefix_variable_pow_rejected": (not prefix_bad) and prefix_reason == "DisallowedPowerExponent",
+        "decode_token_mask_active": bool(decode_mask_ok),
         "timeout_mechanism_present": timeout_fired,
         "record_schema_missing": missing,
         "timeout_budget_sec": timeout_sec,
@@ -161,6 +188,9 @@ def main() -> int:
     smoke = smoke_operator_and_timeout(timeout_sec)
     if smoke["record_schema_missing"]:
         print(f"equation schema missing fields: {smoke['record_schema_missing']}")
+        return 1
+    if not smoke["decode_token_mask_active"]:
+        print("NeSymReS decode token mask smoke failed")
         return 1
     manifest = {
         "phase": 0,

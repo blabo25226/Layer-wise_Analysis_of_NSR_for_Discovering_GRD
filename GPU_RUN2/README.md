@@ -25,10 +25,20 @@ powershell -File scripts/ops/run_gpu_run2.ps1 -Smoke -AllowCpu -DryRun
 powershell -File scripts/ops/run_gpu_run2.ps1
 ```
 
+Linuxでの一括実行:
+
+```bash
+bash scripts/ops/run_gpu_run2.sh --smoke --run-id gpu_run2_smoke_01
+bash scripts/ops/run_gpu_run2.sh --run-id <new-fixed-commit-run-id>
+```
+
+Linuxでは`--from-phase 3`で途中再開できる。Phase 2はvalidation / test別、Phase 5はview / split別の
+wall timeを別ファイルへ保存するため、後段の実行で前段の時間を上書きしない。
+
 `-FromPhase 3` で途中再開できる。実行中の正本は常にローカルの `results/runs/<run-id>/` である。
 Phase 2 と Phase 5 は validation のあと、条件凍結済みの **test を一度だけ** 評価する。Phase 5 の structure-holdout は Phase 4 の `conditions_structure_holdout.json`（G01–G06 パネル）を使う。
 
-`--dry-run` はcheckpointを読まず、schema用のdummy出力だけを書く。checkpointがある live run（`--dry-run` なし）では、Phase 3 が validation probe / DecoderLens、Phase 4 が IOLE・ablation・activation介入、Phase 5 が selective FT + beam decode を実行する。OOM時はbatch/precisionを変えず fail fast する。
+`--dry-run` はcheckpointを読まず、schema用のdummy出力だけを書く。checkpointがある live run（`--dry-run` なし）では、Phase 3 が validation probe / DecoderLens、Phase 4 が IOLE・ablation・activation介入、Phase 5 が selective FT + beam decode を実行する。Phase 3のprobeはvalidation内を学習用と評価用へ分け、同じ例でfitとscoreを行わない。Phase 4はseed × noise × analysis × condition単位のcheckpointを原子的に保存し、再開時にsource commitとpanel identityを照合する。OOM時はbatch/precisionを変えず fail fast する。
 
 ## 設定
 
@@ -37,6 +47,10 @@ Phase 2 と Phase 5 は validation のあと、条件凍結済みの **test を�
 | [`configs/gpu_run2/base.yaml`](../configs/gpu_run2/base.yaml) | seed bundle、noise、timeout、budget |
 | [`configs/gpu_run2/operators.yaml`](../configs/gpu_run2/operators.yaml) | 共通operator allowlist |
 | [`configs/gpu_run2/splits.yaml`](../configs/gpu_run2/splits.yaml) | 主splitとstructure-holdout |
+
+合成problemごとに1,024学習点を保存するが、decode/searchは`decode_max_points: 80`で固定した同一subsetを
+全手法・条件へ渡す。性能評価は独立した256点のdomain-ID / domain-OOD集合で行う。
+PySRは固定`random_state`に加えてdeterministic serial searchを使う。
 
 ## テスト
 

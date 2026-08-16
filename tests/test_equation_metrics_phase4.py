@@ -36,6 +36,14 @@ def test_symbolic_exact():
     assert sr["recovery"] == 1.0
 
 
+def test_symbolic_equivalence_tolerates_fitted_float_rounding_only():
+    true = "0.0240281033970144 - 0.0240281033970144*x_1"
+    rounded = "0.024028104 - 0.024028104*x_1"
+    shifted = "0.025 - 0.025*x_1"
+    assert symbolic_recovery(true, rounded)["equiv"] == 1.0
+    assert symbolic_recovery(true, shifted)["equiv"] == 0.0
+
+
 def test_expression_safety_flags_tan_and_singularity():
     X = np.array([[0.0], [0.5], [1.0]])
     result = expression_safety("tan(x_1) + 1/(x_1-0.5)", X, ["x_1"])

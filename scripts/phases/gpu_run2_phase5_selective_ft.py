@@ -200,6 +200,7 @@ def main() -> int:
                     "data_seed": int(data_seed),
                     "noise": float(noise),
                     "timeout_sec": float(timeout_sec),
+                    "decode_max_points": int(config.get("decode_max_points", 80)),
                 }
                 payload = load_problem_json_checkpoint(ckpt_path, expected_identity=identity)
                 completed = list(payload["completed_eq_ids"]) if payload else []
@@ -313,6 +314,7 @@ def main() -> int:
                         training_seed=model_seed,
                         decoder=f"nesymres_{condition}",
                         operator_config=config.get("operators"),
+                        decode_max_points=int(config.get("decode_max_points", 80)),
                     )
                     record["ft_metrics"] = {
                         metric_key: metrics[metric_key]

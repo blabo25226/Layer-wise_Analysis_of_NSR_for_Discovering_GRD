@@ -12,6 +12,7 @@ variant_seed: 20260812
 n_variants_per_family: 30
 n_train_points: 1024
 n_eval_points: 256
+decode_max_points: 80
 support_id: [0.1, 2.0]
 support_ood: [0.05, 2.5]
 noises: [0.0, 0.1]

@@ -13,6 +13,76 @@ from sympy import lambdify
 from . import bfgs
 
 
+def _gpu_run2_prefix_state(token_ids, cfg_params):
+    """Return the next prefix slot for the optional GPU_RUN2 constrained decode.
+
+    This is a LANSR-side compatibility extension to the vendored NeSymReS copy.
+    Upstream decoding permits every vocabulary item at every step; GPU_RUN2 needs
+    a shared operator grammar and must not spend its timeout on invalid prefixes.
+    """
+    id2word = cfg_params.id2word
+    stack = ["expression"]
+    binary = {"add", "mul", "div", "pow"}
+    for token_id in token_ids:
+        name = str(id2word.get(int(token_id), ""))
+        if name in {"P", "S"}:
+            continue
+        if name == "F":
+            return "complete" if not stack else "invalid"
+        if not stack:
+            return "invalid"
+        stack.pop()
+        if name in binary:
+            if name == "pow":
+                stack.append("pow_exponent")
+                stack.append("expression")
+            else:
+                stack.extend(["expression", "expression"])
+    return stack[-1] if stack else "complete"
+
+
+def _gpu_run2_mask_scores(scores, generated, cur_len, cfg_params):
+    """Mask beam logits when ``allowed_token_ids`` is supplied by LANSR."""
+    allowed = getattr(cfg_params, "allowed_token_ids", None)
+    if allowed is None:
+        return scores
+    allowed = {int(token_id) for token_id in allowed}
+    exponent_ids = {
+        int(token_id) for token_id in getattr(cfg_params, "allowed_pow_exponent_ids", ())
+    }
+    allowed_variables = {
+        int(token_id) for token_id in getattr(cfg_params, "allowed_variable_ids", ())
+    }
+    all_variable_ids = {
+        int(token_id)
+        for name, token_id in cfg_params.word2id.items()
+        if str(name).startswith("x_")
+    }
+    eos_id = int(cfg_params.word2id["F"])
+    start_id = int(cfg_params.word2id["S"])
+    pad_id = int(cfg_params.word2id["P"])
+    base_allowed = allowed - {start_id, pad_id}
+    if allowed_variables:
+        base_allowed -= all_variable_ids - allowed_variables
+    vocab_ids = set(range(scores.shape[-1]))
+    for beam_index in range(scores.shape[0]):
+        state = _gpu_run2_prefix_state(
+            generated[beam_index, : int(cur_len)].detach().cpu().tolist(), cfg_params
+        )
+        if state == "pow_exponent":
+            legal = exponent_ids
+        elif state == "complete":
+            legal = {eos_id}
+        elif state == "expression":
+            legal = base_allowed - {eos_id}
+        else:
+            legal = {eos_id}
+        illegal = sorted(vocab_ids - legal)
+        if illegal:
+            scores[beam_index, illegal] = float("-inf")
+    return scores
+
+
 class Model(pl.LightningModule):
     def __init__(
         self,
@@ -197,7 +267,10 @@ class Model(pl.LightningModule):
                 output = output.permute(1, 0, 2).contiguous()
                 scores = F.log_softmax(output[:, -1:, :], dim=-1).squeeze(
                     1
-                ) 
+                )
+                scores = _gpu_run2_mask_scores(
+                    scores, generated, cur_len, cfg_params
+                )
                 
                 assert output[:, -1:, :].shape == (cfg_params.beam_size,1,self.cfg.length_eq,)
 

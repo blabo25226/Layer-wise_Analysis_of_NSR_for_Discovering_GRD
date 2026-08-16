@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from typing import Dict, List, Optional, Sequence, Set, Tuple
 
 import numpy as np
-from sympy import simplify, sympify
+from sympy import lambdify, simplify, sympify
 from sympy.core.expr import Expr
 
 # Some predicted expressions send SymPy's polynomial factorization / trigsimp
@@ -63,6 +63,35 @@ def _timed_equals(a, b, seconds: float = SYMPY_OP_TIMEOUT_SEC) -> bool:
     """a.equals(b) with a hard time limit (raises _SymTimeout on timeout)."""
     with _time_limit(seconds):
         return bool(a.equals(b))
+
+
+def _approximately_equivalent(a: Expr, b: Expr, *, rtol: float = 1e-6) -> bool:
+    """Check fitted floating coefficients at fixed positive support points.
+
+    SymPy correctly treats independently fitted decimal constants as unequal.
+    For symbolic regression we additionally accept the same skeleton when its
+    fitted function agrees to a predeclared numerical tolerance.
+    """
+    symbols = sorted(a.free_symbols | b.free_symbols, key=str)
+    if not symbols:
+        try:
+            return bool(np.isclose(float(a), float(b), rtol=rtol, atol=1e-10))
+        except (TypeError, ValueError):
+            return False
+    try:
+        fn_a = lambdify(symbols, a, modules=["numpy"])
+        fn_b = lambdify(symbols, b, modules=["numpy"])
+        base = np.asarray([0.2, 0.7, 1.3, 1.9], dtype=float)
+        args = [base + 0.11 * index for index in range(len(symbols))]
+        values_a = np.broadcast_to(np.asarray(fn_a(*args), dtype=float), base.shape)
+        values_b = np.broadcast_to(np.asarray(fn_b(*args), dtype=float), base.shape)
+    except Exception:
+        return False
+    return bool(
+        np.all(np.isfinite(values_a))
+        and np.all(np.isfinite(values_b))
+        and np.allclose(values_a, values_b, rtol=rtol, atol=1e-10)
+    )
 
 
 def nmse(y_true: np.ndarray, y_pred: np.ndarray) -> float:
@@ -166,8 +195,12 @@ def symbolic_recovery(
     equiv = 0.0
     if true and pred:
         try:
-            diff = _timed_simplify(sympify(true) - sympify(_normalize_expr_str(pred)))
+            true_parsed = sympify(true)
+            pred_parsed = sympify(_normalize_expr_str(pred))
+            diff = _timed_simplify(true_parsed - pred_parsed)
             equiv = 1.0 if diff == 0 else 0.0
+            if equiv == 0.0 and skeleton == 1.0:
+                equiv = 1.0 if _approximately_equivalent(true_parsed, pred_parsed) else 0.0
         except Exception:
             equiv = skeleton  # fall back
 
