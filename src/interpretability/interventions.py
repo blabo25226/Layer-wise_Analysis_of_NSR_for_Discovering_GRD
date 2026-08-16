@@ -71,22 +71,42 @@ def register_zero_output_hook(module: nn.Module) -> Any:
     return module.register_forward_hook(hook)
 
 
+def _broadcast_replacement(replacement: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+    """Broadcast ``replacement`` onto ``target``, collapsing mismatched sequence dims.
+
+    Decode uses a different number of points / tokens than the capture batch, so a
+    mean activation of shape ``(1, S_ref, H)`` must still apply to ``(1, S_decode, H)``.
+    Any non-feature axis that cannot expand is reduced by mean to size 1, then expanded.
+    """
+    ref = replacement.to(device=target.device, dtype=target.dtype)
+    while ref.ndim < target.ndim:
+        ref = ref.unsqueeze(0)
+    while ref.ndim > target.ndim:
+        ref = ref.mean(dim=0)
+    for dim in range(ref.ndim):
+        if ref.shape[dim] == target.shape[dim] or ref.shape[dim] == 1:
+            continue
+        if dim == ref.ndim - 1:
+            raise RuntimeError(
+                f"intervention replacement feature dim {ref.shape[dim]} "
+                f"cannot match target {target.shape[dim]}"
+            )
+        ref = ref.mean(dim=dim, keepdim=True)
+    try:
+        return ref.expand(target.shape)
+    except RuntimeError as exc:
+        raise RuntimeError(
+            f"intervention replacement shape {tuple(replacement.shape)} "
+            f"cannot broadcast to {tuple(target.shape)}"
+        ) from exc
+
+
 def register_replace_output_hook(module: nn.Module, replacement: torch.Tensor) -> Any:
     """Replace the module output with a broadcast copy of ``replacement``."""
 
     def hook(_mod: nn.Module, _inputs: Any, output: Any) -> Any:
         tensor = _as_tensor_output(output)
-        ref = replacement.to(device=tensor.device, dtype=tensor.dtype)
-        while ref.ndim < tensor.ndim:
-            ref = ref.unsqueeze(0)
-        if ref.shape != tensor.shape:
-            try:
-                ref = ref.expand(tensor.shape)
-            except RuntimeError as exc:
-                raise RuntimeError(
-                    f"intervention replacement shape {tuple(replacement.shape)} "
-                    f"cannot broadcast to {tuple(tensor.shape)}"
-                ) from exc
+        ref = _broadcast_replacement(replacement, tensor)
         if isinstance(output, tuple):
             return (ref, *output[1:])
         return ref

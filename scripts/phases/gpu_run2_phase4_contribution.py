@@ -314,9 +314,15 @@ def main() -> int:
                 ablation_nmse[layer].append(abl_nmse)
 
                 captured = capture_module_activation(pretrained, module, ref_batch)
-                mean_act = captured.mean(dim=0, keepdim=True)
+                # Collapse batch/sequence so decode with different n_points still broadcasts.
+                reduce_dims = tuple(range(captured.ndim - 1)) if captured.ndim > 1 else (0,)
+                mean_act = captured.mean(dim=reduce_dims, keepdim=True)
                 if abs(alpha - 1.0) > 1e-12:
-                    mean_act = (1.0 - alpha) * captured[:1] + alpha * mean_act
+                    src = captured[:1]
+                    seq_dims = tuple(range(1, src.ndim - 1))
+                    if seq_dims:
+                        src = src.mean(dim=seq_dims, keepdim=True)
+                    mean_act = (1.0 - alpha) * src + alpha * mean_act
                 with replace_output_context(module, mean_act):
                     _int_records, int_nmse = _decode_panel(
                         pretrained,

@@ -27,6 +27,7 @@ from gpu_run2_experiment import (  # noqa: E402
     dummy_gnw_record,
     filter_index_rows,
     filter_selective_ft_layers,
+    flatten_activation_to_batch,
 )
 from interpretability.probes import (  # noqa: E402
     expression_structure_attributes,
@@ -148,6 +149,20 @@ def test_filter_index_rows_by_seed_noise_and_split():
     assert [row["eq_id"] for row in filtered] == ["b"]
 
 
+def test_flatten_activation_pools_variable_sequence_lengths():
+    """Batches pad independently; seq dims must not become incompatible features."""
+    short = np.ones((4, 20, 512), dtype=np.float32)
+    long = np.ones((4, 32, 512), dtype=np.float32) * 2.0
+    flat_short = flatten_activation_to_batch(short, batch_size=4)
+    flat_long = flatten_activation_to_batch(long, batch_size=4)
+    assert flat_short.shape == (4, 512)
+    assert flat_long.shape == (4, 512)
+    stacked = np.concatenate([flat_short, flat_long], axis=0)
+    assert stacked.shape == (8, 512)
+    assert np.allclose(flat_short, 1.0)
+    assert np.allclose(flat_long, 2.0)
+
+
 def test_prefix_tokens_to_equation_parses_add():
     text, parseable = prefix_tokens_to_equation(["add", "x_1", "x_2"], variables=["x_1", "x_2"])
     assert parseable
@@ -168,6 +183,17 @@ def test_zero_and_replace_hooks_change_linear_output():
     assert torch.allclose(linear(x), replacement)
     replace_hook.remove()
     assert torch.allclose(linear(x), baseline)
+
+
+def test_replace_hook_broadcasts_across_sequence_length():
+    """Capture batch n_points may differ from decode n_points (e.g. 80 vs 1024)."""
+    from interpretability.interventions import _broadcast_replacement
+
+    replacement = torch.ones(1, 80, 512)
+    target = torch.zeros(1, 1024, 512)
+    out = _broadcast_replacement(replacement, target)
+    assert out.shape == (1, 1024, 512)
+    assert torch.allclose(out, torch.ones_like(target))
 
 
 def test_structure_holdout_nmse_drops_g07_g08():
