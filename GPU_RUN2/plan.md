@@ -1,5 +1,9 @@
 # GPU_RUN2 計画
 
+*以下は実行された(2026/08/16)。以下に保存されてある。*
+*C:\Document\researches\LANSR\results\runs\gpu_run2_20260815_1d91927*
+
+
 作成日: 2026-07-29
 
 GPU_RUN1結果反映: 2026-07-30
