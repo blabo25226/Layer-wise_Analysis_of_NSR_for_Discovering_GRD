@@ -495,6 +495,46 @@ def build_layer_report(run_dir: Path, run_id: str) -> str:
                 ),
                 "",
             ]
+        # RQ5's random control is uninformative at k=3 when only 4 blocks are ranked
+        # (there are just 4 possible 3-subsets), so derive the k=1 random baseline
+        # from the Phase 6 IOLE sweep, which already trained every layer alone.
+        iole_ce = {
+            name.replace("iole::", ""): value
+            for name, value in ((phase6.get("iole_ce") or {}).items())
+            if name not in {"frozen", "full"}
+        }
+        top1 = (phase7.get("conditions") or {}).get("top_1") or []
+        if iole_ce and top1:
+            values = [v for v in iole_ce.values() if v is not None and math.isfinite(float(v))]
+            expected_random = sum(values) / len(values) if values else float("nan")
+            chosen = iole_ce.get(top1[0], float("nan"))
+            random_3 = set((phase7.get("conditions") or {}).get("random_3") or [])
+            top_3 = set((phase7.get("conditions") or {}).get("top_3") or [])
+            lines += [
+                "### RQ5 random control",
+                "",
+                f"`random_3` drew {sorted(random_3)} and `top_3` is {sorted(top_3)}; "
+                f"the two sets are {'identical' if random_3 == top_3 else 'different'}. "
+                f"With {len(phase7.get('consensus') or [])} ranked blocks there are only a few "
+                "3-subsets, so a random draw of 3 overlaps the top 3 by construction and the "
+                "k=3 comparison cannot answer RQ5 on this architecture.",
+                "",
+                "At k=1 the comparison is well posed, using the Phase 6 IOLE sweep (every block "
+                "trained alone under the same budget) as the distribution a random single-layer "
+                "choice draws from:",
+                "",
+                _table(
+                    ["quantity", "cross entropy"],
+                    [
+                        [f"top_1 ({top1[0]})", chosen],
+                        ["expected random single layer (mean over blocks)", expected_random],
+                        ["advantage of top_1", expected_random - chosen if values else float("nan")],
+                        ["worst single layer", max(values) if values else float("nan")],
+                        ["best single layer", min(values) if values else float("nan")],
+                    ],
+                ),
+                "",
+            ]
         lines += [
             "### Validation fine-tuning comparison",
             "",
