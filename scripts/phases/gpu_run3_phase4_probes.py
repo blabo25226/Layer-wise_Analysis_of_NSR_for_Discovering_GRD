@@ -139,7 +139,7 @@ def _within_problem_variation(features: np.ndarray, problem_ids: list[str]) -> f
     return float(np.mean(stds) / overall) if stds else float("nan")
 
 
-PROBE_RIDGE = 1.0
+PROBE_RIDGE_GRID = (1.0, 10.0, 100.0, 1000.0, 10000.0)
 
 
 def _standardize(train_h: np.ndarray, eval_h: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -155,21 +155,61 @@ def _standardize(train_h: np.ndarray, eval_h: np.ndarray) -> tuple[np.ndarray, n
     return (train_h - mean) / std, (eval_h - mean) / std
 
 
-def _score(task: str, train_h, train_y, eval_h, eval_y) -> float:
-    if train_h.size == 0 or eval_h.size == 0 or len(train_y) == 0 or len(eval_y) == 0:
-        return float("nan")
-    train_z, eval_z = _standardize(np.asarray(train_h, dtype=np.float64), np.asarray(eval_h, dtype=np.float64))
-    if task not in CLASSIFICATION_TASKS and float(np.var(np.asarray(eval_y, dtype=np.float64))) < 1e-12:
-        return float("nan")  # constant held-out target: R2 is undefined, not 0 or -1e13
+def _fit_and_score(task: str, train_h, train_y, eval_h, eval_y, ridge: float) -> float:
     if task in CLASSIFICATION_TASKS:
         return float(
-            fit_linear_classifier_probe(
-                train_z, train_y, ridge=PROBE_RIDGE, eval_hidden=eval_z, eval_labels=eval_y
-            )["accuracy"]
+            fit_linear_classifier_probe(train_h, train_y, ridge=ridge, eval_hidden=eval_h, eval_labels=eval_y)[
+                "accuracy"
+            ]
         )
-    return float(
-        fit_linear_probe(train_z, train_y, ridge=PROBE_RIDGE, eval_hidden=eval_z, eval_targets=eval_y)["r2"]
-    )
+    return float(fit_linear_probe(train_h, train_y, ridge=ridge, eval_hidden=eval_h, eval_targets=eval_y)["r2"])
+
+
+def _select_ridge(task: str, train_z, train_y, train_groups: list[str]) -> float:
+    """Choose the ridge on an inner split of analysis_train, never on the eval split.
+
+    With 512-dimensional activations and a few hundred examples the solve is
+    near-singular, so a fixed small ridge yields held-out R2 of order -1e13
+    instead of a usable score.
+    """
+    unique = sorted(set(train_groups))
+    if len(unique) < 4 or len(train_y) < 8:
+        return PROBE_RIDGE_GRID[len(PROBE_RIDGE_GRID) // 2]
+    holdout = set(unique[:: max(len(unique) // 3, 1)][:2] or unique[:1])
+    inner_mask = np.array([g not in holdout for g in train_groups])
+    if inner_mask.all() or not inner_mask.any():
+        return PROBE_RIDGE_GRID[len(PROBE_RIDGE_GRID) // 2]
+    inner_y = np.asarray(train_y)[inner_mask]
+    outer_y = np.asarray(train_y)[~inner_mask]
+    if task in CLASSIFICATION_TASKS:
+        if len(set(inner_y.tolist())) < 2:
+            return PROBE_RIDGE_GRID[len(PROBE_RIDGE_GRID) // 2]
+    elif float(np.var(np.asarray(outer_y, dtype=np.float64))) < 1e-12:
+        return PROBE_RIDGE_GRID[len(PROBE_RIDGE_GRID) // 2]
+    best_ridge = PROBE_RIDGE_GRID[0]
+    best_score = -np.inf
+    for ridge in PROBE_RIDGE_GRID:
+        try:
+            score = _fit_and_score(task, train_z[inner_mask], inner_y, train_z[~inner_mask], outer_y, ridge)
+        except Exception:
+            continue
+        if np.isfinite(score) and score > best_score:
+            best_score = score
+            best_ridge = ridge
+    return best_ridge
+
+
+def _score(task: str, train_h, train_y, eval_h, eval_y, train_groups: list[str] | None = None) -> tuple[float, float]:
+    if train_h.size == 0 or eval_h.size == 0 or len(train_y) == 0 or len(eval_y) == 0:
+        return float("nan"), float("nan")
+    train_z, eval_z = _standardize(np.asarray(train_h, dtype=np.float64), np.asarray(eval_h, dtype=np.float64))
+    if task not in CLASSIFICATION_TASKS and float(np.var(np.asarray(eval_y, dtype=np.float64))) < 1e-12:
+        return float("nan"), float("nan")  # constant held-out target: R2 is undefined
+    ridge = _select_ridge(task, train_z, train_y, list(train_groups or []))
+    try:
+        return _fit_and_score(task, train_z, train_y, eval_z, eval_y, ridge), ridge
+    except Exception:
+        return float("nan"), ridge
 
 
 def main() -> int:
@@ -197,6 +237,7 @@ def main() -> int:
     per_seed = []
     probe_scores_seeds = defaultdict(lambda: defaultdict(list))
     control_scores_seeds = defaultdict(lambda: defaultdict(list))
+    ridge_seeds = defaultdict(lambda: defaultdict(list))
     grad_seeds = defaultdict(list)
     cka_seeds = defaultdict(list)
     cka_problem_seeds = defaultdict(list)
@@ -210,19 +251,24 @@ def main() -> int:
         if not train_records or not val_records:
             per_seed.append({"seed": seed, "status": "skipped", "failure_reason": "empty split"})
             continue
-        train_features, train_labels, _ = _collect(model, layers, train_records, max_examples)
+        train_features, train_labels, train_problem_ids = _collect(model, layers, train_records, max_examples)
         val_features, val_labels, val_problem_ids = _collect(model, layers, val_records, max_examples)
 
         rng = np.random.default_rng(seed)
         for task, y_train in train_labels.items():
             y_val = val_labels[task]
             for name in layers:
-                score = _score(task, train_features[name], y_train, val_features[name], y_val)
+                score, ridge = _score(
+                    task, train_features[name], y_train, val_features[name], y_val, train_problem_ids
+                )
                 shuffled = y_train.copy()
                 rng.shuffle(shuffled)
-                control = _score(task, train_features[name], shuffled, val_features[name], y_val)
+                control, _ = _score(
+                    task, train_features[name], shuffled, val_features[name], y_val, train_problem_ids
+                )
                 probe_scores_seeds[task][name].append(score)
                 control_scores_seeds[task][name].append(control)
+                ridge_seeds[task][name].append(ridge)
         for name in layers:
             variation_seeds[name].append(_within_problem_variation(val_features[name], val_problem_ids))
         pooled = {name: _pool_by_problem(val_features[name], val_problem_ids) for name in layers}
@@ -311,6 +357,11 @@ def main() -> int:
         "probe_eval_split": "analysis_validation",
         "probe_scores": probe_scores,
         "probe_control_scores": control_scores,
+        "probe_ridge_selected": {
+            task: {name: _avg(v) for name, v in per_layer.items()} for task, per_layer in ridge_seeds.items()
+        },
+        "probe_ridge_grid": list(PROBE_RIDGE_GRID),
+        "probe_ridge_selection": "inner split of analysis_train, by problem",
         "probe_minus_control": probe_minus_control,
         "probe_rank_next_symbol": rank_from_scores(probe_minus_control.get("next_symbol", {}), higher_is_better=True),
         "within_problem_feature_variation": {name: _avg(v) for name, v in variation_seeds.items()},
