@@ -107,6 +107,18 @@ def main() -> int:
     phase3 = _read_jsonl(run_dir / "phase3" / "records.jsonl")
     if phase3:
         sources.append(("phase3/records.jsonl", phase3))
+    # Phase 7 / 8 store their post-fine-tuning MCTS results nested per condition.
+    for relative in ("phase7/selective_ft.json", "phase8/test_conditions.json"):
+        path = run_dir / relative
+        if not path.is_file():
+            continue
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue
+        nested = [record for entry in payload for record in (entry.get("mcts") or [])]
+        if nested:
+            sources.append((relative, nested))
 
     rows = []
     for origin, records in sources:
