@@ -139,6 +139,7 @@ def main() -> int:
             "numeric_significant_digits": NUMERIC_SIGNIFICANT_DIGITS,
             "identity_atol": IDENTITY_ATOL,
             "folds": ["0+x -> x", "x-0 -> x", "1*x -> x", "0*x -> 0", "x/1 -> x", "x**1 -> x"],
+            "sign_normalization": ["a-b -> a+neg(b)", "-1*b -> neg(b)", "neg(neg(x)) -> x"],
             "commutative_sorted": ["add", "mul"],
             "note": "Applied uniformly to every record below, regardless of the phase that wrote it.",
         },

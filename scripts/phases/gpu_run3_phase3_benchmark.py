@@ -44,6 +44,14 @@ from gpu_run3_runtime import (  # noqa: E402
 def parse_args():
     parser = common_parser("GPU_RUN3 Phase 3 synthetic benchmark")
     parser.add_argument("--unguided", action="store_true", help="also run uniform (unguided) MCTS per system")
+    parser.add_argument("--no-unguided", action="store_true", help="skip the unguided control even if configured")
+    parser.add_argument(
+        "--systems",
+        default=None,
+        help="comma-separated system ids to run (default: all). Use to extend the budget on unrecovered systems.",
+    )
+    parser.add_argument("--mcts-time-limit", type=float, default=None, help="override mcts_time_limit_sec")
+    parser.add_argument("--mcts-episode-limit", type=int, default=None, help="override mcts_episode_limit")
     return parser.parse_args()
 
 
@@ -71,7 +79,22 @@ def main() -> int:
     model = load_ndformer(paths["checkpoint"], device=device)
     official = load_official_systems(paths["synthetic_config"])
     systems = list(config["systems"])[: int(budget.get("n_systems", 10))]
+    if args.systems:
+        wanted = [name.strip() for name in args.systems.split(",") if name.strip()]
+        known = {spec["system_id"] for spec in config["systems"]}
+        unknown = [name for name in wanted if name not in known]
+        if unknown:
+            raise SystemExit(f"unknown system ids: {unknown}; known: {sorted(known)}")
+        systems = [spec for spec in config["systems"] if spec["system_id"] in wanted]
     unguided_enabled = bool(args.unguided or config["mcts"].get("unguided_comparison"))
+    if args.no_unguided:
+        unguided_enabled = False
+    episode_limit = args.mcts_episode_limit or int(budget.get("mcts_episode_limit", 3))
+    time_limit = args.mcts_time_limit or float(budget.get("mcts_time_limit_sec", 30))
+    print(
+        f"Phase 3: {len(systems)} systems, episode_limit={episode_limit}, "
+        f"time_limit={time_limit}s, unguided={unguided_enabled}"
+    )
 
     # Resume support: seed x system is the resume unit (plan 16.3).
     records_path = out_dir / "records.jsonl"
@@ -148,8 +171,8 @@ def main() -> int:
                     Y=problem["Y"],
                     vars_node=problem["vars_node"],
                     true_prefix=problem["true_prefix"],
-                    episode_limit=int(budget.get("mcts_episode_limit", 3)),
-                    time_limit_sec=float(budget.get("mcts_time_limit_sec", 30)),
+                    episode_limit=episode_limit,
+                    time_limit_sec=time_limit,
                     mcts_config=config["mcts"],
                     random_state=seed,
                     system_name=spec["paper_name"],
