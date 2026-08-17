@@ -69,7 +69,7 @@ full:
   # ND2 synthetic benchmark: null keeps the official N / V / E per system
   mcts_episode_limit: 2000
   mcts_time_limit_sec: 300
-  mcts_time_limit_sec_ft: 180
+  mcts_time_limit_sec_ft: 150
   n_systems: 10
   simulate_steps: null
   n_nodes: null
