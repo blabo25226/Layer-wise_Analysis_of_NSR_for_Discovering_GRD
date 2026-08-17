@@ -1,0 +1,13 @@
+# Official ND2 synthetic.yaml keys, mapped to paper system names.
+# Formulas are loaded from third_party/nd2/config/synthetic.yaml at runtime.
+systems:
+  - {system_id: KUR, paper_name: Kuramoto, target_var: omega, vars: [x, omega0]}
+  - {system_id: CR, paper_name: coupled_Rossler, target_var: dx, vars: [x, y, z, omega]}
+  - {system_id: HCR, paper_name: homogeneous_coupled_Rossler, target_var: dx, vars: [x, y, z]}
+  - {system_id: FHN, paper_name: FitzHugh_Nagumo, target_var: dx, vars: [x, y]}
+  - {system_id: WC, paper_name: Wilson_Cowan, target_var: dx, vars: [x]}
+  - {system_id: GR, paper_name: gene_regulatory, target_var: dx, vars: [x]}
+  - {system_id: MM, paper_name: Michaelis_Menten, target_var: dx, vars: [x]}
+  - {system_id: LV, paper_name: Lotka_Volterra, target_var: dx, vars: [x, alpha, theta]}
+  - {system_id: MP, paper_name: mutualistic_population, target_var: dx, vars: [x, alpha, theta]}
+  - {system_id: SIS, paper_name: susceptible_infected_susceptible, target_var: dx, vars: [x, delta]}

@@ -1,0 +1,55 @@
+campaign: GPU_RUN3
+run_name: gpu_run3_local
+output_root: results/runs
+graphs_root: graphs
+provenance: upstream_reproduction
+
+nd2_package_root: third_party/nd2
+nd2_checkpoint: assets/nd2/weights/checkpoint.pth
+nd2_checkpoint_url: https://github.com/yuzhTHU/ND2/releases/download/checkpoint.pth/checkpoint.pth
+nd2_upstream_url: https://github.com/tsinghua-fib-lab/ND2
+nd2_weights_repo_url: https://github.com/yuzhTHU/ND2
+nd2_zenodo: 10.5281/zenodo.16995963
+nd2_synthetic_config: third_party/nd2/config/synthetic.yaml
+official_pretrain_csv_dir: data/nd2/pretrain
+official_synthetic_data_dir: data/nd2/synthetic
+
+seed_bundles:
+  - {data_seed: 101, model_seed: 0}
+  - {data_seed: 202, model_seed: 1}
+  - {data_seed: 303, model_seed: 2}
+
+analysis_splits:
+  train_fraction: 0.6
+  validation_fraction: 0.2
+  test_fraction: 0.2
+
+timeouts:
+  policy_forward_sec: 30.0
+  formula_rollout_sec: 30.0
+  mcts_sec: 120.0
+  constant_optimization_sec: 30.0
+  ted_sec: 10.0
+
+smoke:
+  mcts_episode_limit: 3
+  mcts_time_limit_sec: 30
+  n_policy_examples: 8
+  n_systems: 1
+  simulate_steps: 24
+  n_nodes: 6
+  n_edges: 10
+  iole_steps: 2
+  probe_examples: 16
+
+full:
+  mcts_episode_limit: 2000
+  mcts_time_limit_sec: 600
+  n_policy_examples: 256
+  simulate_steps: null
+  iole_steps: 50
+  probe_examples: 128
+
+fail_fast_on_oom: true
+allow_cpu: false
+python_required: "3.10"

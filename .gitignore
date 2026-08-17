@@ -67,3 +67,7 @@ results/published/*_smoke/
 results/synthetic/_test_tmp/
 .claude/*
 !.claude/settings.json
+
+# Official ND2 analysis notebooks with embedded outputs. Not imported at runtime.
+# Local copies may remain on disk; the survey tree is GitHubSourceCode/ND2/scripts/.
+third_party/nd2/scripts/*.ipynb
