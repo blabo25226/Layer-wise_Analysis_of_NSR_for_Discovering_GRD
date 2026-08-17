@@ -54,8 +54,40 @@ def _close(value: float | None, target: float) -> bool:
     return value is not None and abs(value - target) <= IDENTITY_ATOL
 
 
+def _normalize_signs(label: str, children: tuple) -> tuple[str, tuple]:
+    """Put subtraction and negation into one form: `a - b` and `-1 * b` become `a + neg(b)`.
+
+    plan section 11 requires the treatment of signs to be fixed before evaluation.
+    Without this, `aggr(sour(regular(x,2))) - x` and `(-1*x) + aggr(sour(regular(x,2)))`
+    -- the same expression -- score as a structural miss.
+    """
+    if label == "sub" and len(children) == 2:
+        left, right = children
+        return "add", (left, ("neg", (right,)))
+    if label == "mul" and len(children) == 2:
+        left, right = children
+        if _close(_leaf_number(left), -1.0):
+            return "neg", (right,)
+        if _close(_leaf_number(right), -1.0):
+            return "neg", (left,)
+    if label == "neg" and len(children) == 1:
+        inner_label, inner_children = children[0]
+        if inner_label == "neg" and len(inner_children) == 1:
+            return inner_children[0]  # neg(neg(x)) -> x
+        value = _leaf_number(children[0])
+        if value is not None:
+            return _quantize(str(-value)), ()
+    return label, children
+
+
 def _fold_identities(label: str, children: tuple) -> tuple[str, tuple]:
     """Remove arithmetic identity terms so `0 + x` and `1 * x` match `x`."""
+    if label == "add" and len(children) == 2:
+        # `a + neg(0)` still carries a redundant term after sign normalization.
+        left, right = children
+        for first, second in ((left, right), (right, left)):
+            if first == ("neg", (("0", ()),)) or _close(_leaf_number(first), 0.0):
+                return second
     if len(children) == 2:
         left, right = children
         left_value = _leaf_number(left)
@@ -123,6 +155,9 @@ def canonicalize_tree(tree: tuple[str, tuple] | None) -> tuple[str, tuple] | Non
         return None
     if not canon_children:
         return (_quantize(label), ())
+    label, canon_children = _normalize_signs(label, canon_children)
+    if not canon_children:
+        return (label, ())
     folded_label, folded_children = _fold_identities(label, canon_children)
     if folded_label != label or folded_children is not canon_children:
         # Folding can expose a further identity, e.g. `1 * (0 + x)`.

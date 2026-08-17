@@ -50,11 +50,13 @@ def _mean(values) -> float:
 
 def _aggregate(outputs: list[dict], side: str) -> dict[str, dict[str, float]]:
     by_layer: dict[str, list[dict]] = defaultdict(list)
+    layer_level: dict[str, list[dict]] = defaultdict(list)
     for problem in outputs:
         for layer_row in problem.get(side) or []:
             if not layer_row.get("valid"):
                 continue
             by_layer[layer_row["module_name"]].extend(layer_row.get("rows") or [])
+            layer_level[layer_row["module_name"]].append(layer_row)
     return {
         name: {
             "n": len(rows),
@@ -62,7 +64,13 @@ def _aggregate(outputs: list[dict], side: str) -> dict[str, dict[str, float]]:
             "mean_true_symbol_probability": _mean([r.get("true_symbol_probability") for r in rows]),
             "mean_entropy": _mean([r.get("entropy") for r in rows]),
             "top1_accuracy": _mean([1.0 if r.get("true_symbol_rank") == 1 else 0.0 for r in rows]),
-            "mean_ted_raw": _mean([r.get("ted_raw") for r in rows]),
+            # Rollout metrics live on the layer row (one greedy formula per problem),
+            # not on the per-example readout rows.
+            "n_rollouts": sum(1 for r in layer_level[name] if r.get("rollout_prefix")),
+            "rollout_complete_rate": _mean([1.0 if r.get("rollout_complete") else 0.0 for r in layer_level[name]]),
+            "mean_ted_raw": _mean([r.get("ted_raw") for r in layer_level[name]]),
+            "mean_ted_skeleton": _mean([r.get("ted_skeleton") for r in layer_level[name]]),
+            "exact_rate": _mean([r.get("exact") for r in layer_level[name]]),
         }
         for name, rows in by_layer.items()
     }
@@ -112,10 +120,24 @@ def main() -> int:
             prefixes = [ex["prefix"] for ex in examples]
             targets = [ex["target"] for ex in examples]
             try:
+                memories: dict = {}
                 encoder_rows = encoder_intermediate_decode(
-                    model, inventory["encoder_blocks"], prefixes, true_targets=targets
+                    model,
+                    inventory["encoder_blocks"],
+                    prefixes,
+                    true_targets=targets,
+                    collect_memories=memories,
                 )
-                encoder_rows = encoder_ted_trajectory(encoder_rows, true_prefix=row["prefix"])
+                encoder_rows = encoder_ted_trajectory(
+                    encoder_rows,
+                    true_prefix=row["prefix"],
+                    model=model,
+                    memories=memories,
+                    root_type=row["root_type"],
+                    vars_node=row["vars_node"],
+                    vars_edge=row["vars_edge"],
+                    max_tokens=int(config["mcts"].get("max_token_num", 30)),
+                )
                 decoder_rows = decoder_logit_lens(
                     model, inventory["decoder_blocks"], prefixes, true_targets=targets
                 )
