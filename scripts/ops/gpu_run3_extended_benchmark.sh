@@ -39,6 +39,7 @@ $PY scripts/phases/gpu_run3_phase3_benchmark.py \
   --systems "$SYSTEMS" \
   --no-unguided \
   --mcts-time-limit "$SECONDS_BUDGET" \
+  --no-early-stop \
   || echo "[extended] phase3 FAILED"
 
 echo "[extended] === recompute structural metrics ==="

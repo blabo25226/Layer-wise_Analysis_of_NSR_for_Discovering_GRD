@@ -52,6 +52,14 @@ def parse_args():
     )
     parser.add_argument("--mcts-time-limit", type=float, default=None, help="override mcts_time_limit_sec")
     parser.add_argument("--mcts-episode-limit", type=int, default=None, help="override mcts_episode_limit")
+    parser.add_argument(
+        "--no-early-stop",
+        action="store_true",
+        help=(
+            "never stop early on fit quality. Required when extending the budget: the default "
+            "ACC4 threshold halts as soon as the fit saturates, so a larger budget is never spent."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -91,9 +99,14 @@ def main() -> int:
         unguided_enabled = False
     episode_limit = args.mcts_episode_limit or int(budget.get("mcts_episode_limit", 3))
     time_limit = args.mcts_time_limit or float(budget.get("mcts_time_limit_sec", 30))
+    mcts_config = dict(config["mcts"])
+    if args.no_early_stop:
+        # ACC4 can never exceed 1, so this disables the early-stop predicate.
+        mcts_config["early_stop_acc4"] = 2.0
     print(
         f"Phase 3: {len(systems)} systems, episode_limit={episode_limit}, "
-        f"time_limit={time_limit}s, unguided={unguided_enabled}"
+        f"time_limit={time_limit}s, unguided={unguided_enabled}, "
+        f"early_stop_acc4={mcts_config.get('early_stop_acc4')}"
     )
 
     # Resume support: seed x system is the resume unit (plan 16.3).
@@ -173,7 +186,7 @@ def main() -> int:
                     true_prefix=problem["true_prefix"],
                     episode_limit=episode_limit,
                     time_limit_sec=time_limit,
-                    mcts_config=config["mcts"],
+                    mcts_config=mcts_config,
                     random_state=seed,
                     system_name=spec["paper_name"],
                 )
