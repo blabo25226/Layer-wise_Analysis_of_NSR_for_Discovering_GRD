@@ -31,24 +31,61 @@ timeouts:
   constant_optimization_sec: 30.0
   ted_sec: 10.0
 
+# KUR's official network file (NorthernEuropeanGrid.csv) ships only in the Zenodo
+# archive. When it is absent the simulation falls back to an ER graph of this size
+# and records used_er_fallback=true.
+kur_fallback_nodes: 50
+kur_fallback_edges: 200
+
 smoke:
+  # ND2 synthetic benchmark (null => official synthetic.yaml value)
   mcts_episode_limit: 3
   mcts_time_limit_sec: 30
-  n_policy_examples: 8
-  n_systems: 1
+  mcts_time_limit_sec_ft: 20
+  n_systems: 2
   simulate_steps: 24
   n_nodes: 6
   n_edges: 10
-  iole_steps: 2
+  # layer-analysis corpus
+  n_formulas: 12
+  corpus_nodes: 8
+  corpus_edges: 20
+  corpus_time: 40
+  corpus_length_range: [5, 12]
+  # analysis budgets
+  n_policy_examples: 8
   probe_examples: 16
+  panel_problems: 2
+  decoderlens_problems: 1
+  decoderlens_examples: 4
+  iole_steps: 2
+  ft_steps: 2
+  n_seeds: 1
 
 full:
+  # ND2 synthetic benchmark: null keeps the official N / V / E per system
   mcts_episode_limit: 2000
   mcts_time_limit_sec: 600
-  n_policy_examples: 256
+  mcts_time_limit_sec_ft: 180
+  n_systems: 10
   simulate_steps: null
-  iole_steps: 50
-  probe_examples: 128
+  n_nodes: null
+  n_edges: null
+  # layer-analysis corpus
+  n_formulas: 120
+  corpus_nodes: 20
+  corpus_edges: 60
+  corpus_time: 100
+  corpus_length_range: [5, 16]
+  # analysis budgets
+  n_policy_examples: 256
+  probe_examples: 256
+  panel_problems: 16
+  decoderlens_problems: 12
+  decoderlens_examples: 6
+  iole_steps: 60
+  ft_steps: 120
+  n_seeds: 3
 
 fail_fast_on_oom: true
 allow_cpu: false

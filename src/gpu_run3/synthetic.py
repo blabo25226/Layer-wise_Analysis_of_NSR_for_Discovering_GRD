@@ -53,8 +53,16 @@ def simulate_system(
     n_steps: int | None = None,
     n_nodes: int | None = None,
     n_edges: int | None = None,
+    fallback_nodes: int = 50,
+    fallback_edges: int = 200,
 ) -> dict[str, Any]:
-    """Simulate one official synthetic.yaml system. Network files are not required for ER configs."""
+    """Simulate one official synthetic.yaml system.
+
+    ``n_steps`` / ``n_nodes`` / ``n_edges`` of ``None`` keep the official N / V / E.
+    Systems whose config points at an external network file (KUR) fall back to an
+    ER graph of ``fallback_nodes`` / ``fallback_edges`` and are flagged with
+    ``used_er_fallback``.
+    """
     install_nd2_path()
     from ND2.GDExpr import GDExpr
 
@@ -63,8 +71,8 @@ def simulate_system(
     np.random.seed(int(seed))
     network = dict(config.get("network") or {})
     if network.get("use"):
-        V = int(n_nodes or 8)
-        E = int(n_edges or 16)
+        V = int(n_nodes or fallback_nodes)
+        E = int(n_edges or fallback_edges)
         directed = False
         dag = False
     else:

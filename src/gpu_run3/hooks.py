@@ -88,6 +88,38 @@ def zero_layer_output(model: Any, layer_name: str) -> Iterator[None]:
 
 
 @contextmanager
+def identity_layer_output(model: Any, layer_name: str) -> Iterator[None]:
+    """Bypass a Transformer block: return its input unchanged.
+
+    This is the residual-preserving ablation. Unlike zeroing, it removes the
+    block's contribution without destroying the stream that later blocks read,
+    so downstream layers stay in-distribution.
+    """
+    module = resolve_layer_module(model, layer_name)
+
+    def hook(_module: nn.Module, inputs: Any, output: Any) -> Any:
+        tensor = _as_tensor(output)
+        if not inputs:
+            raise RuntimeError(f"ActivationHookError: no positional input for {layer_name}")
+        passthrough = _as_tensor(inputs[0])
+        if passthrough.shape != tensor.shape:
+            raise RuntimeError(
+                f"ActivationHookError: identity bypass shape {tuple(passthrough.shape)} "
+                f"!= output {tuple(tensor.shape)} for {layer_name}"
+            )
+        value = passthrough.to(device=tensor.device, dtype=tensor.dtype)
+        if isinstance(output, tuple):
+            return (value, *output[1:])
+        return value
+
+    handle = module.register_forward_hook(hook)
+    try:
+        yield
+    finally:
+        handle.remove()
+
+
+@contextmanager
 def mean_layer_output(model: Any, layer_name: str, mean: torch.Tensor) -> Iterator[None]:
     with replace_layer_output(model, layer_name, mean):
         yield
