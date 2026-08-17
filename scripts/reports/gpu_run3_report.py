@@ -267,8 +267,52 @@ def build_reproduction_report(run_dir: Path, run_id: str) -> str:
                 "",
             ]
 
+    recomputed = _read(run_dir / "structural_metrics_recomputed.json")
+    lines += ["## 5. Structural metrics under one canonicalization", ""]
+    if not recomputed:
+        lines.append(_missing("structural_metrics_recomputed.json"))
+    else:
+        canon = recomputed.get("canonicalization") or {}
+        lines += [
+            "Phases can be written under different canonicalization revisions, so every",
+            "stored formula is re-scored once, uniformly, from its saved prefix. Constants",
+            f"are compared at {canon.get('numeric_significant_digits')} significant digits and the identities",
+            f"{', '.join(canon.get('folds') or [])} are folded (tolerance {canon.get('identity_atol')}).",
+            "",
+            _table(
+                ["metric", "as recorded", "recanonicalized"],
+                [
+                    ["exact recoveries", recomputed.get("n_exact_as_recorded"), recomputed.get("n_exact")],
+                    ["records re-scored", recomputed.get("n_recomputed"), recomputed.get("n_recomputed")],
+                    ["records whose score changed", "-", recomputed.get("n_changed")],
+                    ["skeleton recoveries", "-", recomputed.get("n_skeleton")],
+                ],
+            ),
+            "",
+            "### Re-scored records",
+            "",
+            _table(
+                ["problem", "condition", "exact", "skeleton", "TED", "was exact", "was TED", "RMSE"],
+                [
+                    [
+                        row.get("problem_id"),
+                        row.get("condition"),
+                        row.get("exact"),
+                        row.get("skeleton"),
+                        row.get("ted_raw"),
+                        row.get("exact_as_recorded"),
+                        row.get("ted_raw_as_recorded"),
+                        row.get("fit_error"),
+                    ]
+                    for row in (recomputed.get("records") or [])
+                    if row.get("status") == "recomputed"
+                ],
+            ),
+            "",
+        ]
+
     lines += [
-        "## 5. Reading these numbers",
+        "## 6. Reading these numbers",
         "",
         "- Fit error and formula recovery are reported separately: a low RMSE does not",
         "  mean the true network dynamics formula was recovered (plan section 6.5).",
@@ -536,9 +580,16 @@ def build_layer_report(run_dir: Path, run_id: str) -> str:
 
 def write_problem_table(run_dir: Path, tables: Path) -> Path:
     rows = _read_jsonl(run_dir / "phase3" / "records.jsonl")
-    phase2 = _read(run_dir / "phase2" / "guided_mcts.json")
-    if phase2:
-        rows = [phase2] + rows
+    for name in ("guided_mcts.json", "unguided_mcts.json"):
+        record = _read(run_dir / "phase2" / name)
+        if record:
+            rows = [record] + rows
+    recomputed = _read(run_dir / "structural_metrics_recomputed.json") or {}
+    by_problem = {
+        (row.get("problem_id"), row.get("condition")): row
+        for row in (recomputed.get("records") or [])
+        if row.get("status") == "recomputed"
+    }
     header = [
         "problem_id",
         "system",
@@ -551,6 +602,8 @@ def write_problem_table(run_dir: Path, tables: Path) -> Path:
         "symbolic_equivalent",
         "ted_raw",
         "ted_skeleton",
+        "exact_as_recorded",
+        "ted_raw_as_recorded",
         "fit_error",
         "complexity",
         "valid",
@@ -564,6 +617,8 @@ def write_problem_table(run_dir: Path, tables: Path) -> Path:
         writer = csv.writer(handle)
         writer.writerow(header)
         for row in rows:
+            # Prefer the uniformly recanonicalized score when one exists.
+            final = by_problem.get((row.get("problem_id"), row.get("condition")), {})
             writer.writerow(
                 [
                     row.get("problem_id"),
@@ -572,11 +627,13 @@ def write_problem_table(run_dir: Path, tables: Path) -> Path:
                     row.get("condition"),
                     row.get("true_formula_raw"),
                     row.get("pred_formula_raw"),
+                    final.get("exact", row.get("exact")),
+                    final.get("skeleton", row.get("skeleton")),
+                    final.get("symbolic_equivalent", row.get("symbolic_equivalent")),
+                    final.get("ted_raw", row.get("ted_raw")),
+                    final.get("ted_skeleton", row.get("ted_skeleton")),
                     row.get("exact"),
-                    row.get("skeleton"),
-                    row.get("symbolic_equivalent"),
                     row.get("ted_raw"),
-                    row.get("ted_skeleton"),
                     row.get("fit_error"),
                     row.get("complexity"),
                     row.get("valid"),

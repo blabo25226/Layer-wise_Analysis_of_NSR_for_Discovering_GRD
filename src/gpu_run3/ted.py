@@ -11,6 +11,15 @@ from gpu_run3_runtime import install_nd2_path
 NETWORK_OPS = frozenset({"aggr", "rgga", "sour", "targ"})
 COMMUTATIVE = frozenset({"add", "mul"})
 
+# Constants recovered by BFGS never land exactly on the literal in the ground-truth
+# formula, and MCTS routinely emits identity terms such as `0 + x` or `1 * x`.
+# Canonicalization therefore folds numeric identities and compares numeric leaves
+# at 4 significant digits. Fixed before any test-split evaluation (plan 11).
+NUMERIC_SIGNIFICANT_DIGITS = 4
+IDENTITY_ATOL = 1e-4
+
+_NAMED_CONSTANTS = {"(1/2)": 0.5, "(1/3)": 1.0 / 3.0, "(1/4)": 0.25, "(1/5)": 0.2}
+
 
 def _is_float_token(token: str) -> bool:
     try:
@@ -18,6 +27,58 @@ def _is_float_token(token: str) -> bool:
     except (TypeError, ValueError):
         return False
     return token not in {"inf", "nan", "+inf", "-inf"}
+
+
+def numeric_value(label: str) -> float | None:
+    """Numeric value of a leaf label, or None when it is not a literal."""
+    if label in _NAMED_CONSTANTS:
+        return _NAMED_CONSTANTS[label]
+    if _is_float_token(label):
+        return float(label)
+    return None
+
+
+def _quantize(label: str) -> str:
+    value = numeric_value(label)
+    if value is None:
+        return label
+    return f"{value:.{NUMERIC_SIGNIFICANT_DIGITS}g}"
+
+
+def _leaf_number(node: tuple[str, tuple]) -> float | None:
+    label, children = node
+    return numeric_value(label) if not children else None
+
+
+def _close(value: float | None, target: float) -> bool:
+    return value is not None and abs(value - target) <= IDENTITY_ATOL
+
+
+def _fold_identities(label: str, children: tuple) -> tuple[str, tuple]:
+    """Remove arithmetic identity terms so `0 + x` and `1 * x` match `x`."""
+    if len(children) == 2:
+        left, right = children
+        left_value = _leaf_number(left)
+        right_value = _leaf_number(right)
+        if label == "add":
+            if _close(left_value, 0.0):
+                return right
+            if _close(right_value, 0.0):
+                return left
+        elif label == "sub":
+            if _close(right_value, 0.0):
+                return left
+        elif label == "mul":
+            if _close(left_value, 1.0):
+                return right
+            if _close(right_value, 1.0):
+                return left
+            if _close(left_value, 0.0) or _close(right_value, 0.0):
+                return ("0", ())
+        elif label in {"div", "pow"}:
+            if _close(right_value, 1.0):
+                return left
+    return (label, children)
 
 
 def prefix_to_tree(prefix: Sequence[str]) -> tuple[str, tuple] | None:
@@ -60,6 +121,14 @@ def canonicalize_tree(tree: tuple[str, tuple] | None) -> tuple[str, tuple] | Non
     canon_children = tuple(canonicalize_tree(child) for child in children)
     if any(child is None for child in canon_children):
         return None
+    if not canon_children:
+        return (_quantize(label), ())
+    folded_label, folded_children = _fold_identities(label, canon_children)
+    if folded_label != label or folded_children is not canon_children:
+        # Folding can expose a further identity, e.g. `1 * (0 + x)`.
+        if not folded_children:
+            return (folded_label, ())
+        label, canon_children = folded_label, folded_children
     if label in COMMUTATIVE and len(canon_children) == 2:
         canon_children = tuple(sorted(canon_children, key=lambda item: repr(item)))
     return (label, canon_children)
