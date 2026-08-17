@@ -58,14 +58,17 @@ smoke:
   panel_problems: 2
   decoderlens_problems: 1
   decoderlens_examples: 4
+  mcts_panel_problems: 2
   iole_steps: 2
   ft_steps: 2
+  pretrain_catalog_size: 60
+  pretrain_size_window: 4
   n_seeds: 1
 
 full:
   # ND2 synthetic benchmark: null keeps the official N / V / E per system
   mcts_episode_limit: 2000
-  mcts_time_limit_sec: 600
+  mcts_time_limit_sec: 300
   mcts_time_limit_sec_ft: 180
   n_systems: 10
   simulate_steps: null
@@ -83,8 +86,11 @@ full:
   panel_problems: 16
   decoderlens_problems: 12
   decoderlens_examples: 6
+  mcts_panel_problems: 4
   iole_steps: 60
   ft_steps: 120
+  pretrain_catalog_size: 800
+  pretrain_size_window: 4
   n_seeds: 3
 
 fail_fast_on_oom: true

@@ -1,5 +1,3 @@
-vars_node: [x, omega]
-vars_edge: []
 root_type: node
 beam_size: 10
 use_random_simulate: false
@@ -12,4 +10,4 @@ log_per_episode: 10
 complexity_base: 0.999
 sample_num: 500
 early_stop_acc4: 0.99
-unguided_comparison: false
+unguided_comparison: true

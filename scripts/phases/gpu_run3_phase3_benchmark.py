@@ -86,13 +86,17 @@ def main() -> int:
     if records_path.is_file():
         records = [json.loads(line) for line in records_path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
+    seeds = seed_bundles(config, budget, base_seed=args.seed)
     handle = records_path.open("a", encoding="utf-8")
     try:
-        for seed in seed_bundles(config, budget, base_seed=args.seed):
+        for seed in seeds:
+            # The unguided control answers "does NDformer guidance help"; one seed is
+            # enough for that and keeps the benchmark inside its wall-clock budget.
+            run_unguided = unguided_enabled and seed == seeds[0]
             for spec in systems:
                 system_id = spec["system_id"]
                 cfg = official[system_id]
-                conditions = ["ndformer_mcts"] + (["unguided_mcts"] if unguided_enabled else [])
+                conditions = ["ndformer_mcts"] + (["unguided_mcts"] if run_unguided else [])
                 if all((seed, system_id, cond) in done for cond in conditions):
                     print(f"  resume: skipping seed={seed} system={system_id}")
                     continue
