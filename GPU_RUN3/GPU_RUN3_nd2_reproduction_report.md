@@ -320,3 +320,63 @@ are compared at 4 significant digits and the identities
 - KUR's official network file ships only in the Zenodo archive; when it is absent
   the run falls back to an Erdos-Renyi graph and flags `used_er_fallback`.
 
+<!-- BEGIN budget-sensitivity -->
+
+## 7. Budget sensitivity: search-limited vs structurally-limited
+
+The systems not recovered in the main benchmark were rerun at 1800s per problem instead of 300s, with the ACC4 early-stop predicate disabled. Without disabling it the search halts as soon as the fit saturates, so the larger budget would never be spent and every system would look equally stuck.
+
+Extended run: `gpu_run3_extended_1800s_groupB_20260818`
+
+| system | seeds | RMSE @base | RMSE @extended | best RMSE @extended | TED @base | TED @extended | mean nodes | solved |
+|---|---|---|---|---|---|---|---|---|
+| CR | 3 | 1.492 | 1.469 | 1.445 | 13 | 14.67 | 7121.3 | 0/3 |
+| HCR | 3 | 1.512 | 0.3259 | 3.349e-08 | 13.33 | 9.667 | 11366 | 1/3 |
+| MP | 3 | 4.836 | 4.291 | 3.416 | 17 | 15.33 | 10781 | 0/3 |
+
+### Whether the network-coupling term was found
+
+The ND2 operators (`aggr` / `sour` / `targ` / `rgga`) are what make a formula a
+*network* dynamics law rather than a node-local one. Counting how often they
+appear at all separates a search that misses a detail from one that never
+reaches the coupling term.
+
+| system | true formula has network op | predictions containing one (extended) |
+|---|---|---|
+| CR | yes | 0/3 |
+| HCR | yes | 3/3 |
+| MP | yes | 2/3 |
+
+### Per-seed predictions at the extended budget
+
+**CR** — true: `((0.5000*aggr(sin((sour(x)-targ(x)))))-(z+(omega*y)))`
+
+- seed 101: `(((0.0679*x)+((omega*y)*-0.8720))-z)` (RMSE 1.445, TED 15)
+- seed 202: `(((-0.7841*z)-(-0.3016*sin(x)))+(-0.7185*(omega*y)))` (RMSE 1.48, TED 15)
+- seed 303: `(((-0.6543*y)*omega)-z)` (RMSE 1.481, TED 14)
+
+**HCR** — true: `((0.5000*aggr(sin((sour(x)-targ(x)))))-(y+z))`
+
+- seed 101: `(((-1.0000*z)-y)+(0.5000*aggr(sin((sour(x)-targ(x))))))` (RMSE 3.349e-08, TED 9)
+- seed 202: `((y*-0.9946)+(0.4991*aggr(sin((sour(x)-((1/5)+targ(x)))))))` (RMSE 0.4875, TED 10)
+- seed 303: `((y*-0.9924)+(0.5104*aggr(sin((sour((x+-0.1583))-targ(x))))))` (RMSE 0.4901, TED 10)
+
+**MP** — true: `((x*(alpha-(theta*x)))+aggr((sour(regular(x, 2))*targ(x))))`
+
+- seed 101: `(((-1.5056-x)*(3.0579*theta))+(4.8996*aggr(sour((1.3769-alpha)))))` (RMSE 3.416, TED 15)
+- seed 202: `((((alpha**3)*6.1279)-x)+(2.0826*aggr((sour(theta)/targ(theta)))))` (RMSE 3.841, TED 16)
+- seed 303: `((((x*-4.6792)*-0.6096)+(-0.5184*((x**2)*theta)))-alpha)` (RMSE 5.616, TED 15)
+
+### Reading
+
+A system whose RMSE is flat under a six-fold budget increase is not waiting for
+more search. Where the predictions also omit the network operators entirely, the
+search is settling on the node-local part of the dynamics, which already explains
+most of the variance, and never pays the cost of reaching the coupling term.
+That is a different failure from one where the structure is reachable but found
+only in some seeds.
+
+These runs use the same checkpoint, corpus and configs as the main benchmark;
+only the MCTS time limit and the early-stop predicate differ.
+
+<!-- END budget-sensitivity -->
