@@ -73,6 +73,11 @@ def _missing(name: str) -> str:
     return f"> `{name}` is missing from this run directory; the section below is incomplete.\n"
 
 
+def _avg(values) -> float:
+    finite = [float(v) for v in values if v is not None and not math.isnan(float(v))]
+    return float(sum(finite) / len(finite)) if finite else float("nan")
+
+
 def build_reproduction_report(run_dir: Path, run_id: str) -> str:
     preflight = _read(run_dir / "phase0" / "preflight.json") or {}
     phase1 = _read(run_dir / "phase1" / "summary.json")
@@ -222,21 +227,57 @@ def build_reproduction_report(run_dir: Path, run_id: str) -> str:
             )
         )
         per_system = phase3.get("per_system") or {}
+        # Structural columns come from the uniform recanonicalization; the values
+        # Phase 3 recorded live are kept beside them so the difference is visible.
+        rescored = _read(run_dir / "structural_metrics_recomputed.json") or {}
+        by_system: dict[str, list[dict]] = {}
+        for row in rescored.get("records") or []:
+            if row.get("status") != "recomputed" or row.get("condition") != "ndformer_mcts":
+                continue
+            by_system.setdefault(str(row.get("system_id")), []).append(row)
         if per_system:
             lines += [
                 "",
                 "### Per system",
                 "",
+                "`exact` / `skeleton` / `mean TED` are recanonicalized (section 5);",
+                "`exact (recorded)` is what Phase 3 wrote before that pass.",
+                "",
                 _table(
-                    ["system", "n", "valid", "exact", "skeleton", "mean TED", "mean RMSE", "mean R2", "mean nodes", "mean s"],
+                    [
+                        "system",
+                        "n",
+                        "valid",
+                        "exact",
+                        "exact (recorded)",
+                        "skeleton",
+                        "mean TED",
+                        "mean RMSE",
+                        "mean R2",
+                        "mean nodes",
+                        "mean s",
+                    ],
                     [
                         [
                             stats.get("paper_name", key),
                             stats.get("n"),
                             stats.get("n_valid"),
+                            (
+                                sum(1 for r in by_system[key] if r.get("exact") == 1.0)
+                                if key in by_system
+                                else stats.get("n_exact")
+                            ),
                             stats.get("n_exact"),
-                            stats.get("n_skeleton"),
-                            stats.get("mean_ted_raw"),
+                            (
+                                sum(1 for r in by_system[key] if r.get("skeleton") == 1.0)
+                                if key in by_system
+                                else stats.get("n_skeleton")
+                            ),
+                            (
+                                _avg([r.get("ted_raw") for r in by_system[key]])
+                                if key in by_system
+                                else stats.get("mean_ted_raw")
+                            ),
                             stats.get("mean_fit_error"),
                             stats.get("mean_r2"),
                             stats.get("mean_search_nodes"),
