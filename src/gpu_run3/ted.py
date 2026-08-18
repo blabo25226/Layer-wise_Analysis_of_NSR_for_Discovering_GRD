@@ -120,6 +120,11 @@ def _normalize_signs(label: str, children: tuple) -> tuple[str, tuple]:
         inner_label, inner_children = children[0]
         if inner_label == "neg" and len(inner_children) == 1:
             return inner_children[0]  # neg(neg(x)) -> x
+        if inner_label == "add" and len(inner_children) == 2:
+            # Distribute over addition only: neg(a+b) -> neg(a)+neg(b). Without this,
+            # `-(y+z)` and `(-1*z)-y` -- the same expression -- stay structurally apart.
+            # Never distribute over mul/div, where one negation is not two.
+            return "add", tuple(canonicalize_tree(("neg", (child,))) for child in inner_children)
         value = _leaf_number(children[0])
         if value is not None:
             return _quantize(str(-value)), ()
