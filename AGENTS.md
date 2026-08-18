@@ -128,8 +128,9 @@ DREAM4などの時系列は、trajectoryをtrain/validation/testへ分けてか�
   `third_party/`（または必要に応じて `src/` / `assets/`）へ **コピーしてから** 使う。
   調査ツリーを直接編集・依存しない。コピー後に LANSR 側の互換修正が必要なら、コピー先だけを直し、
   上流との差をコメントまたはコミットに残す。
-- NeSymReS / TPSR の現行配置: 調査用は `GitHubSourceCode/NSRS` と `GitHubSourceCode/TPSR`、
-  実行用コピーは `third_party/nesymres` と `third_party/tpsr`、設定とcheckpointは `assets/nesymres/`。
+- NeSymReS / TPSR / ND2 / ODEFormer の現行配置: 調査用は `GitHubSourceCode/` 配下、
+  実行用コピーは `third_party/nesymres`、`third_party/tpsr`、`third_party/nd2`、`third_party/odeformer`、
+  checkpointは `assets/nesymres/`、`assets/nd2/`、`assets/odeformer/`。
   詳細は [`third_party/README.md`](third_party/README.md)。
   checkpoint を調査ツリーから用意するセットアップ補助（hardlink 等）は実行依存ではない。
 
