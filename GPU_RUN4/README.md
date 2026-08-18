@@ -76,6 +76,13 @@ CPUで約3秒。ODEBench 63式をすべてparseし、恒等比較のcanonical TE
 
 保存先は `results/runs/gpu_run4_phase0_01/phase1/`（`eval.json`、`gold_cases.json`、`odebench_parsed.json`、`identity_records.json`）。
 
+本実験前に固定した定義と、後続Phaseへ持ち越す限界は次のとおりである。test結果を見てから変えない。
+
+- `normalized_ted` は $`\mathrm{ted}_{raw} / (\mathrm{size}_{true} + \mathrm{size}_{pred})`$ である。多次元ではTED比較用に `system` ノードを1つ足す。したがって `x_0 | x_1` と `x_1 | x_0` の gold は TED 2、正規化 $`2/(3+3)=1/3`$ である。
+- skeleton は数値葉と `c_i` を `CONST` にする。整数指数もその対象なので、`x^2` と `x^3` は skeleton 一致になる。Phase 3のbeam診断で次数の違いをskeleton不一致にしたい場合は、そのPhaseのtest評価より前に定義を改める。
+- 合算ノード数が40を超える式はCASを省略し、安全域の数値確認へ落とす。timeoutはmain threadの `SIGALRM` であり、worker threadでは効かない。
+- inverse-trig（`arcsin` など）の非canonical同値は、現状CAS/数値経路で落とすことがある。ODEBench真式には含まれない。
+
 ## 設定
 
 | パス | 内容 |
