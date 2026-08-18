@@ -219,10 +219,10 @@ are compared at 4 significant digits and the identities
 
 | metric | as recorded | recanonicalized |
 |---|---|---|
-| exact recoveries | 3 | 9 |
+| exact recoveries | 3 | 11 |
 | records re-scored | 82 | 82 |
-| records whose score changed | - | 34 |
-| skeleton recoveries | - | 9 |
+| records whose score changed | - | 43 |
+| skeleton recoveries | - | 11 |
 
 ### Re-scored records
 
@@ -233,13 +233,13 @@ are compared at 4 significant digits and the identities
 | phase3_KUR_s101_ndformer_mcts | ndformer_mcts | 1.0000 | 1.0000 | 0.0000 | 0.0000 | 5.0000 | 0.0000 |
 | phase3_KUR_s101_unguided_mcts | unguided_mcts | 0.0000 | 0.0000 | 9.0000 | 0.0000 | 10.0000 | 1.2756 |
 | phase3_CR_s101_ndformer_mcts | ndformer_mcts | 0.0000 | 0.0000 | 13.0000 | 0.0000 | 12.0000 | 1.4974 |
-| phase3_CR_s101_unguided_mcts | unguided_mcts | 0.0000 | 0.0000 | 12.0000 | 0.0000 | 12.0000 | 1.5967 |
+| phase3_CR_s101_unguided_mcts | unguided_mcts | 0.0000 | 0.0000 | 13.0000 | 0.0000 | 12.0000 | 1.5967 |
 | phase3_HCR_s101_ndformer_mcts | ndformer_mcts | 0.0000 | 0.0000 | 13.0000 | 0.0000 | 11.0000 | 1.5179 |
-| phase3_HCR_s101_unguided_mcts | unguided_mcts | 0.0000 | 0.0000 | 14.0000 | 0.0000 | 13.0000 | 1.5251 |
+| phase3_HCR_s101_unguided_mcts | unguided_mcts | 0.0000 | 0.0000 | 11.0000 | 0.0000 | 13.0000 | 1.5251 |
 | phase3_FHN_s101_ndformer_mcts | ndformer_mcts | 0.0000 | 0.0000 | 19.0000 | 0.0000 | 18.0000 | 0.3824 |
 | phase3_FHN_s101_unguided_mcts | unguided_mcts | 0.0000 | 0.0000 | 18.0000 | 0.0000 | 15.0000 | 0.7960 |
 | phase3_WC_s101_ndformer_mcts | ndformer_mcts | 0.0000 | 0.0000 | 17.0000 | 0.0000 | 12.0000 | 0.0105 |
-| phase3_WC_s101_unguided_mcts | unguided_mcts | 0.0000 | 0.0000 | 28.0000 | 0.0000 | 25.0000 | 0.4635 |
+| phase3_WC_s101_unguided_mcts | unguided_mcts | 0.0000 | 0.0000 | 27.0000 | 0.0000 | 25.0000 | 0.4635 |
 | phase3_GR_s101_ndformer_mcts | ndformer_mcts | 0.0000 | 0.0000 | 15.0000 | 0.0000 | 14.0000 | 0.0551 |
 | phase3_GR_s101_unguided_mcts | unguided_mcts | 0.0000 | 0.0000 | 31.0000 | 0.0000 | 29.0000 | 3.2471 |
 | phase3_MM_s101_ndformer_mcts | ndformer_mcts | 1.0000 | 1.0000 | 0.0000 | 0.0000 | 7.0000 | 0.0000 |
@@ -249,7 +249,7 @@ are compared at 4 significant digits and the identities
 | phase3_MP_s101_ndformer_mcts | ndformer_mcts | 0.0000 | 0.0000 | 17.0000 | 0.0000 | 19.0000 | 3.5622 |
 | phase3_MP_s101_unguided_mcts | unguided_mcts | 0.0000 | 0.0000 | 18.0000 | 0.0000 | 19.0000 | 4.4439 |
 | phase3_SIS_s101_ndformer_mcts | ndformer_mcts | 0.0000 | 0.0000 | 10.0000 | 0.0000 | 10.0000 | 0.1814 |
-| phase3_SIS_s101_unguided_mcts | unguided_mcts | 0.0000 | 0.0000 | 23.0000 | 0.0000 | 23.0000 | 0.4922 |
+| phase3_SIS_s101_unguided_mcts | unguided_mcts | 0.0000 | 0.0000 | 22.0000 | 0.0000 | 23.0000 | 0.4922 |
 | phase3_KUR_s202_ndformer_mcts | ndformer_mcts | 1.0000 | 1.0000 | 0.0000 | 0.0000 | 5.0000 | 0.0000 |
 | phase3_CR_s202_ndformer_mcts | ndformer_mcts | 0.0000 | 0.0000 | 16.0000 | 0.0000 | 15.0000 | 1.4975 |
 | phase3_HCR_s202_ndformer_mcts | ndformer_mcts | 0.0000 | 0.0000 | 18.0000 | 0.0000 | 17.0000 | 1.4882 |
@@ -271,30 +271,30 @@ are compared at 4 significant digits and the identities
 | phase3_MP_s303_ndformer_mcts | ndformer_mcts | 0.0000 | 0.0000 | 18.0000 | 0.0000 | 15.0000 | 6.7216 |
 | phase3_SIS_s303_ndformer_mcts | ndformer_mcts | 0.0000 | 0.0000 | 14.0000 | 0.0000 | 14.0000 | 0.3153 |
 | phase7_frozen_F_02f34ed8dc27_021 | frozen | 0.0000 | 0.0000 | 4.0000 | 0.0000 | 4.0000 | 0.0000 |
-| phase7_frozen_F_054bebdfa4d4_011 | frozen | 0.0000 | 0.0000 | 11.0000 | 0.0000 | 11.0000 | 4.6799 |
+| phase7_frozen_F_054bebdfa4d4_011 | frozen | 0.0000 | 0.0000 | 10.0000 | 0.0000 | 11.0000 | 4.6799 |
 | phase7_frozen_F_0db52fe06164_054 | frozen | 0.0000 | 0.0000 | 5.0000 | 0.0000 | 5.0000 | 0.0000 |
 | phase7_frozen_F_3e0dd8f67eb6_080 | frozen | 1.0000 | 1.0000 | 0.0000 | 1.0000 | 0.0000 | 0.0000 |
-| phase7_full_F_02f34ed8dc27_021 | full | 0.0000 | 0.0000 | 3.0000 | 0.0000 | 3.0000 | 0.0000 |
-| phase7_full_F_054bebdfa4d4_011 | full | 0.0000 | 0.0000 | 13.0000 | 0.0000 | 13.0000 | 2.2606 |
+| phase7_full_F_02f34ed8dc27_021 | full | 1.0000 | 1.0000 | 0.0000 | 0.0000 | 3.0000 | 0.0000 |
+| phase7_full_F_054bebdfa4d4_011 | full | 0.0000 | 0.0000 | 11.0000 | 0.0000 | 13.0000 | 2.2606 |
 | phase7_full_F_0db52fe06164_054 | full | 0.0000 | 0.0000 | 2.0000 | 0.0000 | 2.0000 | 0.0000 |
 | phase7_full_F_3e0dd8f67eb6_080 | full | 0.0000 | 0.0000 | 3.0000 | 0.0000 | 3.0000 | 0.0000 |
-| phase7_top_1_F_02f34ed8dc27_021 | top_1 | 0.0000 | 0.0000 | 3.0000 | 0.0000 | 3.0000 | 0.0000 |
+| phase7_top_1_F_02f34ed8dc27_021 | top_1 | 1.0000 | 1.0000 | 0.0000 | 0.0000 | 3.0000 | 0.0000 |
 | phase7_top_1_F_054bebdfa4d4_011 | top_1 | 0.0000 | 0.0000 | 9.0000 | 0.0000 | 9.0000 | 1.8050 |
-| phase7_top_1_F_0db52fe06164_054 | top_1 | 0.0000 | 0.0000 | 8.0000 | 0.0000 | 8.0000 | 0.0000 |
+| phase7_top_1_F_0db52fe06164_054 | top_1 | 0.0000 | 0.0000 | 5.0000 | 0.0000 | 8.0000 | 0.0000 |
 | phase7_top_1_F_3e0dd8f67eb6_080 | top_1 | 0.0000 | 0.0000 | 4.0000 | 0.0000 | 4.0000 | 0.0000 |
 | phase7_top_3_F_02f34ed8dc27_021 | top_3 | 1.0000 | 1.0000 | 0.0000 | 1.0000 | 0.0000 | 0.0000 |
 | phase7_top_3_F_054bebdfa4d4_011 | top_3 | 0.0000 | 0.0000 | 9.0000 | 0.0000 | 9.0000 | 4.1399 |
 | phase7_top_3_F_0db52fe06164_054 | top_3 | 0.0000 | 0.0000 | 5.0000 | 0.0000 | 5.0000 | 0.0000 |
 | phase7_top_3_F_3e0dd8f67eb6_080 | top_3 | 0.0000 | 0.0000 | 7.0000 | 0.0000 | 7.0000 | 0.0000 |
 | phase7_random_3_F_02f34ed8dc27_021 | random_3 | 1.0000 | 1.0000 | 0.0000 | 1.0000 | 0.0000 | 0.0000 |
-| phase7_random_3_F_054bebdfa4d4_011 | random_3 | 0.0000 | 0.0000 | 12.0000 | 0.0000 | 12.0000 | 4.5878 |
+| phase7_random_3_F_054bebdfa4d4_011 | random_3 | 0.0000 | 0.0000 | 11.0000 | 0.0000 | 12.0000 | 4.5878 |
 | phase7_random_3_F_0db52fe06164_054 | random_3 | 0.0000 | 0.0000 | 5.0000 | 0.0000 | 5.0000 | 0.0000 |
 | phase7_random_3_F_3e0dd8f67eb6_080 | random_3 | 0.0000 | 0.0000 | 5.0000 | 0.0000 | 5.0000 | 0.0000 |
 | phase8_frozen_F_0c0267846e35_063 | frozen | 0.0000 | 0.0000 | 15.0000 | 0.0000 | 15.0000 | 1275.3994 |
 | phase8_frozen_F_322102fa9b39_029 | frozen | 0.0000 | 0.0000 | 8.0000 | 0.0000 | 8.0000 | 0.0000 |
 | phase8_frozen_F_458d8837321f_057 | frozen | 0.0000 | 0.0000 | 16.0000 | 0.0000 | 16.0000 | 4.7069 |
 | phase8_frozen_F_4a0a28cfc3e7_052 | frozen | 0.0000 | 0.0000 | 11.0000 | 0.0000 | 11.0000 | 3.4880 |
-| phase8_full_F_0c0267846e35_063 | full | 0.0000 | 0.0000 | 14.0000 | 0.0000 | 14.0000 | 830.5518 |
+| phase8_full_F_0c0267846e35_063 | full | 0.0000 | 0.0000 | 15.0000 | 0.0000 | 14.0000 | 830.5518 |
 | phase8_full_F_322102fa9b39_029 | full | 0.0000 | 0.0000 | 8.0000 | 0.0000 | 8.0000 | 0.0000 |
 | phase8_full_F_458d8837321f_057 | full | 0.0000 | 0.0000 | 10.0000 | 0.0000 | 10.0000 | 4.7014 |
 | phase8_full_F_4a0a28cfc3e7_052 | full | 0.0000 | 0.0000 | 12.0000 | 0.0000 | 12.0000 | 3.6089 |
@@ -320,63 +320,3 @@ are compared at 4 significant digits and the identities
 - KUR's official network file ships only in the Zenodo archive; when it is absent
   the run falls back to an Erdos-Renyi graph and flags `used_er_fallback`.
 
-<!-- BEGIN budget-sensitivity -->
-
-## 7. Budget sensitivity: search-limited vs structurally-limited
-
-The systems not recovered in the main benchmark were rerun at 1800s per problem instead of 300s, with the ACC4 early-stop predicate disabled. Without disabling it the search halts as soon as the fit saturates, so the larger budget would never be spent and every system would look equally stuck.
-
-Extended run: `gpu_run3_extended_1800s_groupB_20260818`
-
-| system | seeds | RMSE @base | RMSE @extended | best RMSE @extended | TED @base | TED @extended | mean nodes | solved |
-|---|---|---|---|---|---|---|---|---|
-| CR | 3 | 1.492 | 1.469 | 1.445 | 13 | 14.67 | 7121.3 | 0/3 |
-| HCR | 3 | 1.512 | 0.3259 | 3.349e-08 | 13.33 | 9.667 | 11366 | 1/3 |
-| MP | 3 | 4.836 | 4.291 | 3.416 | 17 | 15.33 | 10781 | 0/3 |
-
-### Whether the network-coupling term was found
-
-The ND2 operators (`aggr` / `sour` / `targ` / `rgga`) are what make a formula a
-*network* dynamics law rather than a node-local one. Counting how often they
-appear at all separates a search that misses a detail from one that never
-reaches the coupling term.
-
-| system | true formula has network op | predictions containing one (extended) |
-|---|---|---|
-| CR | yes | 0/3 |
-| HCR | yes | 3/3 |
-| MP | yes | 2/3 |
-
-### Per-seed predictions at the extended budget
-
-**CR** — true: `((0.5000*aggr(sin((sour(x)-targ(x)))))-(z+(omega*y)))`
-
-- seed 101: `(((0.0679*x)+((omega*y)*-0.8720))-z)` (RMSE 1.445, TED 15)
-- seed 202: `(((-0.7841*z)-(-0.3016*sin(x)))+(-0.7185*(omega*y)))` (RMSE 1.48, TED 15)
-- seed 303: `(((-0.6543*y)*omega)-z)` (RMSE 1.481, TED 14)
-
-**HCR** — true: `((0.5000*aggr(sin((sour(x)-targ(x)))))-(y+z))`
-
-- seed 101: `(((-1.0000*z)-y)+(0.5000*aggr(sin((sour(x)-targ(x))))))` (RMSE 3.349e-08, TED 9)
-- seed 202: `((y*-0.9946)+(0.4991*aggr(sin((sour(x)-((1/5)+targ(x)))))))` (RMSE 0.4875, TED 10)
-- seed 303: `((y*-0.9924)+(0.5104*aggr(sin((sour((x+-0.1583))-targ(x))))))` (RMSE 0.4901, TED 10)
-
-**MP** — true: `((x*(alpha-(theta*x)))+aggr((sour(regular(x, 2))*targ(x))))`
-
-- seed 101: `(((-1.5056-x)*(3.0579*theta))+(4.8996*aggr(sour((1.3769-alpha)))))` (RMSE 3.416, TED 15)
-- seed 202: `((((alpha**3)*6.1279)-x)+(2.0826*aggr((sour(theta)/targ(theta)))))` (RMSE 3.841, TED 16)
-- seed 303: `((((x*-4.6792)*-0.6096)+(-0.5184*((x**2)*theta)))-alpha)` (RMSE 5.616, TED 15)
-
-### Reading
-
-A system whose RMSE is flat under a six-fold budget increase is not waiting for
-more search. Where the predictions also omit the network operators entirely, the
-search is settling on the node-local part of the dynamics, which already explains
-most of the variance, and never pays the cost of reaching the coupling term.
-That is a different failure from one where the structure is reachable but found
-only in some seeds.
-
-These runs use the same checkpoint, corpus and configs as the main benchmark;
-only the MCTS time limit and the early-stop predicate differ.
-
-<!-- END budget-sensitivity -->
