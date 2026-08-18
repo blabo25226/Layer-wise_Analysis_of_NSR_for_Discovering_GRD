@@ -1,12 +1,12 @@
-# GPU_RUN3 — ND2 reproduction report
+# GPU_RUN3 — ND² 再現レポート
 
 Run ID: `gpu_run3_full_20260817`  
-Campaign: GPU_RUN3  
-Provenance: `upstream_reproduction`
+キャンペーン: GPU_RUN3  
+provenance: `upstream_reproduction`（公式実装の再現）
 
-## 1. Environment and provenance
+## 1. 実行環境とprovenance
 
-| item | value |
+| 項目 | 値 |
 |---|---|
 | LANSR commit | 20e2b621e007bc46d3e06e25bb01aecf4142770f |
 | ND2 upstream | https://github.com/tsinghua-fib-lab/ND2 |
@@ -21,18 +21,18 @@ Provenance: `upstream_reproduction`
 | device | cuda |
 | timestamp (UTC) | 2026-08-17T12:35:10.448166+00:00 |
 
-### NDformer architecture
+### NDformer アーキテクチャ
 
-| item | value |
+| 項目 | 値 |
 |---|---|
 | encoder Transformer blocks | 2 |
 | decoder Transformer blocks | 2 |
 | total parameters | 17715713 |
 | ranking layers | encoder.Transformer.layers.0, encoder.Transformer.layers.1, decoder.decoder.layers.0, decoder.decoder.layers.1 |
 
-### Go conditions (Phase 0)
+### Go条件（Phase 0）
 
-| condition | result |
+| 条件 | 結果 |
 |---|---|
 | checkpoint_load_ok | yes |
 | forward_ok | yes |
@@ -41,9 +41,9 @@ Provenance: `upstream_reproduction`
 | parser_ok | yes |
 | mcts_valid_formula_ok | yes |
 
-## 2. RQ2 — NDformer policy reproduction (Phase 1)
+## 2. RQ2 — NDformer policyの再現（Phase 1）
 
-| metric | value |
+| 指標 | 値 |
 |---|---|
 | split | analysis_validation |
 | seeds | 101, 202, 303 |
@@ -58,19 +58,19 @@ Provenance: `upstream_reproduction`
 | mean policy entropy | 1.9249 |
 | std of CE across problems | 0.7854 |
 
-Per seed:
+シード別:
 
-| seed | problems | examples | CE | top-1 | top-5 | valid rate |
+| seed | 問題数 | 例数 | CE | top-1 | top-5 | valid率 |
 |---|---|---|---|---|---|---|
 | 101 | 21 | 175 | 1.8692 | 0.4426 | 0.8335 | 1.0000 |
 | 202 | 22 | 199 | 2.2938 | 0.3709 | 0.7351 | 1.0000 |
 | 303 | 22 | 227 | 2.1166 | 0.3588 | 0.7838 | 1.0000 |
 
-Policy-level failures: none
+policyレベルの失敗: なし
 
-## 3. Pipeline reproduction (Phase 2, KUR)
+## 3. パイプライン再現（Phase 2、KUR）
 
-| item | value |
+| 項目 | 値 |
 |---|---|
 | true formula | (omega0+(1.0000*aggr(sin((sour(x)-targ(x)))))) |
 | predicted formula (guided) | ((0.0000+omega0)+(1.0000*aggr(sin((sour(x)-targ(x)))))) |
@@ -85,9 +85,9 @@ Policy-level failures: none
 | failure reason | - |
 | network | {"V": 50, "E": 200, "directed": false, "dag": false, "used_er_fallback": true} |
 
-Unguided (uniform) MCTS control on the same problem and budget:
+同一問題・同一予算での unguided（一様）MCTS 対照:
 
-| item | value |
+| 項目 | 値 |
 |---|---|
 | pred | (-0.7865*(-(-0.2508+omega0))) |
 | exact | 0.0000 |
@@ -97,9 +97,9 @@ Unguided (uniform) MCTS control on the same problem and budget:
 | candidate_count | 25312 |
 | wall_time | 300.0486 |
 
-## 4. RQ1 — synthetic benchmark reproduction (Phase 3)
+## 4. RQ1 — synthetic benchmarkの再現（Phase 3）
 
-| metric | value |
+| 指標 | 値 |
 |---|---|
 | seeds | 101, 202, 303 |
 | guided runs | 30 |
@@ -110,12 +110,12 @@ Unguided (uniform) MCTS control on the same problem and budget:
 | mean ted_raw | 12.9333 |
 | mean R2 | 0.8602 |
 
-### Per system
+### システム別
 
-`exact` / `skeleton` / `mean TED` are recanonicalized (section 5);
-`exact (recorded)` is what Phase 3 wrote before that pass.
+`exact` / `skeleton` / `平均TED` は再正規化後の値（第5節）。
+`exact（記録時）` はPhase 3が再スコアリング前に書いた値。
 
-| system | n | valid | exact | exact (recorded) | skeleton | mean TED | mean RMSE | mean R2 | mean nodes | mean s |
+| システム | n | valid | exact | exact（記録時） | skeleton | 平均TED | 平均RMSE | 平均R2 | 平均ノード数 | 平均秒 |
 |---|---|---|---|---|---|---|---|---|---|---|
 | Kuramoto | 3 | 3 | 3 | 0 | 3 | 0.0000 | 0.0000 | 1.0000 | 1365.3333 | 177.2245 |
 | coupled_Rossler | 3 | 3 | 0 | 0 | 0 | 14.3333 | 1.4919 | 0.7431 | 1051.0000 | 301.9998 |
@@ -128,81 +128,81 @@ Unguided (uniform) MCTS control on the same problem and budget:
 | mutualistic_population | 3 | 3 | 0 | 0 | 0 | 18.0000 | 4.8364 | 0.5448 | 2085.0000 | 300.9126 |
 | susceptible_infected_susceptible | 3 | 3 | 0 | 0 | 0 | 13.3333 | 0.2522 | 0.8049 | 3946.0000 | 300.8392 |
 
-### True vs recovered formulas
+### 真の式と回復された式
 
 **Kuramoto**
 
-- true: `(omega0+(1.0000*aggr(sin((sour(x)-targ(x))))))`
-- predicted (run 1): `((-0.0000+omega0)+(1.0000*aggr(sin((sour(x)-targ(x))))))`
-- predicted (run 2): `((omega0+-0.0000)+(1.0000*aggr(sin((sour(x)-targ(x))))))`
-- predicted (run 3): `((1.0000*omega0)+(1.0000*aggr(sin((sour(x)-targ(x))))))`
+- 真値: `(omega0+(1.0000*aggr(sin((sour(x)-targ(x))))))`
+- 予測（run 1）: `((-0.0000+omega0)+(1.0000*aggr(sin((sour(x)-targ(x))))))`
+- 予測（run 2）: `((omega0+-0.0000)+(1.0000*aggr(sin((sour(x)-targ(x))))))`
+- 予測（run 3）: `((1.0000*omega0)+(1.0000*aggr(sin((sour(x)-targ(x))))))`
 
 **coupled_Rossler**
 
-- true: `((0.5000*aggr(sin((sour(x)-targ(x)))))-(z+(omega*y)))`
-- predicted (run 1): `(((0.8374*omega)*(sigmoid(x)-y))-(z*1.2134))`
-- predicted (run 2): `(-((((0.0235*x)-(y*omega))+(-z))*-0.7245))`
-- predicted (run 3): `(((-0.6543*y)*omega)-z)`
+- 真値: `((0.5000*aggr(sin((sour(x)-targ(x)))))-(z+(omega*y)))`
+- 予測（run 1）: `(((0.8374*omega)*(sigmoid(x)-y))-(z*1.2134))`
+- 予測（run 2）: `(-((((0.0235*x)-(y*omega))+(-z))*-0.7245))`
+- 予測（run 3）: `(((-0.6543*y)*omega)-z)`
 
 **homogeneous_coupled_Rossler**
 
-- true: `((0.5000*aggr(sin((sour(x)-targ(x)))))-(y+z))`
-- predicted (run 1): `((0.1504-z)+(-0.7758*y))`
-- predicted (run 2): `((((-0.5259*y)+(-0.9319*z))-(0.0490*x))+(-0.0087*(y**3)))`
-- predicted (run 3): `(((-0.7387*y)+(0.4177*sin(x)))-z)`
+- 真値: `((0.5000*aggr(sin((sour(x)-targ(x)))))-(y+z))`
+- 予測（run 1）: `((0.1504-z)+(-0.7758*y))`
+- 予測（run 2）: `((((-0.5259*y)+(-0.9319*z))-(0.0490*x))+(-0.0087*(y**3)))`
+- 予測（run 3）: `(((-0.7387*y)+(0.4177*sin(x)))-z)`
 
 **FitzHugh_Nagumo**
 
-- true: `(x-((y+(x**3))+(aggr((sour(x)-targ(x)))/aggr(1))))`
-- predicted (run 1): `(((-4.3513*x)+(6.1830*sin(x)))-(0.8878*(y+-0.3304)))`
-- predicted (run 2): `(((4.8078*sin(x))-(y*0.6805))-(3.4839*x))`
-- predicted (run 3): `(((x-y)-(x**3))+(-0.1111*aggr((sour(x)-targ(x)))))`
+- 真値: `(x-((y+(x**3))+(aggr((sour(x)-targ(x)))/aggr(1))))`
+- 予測（run 1）: `(((-4.3513*x)+(6.1830*sin(x)))-(0.8878*(y+-0.3304)))`
+- 予測（run 2）: `(((4.8078*sin(x))-(y*0.6805))-(3.4839*x))`
+- 予測（run 3）: `(((x-y)-(x**3))+(-0.1111*aggr((sour(x)-targ(x)))))`
 
 **Wilson_Cowan**
 
-- true: `(aggr(sour(sigmoid(((5.1000*x)-5.1000))))-x)`
-- predicted (run 1): `((0.0007-x)+(1.0015*aggr(sigmoid(sour((8.1096-((-3.8503+x)**2)))))))`
-- predicted (run 2): `((x*-0.9992)+(0.9991*aggr(sour(sigmoid((-0.9613+(x**3)))))))`
-- predicted (run 3): `(((-x)*1.0018)+(1.0032*aggr(sour(regular(((x**2)**2), 1.5693)))))`
+- 真値: `(aggr(sour(sigmoid(((5.1000*x)-5.1000))))-x)`
+- 予測（run 1）: `((0.0007-x)+(1.0015*aggr(sigmoid(sour((8.1096-((-3.8503+x)**2)))))))`
+- 予測（run 2）: `((x*-0.9992)+(0.9991*aggr(sour(sigmoid((-0.9613+(x**3)))))))`
+- 予測（run 3）: `(((-x)*1.0018)+(1.0032*aggr(sour(regular(((x**2)**2), 1.5693)))))`
 
 **gene_regulatory**
 
-- true: `((0.2000+(2.0000*aggr(sour(regular((0.6667*x), 2)))))-(0.9000*x))`
-- predicted (run 1): `((x*-0.9021)+(2.0230*aggr(regular(sour((x/1.4850)), 1.9677))))`
-- predicted (run 2): `((0.3093-x)+(4.5180*aggr(sour(sigmoid((-1.8000/x))))))`
-- predicted (run 3): `((0.3501-x)+(1.9495*aggr(sour((2.3124*sigmoid((-2.3907/(1.3249*x))))))))`
+- 真値: `((0.2000+(2.0000*aggr(sour(regular((0.6667*x), 2)))))-(0.9000*x))`
+- 予測（run 1）: `((x*-0.9021)+(2.0230*aggr(regular(sour((x/1.4850)), 1.9677))))`
+- 予測（run 2）: `((0.3093-x)+(4.5180*aggr(sour(sigmoid((-1.8000/x))))))`
+- 予測（run 3）: `((0.3501-x)+(1.9495*aggr(sour((2.3124*sigmoid((-2.3907/(1.3249*x))))))))`
 
 **Michaelis_Menten**
 
-- true: `(aggr(sour(regular(x, 2)))-x)`
-- predicted (run 1): `((-1.0000*x)+(1.0000*aggr(sour(regular(x, 2)))))`
-- predicted (run 2): `((-0.0058-x)+(1.0065*aggr(sour(regular(x, 1.9459)))))`
-- predicted (run 3): `((-1.0000*x)+(0.0000+aggr(sour(regular(x, 2.0000)))))`
+- 真値: `(aggr(sour(regular(x, 2)))-x)`
+- 予測（run 1）: `((-1.0000*x)+(1.0000*aggr(sour(regular(x, 2)))))`
+- 予測（run 2）: `((-0.0058-x)+(1.0065*aggr(sour(regular(x, 1.9459)))))`
+- 予測（run 3）: `((-1.0000*x)+(0.0000+aggr(sour(regular(x, 2.0000)))))`
 
 **Lotka_Volterra**
 
-- true: `((x*(alpha-(theta*x)))-aggr((sour(x)*targ(x))))`
-- predicted (run 1): `(((((((1.1371*alpha)+(0.0310*theta))+x)-alpha)-(0.3566*aggr(targ(x))))-(0.6916*x))-(0.7377*(sin(alpha)-(alpha**2))))`
-- predicted (run 2): `(x*(sin(alpha)-(sin((((alpha*theta)**2)+0.3509))*aggr(sour(((-(x+sigmoid(alpha)))**2))))))`
-- predicted (run 3): `((((((alpha-sin(x))+x)+(-1.9617*alpha))-(0.3259*aggr(targ(x))))+(0.9154*alpha))+(0.2388*theta))`
+- 真値: `((x*(alpha-(theta*x)))-aggr((sour(x)*targ(x))))`
+- 予測（run 1）: `(((((((1.1371*alpha)+(0.0310*theta))+x)-alpha)-(0.3566*aggr(targ(x))))-(0.6916*x))-(0.7377*(sin(alpha)-(alpha**2))))`
+- 予測（run 2）: `(x*(sin(alpha)-(sin((((alpha*theta)**2)+0.3509))*aggr(sour(((-(x+sigmoid(alpha)))**2))))))`
+- 予測（run 3）: `((((((alpha-sin(x))+x)+(-1.9617*alpha))-(0.3259*aggr(targ(x))))+(0.9154*alpha))+(0.2388*theta))`
 
 **mutualistic_population**
 
-- true: `((x*(alpha-(theta*x)))+aggr((sour(regular(x, 2))*targ(x))))`
-- predicted (run 1): `(((-4.2793*x)*(-0.0895-sin((-theta))))+(8.1084*aggr(sour(sigmoid((aggr(targ(alpha))/(-2.7594*x)))))))`
-- predicted (run 2): `(((0.0446*x)-(-5.8091*alpha))+(-2.3585*aggr(sour(sin((theta*(-0.7327*x)))))))`
-- predicted (run 3): `((sin(theta)+(x*((-4.4216*theta)--2.8492)))+(alpha+((theta-(x**2))*0.0525)))`
+- 真値: `((x*(alpha-(theta*x)))+aggr((sour(regular(x, 2))*targ(x))))`
+- 予測（run 1）: `(((-4.2793*x)*(-0.0895-sin((-theta))))+(8.1084*aggr(sour(sigmoid((aggr(targ(alpha))/(-2.7594*x)))))))`
+- 予測（run 2）: `(((0.0446*x)-(-5.8091*alpha))+(-2.3585*aggr(sour(sin((theta*(-0.7327*x)))))))`
+- 予測（run 3）: `((sin(theta)+(x*((-4.4216*theta)--2.8492)))+(alpha+((theta-(x**2))*0.0525)))`
 
 **susceptible_infected_susceptible**
 
-- true: `(aggr(((1-targ(x))*sour(x)))-(delta*x))`
-- predicted (run 1): `(((-0.7972*x)*delta)+(0.4959*aggr((sour((x/x))-targ(x)))))`
-- predicted (run 2): `((((8.4425*sigmoid(x))-(0.5349*delta))-(7.3123*x))-(-0.2356*aggr(sour((x**3)))))`
-- predicted (run 3): `((x*-2.8985)+(5.7352*sin(tan(sigmoid((delta*-0.2348))))))`
+- 真値: `(aggr(((1-targ(x))*sour(x)))-(delta*x))`
+- 予測（run 1）: `(((-0.7972*x)*delta)+(0.4959*aggr((sour((x/x))-targ(x)))))`
+- 予測（run 2）: `((((8.4425*sigmoid(x))-(0.5349*delta))-(7.3123*x))-(-0.2356*aggr(sour((x**3)))))`
+- 予測（run 3）: `((x*-2.8985)+(5.7352*sin(tan(sigmoid((delta*-0.2348))))))`
 
-### NDformer guidance vs unguided MCTS
+### NDformer誘導あり vs unguided MCTS
 
-| item | value |
+| 項目 | 値 |
 |---|---|
 | n | 10 |
 | n_exact | 0 |
@@ -210,23 +210,23 @@ Unguided (uniform) MCTS control on the same problem and budget:
 | mean_r2 | 0.5755 |
 | mean_search_nodes | 4102.9000 |
 
-## 5. Structural metrics under one canonicalization
+## 5. 単一の正規化による構造メトリクス
 
-Phases can be written under different canonicalization revisions, so every
-stored formula is re-scored once, uniformly, from its saved prefix. Constants
-are compared at 4 significant digits and the identities
-0+x -> x, x-0 -> x, 1*x -> x, 0*x -> 0, x/1 -> x, x**1 -> x are folded (tolerance 0.0001).
+フェーズごとに異なる正規化リビジョンで結果が書かれうるため、保存されたprefixから
+全ての式を一度だけ一律に再スコアリングしている。定数は
+4桁の有効数字で比較し、恒等式
+0+x -> x, x-0 -> x, 1*x -> x, 0*x -> 0, x/1 -> x, x**1 -> x を畳み込む（許容誤差 0.0001）。
 
-| metric | as recorded | recanonicalized |
+| 指標 | 記録時 | 再正規化後 |
 |---|---|---|
-| exact recoveries | 3 | 11 |
-| records re-scored | 82 | 82 |
-| records whose score changed | - | 43 |
-| skeleton recoveries | - | 11 |
+| exact回復数 | 3 | 11 |
+| 再スコアリング件数 | 82 | 82 |
+| スコアが変化した件数 | - | 43 |
+| skeleton回復数 | - | 11 |
 
-### Re-scored records
+### 再スコアリングされたレコード
 
-| problem | condition | exact | skeleton | TED | was exact | was TED | RMSE |
+| 問題 | 条件 | exact | skeleton | TED | 記録時exact | 記録時TED | RMSE |
 |---|---|---|---|---|---|---|---|
 | phase2_kur | ndformer_mcts | 1.0000 | 1.0000 | 0.0000 | 0.0000 | 5.0000 | 0.0000 |
 | phase2_kur_unguided | unguided_mcts | 0.0000 | 0.0000 | 10.0000 | 0.0000 | 10.0000 | 1.2075 |
@@ -311,12 +311,12 @@ are compared at 4 significant digits and the identities
 | phase8_random_3_F_458d8837321f_057 | random_3 | 0.0000 | 0.0000 | 16.0000 | 0.0000 | 16.0000 | 4.6928 |
 | phase8_random_3_F_4a0a28cfc3e7_052 | random_3 | 0.0000 | 0.0000 | 11.0000 | 0.0000 | 11.0000 | 3.5630 |
 
-## 6. Reading these numbers
+## 6. 数値の読み方
 
-- Fit error and formula recovery are reported separately: a low RMSE does not
-  mean the true network dynamics formula was recovered (plan section 6.5).
-- Every run is stored per problem in `phase3/records.jsonl`, including failures,
-  timeouts and invalid formulas (plan section 6.4).
-- KUR's official network file ships only in the Zenodo archive; when it is absent
-  the run falls back to an Erdos-Renyi graph and flags `used_er_fallback`.
+- fit errorと式の回復は分けて報告している。RMSEが小さくても真のnetwork dynamics式を
+  回復したとは限らない（plan §6.5）。
+- 全runはproblem単位で `phase3/records.jsonl` に保存され、失敗・timeout・invalidな式も
+  除外せず含まれる（plan §6.4）。
+- KURの公式ネットワークファイルはZenodoアーカイブにのみ同梱される。存在しない場合は
+  Erdős–Rényiグラフにフォールバックし、`used_er_fallback` を立てる。
 

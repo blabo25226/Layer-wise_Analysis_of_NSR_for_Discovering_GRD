@@ -1,13 +1,13 @@
-# GPU_RUN3 — search budget comparison
+# GPU_RUN3 — 探索予算の比較
 
-Base run: `gpu_run3_full_20260817`  
-Extended run: `gpu_run3_extended_1800s_groupB_20260818`
+基準run: `gpu_run3_full_20260817`  
+延長run: `gpu_run3_extended_1800s_groupB_20260818`
 
-Paired by system and seed: identical systems, seeds and simulation conditions;
-only the MCTS budget differs. The extended run also disables the ACC4 early stop,
-so the larger budget is actually spent.
+システムとシードでペアリングしている。システム・シード・シミュレーション条件はすべて同一で、
+異なるのはMCTSの探索予算だけである。延長runではACC4による早期終了も無効化しており、
+増やした予算が実際に消費されるようにしてある。
 
-| system | seed | budget s (base -> ext) | RMSE base | RMSE ext | R2 base | R2 ext | TED base | TED ext | exact base | exact ext |
+| システム | seed | 予算秒（基準→延長） | RMSE基準 | RMSE延長 | R2基準 | R2延長 | TED基準 | TED延長 | exact基準 | exact延長 |
 |---|---|---|---|---|---|---|---|---|---|---|
 | CR | 101 | 300 -> 1800 | 1.497 | 1.445 | 0.864 | 0.8734 | 13 | 14 | 0 | 0 |
 | CR | 202 | 300 -> 1800 | 1.498 | 1.48 | 0.7111 | 0.7177 | 16 | 16 | 0 | 0 |
@@ -19,12 +19,12 @@ so the larger budget is actually spent.
 | MP | 202 | 300 -> 1800 | 4.226 | 3.841 | 0.5821 | 0.6548 | 19 | 16 | 0 | 0 |
 | MP | 303 | 300 -> 1800 | 6.722 | 5.616 | 0.4847 | 0.6402 | 18 | 15 | 0 | 0 |
 
-## Summary
+## まとめ
 
-- paired runs compared: 9
-- fit error improved: 8
-- TED improved: 6
-- newly exact at the larger budget: 1
+- 比較したペア数: 9
+- fit errorが改善: 8
+- TEDが改善: 6
+- 予算拡大で新たにexactになった数: 1
 
-A system whose fit error was already near zero at the small budget cannot be search-limited: the reward was already maximised, so the failure to recover the true formula is one of identifiability, not compute. Only systems whose fit error was large at the small budget can be tested for search limitation here.
+小予算の時点でfit errorが既にほぼゼロだった系は、探索律速ではありえない。rewardが既に最大化されているため、真の式を回復できない原因は計算量ではなく識別可能性にある。ここで探索律速かどうかを検証できるのは、小予算でfit errorが大きかった系だけである。
 
