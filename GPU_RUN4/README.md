@@ -12,11 +12,13 @@ GPU_RUN4は、**公開ODEFormerの公式再現** と **encoder / decoder全層�
 | Phase | 入口 | 内容 |
 |---|---|---|
 | 0 | [`scripts/phases/gpu_run4_phase0_preflight.py`](../scripts/phases/gpu_run4_phase0_preflight.py) | 環境、upstream freeze、checkpoint、architecture audit、公式demo smoke |
-| 1–9 | 未実装 | [`plan.md`](plan.md) の Phase 1 以降 |
+| 1 | [`scripts/phases/gpu_run4_phase1_eval.py`](../scripts/phases/gpu_run4_phase1_eval.py) | ODEBench真式のparse、canonical / skeleton、symbolic equivalence、TED、timeout / 特異点 |
+| 2–9 | 未実装 | [`plan.md`](plan.md) の Phase 2 以降 |
 
 ```bash
 conda activate lansr310
 bash scripts/ops/run_gpu_run4.sh --run-id gpu_run4_phase0_01
+bash scripts/ops/run_gpu_run4.sh --from-phase 1 --to-phase 1 --run-id gpu_run4_phase0_01
 bash scripts/ops/run_gpu_run4.sh --smoke --run-id gpu_run4_smoke_01 --allow-cpu
 ```
 
@@ -53,7 +55,26 @@ parserのCLI defaultはarchitectureの根拠にしない。checkpoint実体を�
 
 コメントアウトされていた旧Google Drive ID `18CwlutaFF_tAOObsIukrKVZMPmsjwNwF` はODEFormerではなく `symbolicregression` pickleであり、86Mモデルではない。
 
-次の判断が必要である。公開checkpoint（4+12、encoder 256 / decoder 512）を再現対象としてplanを改訂するか、論文サイズの重みを別途探すか。
+次の判断が必要である。公開checkpoint（4+12、encoder 256 / decoder 512）を再現対象としてplanを改訂するか、論文サイズの重みを別途探すか。Phase 1の評価器固定はarchitecture一致を必要としない。Phase 2の長時間ODEBench gridは、この判断が終わるまで開始しない。
+
+## Phase 1の実施結果（`gpu_run4_phase0_01`）
+
+CPUで約3秒。ODEBench 63式をすべてparseし、恒等比較のcanonical TEDは0、prefix往復も63/63で一致した。Go条件はすべて成立した。
+
+| 項目 | 結果 |
+|---|---|
+| parse成功 | 63 / 63 |
+| 恒等比較 canonical exact | 63 / 63 |
+| prefix往復 | 63 / 63 |
+| gold suite | 11件すべて成功 |
+| component順 `x_0 \| x_1` vs `x_1 \| x_0` | 非同値（並べ替えない） |
+| timeout | `TEDTimeout` を約0.05秒で記録 |
+| 特異点 `1/x_0` at `x_0=0` | `Inf` を記録し、equivalentへ強制しない |
+| `normalized_ted` | $`\mathrm{ted}_{raw} / (\mathrm{size}_{true} + \mathrm{size}_{pred})`$ |
+
+評価器はODEFormer / ODEBenchの infix、prefix、`|` 区切り、`c_i` 定数、`cot` を扱う。GPU_RUN3のND2演算子（`aggr` / `sour` / `targ`）は使わない。CAS timeoutは10秒、TED timeoutは10秒である。
+
+保存先は `results/runs/gpu_run4_phase0_01/phase1/`（`eval.json`、`gold_cases.json`、`odebench_parsed.json`、`identity_records.json`）。
 
 ## 設定
 

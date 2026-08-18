@@ -10,7 +10,7 @@ cd "$REPO_ROOT"
 
 RUN_ID="${LANSR_RUN_ID:-gpu_run4_local}"
 FROM_PHASE=0
-TO_PHASE=0
+TO_PHASE=1
 SMOKE=0
 DRY_RUN=0
 ALLOW_CPU=0
@@ -49,13 +49,25 @@ run_phase() {
     return 0
   fi
   echo "=== GPU_RUN4 Phase $phase ($label) ==="
-  local started ended elapsed
+  local started ended elapsed rc
   started="$(date +%s)"
+  set +e
   python "$@"
+  rc=$?
+  set -e
   ended="$(date +%s)"
   elapsed=$((ended - started))
-  echo "Phase $phase ($label) finished in ${elapsed}s"
+  echo "Phase $phase ($label) finished in ${elapsed}s (exit $rc)"
   echo "$elapsed" > "$RUN_DIR/phase${phase}_${label}_wall_seconds.txt"
+  if [[ "$rc" -ne 0 ]]; then
+    # Phase 0 may be incomplete because the public checkpoint is not the paper table.
+    # Phase 1 still freezes evaluation on that run if preflight.json exists.
+    if [[ "$phase" -eq 0 && "$TO_PHASE" -ge 1 && -f "$RUN_DIR/phase0/preflight.json" ]]; then
+      echo "Phase 0 incomplete (exit $rc); continuing because Phase 1 only needs preflight.json."
+      return 0
+    fi
+    return "$rc"
+  fi
 }
 
 PHASE0=(scripts/phases/gpu_run4_phase0_preflight.py --run-id "$RUN_ID")
@@ -66,4 +78,10 @@ if [[ "$SKIP_DOWNLOAD" -eq 1 ]]; then PHASE0+=(--skip-download); fi
 if [[ "$SKIP_DEMO" -eq 1 ]]; then PHASE0+=(--skip-demo); fi
 run_phase 0 preflight "${PHASE0[@]}"
 
-echo "GPU_RUN4 finished run-id=$RUN_ID (implemented through Phase 0)"
+PHASE1=(scripts/phases/gpu_run4_phase1_eval.py --run-id "$RUN_ID")
+if [[ "$ALLOW_CPU" -eq 1 ]]; then PHASE1+=(--allow-cpu); fi
+if [[ "$DRY_RUN" -eq 1 ]]; then PHASE1+=(--dry-run); fi
+if [[ "$SMOKE" -eq 1 ]]; then PHASE1+=(--smoke); fi
+run_phase 1 eval "${PHASE1[@]}"
+
+echo "GPU_RUN4 finished run-id=$RUN_ID (implemented through Phase 1)"

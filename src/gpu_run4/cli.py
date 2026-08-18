@@ -32,6 +32,13 @@ def write_phase_manifest(out_dir: Path, payload: dict[str, Any]) -> Path:
     return write_json(out_dir / "manifest.json", payload)
 
 
+def require_previous(run_dir: Path, relative: str) -> Path:
+    path = run_dir / relative
+    if not path.is_file():
+        raise FileNotFoundError(f"required previous-phase artifact missing: {path}")
+    return path
+
+
 def dummy_phase_output(out_dir: Path, phase: int, extra: dict[str, Any] | None = None) -> dict[str, Any]:
     payload = {
         "phase": phase,
