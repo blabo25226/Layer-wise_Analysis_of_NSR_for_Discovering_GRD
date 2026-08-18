@@ -4,9 +4,55 @@ from __future__ import annotations
 
 import itertools
 import math
+import os
+import signal
+from contextlib import contextmanager
 from typing import Any, Sequence
 
 from gpu_run3_runtime import install_nd2_path
+
+# plan section 16.1 requires a TED timeout. Without one, sympy's equals()/simplify()
+# on a degenerate 30-token rollout formula can run effectively forever: one such
+# formula stalled a Phase 5 run for over eight hours with no output.
+TED_TIMEOUT_SEC = float(os.environ.get("LANSR_TED_TIMEOUT_SEC", "10"))
+SYMPY_MAX_TOKENS = int(os.environ.get("LANSR_SYMPY_MAX_TOKENS", "24"))
+
+
+class TedTimeout(Exception):
+    """Raised when a structural comparison exceeds its time budget."""
+
+
+@contextmanager
+def _time_limit(seconds: float):
+    """Wall-clock guard around an unbounded symbolic computation.
+
+    SIGALRM only works on the main thread; elsewhere this degrades to no limit
+    rather than raising, so callers still get an answer.
+    """
+    if seconds <= 0:
+        yield
+        return
+    try:
+        previous = signal.getsignal(signal.SIGALRM)
+    except (ValueError, AttributeError):
+        yield
+        return
+
+    def _handler(_signum, _frame):
+        raise TedTimeout(f"exceeded {seconds}s")
+
+    try:
+        signal.signal(signal.SIGALRM, _handler)
+        signal.setitimer(signal.ITIMER_REAL, float(seconds))
+    except ValueError:
+        # Not the main thread.
+        yield
+        return
+    try:
+        yield
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0.0)
+        signal.signal(signal.SIGALRM, previous)
 
 NETWORK_OPS = frozenset({"aggr", "rgga", "sour", "targ"})
 COMMUTATIVE = frozenset({"add", "mul"})
@@ -216,7 +262,14 @@ def ted_metrics(
     variable = float("nan")
     variable_status = "skipped"
     if variable_aware and true_tree is not None and pred_tree is not None:
-        variable, variable_status = _variable_aware_ted(true_tree, pred_tree, max_variable_permutations)
+        try:
+            with _time_limit(TED_TIMEOUT_SEC):
+                variable, variable_status = _variable_aware_ted(
+                    true_tree, pred_tree, max_variable_permutations
+                )
+        except TedTimeout:
+            variable, variable_status = float("nan"), "TEDTimeout"
+            failure = failure or "TEDTimeout"
     return {
         "ted_raw": raw,
         "ted_skeleton": skeleton,
@@ -280,7 +333,12 @@ def _variable_aware_ted(
 
 
 def prefixes_symbolically_equivalent(true_prefix: Sequence[str], pred_prefix: Sequence[str]) -> float:
-    """Conservative equivalence: canonical prefix match, else sympy if no network ops."""
+    """Conservative equivalence: canonical prefix match, else sympy if no network ops.
+
+    The sympy branch is both size-capped and wall-clock capped. Exceeding either
+    yields 0.0 (not equivalent as far as we could determine) rather than blocking;
+    canonical-match and skeleton results above are unaffected.
+    """
     metrics = ted_metrics(true_prefix, pred_prefix, variable_aware=False)
     if metrics["exact"] == 1.0:
         return 1.0
@@ -288,12 +346,17 @@ def prefixes_symbolically_equivalent(true_prefix: Sequence[str], pred_prefix: Se
     pred_tokens = [str(t) for t in pred_prefix]
     if NETWORK_OPS.intersection(true_tokens) or NETWORK_OPS.intersection(pred_tokens):
         return float(metrics["skeleton"] == 1.0 and metrics["exact"] == 1.0)
+    if max(len(true_tokens), len(pred_tokens)) > SYMPY_MAX_TOKENS:
+        return 0.0
     try:
         install_nd2_path()
         from ND2.GDExpr import GDExpr
 
-        true_expr = GDExpr.parse_expr(GDExpr.prefix2str(list(true_prefix)))
-        pred_expr = GDExpr.parse_expr(GDExpr.prefix2str(list(pred_prefix)))
-        return float(bool(true_expr.equals(pred_expr) or (true_expr - pred_expr).simplify() == 0))
+        with _time_limit(TED_TIMEOUT_SEC):
+            true_expr = GDExpr.parse_expr(GDExpr.prefix2str(list(true_prefix)))
+            pred_expr = GDExpr.parse_expr(GDExpr.prefix2str(list(pred_prefix)))
+            return float(bool(true_expr.equals(pred_expr) or (true_expr - pred_expr).simplify() == 0))
+    except TedTimeout:
+        return 0.0
     except Exception:
         return 0.0

@@ -99,11 +99,21 @@ def main() -> int:
 
     outputs = []
     failures = []
+    import time as _time
+
+    started_all = _time.time()
     for seed in seed_bundles(config, budget, base_seed=args.seed):
         seed_everything(seed)
+        t0 = _time.time()
         corpus = build_analysis_corpus(seed=seed, **corpus_kwargs)
         panel = select_fixed_panel(corpus["records"], split="analysis_validation", n=n_problems)
-        for row in panel:
+        print(f"  seed={seed} corpus built in {_time.time() - t0:.1f}s, panel={len(panel)}", flush=True)
+        for index, row in enumerate(panel):
+            print(
+                f"    [{_time.time() - started_all:7.1f}s] seed={seed} problem {index + 1}/{len(panel)} "
+                f"{row['problem_id']}",
+                flush=True,
+            )
             examples = [ex for ex in row["teacher_forcing"] if ex.get("target")][:n_examples]
             if not examples:
                 failures.append({"problem_id": row["problem_id"], "failure_reason": "InvalidPrefix"})
