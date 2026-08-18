@@ -1,0 +1,5 @@
+layer,probe_rank,gradient_rank,decoderlens_rank,iole_rank,ablation_rank,intervention_rank,update_sensitivity_rank,consensus_rank
+encoder.Transformer.layers.0,3,4,4,4,3,2,4,4
+encoder.Transformer.layers.1,4,3,1,3,2,1,1,2
+decoder.decoder.layers.0,1,2,3,2,4,3,3,3
+decoder.decoder.layers.1,2,1,2,1,1,4,2,1

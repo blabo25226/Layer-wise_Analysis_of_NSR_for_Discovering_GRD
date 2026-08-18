@@ -1,0 +1,4 @@
+problem_id,system,seed,condition,true_formula,predicted_formula,exact,skeleton,symbolic_equivalent,ted_raw,ted_skeleton,fit_error,complexity,valid,failure_reason,search_nodes,candidate_count,wall_time
+phase2_kur,KUR,,ndformer_mcts,(omega0+(1.0000*aggr(sin((sour(x)-targ(x)))))),(omega0-x),0.0,0.0,0.0,9.0,9.0,1.0223304166456164,3,True,,31,189,0.986229419708252
+phase3_KUR_s101_ndformer_mcts,Kuramoto,101,ndformer_mcts,(omega0+(1.0000*aggr(sin((sour(x)-targ(x)))))),((omega0-sin(x))+(-0.2231*aggr((sour(x)-targ(x))))),0.0,0.0,0.0,5.0,4.0,0.5560986817037067,13,True,,31,194,1.5522630214691162
+phase3_CR_s101_ndformer_mcts,coupled_Rossler,101,ndformer_mcts,((0.5000*aggr(sin((sour(x)-targ(x)))))-(z+(omega*y))),(((-omega)*(0.7982*(omega*y)))-(-(((z**3)+sigmoid(y))*-0.8559))),0.0,0.0,0.0,17.0,16.0,0.44343368545200906,17,True,,31,282,5.553764581680298
