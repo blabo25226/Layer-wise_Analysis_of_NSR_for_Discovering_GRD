@@ -348,3 +348,59 @@ def parser_defaults_from_source(parsers_text: str) -> dict[str, Any]:
         else:
             extracted[key] = caster(raw)
     return extracted
+
+
+def resolve_layer_module(model: Any, ranking_name: str):
+    """Map encoder_i / decoder_i to the post-block LayerNorm (layer_norm2)."""
+    wrapped = unwrap_model(model)
+    if ranking_name.startswith("encoder_"):
+        index = int(ranking_name.split("_")[1])
+        return wrapped.encoder.layer_norm2[index]
+    if ranking_name.startswith("decoder_"):
+        index = int(ranking_name.split("_")[1])
+        return wrapped.decoder.layer_norm2[index]
+    raise KeyError(f"unknown ranking layer: {ranking_name}")
+
+
+def ranking_block_modules(model: Any, ranking_name: str) -> dict[str, Any]:
+    """Attention / FFN modules that implement one Transformer block."""
+    wrapped = unwrap_model(model)
+    if ranking_name.startswith("encoder_"):
+        index = int(ranking_name.split("_")[1])
+        return {
+            "attn": wrapped.encoder.attentions[index],
+            "ffn": wrapped.encoder.ffns[index],
+            "cross": None,
+            "norm_out": wrapped.encoder.layer_norm2[index],
+        }
+    if ranking_name.startswith("decoder_"):
+        index = int(ranking_name.split("_")[1])
+        return {
+            "attn": wrapped.decoder.attentions[index],
+            "ffn": wrapped.decoder.ffns[index],
+            "cross": wrapped.decoder.encoder_attn[index],
+            "norm_out": wrapped.decoder.layer_norm2[index],
+        }
+    raise KeyError(f"unknown ranking layer: {ranking_name}")
+
+
+def set_trainable_layers(model: Any, trainable: set[str] | None) -> dict[str, int]:
+    """Freeze everything, then unfreeze named ranking blocks. None means full FT."""
+    wrapped = unwrap_model(model)
+    for parameter in wrapped.parameters():
+        parameter.requires_grad = trainable is None
+    counts: dict[str, int] = {}
+    if trainable is None:
+        counts["full"] = int(sum(p.numel() for p in wrapped.parameters() if p.requires_grad))
+        return counts
+    for name in trainable:
+        modules = ranking_block_modules(wrapped, name)
+        n_params = 0
+        for module in modules.values():
+            if module is None:
+                continue
+            for parameter in module.parameters():
+                parameter.requires_grad = True
+                n_params += int(parameter.numel())
+        counts[name] = n_params
+    return counts

@@ -39,6 +39,14 @@ def require_previous(run_dir: Path, relative: str) -> Path:
     return path
 
 
+def seed_bundles(config: dict[str, Any], budget: dict[str, Any], *, base_seed: int) -> list[dict[str, int]]:
+    bundles = list(config.get("seed_bundles") or [])
+    n = int(budget.get("n_seeds", 1) or 1)
+    if not bundles:
+        return [{"data_seed": int(base_seed), "model_seed": 0, "permutation_seed": 1001, "corruption_seed": 1101}]
+    return [dict(item) for item in bundles[: max(1, n)]]
+
+
 def dummy_phase_output(out_dir: Path, phase: int, extra: dict[str, Any] | None = None) -> dict[str, Any]:
     payload = {
         "phase": phase,

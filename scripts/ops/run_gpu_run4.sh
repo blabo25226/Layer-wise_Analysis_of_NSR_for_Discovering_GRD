@@ -10,7 +10,7 @@ cd "$REPO_ROOT"
 
 RUN_ID="${LANSR_RUN_ID:-gpu_run4_local}"
 FROM_PHASE=0
-TO_PHASE=1
+TO_PHASE=9
 SMOKE=0
 DRY_RUN=0
 ALLOW_CPU=0
@@ -63,7 +63,7 @@ run_phase() {
     # Phase 0 may be incomplete because the public checkpoint is not the paper table.
     # Phase 1 still freezes evaluation on that run if preflight.json exists.
     if [[ "$phase" -eq 0 && "$TO_PHASE" -ge 1 && -f "$RUN_DIR/phase0/preflight.json" ]]; then
-      echo "Phase 0 incomplete (exit $rc); continuing because Phase 1 only needs preflight.json."
+      echo "Phase 0 incomplete (exit $rc); continuing on the released 4+12 checkpoint."
       return 0
     fi
     return "$rc"
@@ -84,4 +84,29 @@ if [[ "$DRY_RUN" -eq 1 ]]; then PHASE1+=(--dry-run); fi
 if [[ "$SMOKE" -eq 1 ]]; then PHASE1+=(--smoke); fi
 run_phase 1 eval "${PHASE1[@]}"
 
-echo "GPU_RUN4 finished run-id=$RUN_ID (implemented through Phase 1)"
+phase_flags() {
+  local arr=("$1" --run-id "$RUN_ID")
+  if [[ "$ALLOW_CPU" -eq 1 ]]; then arr+=(--allow-cpu); fi
+  if [[ "$DRY_RUN" -eq 1 ]]; then arr+=(--dry-run); fi
+  if [[ "$SMOKE" -eq 1 ]]; then arr+=(--smoke); fi
+  printf '%s\n' "${arr[@]}"
+}
+
+mapfile -t PHASE2 < <(phase_flags scripts/phases/gpu_run4_phase2_repro.py)
+run_phase 2 repro "${PHASE2[@]}"
+mapfile -t PHASE3 < <(phase_flags scripts/phases/gpu_run4_phase3_beam.py)
+run_phase 3 beam "${PHASE3[@]}"
+mapfile -t PHASE4 < <(phase_flags scripts/phases/gpu_run4_phase4_corpus.py)
+run_phase 4 corpus "${PHASE4[@]}"
+mapfile -t PHASE5 < <(phase_flags scripts/phases/gpu_run4_phase5_observational.py)
+run_phase 5 observational "${PHASE5[@]}"
+mapfile -t PHASE6 < <(phase_flags scripts/phases/gpu_run4_phase6_causal.py)
+run_phase 6 causal "${PHASE6[@]}"
+mapfile -t PHASE7 < <(phase_flags scripts/phases/gpu_run4_phase7_iole.py)
+run_phase 7 iole "${PHASE7[@]}"
+mapfile -t PHASE8 < <(phase_flags scripts/phases/gpu_run4_phase8_selective.py)
+run_phase 8 selective "${PHASE8[@]}"
+mapfile -t PHASE9 < <(phase_flags scripts/phases/gpu_run4_phase9_final.py)
+run_phase 9 final "${PHASE9[@]}"
+
+echo "GPU_RUN4 finished run-id=$RUN_ID (implemented through Phase 9)"

@@ -483,6 +483,7 @@ def compare_formulas(
     as_prefix: bool | None = None,
     true_as_prefix: bool | None = None,
     pred_as_prefix: bool | None = None,
+    skip_cas: bool = False,
 ) -> dict[str, Any]:
     true_views = formula_views(true_text, as_prefix=true_as_prefix if true_as_prefix is not None else as_prefix)
     pred_views = formula_views(pred_text, as_prefix=pred_as_prefix if pred_as_prefix is not None else as_prefix)
@@ -491,7 +492,7 @@ def compare_formulas(
     symbolic_failure = None
     if metrics["canonical_exact"] == 1.0:
         symbolic = 1.0
-    else:
+    elif not skip_cas:
         symbolic, symbolic_failure = _sympy_components_equal(true_views["components"], pred_views["components"])
         if symbolic != 1.0 and symbolic_failure is None:
             numeric = numeric_equivalent(true_views["components"], pred_views["components"])

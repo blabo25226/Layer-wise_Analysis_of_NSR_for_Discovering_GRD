@@ -1599,7 +1599,7 @@ Phase 0（`gpu_run4_phase0_01`）で次は確定した。
 - 推論pickle設定: beam sampling、beam size 50、temperature 0.1
 - ODEBench fingerprint: `strogatz_equations.py` SHA256 `06bbb9dae2886a82f0a1d4b0cd062d063241bcfed56c01ef2a3a01d863bcf8b4`（63 systems）
 - 公式demoは成功（reconstruction $`R^2\approx 0.997`$）
-- 論文Table（4+16 / dim 512 / 約86M）とは不一致。長時間runの前に、公開checkpointを再現対象とするか、論文サイズ重みを探すかを決める。
+- **再現対象は公開checkpoint（4+12 / ~61M）に固定した。** 論文Table（4+16 / dim 512 / 約86M）とは不一致であり、結果は論文アーキテクチャの再現ではない。
 
 以下はPhase 0–2のsmoke / throughput測定後、**testを見る前にplanを改訂して固定する。**
 
