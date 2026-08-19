@@ -1,7 +1,9 @@
 # GPU_RUN4
 
 GPU_RUN4は、**公開ODEFormerの公式再現** と **encoder / decoder全層の層解析** を同格の主目的とする実験キャンペーンである。
-計画の正本は [`plan.md`](plan.md)。DREAM4、ヒトデータ、NeSymReS fine-tuning比較は扱わない。
+計画の正本は [`plan.md`](plan.md)。研究結果のまとめは
+[`GPU_RUN4_research_report_20260819.md`](GPU_RUN4_research_report_20260819.md) である。
+DREAM4、ヒトデータ、NeSymReS fine-tuning比較は扱わない。
 
 実行環境はローカルPC（Python 3.10 の `lansr310`、RTX 2070）である。公式ODEFormer実装は
 [`third_party/odeformer`](../third_party/odeformer/) の固定コピーだけを import する。
@@ -171,4 +173,5 @@ python -m pytest -q GPU_RUN4/tests
 | パス | 内容 |
 |---|---|
 | [`plan.md`](plan.md) | GPU_RUN4計画の正本 |
+| [`GPU_RUN4_research_report_20260819.md`](GPU_RUN4_research_report_20260819.md) | Phase 0–9の研究結果まとめ（事実 / RQ判定 / 考察を分離） |
 | [`tests/`](tests/) | GPU_RUN4固有テスト |
