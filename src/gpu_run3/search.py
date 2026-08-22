@@ -38,6 +38,9 @@ def run_mcts(
     cfg = dict(mcts_config or {})
     started = time.time()
     failure = None
+    # Upstream MCTS does `random_state or np.random.randint(...)`, so a literal 0
+    # silently becomes an unseeded draw and breaks paired comparison / resume.
+    effective_random_state = int(random_state) if int(random_state) != 0 else 1
     try:
         rewarder = RewardSolver(Xv=Xv, Xe=Xe or {}, A=A, G=G, Y=Y)
         if model is not None:
@@ -56,7 +59,7 @@ def run_mcts(
             c_puct=float(cfg.get("c_puct", 5.0)),
             tempreture=float(cfg.get("tempreture", 0.0)),
             lambda_rollout=float(cfg.get("lambda_rollout", 0.5)),
-            random_state=int(random_state),
+            random_state=effective_random_state,
         )
         acc4 = float(cfg.get("early_stop_acc4", 0.99))
         est.fit(
@@ -159,6 +162,9 @@ def run_mcts(
         official_metrics={k: _json_number(v) for k, v in metrics.items()},
         used_ndformer=model is not None,
         n_rewards=int(candidate_count),
+        random_state=effective_random_state,
+        episode_limit=int(episode_limit),
+        time_limit_sec=None if time_limit_sec is None else float(time_limit_sec),
     )
     return record
 

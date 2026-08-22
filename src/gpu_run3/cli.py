@@ -27,6 +27,20 @@ def phase_budget(config: dict[str, Any], *, smoke: bool) -> dict[str, Any]:
     return dict(config.get(key) or {})
 
 
+def opt_int(budget: dict[str, Any], key: str, default: Any = None) -> int | None:
+    """Budget lookup that keeps an explicit ``null`` as None instead of crashing int()."""
+    value = budget.get(key, default)
+    return None if value is None else int(value)
+
+
+def seed_bundles(config: dict[str, Any], budget: dict[str, Any], *, base_seed: int) -> list[int]:
+    """Data seeds to sweep for this phase, honouring the budget's ``n_seeds``."""
+    bundles = list(config.get("seed_bundles") or [])
+    seeds = [int(item["data_seed"]) for item in bundles if "data_seed" in item] or [int(base_seed)]
+    n = int(budget.get("n_seeds", 1) or 1)
+    return seeds[: max(1, n)]
+
+
 def write_phase_manifest(out_dir: Path, payload: dict[str, Any]) -> Path:
     payload.setdefault("campaign", "GPU_RUN3")
     payload.setdefault("at_utc", utc_now())

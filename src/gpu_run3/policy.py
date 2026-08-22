@@ -126,12 +126,28 @@ def teacher_forcing_metrics(
     }
 
 
-def policy_cross_entropy_loss(model: Any, prefixes: list[list[str]], targets: list[str]) -> torch.Tensor:
-    """Differentiable policy CE for fine-tuning. Uses decoder logits, not softmaxed get_policy."""
+def policy_cross_entropy_loss(
+    model: Any,
+    prefixes: list[list[str]],
+    targets: list[str],
+    *,
+    grad_through_encoder: bool = True,
+) -> torch.Tensor:
+    """Differentiable policy CE for fine-tuning. Uses decoder logits, not softmaxed get_policy.
+
+    ``set_data(cache_data_emb=True)`` builds ``data_emb`` under ``torch.no_grad()``,
+    which detaches the encoder from the loss and makes every encoder gradient
+    exactly zero. With ``grad_through_encoder`` the memory is recomputed with grad
+    enabled so encoder blocks receive real gradients.
+    """
     install_nd2_path()
     from ND2.GDExpr import GDExpr
 
-    if not hasattr(model, "data_emb") or model.data_emb is None:
+    if not hasattr(model, "var_dict"):
+        raise RuntimeError("NDformer.set_data() must be called before policy_cross_entropy_loss")
+    if grad_through_encoder:
+        model.data_emb = model.encode(model.root_type, model.var_dict)
+    elif getattr(model, "data_emb", None) is None:
         raise RuntimeError("NDformer.set_data() must be called before policy_cross_entropy_loss")
     mapped = [[model.var_map.get(token, token) for token in prefix] for prefix in prefixes]
     expr_ids = [torch.from_numpy(GDExpr.vectorize(["sos", model.root_type, *prefix, "eos"])) for prefix in mapped]

@@ -38,6 +38,7 @@ def encoder_intermediate_decode(
     prefixes: list[list[str]],
     *,
     true_targets: list[str] | None = None,
+    collect_memories: dict[str, torch.Tensor] | None = None,
 ) -> list[dict[str, Any]]:
     """Pass each encoder block output as decoder memory. Not claimed to be identical to DecoderLens."""
     install_nd2_path()
@@ -49,6 +50,8 @@ def encoder_intermediate_decode(
     captured: dict[str, torch.Tensor] = {}
     with capture_layer_outputs(model, list(encoder_layers)) as captured:
         _ = model.encode(model.root_type, model.var_dict)
+    if collect_memories is not None:
+        collect_memories.update({name: tensor for name, tensor in captured.items()})
     rows = []
     for layer_name in encoder_layers:
         hidden = captured.get(layer_name)
@@ -157,24 +160,147 @@ def decoder_logit_lens(
     return rows
 
 
+def _action_mask(prefix: Sequence[str], *, vars_node: Sequence[str], vars_edge: Sequence[str], max_tokens: int, max_coeff: int):
+    """Legal next symbols for the first placeholder, mirroring ND2's MCTS.get_mask."""
+    install_nd2_path()
+    from ND2.GDExpr import GDExpr
+
+    tokens = list(prefix)
+    placeholder_index = next((i for i, t in enumerate(tokens) if t in ("node", "edge")), None)
+    if placeholder_index is None:
+        return None, None
+    placeholder = tokens[placeholder_index]
+    allowed: set[str] = set()
+    remaining = max_tokens - len(tokens)
+    if remaining >= 2:
+        allowed |= set(GDExpr.operator.binary)
+    if remaining >= 1:
+        allowed |= set(GDExpr.operator.unary)
+    if placeholder == "edge":
+        allowed -= {"aggr", "rgga"}
+    else:
+        allowed -= {"sour", "targ"}
+    if remaining >= 0:
+        allowed |= set(vars_node) if placeholder == "node" else set(vars_edge)
+        constant_ok = False
+        count, pos = 1, placeholder_index - 1
+        known_vars = ["node", "edge", *vars_node, *vars_edge]
+        while count > 0 and pos >= 0 and not constant_ok:
+            token = tokens[pos]
+            if token in GDExpr.operator.binary:
+                count -= 2
+            elif token in GDExpr.operator.unary:
+                count -= 1
+            elif token in known_vars:
+                count += 1
+                constant_ok = True
+            else:
+                count += 1
+            pos -= 1
+        if constant_ok or count == -1:
+            allowed |= set(GDExpr.constant)
+            if tokens.count(GDExpr.coeff_token) < max_coeff:
+                allowed.add(GDExpr.coeff_token)
+    return allowed, placeholder
+
+
+def _apply_action(prefix: Sequence[str], action: str, placeholder: str) -> list[str]:
+    """Replace the first placeholder, mirroring ND2's MCTS.act."""
+    install_nd2_path()
+    from ND2.GDExpr import GDExpr
+
+    tokens = list(prefix)
+    index = next(i for i, t in enumerate(tokens) if t in ("node", "edge"))
+    if action in ("aggr", "rgga"):
+        return [*tokens[:index], action, "edge", *tokens[index + 1 :]]
+    if action in ("sour", "targ"):
+        return [*tokens[:index], action, "node", *tokens[index + 1 :]]
+    if action in GDExpr.operator.binary:
+        return [*tokens[:index], action, placeholder, placeholder, *tokens[index + 1 :]]
+    if action in GDExpr.operator.unary:
+        return [*tokens[:index], action, placeholder, *tokens[index + 1 :]]
+    return [*tokens[:index], action, *tokens[index + 1 :]]
+
+
+def greedy_rollout(
+    model: Any,
+    memory: torch.Tensor,
+    *,
+    root_type: str = "node",
+    vars_node: Sequence[str] = (),
+    vars_edge: Sequence[str] = (),
+    max_tokens: int = 30,
+    max_coeff: int = 5,
+) -> dict[str, Any]:
+    """Greedily complete a formula from one encoder memory, under ND2's grammar.
+
+    Used so each encoder block yields a *complete* formula that can be compared to
+    the ground truth. Appending only the top-1 next symbol leaves placeholders in
+    the prefix, which never parses and makes every TED a NaN.
+    """
+    install_nd2_path()
+    from ND2.GDExpr import GDExpr
+
+    prefix = [root_type]
+    steps = 0
+    while steps < max_tokens * 2:
+        allowed, placeholder = _action_mask(
+            prefix, vars_node=vars_node, vars_edge=vars_edge, max_tokens=max_tokens, max_coeff=max_coeff
+        )
+        if allowed is None:
+            return {"prefix": prefix, "complete": True, "failure_reason": None, "steps": steps}
+        if not allowed:
+            return {"prefix": prefix, "complete": False, "failure_reason": "InvalidPrefix", "steps": steps}
+        probs = _decode_policy(model, memory, [prefix])[0]
+        best = max(allowed, key=lambda token: probs[int(GDExpr.word2id[model.var_map.get(token, token)])])
+        prefix = _apply_action(prefix, best, placeholder)
+        steps += 1
+    return {"prefix": prefix, "complete": False, "failure_reason": "MCTSTimeout", "steps": steps}
+
+
 def encoder_ted_trajectory(
     layer_rows: list[dict[str, Any]],
     *,
     true_prefix: Sequence[str],
+    model: Any | None = None,
+    memories: dict[str, torch.Tensor] | None = None,
+    root_type: str = "node",
+    vars_node: Sequence[str] = (),
+    vars_edge: Sequence[str] = (),
+    max_tokens: int = 30,
 ) -> list[dict[str, Any]]:
-    """Attach TED between a provisional top-1 continuation and the true formula when parseable."""
+    """Attach a greedy-rollout formula and its TED to each encoder layer's readout."""
     out = []
     for row in layer_rows:
         if not row.get("valid"):
             out.append(row)
             continue
-        attached = []
-        for item in row.get("rows") or []:
-            top = (item.get("topk_symbols") or [None])[0]
-            provisional = list(item.get("prefix") or [])
-            if top:
-                provisional = [*provisional, str(top)]
-            comparison = compare_formulas(list(true_prefix), provisional)
-            attached.append({**item, "provisional_prefix": provisional, "ted_raw": comparison["ted_raw"], "exact": comparison["exact"]})
-        out.append({**row, "rows": attached})
+        rollout = None
+        if model is not None and memories is not None and row["module_name"] in memories:
+            rollout = greedy_rollout(
+                model,
+                memories[row["module_name"]],
+                root_type=root_type,
+                vars_node=vars_node,
+                vars_edge=vars_edge,
+                max_tokens=max_tokens,
+            )
+        if rollout is None:
+            out.append({**row, "rollout": None, "failure_reason": "ActivationHookError"})
+            continue
+        comparison = compare_formulas(list(true_prefix), rollout["prefix"]) if rollout["complete"] else {}
+        out.append(
+            {
+                **row,
+                "rollout_prefix": rollout["prefix"],
+                "rollout_complete": rollout["complete"],
+                "rollout_steps": rollout["steps"],
+                "rollout_failure_reason": rollout["failure_reason"],
+                "rollout_formula": comparison.get("pred_raw_expr"),
+                "ted_raw": comparison.get("ted_raw"),
+                "ted_skeleton": comparison.get("ted_skeleton"),
+                "exact": comparison.get("exact"),
+                "skeleton": comparison.get("skeleton"),
+            }
+        )
     return out
