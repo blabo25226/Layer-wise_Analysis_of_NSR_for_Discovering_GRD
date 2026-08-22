@@ -4,7 +4,7 @@
 > GPU_RUN2は合成GNW式・oracle変数・解析的微分だけを使い、層解析と選択的fine-tuningを検証する実験である。
 > 主結果は「適応はdecoder中後段、とくに `decoder_4` に局在する」「少数層FTは全層FTより数値精度・生成安定性が良い」
 > 「しかし正しい式構造の回復はほぼ達成できていない」の3点である。
-> 本READMEの主結果はすべてGPU_RUN2であり、GPU_RUN1とCPU pilotは[§11](#11-過去のrunの位置づけ)に履歴として要約するにとどめる。
+> 本READMEの主結果はすべてGPU_RUN2であり、GPU_RUN1とCPU pilotは[§12](#12-過去のrunの位置づけ)に履歴として要約するにとどめる。
 
 ## 目次
 
@@ -13,16 +13,17 @@
 - [3. 研究上の問い](#3-研究上の問い)
 - [4. 用語解説](#4-用語解説)
 - [5. 評価指標](#5-評価指標)
-- [6. GPU_RUN2の実験設計](#6-gpu_run2の実験設計)
-- [7. GPU_RUN2の結果](#7-gpu_run2の結果)
-- [8. GPU_RUN2の考察](#8-gpu_run2の考察)
-- [9. 仮説ごとの判定と結論](#9-仮説ごとの判定と結論)
-- [10. 限界と読み方の注意](#10-限界と読み方の注意)
-- [11. 過去のrunの位置づけ](#11-過去のrunの位置づけ)
-- [12. 今後の展望](#12-今後の展望)
-- [13. 再現方法](#13-再現方法)
-- [14. リポジトリ構成](#14-リポジトリ構成)
-- [15. 参考文献](#15-参考文献)
+- [6. 層解析手法](#6-層解析手法)
+- [7. GPU_RUN2の実験設計](#7-gpu_run2の実験設計)
+- [8. GPU_RUN2の結果](#8-gpu_run2の結果)
+- [9. GPU_RUN2の考察](#9-gpu_run2の考察)
+- [10. 仮説ごとの判定と結論](#10-仮説ごとの判定と結論)
+- [11. 限界と読み方の注意](#11-限界と読み方の注意)
+- [12. 過去のrunの位置づけ](#12-過去のrunの位置づけ)
+- [13. 今後の展望](#13-今後の展望)
+- [14. 再現方法](#14-再現方法)
+- [15. リポジトリ構成](#15-リポジトリ構成)
+- [16. 参考文献](#16-参考文献)
 
 ## 1. 研究概要
 
@@ -67,9 +68,9 @@
 
 | 世代 | 内容 | 本READMEでの扱い |
 |---|---|---|
-| CPU pilot | パイプライン構築と問題発見のためのlegacy run | [§11](#11-過去のrunの位置づけ)に要約のみ |
-| GPU_RUN1 | Colab L4、3 seeds、DREAM4・ヒト時系列まで含む探索的reduced run | [§11](#11-過去のrunの位置づけ)に要約のみ |
-| **GPU_RUN2** | **ローカルRTX 2070、固定commit、合成GNW式のみの層解析run** | **§6–§10の主結果** |
+| CPU pilot | パイプライン構築と問題発見のためのlegacy run | [§12](#12-過去のrunの位置づけ)に要約のみ |
+| GPU_RUN1 | Colab L4、3 seeds、DREAM4・ヒト時系列まで含む探索的reduced run | [§12](#12-過去のrunの位置づけ)に要約のみ |
+| **GPU_RUN2** | **ローカルRTX 2070、固定commit、合成GNW式のみの層解析run** | **§7–§11の主結果** |
 | GPU_RUN3 | ND2の再現と層解析 | 本READMEの主結果と混ぜない。入口は [`GPU_RUN3/`](GPU_RUN3/) |
 | GPU_RUN4 | 公開ODEFormer checkpoint（4+12 / 約61M）の再現と層解析。reduced Phase 0–9済み | 本READMEの主結果と混ぜない。入口は [`GPU_RUN4/README.md`](GPU_RUN4/README.md) |
 
@@ -77,7 +78,7 @@
 
 研究計画の詳細は [`docs/plans/20260714_firstplan.md`](docs/plans/20260714_firstplan.md)、
 GPU_RUN2の計画正本は [`GPU_RUN2/plan.md`](GPU_RUN2/plan.md)、実行入口は [`GPU_RUN2/README.md`](GPU_RUN2/README.md) にある。
-GPU_RUN2の詳細レポートは次の2本であり、本READMEの§6–§10はこの2本を突き合わせ、保存recordで再検証したうえで要約したものである。
+GPU_RUN2の詳細レポートは次の2本であり、本READMEの§7–§11はこの2本を突き合わせ、保存recordで再検証したうえで要約したものである。
 
 - [`GPU_RUN2/GPU_RUN2_research_report_20260816_claude-science.md`](GPU_RUN2/GPU_RUN2_research_report_20260816_claude-science.md)（事実・考察・提案を分離した監査型レポート）
 - [`GPU_RUN2/GPU_RUN2_research_report_20260816_chatGPT.md`](GPU_RUN2/GPU_RUN2_research_report_20260816_chatGPT.md)（仮説判定と実装監査を中心にしたレポート）
@@ -118,7 +119,7 @@ GRNを知ることは、細胞が刺激に応答する仕組み、病気で制�
 このように式が得られれば、制御の向きだけでなく、飽和、協同性、分解の強さまで議論できる可能性がある。
 
 **この形が本研究の技術的な要点になる。** Hill型制御は分母に変数を含む**有理式**であり、
-多項式では原理的に表せない飽和挙動を持つ。GPU_RUN2の最大の否定的結果は、まさにこの有理構造が回復できないことだった（[§8.2](#82-有理構造の欠落が回復失敗の中心にある)）。
+多項式では原理的に表せない飽和挙動を持つ。GPU_RUN2の最大の否定的結果は、まさにこの有理構造が回復できないことだった（[§9.2](#92-有理構造の欠落が回復失敗の中心にある)）。
 
 実際の時系列データでは $dx/dt$ を直接観測できないため、隣接時点から有限差分で近似する。
 
@@ -197,148 +198,13 @@ C_l=
 のように表せる。 $C_l=1$ なら、その1層だけで全層学習と同程度の改善を回復したことになる。
 
 **ただしこの定義は、全層学習が事前学習を改善することを前提にしている。**
-GPU_RUN2では全層FTが事前学習より悪化したため分母が成立せず、正規化寄与度は全層でNaNになった（§7.3）。
+GPU_RUN2では全層FTが事前学習より悪化したため分母が成立せず、正規化寄与度は全層でNaNになった（§8.3）。
 この点はGPU_RUN1との重要な違いであり、層順位はraw scoreの順序としてのみ読む必要がある。
 
-### 2.5 層解析の方法
+なお、この寄与度を含む**層解析の各手法の定義・数式・限界は [§6](#6-層解析手法) にまとめている。**
+本節は「層選択的fine-tuningという技術が何か」までを扱う。
 
-本研究の中心は「どの層が何をしているか」を測ることである。ここで使う手法は、大きく
-**相関的手法**（層の中に情報があるかを見る）と **因果的手法**（層を操作して出力が変わるかを見る）に分かれる。
-両者は別のことを測るため、一致するとも限らない。GPU_RUN2はこの6種類をすべて同じrunの中で実行した。
-
-| 手法 | 種類 | 測るもの | 実装 | 主要文献 |
-|---|---|---|---|---|
-| 線形probe | 相関 | 層表現から数式の属性が線形に読めるか | [`src/interpretability/probes.py`](src/interpretability/probes.py) | DIP [17]、TSRM [8] |
-| CKA | 相関 | 層どうしの表現の幾何が似ているか | [`src/interpretability/cka.py`](src/interpretability/cka.py) | CKA [15] |
-| DecoderLens | 相関＋生成 | encoder中間表現の段階で何が出力できるか | [`src/interpretability/decoder_lens.py`](src/interpretability/decoder_lens.py) | DecoderLens [14] |
-| 層ablation | 因果 | 層を壊すと性能がどれだけ落ちるか | [`src/interpretability/interventions.py`](src/interpretability/interventions.py) | BPAP [18]、HUIAP [19] |
-| activation介入 | 因果 | 層の活性化を差し替えると出力がどう変わるか | [`src/interpretability/interventions.py`](src/interpretability/interventions.py) | BPAP [18]、HUIAP [19] |
-| 単一層FT（IOLE） | 適応可能性 | その層だけ学習して性能が上がるか | [`src/training/single_layer.py`](src/training/single_layer.py) | IOLE [3]、LASF [30] |
-
-#### 2.5.1 線形probe（probing）
-
-**probe（プローブ）** は、凍結したモデルの中間表現 $h^{(l)}$ に小さな線形モデルを当て、
-その層から特定の情報が読み出せるかを測る手法である [17]。
-層 $l$ の表現から属性 $y$ を予測する重み $W$ を、ridge回帰
-
-```math
-\hat W=\underset{W}{\mathrm{arg\,min}}\;\lVert h^{(l)}W-y\rVert^2+\lambda\lVert W\rVert^2
-```
-
-で求め、**その層を学習させずに**、正解率や $R^2$ で評価する。
-高いスコアは「その情報が層表現に線形に符号化されている」ことを示すが、
-**モデルが実際にその情報を使っているかまでは示さない。** ここが因果的手法との決定的な違いである。
-また、probeが強力すぎると層に情報が無くてもタスクを解けてしまうため、
-Hewitt & Liang [17] は control task と比較して probe の選択性を評価することを提案している。
-**GPU_RUN2ではこの control task を実施していないため、probeスコアの絶対値は probe 自身の表現力を含む。**
-
-GPU_RUN2では次の3タスクをvalidationデータだけで実行した。
-
-1. **代数テンプレート識別**：その式がどの構造クラス（族）に属するかの多クラス分類。
-2. **演算子数回帰**：式に含まれる演算子の個数を予測する回帰。式の複雑さの符号化を測る。
-3. **次トークン識別**：次に出力すべき数式tokenの分類。生成の直近の手がかりを測る。
-
-**validation内でprobeのfit用と評価用の例を分離**しており、同じ例で学習と採点をしていない。
-Transformer型SRモデルの内部をprobeで解析する先行研究としてTSRM [8] があり、本研究はそれをGRN動的方程式へ適用したものにあたる。
-
-#### 2.5.2 CKA（表現類似度）
-
-**CKA（Centered Kernel Alignment）** は、2つの層の内部表現行列 $X, Y$（行が同じ例に対応）が
-どれだけ似た幾何構造を持つかを、次元数が違っても比較できる形で測る指標である [15]。列を中心化したうえで
-
-```math
-\mathrm{CKA}(X,Y)=\frac{\lVert X^{\mathsf T}Y\rVert_F^2}{\lVert X^{\mathsf T}X\rVert_F\,\lVert Y^{\mathsf T}Y\rVert_F}
-```
-
-と計算する。1に近いほど似ている。CKAは
-「どの層とどの層が実質的に同じ表現を作っているか」「表現が大きく変わる境目はどこか」を見るのに使う。
-
-**注意すべきは、CKAが高いことと、特定の情報が読み出せることは別概念である** という点である。
-GPU_RUN2ではencoder全層のCKAが0.94–0.97と高い一方、probeスコアの順位とはほとんど対応しなかった
-（§7.2）。表現の幾何が似ていても、線形に読める属性は層ごとに違い得る。
-
-#### 2.5.3 DecoderLens
-
-**DecoderLens** は、encoder-decoder型Transformerの解釈手法で、
-**encoderの途中の層の出力を、最終層の出力の代わりにdecoderへ渡して実際に出力を生成させる** [14]。
-「この時点でモデルは何を言えるようになっているか」を、内部ベクトルではなく人間が読める出力の形で観察できる。
-
-本実装（[`decoder_lens.py`](src/interpretability/decoder_lens.py)）では、
-各encoder ISAB層の出力を最終のPMA pooling（`outatt`）へ通してからdecoderのcross-attention memoryとして与える。
-追加学習は一切行わない。各decode stepについて、上位候補token、正解tokenの順位、
-途中までのtoken列、式としてパースできたかを保存する。
-
-**限界**：decoderは本来「最終encoder表現」を受け取るように学習されているため、
-中間表現を渡すことはdistribution shiftを与える。したがってパース率の低さ（GPU_RUN2では12.6%）を
-通常のdecode性能として解釈してはならない。層間の**相対比較**にのみ使う。
-
-#### 2.5.4 層ablation
-
-**ablation（アブレーション）** は、ある層の出力を0などの情報を持たない値へ置き換え、
-その状態で推論して性能がどれだけ落ちるかを測る因果的手法である。
-落ち幅が大きいほど、その層は出力の生成に必要だといえる。
-
-```math
-\Delta_l^{\mathrm{abl}}=\mathcal{M}\bigl(\text{ablate}(l)\bigr)-\mathcal{M}(\text{baseline})
-```
-
-GPU_RUN2では **zero ablation**（層出力を全て0にする hard ablation）を使った。
-
-**限界が2つある。** 第一に、hard ablationはモデルを学習時に一度も経験していない状態へ追い込むため、
-「その層が担う機能」ではなく「壊れたモデルの挙動」を測ってしまう危険がある [19]。
-第二に、失敗に罰則値を入れる評価では、複数の層が同じ上限値へ**飽和**して差が消える。
-GPU_RUN2では `decoder_1/3/4` がいずれも $10^{6}$ に張り付き、この3層の相対的重要度は識別できなかった。
-
-#### 2.5.5 activation介入（activation patching）
-
-**activation patching / activation介入** は、ablationより穏やかな因果的手法である。
-層の活性化を、別の入力から取った活性化や、平均活性化などの「情報を持たない基準値」へ差し替えて、
-出力の変化量を測る [18, 19]。実装は次の2種類を持つ。
-
-```math
-\text{平均置換：}\;\tilde h^{(l)}=\overline{h^{(l)}},\qquad
-\text{線形補間：}\;\tilde h^{(l)}=(1-\alpha)h^{(l)}_{\mathrm{src}}+\alpha h^{(l)}_{\mathrm{dst}}
-```
-
-GPU_RUN2の主実行は**平均活性化への置換**を使った。介入効果は
-
-```math
-\delta_l=\mathcal{M}(\text{baseline})-\mathcal{M}(\text{intervened})
-```
-
-と定義する（NMSEのように小さいほど良い指標では、$\delta_l$ が大きく負であるほど劣化が大きい）。
-
-**符号の向きが解釈の分かれ目になる。** GPU_RUN2の保存rankingは、この $\delta_l$ を降順に並べていたため、
-実際には「劣化の小さい層」＝介入に頑健な層が上位に来ていた。
-importanceとして読むには、劣化量の大きい順へ並べ直す必要がある（詳細は§7.3の警告）。
-活性化介入の指標設計と落とし穴は Zhang & Nanda [18]、Heimersheim & Nanda [19] が整理している。
-
-#### 2.5.6 単一層fine-tuning（IOLE）と層寄与度
-
-§2.4で述べた層選択的fine-tuningを、1層ずつ独立に実行する手続きを
-本研究では **IOLE（Isolated One-Layer Estimation）** と呼ぶ [3]。
-他の全パラメータを凍結し、層 $l$ だけを学習して性能 $L_l$ を測る。
-
-IOLEが測るのは、probeやablationとは別の量である。
-
-- probe：その層に情報が**あるか**（現状の読み出し可能性）
-- ablation / 介入：その層が出力生成に**必要か**（現状の因果的依存）
-- IOLE：その層を動かせば新しい領域へ**適応できるか**（可塑性・適応可能性）
-
-したがって「重要な層」という言葉は3通りの意味を持ち得るため、本READMEでは常にどの手法による重要度かを明示する。
-教師ありfine-tuningの層別効果については、LLMを対象にした層別解析 [30] も参照した。
-
-#### 2.5.7 手法間の一致をどう読むか
-
-複数手法が同じ層を指したときに初めて「その層の役割」といえる。ただし一致の解釈には注意が必要である。
-
-- 相関的手法（probe、CKA）と因果的手法（ablation、介入）は**別の量**を測るので、不一致は矛盾ではない。
-- 罰則値への飽和や同順位（tie）があると、順位相関は見かけ上高くなる。Spearman = 1.0を「完全再現」と読んではならない。
-- 順位の**向き**（重要度順か頑健性順か）を実装レベルで確認しないと、結論が反転する。
-
-GPU_RUN2ではまさにこの3点すべてが実際に問題になった（§7.3、§8.3）。
-
-### 2.6 oracle条件による切り分け
+### 2.5 oracle条件による切り分け
 
 **oracle条件** とは、本来は未知であるはずの情報を正解から与える理想化された設定である。
 性能の上限を測り、パイプラインのどこがボトルネックかを特定するために使う。
@@ -359,9 +225,9 @@ GPU_RUN2は[1]と[2]をoracleにして、[3]だけを評価している。
 この設計により、GPU_RUN2で観測された失敗は[3]に帰属できる。逆に言えば、
 **GPU_RUN2は[1]と[2]の性能について何も示していない** ため、実データへの転移可能性をこのrunから主張することはできない。
 GPU_RUN1ではDREAM4でoracle変数条件を試したが、それでもNMSEが0.855–0.879と高く、
-[1]だけがボトルネックではないことが分かっている（[§11](#11-過去のrunの位置づけ)）。
+[1]だけがボトルネックではないことが分かっている（[§12](#12-過去のrunの位置づけ)）。
 
-### 2.7 再現バイアスとnovel discovery
+### 2.6 再現バイアスとnovel discovery
 
 ニューラルSRには、**事前学習で見た式を思い出しているだけで、新しい式を発見していないのではないか**
 という根本的な疑いがある。CTC-NSR [16] はこれを **reproduction bias（再現バイアス）** と呼び、
@@ -378,9 +244,9 @@ NeSymReSの100M事前学習corpusは公開されていないため、GPU_RUN2で
 
 したがってGPU_RUN2の再現判定は「事前学習corpusからの再現」ではなく「fine-tuning corpusからの再現」であり、
 CTC-NSR本来の設定より狭い。ただし、**novel recoveryが0であれば、少なくともこのrunで新構造の発見は起きていない**
-という否定的な結論は成立する（§7.8）。
+という否定的な結論は成立する（§8.8）。
 
-### 2.8 DREAM4とGeneNetWeaver
+### 2.7 DREAM4とGeneNetWeaver
 
 **GeneNetWeaver（GNW）** は、実在する大腸菌・酵母ネットワークから部分構造を取り出し、
 転写・翻訳、制御、分子ノイズ、実験ノイズを含む動力学モデルを与えるシミュレータである [5]。
@@ -390,7 +256,7 @@ GPU_RUN2では、DREAM4の公開時系列そのものではなく、**GNW由来�
 真の式・真の微分値・真の制御因子がすべて既知の理想条件で層解析を行った。
 DREAM4本体とヒト時系列への転移はGPU_RUN3以降へ保留している。
 
-### 2.9 関連研究と本研究の位置づけ
+### 2.8 関連研究と本研究の位置づけ
 
 - **NSRS（NeSymReS）** はTransformerの大規模事前学習をSRへ導入した [1]。
 - **TPSR** はMCTSでTransformerの数式生成を計画問題として改善した [2]。
@@ -406,6 +272,13 @@ DREAM4本体とヒト時系列への転移はGPU_RUN3以降へ保留している
   導関数推定と疎な式回復の比較基準になる [22, 23, 26, 31]。
 - **SRBench**、**BSR（Boolformer）**、**ESRT**、**CNSR**、**NGDSN（DySymNet）**、**DGSR** などは、
   探索方式、制約、生成モデルの異なるSR比較対象を提供する [20, 21, 27, 28, 32, 35]。
+- **TED** は、数式を根付き木として表し、葉の変数名の対応（代入 $\theta$）を最小化したうえで木編集距離を測る
+  **変数付き木編集距離**を定義した [36]。さらに一階微分方程式系どうしの距離 $Dist$ とその緩和 $Pdist$ へ拡張し、
+  BioModels の生物モデル間で実際に計算している。本研究にとってこれが最重要な位置を占める理由は、
+  GPU_RUN2の中心的な失敗が **式構造の回復**（[§8.7](#87-式構造の回復)）にあり、
+  現在の exact / skeleton recovery は0/1判定のため「どれだけ外したか」を区別できないことである。
+  TEDは予測式と真の式の距離を連続量として与え、変数の入れ替えに対して頑健であるため、
+  この飽和した指標を置き換える直接の候補になる。
 
 本研究の新規性は個々の技術そのものではなく、次の組合せにある。
 
@@ -550,6 +423,11 @@ NMSE $=10^6$、$R^2=-1$ 相当の罰則を入れてから中央値を取る。
 - **complexity**：演算子・変数・定数などのノード数。小さいほど単純である。
 - **valid rate**：生成した式のうち、構文解析と数値評価に成功した割合。
 - **reproduced / novel**：予測式の骨格がfine-tuning corpusに存在するか否か。novelな式で正解へ到達した割合が**novel recovery**である。
+- **変数付き木編集距離（TED [36]）**：式木を編集して他方の式木に一致させるのに必要な最小コスト。
+  葉の変数名の対応は代入 $\theta$ について最小化するので、変数の並べ替えだけが違う式は距離0になる。
+  上記の exact / skeleton recovery が0/1で飽和する場面で、構造の近さを連続量として区別できる。
+  無順序木では厳密計算がNP困難であり、原論文はILPによる実用解法と、方程式系単位の距離 $Dist$・$Pdist$ を与えている。
+  **GPU_RUN2ではこの指標を計測していない。** 導入は再解析候補（[§13.1](#131-保存済みrecordだけで実施できる再解析gpu再実行不要)）である。
 
 ### 変数回復
 
@@ -560,9 +438,152 @@ F_1=\frac{2\,\mathrm{Precision}\,\mathrm{Recall}}{\mathrm{Precision}+\mathrm{Rec
 
 GPU_RUN2はoracle変数を与えているため、variable F1は0.95–0.999と高く、識別力を持たない補助指標である。
 
-## 6. GPU_RUN2の実験設計
+## 6. 層解析手法
 
-### 6.1 目的と除外事項
+本節は、層の役割を測るために本研究が使う**手法そのもの**の定義・数式・限界をまとめる。
+どのデータでどの条件により実行したかは [§7](#7-gpu_run2の実験設計)、実測値は [§8](#8-gpu_run2の結果) にある。
+層選択的fine-tuningという技術自体の背景は [§2.4](#24-iole層選択的fine-tuning) を参照する。
+実装は [`src/interpretability/`](src/interpretability/) と [`src/training/single_layer.py`](src/training/single_layer.py) にある。
+
+本研究の中心は「どの層が何をしているか」を測ることである。ここで使う手法は、大きく
+**相関的手法**（層の中に情報があるかを見る）と **因果的手法**（層を操作して出力が変わるかを見る）に分かれる。
+両者は別のことを測るため、一致するとも限らない。GPU_RUN2はこの6種類をすべて同じrunの中で実行した。
+
+| 手法 | 種類 | 測るもの | 実装 | 主要文献 |
+|---|---|---|---|---|
+| 線形probe | 相関 | 層表現から数式の属性が線形に読めるか | [`src/interpretability/probes.py`](src/interpretability/probes.py) | DIP [17]、TSRM [8] |
+| CKA | 相関 | 層どうしの表現の幾何が似ているか | [`src/interpretability/cka.py`](src/interpretability/cka.py) | CKA [15] |
+| DecoderLens | 相関＋生成 | encoder中間表現の段階で何が出力できるか | [`src/interpretability/decoder_lens.py`](src/interpretability/decoder_lens.py) | DecoderLens [14] |
+| 層ablation | 因果 | 層を壊すと性能がどれだけ落ちるか | [`src/interpretability/interventions.py`](src/interpretability/interventions.py) | BPAP [18]、HUIAP [19] |
+| activation介入 | 因果 | 層の活性化を差し替えると出力がどう変わるか | [`src/interpretability/interventions.py`](src/interpretability/interventions.py) | BPAP [18]、HUIAP [19] |
+| 単一層FT（IOLE） | 適応可能性 | その層だけ学習して性能が上がるか | [`src/training/single_layer.py`](src/training/single_layer.py) | IOLE [3]、LASF [30] |
+
+### 6.1 線形probe（probing）
+
+**probe（プローブ）** は、凍結したモデルの中間表現 $h^{(l)}$ に小さな線形モデルを当て、
+その層から特定の情報が読み出せるかを測る手法である [17]。
+層 $l$ の表現から属性 $y$ を予測する重み $W$ を、ridge回帰
+
+```math
+\hat W=\underset{W}{\mathrm{arg\,min}}\;\lVert h^{(l)}W-y\rVert^2+\lambda\lVert W\rVert^2
+```
+
+で求め、**その層を学習させずに**、正解率や $R^2$ で評価する。
+高いスコアは「その情報が層表現に線形に符号化されている」ことを示すが、
+**モデルが実際にその情報を使っているかまでは示さない。** ここが因果的手法との決定的な違いである。
+また、probeが強力すぎると層に情報が無くてもタスクを解けてしまうため、
+Hewitt & Liang [17] は control task と比較して probe の選択性を評価することを提案している。
+**GPU_RUN2ではこの control task を実施していないため、probeスコアの絶対値は probe 自身の表現力を含む。**
+
+GPU_RUN2では次の3タスクをvalidationデータだけで実行した。
+
+1. **代数テンプレート識別**：その式がどの構造クラス（族）に属するかの多クラス分類。
+2. **演算子数回帰**：式に含まれる演算子の個数を予測する回帰。式の複雑さの符号化を測る。
+3. **次トークン識別**：次に出力すべき数式tokenの分類。生成の直近の手がかりを測る。
+
+**validation内でprobeのfit用と評価用の例を分離**しており、同じ例で学習と採点をしていない。
+Transformer型SRモデルの内部をprobeで解析する先行研究としてTSRM [8] があり、本研究はそれをGRN動的方程式へ適用したものにあたる。
+
+### 6.2 CKA（表現類似度）
+
+**CKA（Centered Kernel Alignment）** は、2つの層の内部表現行列 $X, Y$（行が同じ例に対応）が
+どれだけ似た幾何構造を持つかを、次元数が違っても比較できる形で測る指標である [15]。列を中心化したうえで
+
+```math
+\mathrm{CKA}(X,Y)=\frac{\lVert X^{\mathsf T}Y\rVert_F^2}{\lVert X^{\mathsf T}X\rVert_F\,\lVert Y^{\mathsf T}Y\rVert_F}
+```
+
+と計算する。1に近いほど似ている。CKAは
+「どの層とどの層が実質的に同じ表現を作っているか」「表現が大きく変わる境目はどこか」を見るのに使う。
+
+**注意すべきは、CKAが高いことと、特定の情報が読み出せることは別概念である** という点である。
+GPU_RUN2ではencoder全層のCKAが0.94–0.97と高い一方、probeスコアの順位とはほとんど対応しなかった
+（§8.2）。表現の幾何が似ていても、線形に読める属性は層ごとに違い得る。
+
+### 6.3 DecoderLens
+
+**DecoderLens** は、encoder-decoder型Transformerの解釈手法で、
+**encoderの途中の層の出力を、最終層の出力の代わりにdecoderへ渡して実際に出力を生成させる** [14]。
+「この時点でモデルは何を言えるようになっているか」を、内部ベクトルではなく人間が読める出力の形で観察できる。
+
+本実装（[`decoder_lens.py`](src/interpretability/decoder_lens.py)）では、
+各encoder ISAB層の出力を最終のPMA pooling（`outatt`）へ通してからdecoderのcross-attention memoryとして与える。
+追加学習は一切行わない。各decode stepについて、上位候補token、正解tokenの順位、
+途中までのtoken列、式としてパースできたかを保存する。
+
+**限界**：decoderは本来「最終encoder表現」を受け取るように学習されているため、
+中間表現を渡すことはdistribution shiftを与える。したがってパース率の低さ（GPU_RUN2では12.6%）を
+通常のdecode性能として解釈してはならない。層間の**相対比較**にのみ使う。
+
+### 6.4 層ablation
+
+**ablation（アブレーション）** は、ある層の出力を0などの情報を持たない値へ置き換え、
+その状態で推論して性能がどれだけ落ちるかを測る因果的手法である。
+落ち幅が大きいほど、その層は出力の生成に必要だといえる。
+
+```math
+\Delta_l^{\mathrm{abl}}=\mathcal{M}\bigl(\text{ablate}(l)\bigr)-\mathcal{M}(\text{baseline})
+```
+
+GPU_RUN2では **zero ablation**（層出力を全て0にする hard ablation）を使った。
+
+**限界が2つある。** 第一に、hard ablationはモデルを学習時に一度も経験していない状態へ追い込むため、
+「その層が担う機能」ではなく「壊れたモデルの挙動」を測ってしまう危険がある [19]。
+第二に、失敗に罰則値を入れる評価では、複数の層が同じ上限値へ**飽和**して差が消える。
+GPU_RUN2では `decoder_1/3/4` がいずれも $10^{6}$ に張り付き、この3層の相対的重要度は識別できなかった。
+
+### 6.5 activation介入（activation patching）
+
+**activation patching / activation介入** は、ablationより穏やかな因果的手法である。
+層の活性化を、別の入力から取った活性化や、平均活性化などの「情報を持たない基準値」へ差し替えて、
+出力の変化量を測る [18, 19]。実装は次の2種類を持つ。
+
+```math
+\text{平均置換：}\;\tilde h^{(l)}=\overline{h^{(l)}},\qquad
+\text{線形補間：}\;\tilde h^{(l)}=(1-\alpha)h^{(l)}_{\mathrm{src}}+\alpha h^{(l)}_{\mathrm{dst}}
+```
+
+GPU_RUN2の主実行は**平均活性化への置換**を使った。介入効果は
+
+```math
+\delta_l=\mathcal{M}(\text{baseline})-\mathcal{M}(\text{intervened})
+```
+
+と定義する（NMSEのように小さいほど良い指標では、$\delta_l$ が大きく負であるほど劣化が大きい）。
+
+**符号の向きが解釈の分かれ目になる。** GPU_RUN2の保存rankingは、この $\delta_l$ を降順に並べていたため、
+実際には「劣化の小さい層」＝介入に頑健な層が上位に来ていた。
+importanceとして読むには、劣化量の大きい順へ並べ直す必要がある（詳細は§8.3の警告）。
+活性化介入の指標設計と落とし穴は Zhang & Nanda [18]、Heimersheim & Nanda [19] が整理している。
+
+### 6.6 単一層fine-tuning（IOLE）と層寄与度
+
+§2.4で述べた層選択的fine-tuningを、1層ずつ独立に実行する手続きを
+本研究では **IOLE（Isolated One-Layer Estimation）** と呼ぶ [3]。
+他の全パラメータを凍結し、層 $l$ だけを学習して性能 $L_l$ を測る。
+
+IOLEが測るのは、probeやablationとは別の量である。
+
+- probe：その層に情報が**あるか**（現状の読み出し可能性）
+- ablation / 介入：その層が出力生成に**必要か**（現状の因果的依存）
+- IOLE：その層を動かせば新しい領域へ**適応できるか**（可塑性・適応可能性）
+
+したがって「重要な層」という言葉は3通りの意味を持ち得るため、本READMEでは常にどの手法による重要度かを明示する。
+教師ありfine-tuningの層別効果については、LLMを対象にした層別解析 [30] も参照した。
+
+### 6.7 手法間の一致をどう読むか
+
+複数手法が同じ層を指したときに初めて「その層の役割」といえる。ただし一致の解釈には注意が必要である。
+
+- 相関的手法（probe、CKA）と因果的手法（ablation、介入）は**別の量**を測るので、不一致は矛盾ではない。
+- 罰則値への飽和や同順位（tie）があると、順位相関は見かけ上高くなる。Spearman = 1.0を「完全再現」と読んではならない。
+- 順位の**向き**（重要度順か頑健性順か）を実装レベルで確認しないと、結論が反転する。
+
+GPU_RUN2ではまさにこの3点すべてが実際に問題になった（§8.3、§9.3）。
+
+## 7. GPU_RUN2の実験設計
+
+### 7.1 目的と除外事項
 
 GPU_RUN2は、GPU_RUN1で未解決だった次の3点を、**理想化された合成問題だけに限定して**検証する実験である。
 
@@ -575,7 +596,7 @@ GPU_RUN2は、GPU_RUN1で未解決だった次の3点を、**理想化された�
 
 したがって本runは実データ適用の結論を出す実験ではなく、**NeSymReS内部解析と合成GRN式への適応を分離して検証するmechanistic run** である。
 
-### 6.2 実行provenance
+### 7.2 実行provenance
 
 | 項目 | 実値 |
 |---|---|
@@ -593,7 +614,7 @@ GPU_RUN2は、GPU_RUN1で未解決だった次の3点を、**理想化された�
 
 結果を再現・議論するときは、リポジトリの最新mainではなく上記のsource commitを基準にする。
 
-### 6.3 合成データ（GNW由来8式族）
+### 7.3 合成データ（GNW由来8式族）
 
 Phase 1はGNW由来のHill型8族、計240 problem（族あたり30 variant）を生成した。
 
@@ -611,7 +632,7 @@ Phase 1はGNW由来のHill型8族、計240 problem（族あたり30 variant）�
 **G01を除くすべての族の真の式は、分母に変数を含む有理式である**（主split test 48 problemで確認：G01が0/6、G02–G08が6/6）。
 これは全problemの87.5%にあたる。
 
-### 6.4 split設計
+### 7.4 split設計
 
 | split | 構成 | test規模 |
 |---|---|---|
@@ -620,7 +641,7 @@ Phase 1はGNW由来のHill型8族、計240 problem（族あたり30 variant）�
 
 構造holdoutでは、G07・G08を層選択にもhyperparameter選択にも一切使っていない。
 
-### 6.5 入力・教師値・演算子制約
+### 7.5 入力・教師値・演算子制約
 
 - oracle regulatorのみをNeSymReS/PySRへ入力する（対象遺伝子 $x_i$ は常に入力）。
 - 解析的な真式 $f(x)$ を直接評価して教師値を作る。**有限差分は不使用。**
@@ -631,7 +652,7 @@ Phase 1はGNW由来のHill型8族、計240 problem（族あたり30 variant）�
 
 GPU_RUN1で問題になった不要な `tan` や危険な自由べき乗を、探索空間から設計段階で除いている。
 
-### 6.6 fine-tuning条件
+### 7.6 fine-tuning条件
 
 層ランキングはvalidationのみで決定し、testを見る前に凍結した（`frozen_before_test: true`）。
 
@@ -646,18 +667,18 @@ GPU_RUN1で問題になった不要な `tan` や危険な自由べき乗を、�
 構造holdout viewでは、G07・G08を除外して選択した結果、top_3 = `decoder_4, decoder_2, decoder_1`、
 random_3 = `decoder_3, encoder_5, decoder_1` となった。**`decoder_4` は両viewでtop_1である。**
 
-### 6.7 事前に決めた判定基準
+### 7.7 事前に決めた判定基準
 
 - 同等性margin：failure-aware NMSE差の95% t区間が $[-0.05, +0.05]$ に**完全に**収まった場合のみ「実質同等」と判定する。単なる非有意差を同等と読まない。
 - 統計単位：各noise条件について、まず48（または60）problemをseedごとの中央値へ集約し、その3 seed値のpaired差にStudentのt区間を計算する。
 - noiseを混ぜて主性能を集計しない。
 
-## 7. GPU_RUN2の結果
+## 8. GPU_RUN2の結果
 
 数値はすべて `results/runs/gpu_run2_20260815_1d91927/` の保存recordから再集計したものである。
 図表は [`graphs/gpu_run2_20260815_1d91927/`](graphs/gpu_run2_20260815_1d91927/) にある。
 
-### 7.1 Phase 2：baseline（test）
+### 8.1 Phase 2：baseline（test）
 
 | 手法 | noise | 有効式率 | domain-ID NMSE中央値 | domain-OOD NMSE中央値 | skeleton | symbolic equiv. | 探索秒数中央値 |
 |---|---:|---:|---:|---:|---:|---:|---:|
@@ -670,7 +691,7 @@ PySRは中央値NMSEでNeSymReSを1桁上回るが、有効式率は70–79%に�
 PySRの失敗は `UnsafeDivision:train:unparseable_denominator` 88件と `expression_evaluation_failed` 80件、NeSymReSは失敗0件だった。
 また、PySRの12.5%のskeleton recoveryも**すべてG01由来**であり、G02–G08のHill型構造は回復していない。
 
-### 7.2 Phase 3：表現解析（validation, 主split）
+### 8.2 Phase 3：表現解析（validation, 主split）
 
 ![層解析](graphs/gpu_run2_20260815_1d91927/figures/fig2_layer_analysis.png)
 
@@ -702,7 +723,7 @@ encoder層順位は `encoder_5 > encoder_4 > encoder_3 > encoder_0 > encoder_1 >
 
 **勾配ノルム**はdecoder側が大きい（decoder_2 3.107 > decoder_3 2.911 > decoder_1 2.616 > decoder_4 2.393 > decoder_0 1.700）。
 
-### 7.3 Phase 4：IOLE・ablation・activation介入
+### 8.3 Phase 4：IOLE・ablation・activation介入
 
 **単一層FT（IOLE）**：6条件（3 seed × 2 noise）すべてで事前学習より低いNMSEを達成したのは `decoder_4` のみである。
 
@@ -758,7 +779,7 @@ decoder層を壊すと生成性能が桁違いに崩壊し、encoder_4への介�
 **seed安定性**（保存snapshotからnoise別に再計算）：IOLE順位のpairwise Spearmanはnoise 0.0で0.600、noise 0.1で0.867。
 `decoder_4` はnoise 0.0の全3 seedで1位、noise 0.1でも2 seedで1位、残り1 seedで2位だった。
 
-### 7.4 Phase 5：主split test
+### 8.4 Phase 5：主split test
 
 ![Phase 5性能](graphs/gpu_run2_20260815_1d91927/figures/fig1_phase5_test_performance.png)
 
@@ -785,7 +806,7 @@ decoder層を壊すと生成性能が桁違いに崩壊し、encoder_4への介�
 Phase 5の失敗事由は `DisallowedPowerExponent` が大半、`expression_evaluation_failed` が16件、
 `decoder_returned_no_expression` が1件で、**timeoutは0件**である。
 
-### 7.5 Phase 5：構造holdout test（G07・G08は完全未学習）
+### 8.5 Phase 5：構造holdout test（G07・G08は完全未学習）
 
 **noise = 0.0**
 
@@ -811,7 +832,7 @@ Phase 5の失敗事由は `DisallowedPowerExponent` が大半、`expression_eval
 全層FTは有効式率が67–71%まで崩れ、その主因は許可外のべき指数を含む式の生成（`DisallowedPowerExponent`）である。
 全層FTの `valid_nmse` は0.056–0.058と悪くないが、これは**3割の失敗を除外した条件付き指標**であり、単独で読んではならない。
 
-### 7.6 同等性判定（事前指定margin ±0.05）
+### 8.6 同等性判定（事前指定margin ±0.05）
 
 ![同等性判定](graphs/gpu_run2_20260815_1d91927/figures/fig3_equivalence.png)
 
@@ -840,7 +861,7 @@ Phase 5の失敗事由は `DisallowedPowerExponent` が大半、`expression_eval
   構造holdout noise 0.1では +0.298 [+0.169, +0.427] と、いずれもFT側が有意に悪い。
   全層FT − 事前学習は主splitで +419 [−1252, +2091]（noise 0.0）と区間が極端に広い。
 
-### 7.7 式構造の回復
+### 8.7 式構造の回復
 
 ![族別内訳](graphs/gpu_run2_20260815_1d91927/figures/fig4_family_breakdown.png)
 
@@ -881,7 +902,7 @@ Phase 2 baselineでも NeSymReS は0件、一方 **PySRは57.2%が有理式を�
 全族の対応は [`table5_true_vs_pred_examples.csv`](graphs/gpu_run2_20260815_1d91927/tables/table5_true_vs_pred_examples.csv) と
 [`true_vs_pred.csv`](graphs/gpu_run2_20260815_1d91927/tables/true_vs_pred.csv) にある。
 
-### 7.8 再現バイアス（CTC-NSR型の判定）
+### 8.8 再現バイアス（CTC-NSR型の判定）
 
 GPU_RUN2の再現判定は、NeSymReSの未知の事前学習corpusではなく、**今回のfine-tuning corpusに対するtemplate membership** である。
 
@@ -899,7 +920,7 @@ reproducedな予測に限れば skeleton一致率は1.000、exact一致率は0.0
 すなわち、GPU_RUN2で観測された構造回復は**fine-tuning corpusに存在するtemplateを再現したケースで説明され、
 新しい構造を生成して正解へ到達した証拠は得られていない。**
 
-### 7.9 計算時間
+### 8.9 計算時間
 
 | Phase / segment | 秒 | 時間 | 全体比 |
 |---|---:|---:|---:|
@@ -918,9 +939,9 @@ reproducedな予測に限れば skeleton一致率は1.000、exact一致率は0.0
 probe / CKA / DecoderLensによる表現解析は全体の約0.5%であり、**層候補の絞り込みは安価で、
 decodeを多数繰り返す介入とtest評価が計算時間を支配する。**
 
-## 8. GPU_RUN2の考察
+## 9. GPU_RUN2の考察
 
-### 8.1 本runの主要な発見は「回復失敗の所在が特定できたこと」である
+### 9.1 本runの主要な発見は「回復失敗の所在が特定できたこと」である
 
 GPU_RUN2は「上位層FTが速い・精度が良い」ことを示した実験ではない。
 最大の成果は、**層適応・生成安定性・数値近似・構造回復・外挿性が互いに別の現象であることを、
@@ -929,7 +950,7 @@ GPU_RUN2は「上位層FTが速い・精度が良い」ことを示した実験�
 symbolic recoveryは主splitで最大8.0%（noise 0.0）、構造holdoutで0%、exact一致は全条件で0だった。
 これはGPU_RUN1（未知骨格test全条件0）からの改善ではあるが、回復はすべて1変数線形族G01に集中している。
 
-### 8.2 有理構造の欠落が回復失敗の中心にある
+### 9.2 有理構造の欠落が回復失敗の中心にある
 
 真の式の87.5%（G02–G08）が変数を分母に含む有理式であるのに、NeSymReSは3,000件を超える有効式で
 **一度も変数分母の式を出していない。** これは「回復率が低い」という量的問題ではなく、
@@ -942,9 +963,9 @@ PySRが同じ問題で57.2%の有理式を出していることは、「デー�
 
 **推測**：GRN向けにNeSymReSを適応させる際の律速は、層の選び方でも学習量でもなく、
 事前学習の式prior（sin/exp中心、有理式が希薄）とHill型ODEという対象クラスの不一致にある可能性が高い。
-これはfine-tuning設計の問題であり、次のrunの主要課題の候補である（[§12](#12-今後の展望)。ただし次のrunの内容は未定である）。
+これはfine-tuning設計の問題であり、次のrunの主要課題の候補である（[§13](#13-今後の展望)。ただし次のrunの内容は未定である）。
 
-### 8.3 層別役割は「decoderに構造情報、encoderに系列情報」で複数手法が整合する
+### 9.3 層別役割は「decoderに構造情報、encoderに系列情報」で複数手法が整合する
 
 probe（decoderでテンプレート識別1.000・演算子数 $R^2\approx0.95$）、
 IOLE（6条件すべてで事前学習を下回るのは `decoder_4` のみ）、
@@ -956,12 +977,12 @@ ablation・介入（decoder層で桁違いの崩壊）、勾配ノルム（decod
 GRNへのdomain shiftのかなりの部分が、「数値点集合を理解する能力を作り直す」よりも
 **「内部表現をどの数式token構造へ写像するかを変える」** ことで吸収できる可能性を示す。
 
-ただし限界が2つある。第一に、§7.3のとおり保存rankingの向きに実装上の問題があり、
+ただし限界が2つある。第一に、§8.3のとおり保存rankingの向きに実装上の問題があり、
 「encoder_4が因果的に最重要」という素朴な読み方は撤回しなければならない。
 第二に、正規化contributionが全層NaNであるため、「どの層がどれだけ寄与するか」の定量比較指標が失われている。
 現状で言えるのは**encoder対decoderという粗い機能差の安定性まで**であり、decoder_0/1/3/4の厳密な因果順位は確定していない。
 
-### 8.4 selective FTの価値はparameter効率だけではない
+### 9.4 selective FTの価値はparameter効率だけではない
 
 上位1–3層FTは、主split・構造holdoutの両方で、全層FTより
 （i）domain-ID NMSEが低く、（ii）有効式率が高く、（iii）外挿崩壊が小さい。
@@ -972,7 +993,7 @@ GRNへのdomain shiftのかなりの部分が、「数値点集合を理解す�
 すなわちselective FTは単なる「安い全層FT」ではなく、**事前学習priorを壊しすぎない制約付き適応**として価値がある可能性が高い。
 ただしGPU_RUN2は重み空間のforgettingを直接測っていないため、これは結果から導かれる仮説である。
 
-### 8.5 学習範囲内の改善と外挿の悪化はトレードオフになっている
+### 9.5 学習範囲内の改善と外挿の悪化はトレードオフになっている
 
 domain-IDでは上位層FTが最良（主split noise 0.0で0.0339 対 事前学習0.0533）だが、
 domain-OODでは順序が完全に逆転し、**全条件で事前学習のままが最良**である。
@@ -987,7 +1008,7 @@ domain-OODでは順序が完全に逆転し、**全条件で事前学習のま�
 学習範囲内NMSEだけを成功指標にすると、この劣化はまったく見えない。
 本プロジェクトの「数値精度と式回復を区別する」原則が実際に効いた事例である。
 
-### 8.6 noiseは数値精度より構造同定を壊す
+### 9.6 noiseは数値精度より構造同定を壊す
 
 noise 0.0 → 0.1で最も変化したのはNMSEではなくsymbolic recoveryだった。
 上位1/3層FTのdomain-ID中央値NMSEは0.034–0.040から0.039–0.041へしか動かないのに、
@@ -996,7 +1017,7 @@ skeleton recoveryは12.5%から0%へ落ちる。
 数値回帰としては「NMSEがほぼ同じなので頑健」と評価され得るが、**科学的方程式発見としては頑健ではない。**
 これはSRの評価において、NMSEの頑健性を構造同定の頑健性の代理指標にしてはならないことを示す。
 
-### 8.7 層rankingの付加価値は限定的で、対照も弱い
+### 9.7 層rankingの付加価値は限定的で、対照も弱い
 
 clean条件では上位3層 > 固定random 3層が95%区間で支持されたが、noise 0.1では支持されない。
 さらに主splitのrandom 3層 `decoder_0, decoder_4, decoder_3` は上位3層 `decoder_4, decoder_1, decoder_0` と
@@ -1004,13 +1025,13 @@ clean条件では上位3層 > 固定random 3層が95%区間で支持されたが
 「ranked selection全体 vs random selection全体」を識別する対照としては弱い。
 これは事前固定seedで生成された正当なrandom controlだが、random-set varianceを推定できない。
 
-### 8.8 PySRとの比較は現時点で結論を出せない
+### 9.8 PySRとの比較は現時点で結論を出せない
 
 PySRは有効式のNMSEでNeSymReS系より1桁良く、G01の回復率もnoise 0.1で0.5とFT条件（0.0）を上回る。
 一方で探索秒数中央値が8.0秒 対 3.3–4.2秒で約2倍、有効式率は0.70–0.79と低い。
 **計算budgetが統一されていないため、この比較から手法の優劣は言えない。** これは既知の未解決課題である。
 
-## 9. 仮説ごとの判定と結論
+## 10. 仮説ごとの判定と結論
 
 | 仮説 | 判定 | 根拠 |
 |---|---|---|
@@ -1034,16 +1055,16 @@ PySRは有効式のNMSEでNeSymReS系より1桁良く、G01の回復率もnoise 
 したがって次の研究段階の主課題は「さらにNMSEを下げること」ではなく、
 **事前学習priorと対象式クラスの不一致を埋め、structure-OODとnovel symbolic recoveryを改善すること** である。
 
-## 10. 限界と読み方の注意
+## 11. 限界と読み方の注意
 
-### 10.1 統計的限界
+### 11.1 統計的限界
 
 - **seedがn=3。** 95% Studentのt区間は自由度2で非常に不確実であり、とくに全層FTの不安定性が区間を広げている。
   観測されたseed間ばらつきから、margin ±0.05で判定するには最低でもn=8–10が要る。
-- **random対照が1集合のみ**で、主splitでは上位3層と2/3が重複する（§8.7）。
+- **random対照が1集合のみ**で、主splitでは上位3層と2/3が重複する（§9.7）。
 - 保存された全体のseed安定性はnoise 0.0と0.1のcross-noise pairを含むため、noise別に再計算した値を本READMEでは使用している。
 
-### 10.2 指標の限界
+### 11.2 指標の限界
 
 - **failure-aware中央値は、失敗率が50%未満なら罰則値に到達しない。** 有効式率は補助指標ではなく主結果と同格に読む必要がある。
 - Phase 4のIOLE順位は極端な有限外れ値を含む**平均**NMSEに依存し、Phase 5の主評価は**中央値**である。
@@ -1052,8 +1073,12 @@ PySRは有効式のNMSEでNeSymReS系より1桁良く、G01の回復率もnoise 
 - oracle変数を与えているため variable F1 は0.95以上で飽和し、識別力を持たない。
 - probeに control task 対照 [17] を置いていないため、probeスコアは「層に情報がある」ことと「probeが強力である」ことを分離できていない。
 - CKAはencoder層のみで、encoder–decoder間およびdecoder内部の表現類似度は測っていない。
+- **式回復の指標がすべて0/1判定である。** G02–G08のskeleton recoveryは全条件で0だが、この指標では
+  「有理構造だけを外した式」と「まったく無関係な式」が同じ0になる。予測式と真の式の構造的な近さを
+  連続量で測る指標（変数付き木編集距離 [36]）を入れていないため、**回復失敗の程度に順序を付けられていない。**
+  [§8.7](#87-式構造の回復)の代表例の比較は現時点では定性的な読みにとどまる。
 
-### 10.3 実装上の既知の問題
+### 11.3 実装上の既知の問題
 
 | 問題 | 状態 |
 |---|---|
@@ -1063,7 +1088,7 @@ PySRは有効式のNMSEでNeSymReS系より1桁良く、G01の回復率もnoise 
 | run直下 `manifest.json` の `status` が `running` のまま。リポジトリ側にfinalize成果物が同期されていない | 実行機側では全Phase manifestが `complete`、finalize時 8,940 records・issues 0 と記録されたが、**リポジトリ内では未確認である** |
 | Phase 5主validationの集計工程のみ、無制限の `sympy.simplify` が44分を超えたため別commit（`e6348ae9`）で再実行 | 科学的入力・学習・decode・record単位指標はいずれも変更なし（`continuation_reproduction_aggregation.json`） |
 
-### 10.4 適用範囲の限界
+### 11.4 適用範囲の限界
 
 GPU_RUN2は次を**まったく評価していない**。
 
@@ -1074,17 +1099,17 @@ GPU_RUN2は次を**まったく評価していない**。
 
 したがって本runから実データ適用や新規GRN候補式に関する主張は一切できない。
 
-### 10.5 判断を保留した事項
+### 11.5 判断を保留した事項
 
 - DecoderLensの層別差（正解token平均順位 7.79–9.70）が意味のある差かどうか。パース率が12.6%と低く、順位の解釈可能性が担保されていない。
 - IOLE順位とprobe順位の負の関連。層数が少なく、`encoder_4`・`encoder_5` の発散が順位を支配している可能性がある。
 - noise 0.1で上位層FTのG01回復率が0になる現象。セルあたりn=18であり、偶然の範囲かを判定していない。
 
-## 11. 過去のrunの位置づけ
+## 12. 過去のrunの位置づけ
 
 **以下はGPU_RUN2以前の履歴であり、本研究の現在の主結果ではない。評価設計が異なるため、GPU_RUN2の数値と同一表に混ぜてはならない。**
 
-### 11.1 GPU_RUN1（Colab L4、2026年7月、探索的reduced run）
+### 12.1 GPU_RUN1（Colab L4、2026年7月、探索的reduced run）
 
 3 seeds・noise 0.1でPhase 0–9（合成GRN、DREAM4、ヒトLPS時系列LODO）を実行した。
 到達点は次のとおりで、詳細は [`results/GPU_RUN1_report.md`](results/GPU_RUN1_report.md) と
@@ -1101,14 +1126,14 @@ GPU_RUN2は次を**まったく評価していない**。
 GPU_RUN1は複数の継続runを含む探索的runであり、Phase 7の主集計もDREAM4 networks 1–3に限られる。
 このためGPU_RUN2を固定commitの独立確認実験として実施した。
 
-### 11.2 CPU pilot（legacy）
+### 12.2 CPU pilot（legacy）
 
 Phase 0–8のパイプライン構築と問題発見に使ったlegacy resultである。
 NeSymReS・PySR・TPSRの実行確認、合成GRN生成、層スキャン、DREAM4・ヒト時系列への適用経路を一通り成立させた点に価値がある。
 数値結果は条件別hyperparameter探索やvalidation/test分離より前のものであり、仮説の確証には使わない。
 詳細は [`CPU_RUN/README.md`](CPU_RUN/README.md) と [`results/phase_results/`](results/phase_results/) に残している。
 
-## 12. 今後の展望
+## 13. 今後の展望
 
 > **⚠ この節の内容はすべて未定である。**
 > ここに挙げるのは、GPU_RUN2の結果から導かれる**検討中の選択肢**であって、決定した計画ではない。
@@ -1116,7 +1141,7 @@ NeSymReS・PySR・TPSRの実行確認、合成GRN生成、層スキャン、DREA
 > [`GPU_RUN2/plan.md`](GPU_RUN2/plan.md) に相当する正式な計画書は、次のrunについてはまだ存在しない。
 > 実施が決まった項目だけを、後日この節から計画書へ移す。
 
-### 12.1 保存済みrecordだけで実施できる再解析（GPU再実行不要）
+### 13.1 保存済みrecordだけで実施できる再解析（GPU再実行不要）
 
 以下は追加のGPU実行を必要としないため実施のハードルは低いが、**着手時期も担当も未定である。**
 
@@ -1128,8 +1153,15 @@ NeSymReS・PySR・TPSRの実行確認、合成GRN生成、層スキャン、DREA
 5. symbolic recoveryをG01とG02–G08に分けて報告することを既定にする。8族平均を主指標にしない。
 6. finalize工程を完走させ、`manifest.json` の `status` を `complete` にしてリポジトリへ同期する。
 7. hyperparameter選択が実施されていない事実を、限界として全ての派生文書に明記する。
+8. 保存済みの [`true_vs_pred.csv`](graphs/gpu_run2_20260815_1d91927/tables/true_vs_pred.csv) に対して
+   **変数付き木編集距離 [36]** を計算し、G02–G08で0に飽和しているsymbolic recoveryを
+   構造距離の分布として再集計する。TEDは変数名の対応を代入について最小化するため変数の入れ替えに頑健であり、
+   無順序木の厳密計算はNP困難だが本runの式規模（ノード数十）ならILPベースの実装で扱える見込みである。
+   方程式系単位で比較する場合は原論文の $Pdist$（擬編集距離）側を使う。
+   これは**最優先の再解析候補**である。0/1指標の飽和という[§11.2](#112-指標の限界)の限界に直接対応し、
+   GPU再実行を必要としないため。
 
-### 12.2 次のrunで検討している設計変更（候補・未確定）
+### 13.2 次のrunで検討している設計変更（候補・未確定）
 
 **次のrunを「GPU_RUN3」として実施するかどうかを含め、以下はすべて候補にとどまる。**
 順序は優先度案であって決定ではなく、計算資源と方針次第で入れ替わり得る。
@@ -1148,7 +1180,7 @@ NeSymReS・PySR・TPSRの実行確認、合成GRN生成、層スキャン、DREA
    test-time search（TPSR）、structure-aware reranking、curriculum、noise-aware training、
    pretrained priorを保つ正則化などを比較する。
 
-### 12.3 さらに先の研究課題（時期・実施ともに未定）
+### 13.3 さらに先の研究課題（時期・実施ともに未定）
 
 以下は本研究の残課題として認識しているものであり、**いつ、どのrunで扱うかは決めていない。**
 
@@ -1163,7 +1195,7 @@ NeSymReS・PySR・TPSRの実行確認、合成GRN生成、層スキャン、DREA
 なぜ予測精度とsymbolic recoveryが乖離するか、どの前処理が支配的かは、それ自体が独立した研究成果になり得る。
 **したがって本節は「次に何を確定させたか」の記録ではなく、「何が未決なのか」の一覧として読むこと。**
 
-## 13. 再現方法
+## 14. 再現方法
 
 ### 環境
 
@@ -1214,12 +1246,12 @@ scripts/phases/gpu_run2_phase5_selective_ft.py frozen / full / top1 / top3 / ran
 scripts/ops/finalize_gpu_run2.py               schema検査、真式対予測式表、archive
 ```
 
-## 14. リポジトリ構成
+## 15. リポジトリ構成
 
 リポジトリは「**実行キャンペーン（run別）**」「**共通コード**」「**成果物**」「**参照資料**」の4層に分かれている。
 同じPhaseスクリプトを共有しつつ、runごとの手順書・成果物・図表は完全に分離する方針である。
 
-### 14.1 全体ツリー
+### 15.1 全体ツリー
 
 ```text
 LANSR/
@@ -1269,7 +1301,7 @@ LANSR/
 │   │   ├── splits.py                  train/validation/test と structure holdout の分割
 │   │   ├── finetune_dataset.py        fine-tuning用データセット構築
 │   │   └── nesymres_tokenize.py       数式のtoken化
-│   ├── interpretability/          ★ 層解析（§2.5に対応）
+│   ├── interpretability/          ★ 層解析（§6に対応）
 │   │   ├── probes.py                  線形probe（ridge回帰・分類）、勾配ノルム
 │   │   ├── cka.py                     linear CKA
 │   │   ├── decoder_lens.py            DecoderLens（encoder中間表現をdecoderへ供給）
@@ -1284,7 +1316,7 @@ LANSR/
 │   │   ├── equation_records.py        problem単位の真式・予測式recordのschema
 │   │   ├── reproduction_bias.py       CTC-NSR型の reproduced / novel / novel recovery
 │   │   ├── layer_contribution.py      正規化寄与度 C_l と順位一致表
-│   │   ├── gpu_run2_rankings.py       Phase 4の順位付け（※ 向きの既知問題あり。§7.3）
+│   │   ├── gpu_run2_rankings.py       Phase 4の順位付け（※ 向きの既知問題あり。§8.3）
 │   │   ├── operator_policy.py         演算子allowlistとdecode時token mask
 │   │   ├── decode_timeout.py          30秒timeoutの強制
 │   │   ├── generalization.py          domain-ID / domain-OOD 評価
@@ -1330,7 +1362,7 @@ LANSR/
 ├── results/                       ★ 実行成果物（runごとに分離）
 │   ├── runs/
 │   │   ├── gpu_run2_20260815_1d91927/   ★ GPU_RUN2の正本
-│   │   │   ├── manifest.json                 run全体のprovenance（※ status が running のまま。§10.3）
+│   │   │   ├── manifest.json                 run全体のprovenance（※ status が running のまま。§11.3）
 │   │   │   ├── phase0/preflight.json         環境・checkpoint hash・token mask有効性
 │   │   │   ├── phase1/                       catalogue・splits・生成データ・teacher token監査
 │   │   │   ├── phase2/                       NeSymReS / PySR の validation・test record
@@ -1380,29 +1412,33 @@ LANSR/
 └── data/human/gse112372_lps/      ヒトLPS刺激時系列（GPU_RUN2では未使用）
 ```
 
-### 14.2 読む順序の目安
+### 15.2 読む順序の目安
 
 | 目的 | 見る場所 |
 |---|---|
 | 研究全体を知る | 本README |
 | GPU_RUN2の詳細な根拠を確認する | [`GPU_RUN2/GPU_RUN2_research_report_20260816_claude-science.md`](GPU_RUN2/GPU_RUN2_research_report_20260816_claude-science.md)、[`GPU_RUN2/GPU_RUN2_research_report_20260816_chatGPT.md`](GPU_RUN2/GPU_RUN2_research_report_20260816_chatGPT.md) |
 | GPU_RUN2を再実行する | [`GPU_RUN2/README.md`](GPU_RUN2/README.md) → [`GPU_RUN2/plan.md`](GPU_RUN2/plan.md) |
+| 層解析手法の定義と限界を確認する | [§6](#6-層解析手法) |
 | 層解析の実装を読む | [`src/interpretability/`](src/interpretability/) |
 | 評価指標の定義を確認する | [`src/evaluation/`](src/evaluation/) |
 | 生の数値を確認する | `results/runs/gpu_run2_20260815_1d91927/` と [`graphs/gpu_run2_20260815_1d91927/tables/`](graphs/gpu_run2_20260815_1d91927/tables/) |
 | 過去のrunを知る | [`results/GPU_RUN1_report.md`](results/GPU_RUN1_report.md)、[`CPU_RUN/README.md`](CPU_RUN/README.md) |
 
-### 14.3 配置の規約
+### 15.3 配置の規約
 
 - 実行キャンペーンの入口は [`GPU_RUN2/`](GPU_RUN2/)、[`GPU_RUN1/`](GPU_RUN1/)、[`CPU_RUN/`](CPU_RUN/)。Phaseの実装は共有し、手順書と成果物だけを分ける。
 - 実行中の正本は常にローカルの `results/runs/<run-id>/` である。runをまたいで成果物を混ぜない。
 - 新しく作る独立した図・表は [`graphs/README.md`](graphs/README.md) の規約に従い、`graphs/<run-id>/figures/` または `graphs/<run-id>/tables/` に保存する。
 - 調査用外部コードの方針は [`GitHubSourceCode/README.md`](GitHubSourceCode/README.md)、文書索引は [`docs/README.md`](docs/README.md)、スクリプト索引は [`scripts/README.md`](scripts/README.md) を参照する。
 
-## 15. 参考文献
+## 16. 参考文献
 
 本研究で調査対象として管理している文献・公式実装の一覧は [`source.md`](source.md) に置く。
 以下の参考文献は、[`source.md`](source.md) に掲載されたものだけで構成する。
+**番号は本文の引用記号として使う追加順の識別子であり、重要度の順ではない。**
+重要度の区分は [`source.md`](source.md) の見出し（最重要／重要）を正とする。
+現時点で最重要に置いている文献は **TED [36]**（式の構造距離）と **NSRS [1]**（本研究の基盤モデル）である。
 各項目の先頭の太字は本リポジトリで使う略称であり、原論文PDFは `docs/paper/<略称>_paper.pdf`、
 日本語訳は `docs/translated_paper/<略称>_translated.md` に対応する（DREAM4は `docs/paper/DREAM4.pdf`、訳出なし）。
 公式実装を調査用にクローンしたものは `GitHubSourceCode/<略称>/` にある。
@@ -1509,3 +1545,7 @@ LANSR/
     arXiv:2309.12207, 2023.
     <https://arxiv.org/abs/2309.12207>
     実装：<https://github.com/arthurenard/Boolformer>
+36. **TED**: Akutsu, T., Mori, T., Nakamura, N., Kozawa, S., Ueno, Y., & Sato, T. N. (2021).
+    **Tree Edit Distance with Variables. Measuring the Similarity between Mathematical Formulas.**
+    arXiv:2105.04802.
+    <https://arxiv.org/abs/2105.04802>
