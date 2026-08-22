@@ -70,6 +70,8 @@
 | CPU pilot | パイプライン構築と問題発見のためのlegacy run | [§11](#11-過去のrunの位置づけ)に要約のみ |
 | GPU_RUN1 | Colab L4、3 seeds、DREAM4・ヒト時系列まで含む探索的reduced run | [§11](#11-過去のrunの位置づけ)に要約のみ |
 | **GPU_RUN2** | **ローカルRTX 2070、固定commit、合成GNW式のみの層解析run** | **§6–§10の主結果** |
+| GPU_RUN3 | ND2の再現と層解析 | 本READMEの主結果と混ぜない。入口は [`GPU_RUN3/`](GPU_RUN3/) |
+| GPU_RUN4 | 公開ODEFormer checkpoint（4+12 / 約61M）の再現と層解析。reduced Phase 0–9済み | 本READMEの主結果と混ぜない。入口は [`GPU_RUN4/README.md`](GPU_RUN4/README.md) |
 
 評価設計が世代間で異なるため、**GPU_RUN2の数値を他世代と同一表に混ぜてはならない。**
 
@@ -1226,7 +1228,14 @@ LANSR/
 ├── source.md                      調査対象の文献・公式実装の一覧（参考文献の出典）
 ├── pytest.ini                     テスト設定
 │
-├── GPU_RUN2/                      ★ 現行の主実験キャンペーン
+├── GPU_RUN4/                      ODEFormer公開checkpointの再現と層解析（reduced Phase 0–9）
+│   ├── README.md                  実行順・Phase 0–9結果・設定
+│   ├── plan.md                    計画の正本
+│   └── tests/                     GPU_RUN4固有のテスト
+│
+├── GPU_RUN3/                      ND2の再現キャンペーン
+│
+├── GPU_RUN2/                      ★ 本READMEの主実験キャンペーン（NeSymReS / GNW）
 │   ├── README.md                  実行順・設定・テストの入口
 │   ├── plan.md                    計画の正本（2026-07-29作成、2026-08-12方針改訂）
 │   ├── GPU_RUN2_research_report_20260816_claude-science.md  事実／考察／提案を分離した監査型レポート

@@ -37,6 +37,8 @@ $$
 
 - GPU_RUN1: [`GPU_RUN1/`](GPU_RUN1/)
 - GPU_RUN2: [`GPU_RUN2/`](GPU_RUN2/)（計画・固有テスト。共通コードは `src/`、Phase入口は `scripts/phases/gpu_run2_*.py`）
+- GPU_RUN3: [`GPU_RUN3/`](GPU_RUN3/)（ND2。共通コードは `src/`、Phase入口は `scripts/phases/gpu_run3_*.py`）
+- GPU_RUN4: [`GPU_RUN4/`](GPU_RUN4/)（ODEFormer。計画・固有テスト。共通コードは `src/gpu_run4/`、Phase入口は `scripts/phases/gpu_run4_*.py`）
 - CPU_RUN: [`CPU_RUN/`](CPU_RUN/)
 - 共通コード: `src/`、共通Phase入口: `scripts/`
 
@@ -54,6 +56,7 @@ $$
 - 最新コードでは、validation/test分離、paired seed、Studentのt区間、trajectory分割、failure-aware集計などを修正済み。
 - CPU pilotの数値は研究の方向確認には使えるが、論文レベルの仮説確証として扱わない。
 - GPU_RUN1の数値も探索的なreduced runとして扱い、GPU_RUN2または後続の固定commit確認runと混ぜない。
+- GPU_RUN4は公開ODEFormer checkpoint（4 encoder dim 256 + 12 decoder dim 512、約61M）の再現と16層解析である。論文Tableの4+16 / 約86Mではない。reduced grid（1 seed、noise sigma は 0 と 0.05 のみ）でPhase 0–9まで実施済み。数値は [`GPU_RUN4/README.md`](GPU_RUN4/README.md) と `results/runs/gpu_run4_phase0_01/` を正とし、GPU_RUN2/3と混ぜない。
 - `gpu-scale-prep` はGPU本実験の準備と再現性強化を含む作業ブランチである。`main` との関係は毎回Gitで確認する。
 
 研究状態を更新した場合は、コードだけでなくREADME、GPU_RUN、該当Phaseレポートのどれを更新すべきか検討する。
@@ -128,8 +131,9 @@ DREAM4などの時系列は、trajectoryをtrain/validation/testへ分けてか�
   `third_party/`（または必要に応じて `src/` / `assets/`）へ **コピーしてから** 使う。
   調査ツリーを直接編集・依存しない。コピー後に LANSR 側の互換修正が必要なら、コピー先だけを直し、
   上流との差をコメントまたはコミットに残す。
-- NeSymReS / TPSR の現行配置: 調査用は `GitHubSourceCode/NSRS` と `GitHubSourceCode/TPSR`、
-  実行用コピーは `third_party/nesymres` と `third_party/tpsr`、設定とcheckpointは `assets/nesymres/`。
+- NeSymReS / TPSR / ND2 / ODEFormer の現行配置: 調査用は `GitHubSourceCode/` 配下、
+  実行用コピーは `third_party/nesymres`、`third_party/tpsr`、`third_party/nd2`、`third_party/odeformer`、
+  checkpointは `assets/nesymres/`、`assets/nd2/`、`assets/odeformer/`。
   詳細は [`third_party/README.md`](third_party/README.md)。
   checkpoint を調査ツリーから用意するセットアップ補助（hardlink 等）は実行依存ではない。
 

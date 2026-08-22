@@ -7,8 +7,8 @@
 | 区分 | パス | 扱い |
 |---|---|---|
 | 調査用の完全クローン | `GitHubSourceCode/NSRS`、`GitHubSourceCode/TPSR` ほか | 読書・比較・引用確認用。**importしない** |
-| 実行用の切り出し | `third_party/nesymres`、`third_party/tpsr` | アルゴリズムが使うコピー |
-| 実行用設定・重み | `assets/nesymres/` | config / eq_setting / weights |
+| 実行用の切り出し | `third_party/nesymres`、`third_party/tpsr`、`third_party/nd2`、`third_party/odeformer` | アルゴリズムが使うコピー |
+| 実行用設定・重み | `assets/nesymres/`、`assets/nd2/`、`assets/odeformer/` | config / eq_setting / weights |
 
 コードから `GitHubSourceCode/...` を `sys.path` に載せる、または `from GitHubSourceCode...` する変更は行わない。
 

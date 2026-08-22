@@ -1,0 +1,93 @@
+campaign: GPU_RUN4
+run_name: gpu_run4_local
+output_root: results/runs
+graphs_root: graphs
+provenance: upstream_reproduction
+
+odeformer_package_root: third_party/odeformer
+odeformer_checkpoint: assets/odeformer/weights/odeformer.pt
+odeformer_checkpoint_gdrive_id: 1L_UZ0qgrBVkRuhg5j3BQoGxlvMk_Pm1W
+odeformer_checkpoint_url: https://drive.google.com/uc?id=1L_UZ0qgrBVkRuhg5j3BQoGxlvMk_Pm1W
+odeformer_checkpoint_sha256: 56754040be5aa92ed4767fc43ee2008faa293f87c12b643e66c7df3e1623a5e8
+odeformer_upstream_url: https://github.com/sdascoli/odeformer
+odeformer_pypi: https://pypi.org/project/odeformer/
+odeformer_paper: "d'Ascoli et al., ODEFormer: Symbolic Regression of Dynamical Systems with Transformers, ICLR 2024"
+
+# Official demo / paper inference protocol. Parser CLI defaults are NOT the source of truth.
+paper_protocol:
+  beam_size: 50
+  beam_temperature: 0.1
+  beam_type: sampling
+  rescale: true
+  candidate_selection_metric: reconstruction_r2
+
+# Recorded for Phase 0 paper-vs-source-vs-checkpoint audit only.
+parser_defaults:
+  n_enc_layers: 4
+  n_dec_layers: 12
+  enc_emb_dim: 256
+  dec_emb_dim: 256
+  n_enc_heads: 16
+  n_dec_heads: 16
+  beam_size: 1
+  beam_type: sampling
+  beam_temperature: 0.1
+  enc_positional_embeddings: null
+  share_inout_emb: true
+
+paper_architecture:
+  n_encoder_layers: 4
+  n_decoder_layers: 16
+  embedding_dim: 512
+  n_attention_heads: 16
+  approx_total_parameters: 86000000
+  encoder_positional_embeddings: null
+
+seed_bundles:
+  - {data_seed: 101, model_seed: 0, permutation_seed: 1001, corruption_seed: 1101}
+  - {data_seed: 202, model_seed: 1, permutation_seed: 1002, corruption_seed: 1102}
+  - {data_seed: 303, model_seed: 2, permutation_seed: 1003, corruption_seed: 1103}
+
+timeouts:
+  beam_decode_sec: 180.0
+  candidate_integration_sec: 30.0
+  generalization_integration_sec: 30.0
+  bfgs_sec: 30.0
+  symbolic_equivalence_sec: 10.0
+  ted_sec: 10.0
+
+smoke:
+  beam_size: 50
+  n_demo_points: 150
+  n_seeds: 1
+  ode_ids: [2, 24, 27, 54]
+  noise_sigmas: [0.0, 0.05]
+  subsample_rhos: [0.0, 0.5]
+  opt_ids: [24]
+  n_corpus_train: 16
+  n_corpus_val: 8
+  n_corpus_test: 8
+  n_panel: 4
+  ft_steps: 2
+  ft_lr: 0.0001
+  n_random_sets: 3
+
+full:
+  beam_size: 50
+  n_demo_points: 150
+  n_seeds: 1
+  noise_sigmas: [0.0, 0.05]
+  subsample_rhos: [0.0, 0.5]
+  opt_ids: [9, 16, 27, 40, 52, 54, 62, 63]
+  n_corpus_train: 48
+  n_corpus_val: 16
+  n_corpus_test: 16
+  n_panel: 8
+  ft_steps: 4
+  ft_lr: 0.0001
+  n_random_sets: 3
+
+architecture_target: released_checkpoint_4enc_12dec_61M
+fail_fast_on_oom: true
+allow_cpu: false
+python_required: "3.10"
