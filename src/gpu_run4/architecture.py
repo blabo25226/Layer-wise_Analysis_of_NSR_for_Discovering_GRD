@@ -369,16 +369,20 @@ def ranking_block_modules(model: Any, ranking_name: str) -> dict[str, Any]:
         index = int(ranking_name.split("_")[1])
         return {
             "attn": wrapped.encoder.attentions[index],
+            "norm_attn": wrapped.encoder.layer_norm1[index],
             "ffn": wrapped.encoder.ffns[index],
             "cross": None,
+            "norm_cross": None,
             "norm_out": wrapped.encoder.layer_norm2[index],
         }
     if ranking_name.startswith("decoder_"):
         index = int(ranking_name.split("_")[1])
         return {
             "attn": wrapped.decoder.attentions[index],
+            "norm_attn": wrapped.decoder.layer_norm1[index],
             "ffn": wrapped.decoder.ffns[index],
             "cross": wrapped.decoder.encoder_attn[index],
+            "norm_cross": wrapped.decoder.layer_norm15[index],
             "norm_out": wrapped.decoder.layer_norm2[index],
         }
     raise KeyError(f"unknown ranking layer: {ranking_name}")

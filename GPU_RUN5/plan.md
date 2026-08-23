@@ -602,7 +602,8 @@ Family holdout view では R07 / R08 を一切FTに使わない。
 - **model selection / early stopping の基準**: GRN validation の **failure-aware formula score**
   （定義は §6.4 の主要軸から Phase 0 で1つに固定し、test前に凍結する）
 - CE は補助指標として保存する
-- token category 別CE（variable / `inv` / integer power / mul / add-sub / constants / separator / EOS）も保存する
+- token category 別CEも保存する。固定カテゴリは variable / `inv` / integer power / multiplication /
+  addition / constant / separator / EOS / padding / other operator とし、数値の各種prefix表現は constant へ統合する。
 
 ## 10.4 Hyperparameter探索の公平性（codexレビュー修正点3）
 
@@ -662,8 +663,10 @@ GPU_RUN2ではrandom対照が1集合で上位3層と2/3重複していた（READ
 
 ## 11.3 DecoderLens / decoder-side readout
 
-- **encoder intermediate decoding**: encoder各層の出力をPMA pooling（`outatt`）へ通して decoder の
-  cross-attention memory として与える。[`src/interpretability/decoder_lens.py`](../src/interpretability/decoder_lens.py) を移植。
+- **encoder intermediate decoding**: ODEFormerのencoderは系列Transformerであり、NeSymReSのPMA pooling
+  （`outatt`）を持たない。したがってencoder各層のpost-block系列出力を、そのままdecoderの
+  cross-attention memoryとして与える（PMAを持つ別architecture用の
+  [`src/interpretability/decoder_lens.py`](../src/interpretability/decoder_lens.py) は流用しない）。
   **限界を明記する**: decoder は最終encoder表現を受け取るよう学習されており、これは distribution shift である。
   パース率の絶対値を通常のdecode性能として読まない。層間の**相対比較にのみ**使う（README §6.3）。
 - **decoder-side intermediate readout（logit lens）**: decoder各層のhiddenを最終層のoutput projectionへ通す。
@@ -884,7 +887,9 @@ Go: **Go 4**。予算: **約4 h**。
 
 ## Phase 4: Track D — 公式corpus と観測的層解析
 
-- 公式generator から 2,000 / 500 / 500 を生成、skeleton漏洩監査、teacher-forcing CE baseline
+- 公式generator から 2,000 / 500 / 500 を生成、skeleton漏洩監査、teacher-forcing CE baseline。
+  3 splitとも `gen_expr(train=True)` の同一generator分布から生成してformula/skeleton単位で分離する。
+  testはin-distributionであり、generator-distribution OODとは呼ばない
 - encoder 4層 + **decoder 12層** の probe（label-shuffle control 付き、式単位分割）
 - gradient norm（正規化・生の両方）、CKA（module内のみ）
 - encoder intermediate decoding、decoder-side logit lens、token category 深度曲線、greedy formula TED 軌跡
