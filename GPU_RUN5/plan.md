@@ -767,7 +767,8 @@ Phase 4までの結果を使って介入方式を事後選択しないため、P
   `damage_TED = median(TED_intervention - TED_baseline)` のSpearman相関とする。
   tiesはaverage rank、NaN/constantは判定不能であり支持扱いしない。$`\rho\le0.5`$ をP5支持とする
 - causal rankはformula劣化だけをlexicographicに並べる（component exact loss、failure-aware TED増加、
-  component valid loss、generalization $`R^2`$ loss、最後に固定layer名）。CE/probe/CKAを混ぜない
+  component valid loss、最後に固定layer名）。generalization $`R^2`$ lossは診断として保存するが順位へ使わず、
+  CE/probe/CKAも混ぜない
 - family-holdout用causal rankはR06 validation 10 systemだけから別に作り、main rankを流用しない
 
 ## 12.5 Phase 6--8の計算量・firewall追補（2026-08-24）
