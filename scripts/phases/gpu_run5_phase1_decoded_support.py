@@ -251,7 +251,11 @@ def main() -> int:
     write_json(out / "decoded_support.json", summary)
     write_json(out / "go.json", go)
     status = "complete" if all(go.values()) else "incomplete"
-    write_manifest(out, 1, status, go_conditions=go, summary=summary, git=git_info(), test_accessed=False)
+    artifact_names = ["selected_annotated.json", "candidates_annotated.json", "decoded_support.json", "go.json"]
+    write_manifest(
+        out, 1, status, go_conditions=go, summary=summary, git=git_info(), test_accessed=False,
+        artifact_sha256={name: sha256_file(out / name) for name in artifact_names},
+    )
     print(f"GPU_RUN5 Phase 1 {status}: {summary}")
     return 0 if status == "complete" else 1
 

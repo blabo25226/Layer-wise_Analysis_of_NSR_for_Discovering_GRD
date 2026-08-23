@@ -326,6 +326,11 @@ def main() -> int:
     write_json(out / "go.json", go)
     shutil.copy2(CONFIG_PATH, out / "config_frozen.yaml")
     shutil.copy2(prereg_path, out / "preregistration.json")
+    artifact_names = [
+        "checkpoint_audit.json", "vocabulary_audit.json", "teacher_tokenization_audit.json",
+        "throughput.json", "freeze_decision.json", "gpu_run4_finalize_audit.json", "go.json",
+        "config_frozen.yaml", "preregistration.json",
+    ]
     write_json(out / "manifest.json", {
         "campaign": "GPU_RUN5", "phase": 0, "status": status, "at_utc": utc_now(),
         "run_id": args.run_id, "git": current_git, "hardware": hardware_identity(), "software": software_versions(),
@@ -333,6 +338,7 @@ def main() -> int:
         "argv": sys.argv, "elapsed_seconds": time.perf_counter() - phase_started,
         "test_accessed": False, "config_sha256": sha256_file(CONFIG_PATH),
         "preregistration_sha256": sha256_file(prereg_path), "go_conditions": go,
+        "artifact_sha256": {name: sha256_file(out / name) for name in artifact_names},
     })
     print(f"GPU_RUN5 Phase 0 {status}: {go}")
     return 0 if status == "complete" else 1
