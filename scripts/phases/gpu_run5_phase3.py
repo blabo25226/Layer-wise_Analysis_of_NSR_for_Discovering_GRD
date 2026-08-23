@@ -415,14 +415,19 @@ def _aggregate(cells: list[dict[str, Any]], config: dict[str, Any], out: Path, p
         groups.append({
             "cell_id": cell["cell_id"], "system_id": cell["system_id"], "family": cell["family"],
             "bundle_index": cell["bundle_index"], "noise_sigma": cell["noise_sigma"], "subsample_rho": cell["subsample_rho"],
-            "candidate_set_hash": cell["candidate_set_hash"], "n_candidates": len(candidates),
+            "candidate_set_hash": cell["candidate_set_hash"], "candidate_seed": cell["candidate_seed"],
+            "n_candidates": len(candidates),
             "true_exponent_aware_skeleton_in_beam": exact_in_beam,
             "component_true_exponent_aware_skeleton_in_beam": component_support,
             "selected_indices": selected_by_rule, "budget_curve": unique_curve,
         })
     p6 = _paired_p6(selected, cells, penalty)
     write_json(out / "all_candidates.json", sanitize_nonfinite([
-        {**{key: cell[key] for key in ("cell_id", "system_id", "family", "dimension", "bundle_index", "noise_sigma", "subsample_rho", "candidate_set_hash")}, **candidate}
+        {**{key: cell[key] for key in (
+            "cell_id", "system_id", "family", "dimension", "split", "bundle_index",
+            "noise_sigma", "subsample_rho", "candidate_set_hash", "candidate_seed",
+            "true_formula", "true_prefix",
+        )}, **candidate}
         for cell in cells for candidate in cell["candidates"]
     ]))
     write_json(out / "selected.json", sanitize_nonfinite(selected))
@@ -469,6 +474,8 @@ def main() -> int:
     checkpoint_sha = sha256_file(checkpoint)
     model = load_odeformer_model(checkpoint, device=device)
     git = git_info()
+    if git["status_short"]:
+        raise RuntimeError(f"authoritative Phase 3 requires a clean worktree: {git['status_short']}")
     cache_identity = {
         "schema_version": "gpu_run5_phase3_cell_v2_observed_reranking",
         "git_commit": git["commit"], "git_status_short": git["status_short"],
