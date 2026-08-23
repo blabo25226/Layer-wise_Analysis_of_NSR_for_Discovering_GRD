@@ -207,6 +207,10 @@ def load_odeformer_model(checkpoint: Path, *, device: str) -> Any:
             )
     if not hasattr(model, "encoder") or not hasattr(model, "decoder"):
         raise RuntimeError(f"ArchitectureMismatch: loaded type {type(model)!r} has no encoder/decoder")
+    # Backward-compatible default for checkpoints pickled before GPU_RUN5 added
+    # an explicit sampling seed to the vendored ModelWrapper.
+    if not hasattr(model, "generation_seed"):
+        model.generation_seed = 0
     model.to(device)
     model.eval()
     model.device = torch.device(device)
@@ -230,6 +234,7 @@ def make_symbolic_regressor(
     beam_size: int,
     beam_temperature: float,
     beam_type: str = "sampling",
+    generation_seed: int = 0,
 ) -> Any:
     """Wrap a loaded ModelWrapper with the official sklearn API and paper beam settings."""
     install_odeformer_path()
@@ -241,6 +246,7 @@ def make_symbolic_regressor(
             "beam_size": int(beam_size),
             "beam_temperature": float(beam_temperature),
             "beam_type": str(beam_type),
+            "generation_seed": int(generation_seed),
         }
     )
     return regressor

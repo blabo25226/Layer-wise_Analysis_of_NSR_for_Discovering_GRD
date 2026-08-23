@@ -1,0 +1,30 @@
+{
+  "campaign": "GPU_RUN5",
+  "frozen_on": "2026-08-23",
+  "status": "preregistered_before_new_gpu_run5_outcomes",
+  "primary_outcomes_ordered": [
+    "component_exponent_aware_skeleton_exact",
+    "component_variable_aware_ted",
+    "true_skeleton_in_beam",
+    "generalization_ic_failure_aware_error",
+    "valid_rate"
+  ],
+  "predictions": {
+    "P3": {"metric": "grn_test_frozen_exponent_aware_skeleton_exact", "operator": "<", "threshold": 0.05},
+    "P4": {"metric": "grn_test_frozen_reconstruction_r2_median_and_P3", "operator": "and", "clauses": [{"metric": "grn_test_frozen_reconstruction_r2_median", "operator": ">=", "threshold": 0.85}, {"prediction": "P3", "operator": "is", "threshold": true}]},
+    "P5": {"metric": "layer_delta_ce_vs_delta_ted_spearman", "operator": "<=", "threshold": 0.5},
+    "P6": {"metric": "multi_ic_minus_single_ic_generalization_error_ci95_upper", "operator": "<", "threshold": 0.0},
+    "P7": {"metric": "selective_better_than_full_and_less_odebench_forgetting", "operator": "and", "clauses": [{"metric": "grn_test_formula_lexicographic_rank", "left": "grn_top3", "operator": "better_than", "right": "grn_full"}, {"metric": "odebench_exponent_aware_skeleton_drop_from_frozen", "left": "grn_top3", "operator": "<", "right": "grn_full"}]}
+  },
+  "retrospective_hypotheses": {
+    "R4": {"metric": "odebench_candidate_variable_denominator_rate", "operator": ">=", "threshold": 0.05},
+    "R5": {"metric": "odebench_variable_denominator_selected_exponent_aware_skeleton_exact_count", "operator": "==", "threshold": 0, "n_cells": 56}
+  },
+  "selection_and_test_firewall": {
+    "ranking_split": "validation_only",
+    "hyperparameter_split": "validation_only",
+    "candidate_selection_split": "input_plus_selection_ic_only",
+    "generalization_ic_used_for_selection": false,
+    "test_evaluation_policy": "once_after_freeze"
+  }
+}

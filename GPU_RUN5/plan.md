@@ -1,7 +1,7 @@
 # GPU_RUN5 計画 — ODEFormerのGRN構造適応、多軌道候補選択、層解析の接続
 
 - 作成日: 2026-08-23
-- 状態: **Draft v1.0（統合正本）**
+- 状態: **Draft v1.1（Phase 0実体監査修正中、Go 1後にFixedへ昇格）**
 - 主モデル: 公開ODEFormer checkpoint（4 encoder + 12 decoder、60,646,773 parameters）
 - 前世代: [`GPU_RUN4/plan.md`](../GPU_RUN4/plan.md) / [`GPU_RUN4/GPU_RUN4_research_report_20260819.md`](../GPU_RUN4/GPU_RUN4_research_report_20260819.md)
 - 成立過程: [`plan-codex.md`](plan-codex.md) と [`plan-claudecode.md`](plan-claudecode.md) の2案、および相互レビューを統合した
@@ -81,17 +81,21 @@ GPU_RUN5で追加する指標（§6）は、既存定義を置き換えるので
 
 ## 2.1 実行上の前提条件
 
-- GPU_RUN4の `results/runs/gpu_run4_phase0_01/` は gitignore であり、**本リポジトリの作業ツリーに存在しない**。
-  Phase 0はまず実行機からの同期から始める。同期できない場合、Track Aは Phase 2 の再推論（約20分）へ置き換わる。
+- GPU_RUN4の `results/runs/gpu_run4_phase0_01/` はgitignoreだが、Phase 0実体監査時点の実行機に存在する
+  （302 files、約44 MB）。Track Aは保存済みrecordを使い、再推論しない。
 - GPU_RUN4の `manifest.json` の `status` が `running` のままである（GPU_RUN4 §7）。
-  Phase 0でfinalizeを完走させ `complete` にしてから、GPU_RUN5のrecordを書き始める。
+  Phase 1--9 manifestがすべて`complete`であることを監査したうえで、Phase 0でroot manifestを`complete`へfinalizeしてから、
+  GPU_RUN5のrecordを書き始める。
+- Track Aの全候補は `phase2/all_candidates.json` の `condition=odeformer` にある。
+  `phase3/beam_groups.json` は252 groupの集約であり、全候補recordではない。
+  `phase2/selected.json` は`odeformer` 252件と`odeformer_opt` 32件の計284件なので、主解析では前者へfilterする。
 
 ---
 
 # 3. Phase 0で確認する事実 — ODEFormerの演算子分布
 
-本計画作成時に vendored copy を読み、次を確認した。**これは既定値であり、公開checkpointの学習時設定と一致する保証はない。
-Phase 0でcheckpointの `params` から実際の設定を読み、一致しなければ本節を訂正してから先へ進む。**
+Phase 0のcheckpoint実体監査で、公開checkpointの `params.operators_to_use` が次の設定と一致することを確認した。
+同時に `max_dimension=6`、`max_generated_output_len=200` を固定した。
 
 [`generators.py:46-70`](../third_party/odeformer/odeformer/envs/generators.py) と
 [`environment.py:681`](../third_party/odeformer/odeformer/envs/environment.py) より、演算子サンプリングの既定は
@@ -168,10 +172,13 @@ claudecode案は「層解析corpusは公式generatorのみ」「GRN suiteはFT�
 
 ## 5.1 D1: ODEBench（Track A、保存済みrecordの再解析）
 
-GPU_RUN4の `phase2/selected.json`（252 cell）と `phase3/beam_groups.json`（252 group × 最大50候補 ≒ 12,600候補）を使う。
+GPU_RUN4の `phase2/selected.json` から `condition=odeformer` の252 cellを抽出し、
+`phase2/all_candidates.json` から同条件の全候補（252 group × 最大50候補）を使う。
 新規推論なし。
 
-本計画作成時の暫定集計で、ODEBench 63系のうち**変数分母を持つ系は15系**である。Phase 0で §6.1 の定義により正式に確定する。
+Phase 0のcanonical tree監査で、ODEBench 63系のうち**変数分母を持つ系は14系**と確定した。
+当初表の#38は定数分母のみ、#60は分母なしであり、#35の`cot=cos*inv(sin)`が欠落していた。
+この14系のうち代数的な有理式は9系である。
 
 | id | dim | 内容 | 真式（抜粋） | 形式 |
 |---|---|---|---|---|
@@ -183,16 +190,15 @@ GPU_RUN4の `phase2/selected.json`（252 cell）と `phase3/beam_groups.json`（
 | **20** | 1 | **Autocatalytic gene switching** | `c_0 - c_1*x_0 + x_0^2/(1+x_0^2)` | **Hill n=2、GRN** |
 | **22** | 1 | **Hysteretic activation of a protein expression** | `c_0 + c_1*x_0^5/(c_2+x_0^5) - c_3*x_0` | **Hill n=5、GRN** |
 | 33 | 2 | Glider | `... \| x_0 - cos(x_1)/x_0` | 変数分母 |
-| 38 | 2 | Van der Pol (simplified) | `c_0*(x_1 - x_0^3/3 + x_0) \| -x_0/c_0` | 定数分母のみ |
+| 35 | 2 | Driven pendulum | `... cot(x_0) ...` | `cos(x_0)*inv(sin(x_0))`として変数分母 |
 | 42 | 2 | Chlorine dioxide–iodine–malonic acid | `c_0 - x_0 - c_1*x_0*x_1/(1+x_0^2) \| ...` | **Hill型** |
 | 47 | 2 | Binocular rivalry (no oscillations) | `-x_0 + 1/(1+exp(c_0*x_1-c_1)) \| ...` | sigmoid |
 | 48 | 2 | Bacterial respiration | `c_0 - x_0 - x_0*x_1/(1+c_1*x_0^2) \| ...` | **Hill型** |
 | 53 | 3 | Apoptosis | `c_0 - c_5*x_1*x_0/(c_9+x_0) - c_4*x_0 \| ...` | **Hill n=1** |
-| 60 | 3 | Aizawa attractor | 変数分母を含む | 変数分母 |
 | 62 | 4 | Binocular rivalry with adaptation | `-x_0 + 1/(1+exp(c_0*x_2+c_1*x_1-c_2)) \| ...` | sigmoid |
 
 **#20 と #22 は README §2.1 が定義するHill型遺伝子制御式そのものである。**
-GPU_RUN4でskeleton一致した6系（1, 2, 6, 9, 12, 31）は**この15系と1つも重複しない。**
+GPU_RUN4でskeleton一致した6系（1, 2, 6, 9, 12, 31）は**この14系と1つも重複しない。**
 定性パネルの系62について GPU_RUN4 §3.5 は「sigmoidを線形で代用」（TED 36）と記録している。
 
 層別軸: 形式分類（§6.1）、次元（1/2/3/4）、corruption（$`\sigma\in\{0,0.05\}`$ × $`\rho\in\{0,0.5\}`$）。
@@ -242,10 +248,15 @@ Hill係数は $`n\in\{1,2,4\}`$。パラメータはLatin hypercubeで振る。
 | GRN validation | 10 | 80 | 層ranking、hyperparameter、選択規則、early stopping |
 | GRN test | 10 | 80 | 最終評価（一度だけ） |
 
+main splitは全splitにR01--R08を含む**parameter / trajectory holdout**であり、family skeletonの重複を許す。
+system ID、parameter variant、trajectory checksumの重複は許さない。
+
 **Family holdout view**（構造OOD）: train R01–R05 / validation R06 / test R07–R08。
 G02/G03型の代数template共有と同様、R03/R05 や R07/R08 は部分templateを共有し得るため、
 **canonical skeleton fingerprintを監査し、trainとtestのskeletonが実際に非重複の場合だけ structure-OOD と記載する。**
 無条件に「完全なskeleton-OOD」と呼ばない。
+main split用checkpointはR01–R08をtrainに含むため、family-holdout評価へ流用しない。
+**family-holdoutはR01–R05だけで学習・rankingした別checkpoint**を作り、R06だけで選択した後にR07–R08を一度だけ評価する。
 
 ### 5.2.4 初期条件の役割分割（codex案 §5.5）
 
@@ -322,12 +333,13 @@ GPU_RUN4のPhase 4は80式で99秒（約1.24 s/式）。既定3,000式は約62�
 
 介入後decodeは高価なので固定パネルを使う。**成功例を後から選ばない。**
 
-GRN validation と GRN test それぞれから、次で層別してID順に機械的に抽出する。
+GRN validationから、次で層別してID順に機械的に抽出する。
 
 - dimension 1 / 2 / 3 から各8 system
 - family が偏らないよう family あたり最大4 system
 
-計 **24 system**（validation用24 + test用24を別に固定）。公式corpus側にも同規模の対照パネルを1つ固定する。
+計 **24 system**。公式corpus validation側にも同規模の対照パネルを1つ固定する。
+GRN testパネルはPhase 8の一度きりtest後にのみ診断用として生成でき、層・強度・設定の選択へ使わない。
 
 ---
 
@@ -346,12 +358,15 @@ variable_denominator_form(e)  ⟺ ある denominator 部分木が変数ノード
 algebraically_rational(e)     ⟺ e 全体が P(x)/Q(x)（P, Q は多項式）へ書ける。
                                  transcendental（exp, log, sin, cos, tan, sqrt）を含めば False
 hill_form(e)                  ⟺ 部分式が c·u^n/(K^n + u^n) または c·K^n/(K^n + u^n) の形
-                                 （u は変数、n は正整数）へ一致する。affine変換は許す
+                                 （cとKは数値または定数symbol、uは単一変数、nは明示的な正整数）へ一致する。
+                                 状態依存係数を掛けたmodulated Hill項は別タグとし、strict `hill_form`へ含めない
 sigmoid_saturating_form(e)    ⟺ 部分式が c/(1 + exp(affine(x))) の形
 ```
 
 - 多成分系では**成分ごとに判定し、系レベルは「いずれかの成分がTrue」**。成分別内訳も保存する。
 - 集計は4フラグを**必ず分けて報告する**。合算した単一の「有理式率」を主表に置かない。
+- 「有理式群」は `variable_denominator_form AND algebraically_rational` の積集合を
+  `rational_with_variable_denominator` と明記する。$`Q=1`$の多項式をこの群へ含めない。
 
 ## 6.2 表記の規律（codexレビュー修正点2後半）
 
@@ -496,6 +511,12 @@ GPU_RUN4は1643行の計画に対し、実行は corpus 80式・4 Adam step と�
 
 RTX 2070 専有で3–4日。**Phase 0 のthroughput pilot で実測し、乖離が2倍を超えたら §8.3 の縮退を1段深める。**
 
+2026-08-23のprovisional pilot（dirty treeのためGo 1には不使用）では、RTX 2070上のbeam 50が
+1.78秒/cell、1 forward/backwardが0.179秒、peak allocated VRAMが約0.97 GBだった。
+beam推論は§8.1のGPU_RUN4実測1.89秒/cellと整合し、2倍超過ではないため、**§8.3の既定縮退を維持する。**
+同一candidate seedでは候補集合が再現し、異なるseedでは候補集合が変わることも確認した。
+authoritative Phase 0は、実験前固定commit後のclean treeで再実行する。
+
 ---
 
 # 9. 多軌道候補選択（Track B、codex案 §8）
@@ -613,6 +634,7 @@ claudecode案は full FT で選んだ点を全単層条件へ押し付ける設�
 
 GPU_RUN2ではrandom対照が1集合で上位3層と2/3重複していた（README §9.7）。GPU_RUN4は3集合。
 **GPU_RUN5は5集合とし、random-set variance を推定する。**
+最終testへ送るrandom代表はvalidation成績で選ばず、事前に`random3_0`へ固定する。
 
 ---
 
@@ -721,9 +743,11 @@ GPU_RUN4の結果と一部の予測式を既に読んだ後の項目を、厳密
 
 | # | 集計 | 事前に固定する内容 |
 |---|---|---|
-| **R1** | ODEBench 15系（変数分母）の形式別内訳 | §6.1 の4フラグで分類し、Hill / sigmoid / その他を分けて報告する |
+| **R1** | ODEBench 14系（変数分母）の形式別内訳 | §6.1 の4フラグで分類し、Hill / sigmoid / その他を分けて報告する |
 | **R2** | selected 予測と全beam候補（約12,600件）の形式別 candidate support | 4フラグそれぞれの率を、真式の形式・次元・corruption で層別する |
 | **R3** | 有理式系 対 非有理式系の skeleton / exponent-aware skeleton / TED / recon / gen | 有理式側の skeleton exact を 0 と仮定せず、そのまま報告する |
+| **R4** | ODEBench beam候補の `variable_denominator_form` 率 | 保存済み候補に対するretrospective hypothesisとして5%以上かを判定する |
+| **R5** | 変数分母14系（56 cell）の exponent-aware skeleton exact | 保存済みselectedに対するretrospective hypothesisとして0件かを判定する。candidate内truth supportも別に報告する |
 
 ## 13.2 P群: 新規データ・新規実験に対する前向き予測
 
@@ -731,15 +755,13 @@ GPU_RUN4の結果と一部の予測式を既に読んだ後の項目を、厳密
 
 | # | 予測 | 反証条件 |
 |---|---|---|
-| **P1** | §3 の generator 設定（`inv` が単項抽選の1/6）から、ODEBench beam候補の `variable_denominator_form` 率は **5%以上**である | 5%未満なら §3 の読みが誤りか、checkpointの学習設定が既定と異なる |
-| **P2** | それにもかかわらず、ODEBench 有理式15系の `exponent_aware_skeleton_exact` は **0/60 cell** である | 1件でも出れば「生成できるが選べない」という枠組みが弱まる |
 | **P3** | GRN test（R01–R08）の frozen `exponent_aware_skeleton_exact` は **0.05未満**である | 0.05以上なら ODEFormer は既にGRN構造を回復できており、本研究の主課題が変わる |
 | **P4** | GRN test の frozen reconstruction $`R^2`$ 中央値は **0.85以上**である一方、P3 は成立する（当てはまるが構造は違う） | recon中央値が0.85未満なら、失敗の原因は構造ではなく軌道の当てはめ自体であり解釈が変わる |
 | **P5** | 介入後decodeで、$`\Delta`$CE 順位と $`\Delta`$TED 順位の Spearman $`\rho`$ は **0.5以下**である（CEで測った層重要度は式回復の層重要度と別物） | $`\rho>0.5`$ なら CE は symbolic recovery の妥当な代理指標であり、GPU_RUN4の層順位を読み直せる |
 | **P6** | multi-IC selection は single-trajectory selection に対し、generalization-IC の failure-aware error を **改善する**（paired比較で95%区間が0を跨がない） | 改善しなければ、GRNの識別不能性は初期条件の追加では解けない |
 | **P7** | GRN selective FT は GRN full FT より formula-level score が良く、かつ ODEBench forgetting が小さい | 逆なら「少数層FTがpriorを保護する」というGPU_RUN2の解釈がODEFormerで否定される |
 
-**P1が的中しP2も的中する組み合わせが、本runの中心シナリオである。**
+**retrospective R4とR5がともに成立する組み合わせが、本runの中心シナリオである。**
 その場合、研究の主課題は「有理式priorの欠落」から **「有理式を出せるのに正しいものを選べない／正しい指数を出せない」** へ移る。
 
 ---
@@ -801,12 +823,12 @@ run-id: `gpu_run5_<yyyymmdd>_<commit8>`。Phase単位でresume可能にする。
 
 目的: **GPU_RUN5の主張を後から動かせない状態にする。**
 
-- LANSR commit・ODEFormer upstream commit・dirty status の固定
+- LANSR commit・vendored ODEFormer Git tree / directory fingerprint・dirty status の固定
 - checkpoint SHA256 と architecture inventory の再監査（parser default を根拠にしない）
-- **checkpoint の `params` から `operators_to_use` と `max_dimension` を読み、§3 の記述を検証・訂正する**
+- **checkpoint の `params` から `operators_to_use`、`max_dimension`、`max_generated_output_len` を読み、§3 の記述を検証・訂正する**
 - GPU_RUN4 `results/runs/gpu_run4_phase0_01/` の同期と finalize 完走（`status: complete`）
 - **§6.1 の4形式フラグと §6.3 の構造指標の定義を凍結**
-- **§13.2 の予測 P1–P7 を数値つきでcommit**
+- **§13.2 の前向き予測 P3–P7を数値つきでcommit**
 - R01–R08 teacher tokenization / target length / `inv`・整数べきの decode mask audit（§10.1）
 - RTX 2070 での memory / throughput pilot → §8.3 の縮退規則の適用判断
 - corpus規模、seed数、主grid、model selection score、run-id、保存schema の凍結
@@ -817,9 +839,10 @@ Go: **Go 1**。予算: **1日、GPU ほぼ不要**。
 
 ## Phase 1: Track A — ODEBench再解析
 
-- `phase2/selected.json`（252 cell）と `phase3/beam_groups.json`（約12,600候補）へ4形式フラグを付与
-- R1–R3 の集計を実行、P1・P2 を判定
-- 有理式15系の予測式を定性表として保存（系62「sigmoidを線形で代用」TED 36 を含む）
+- `phase2/selected.json` の `condition=odeformer`（252 cell）と
+  `phase2/all_candidates.json` の同条件（約12,600候補）へ4形式フラグを付与
+- R1–R5 の集計を実行、retrospective R4・R5 を判定
+- 変数分母14系の予測式を定性表として保存（系62「sigmoidを線形で代用」TED 36 を含む）
 
 主成果: `phase1/decoded_support.json`、形式別比較表。
 Go: **Go 2**。予算: **数分、GPU不要**（同期不能なら Phase 2 再推論で約20分）。
@@ -829,7 +852,8 @@ Go: **Go 2**。予算: **数分、GPU不要**（同期不能なら Phase 2 再�
 ## Phase 2: Track B — 閉じたGRN corpus と評価器
 
 - R01–R08 × variant を生成、数値積分で軌道化、棄却理由を記録
-- main split と family holdout split、**canonical skeleton fingerprint による漏洩監査**
+- main split のsystem / parameter variant / trajectory漏洩監査、family holdout splitの
+  **canonical skeleton fingerprint による構造重複監査**
 - input / selection / generalization IC の分割
 - canonical truth と teacher expression の代数的同値test
 - component-level / system-level TED の算出経路確認
@@ -846,7 +870,8 @@ Go: **Go 3**。予算: **CPU数十分**。
 - candidate budget / diversity 比較（validation のみ）
 - structural oracle gap、unique skeleton と oracle TED の budget curve
 - failure taxonomy（§9.3）
-- **P3・P4・P6 を判定**
+- validation上でgeneration / selectionを診断し、P6を判定する。
+  **P3・P4のGRN test判定は行わず、Phase 8の一度きりtestへ送る**
 
 主成果: generation → selection → integration の failure funnel。
 Go: **Go 4**。予算: **約4 h**。
@@ -859,7 +884,8 @@ Go: **Go 4**。予算: **約4 h**。
 - encoder 4層 + **decoder 12層** の probe（label-shuffle control 付き、式単位分割）
 - gradient norm（正規化・生の両方）、CKA（module内のみ）
 - encoder intermediate decoding、decoder-side logit lens、token category 深度曲線、greedy formula TED 軌跡
-- **固定介入パネル（GRN validation 24 + GRN test 24 + 公式corpus 24）を生成し凍結**
+- **固定介入パネル（GRN validation 24 + 公式corpus validation 24）を生成し凍結**。
+  GRN testは強度・causal top選定に使わず、Phase 8の最終評価後に限って診断する
 - throughput 実測 → stretch corpus の可否を test 前に決定
 
 予算: **約3 h**。
@@ -869,7 +895,7 @@ Go: **Go 4**。予算: **約4 h**。
 ## Phase 5: Track D — 因果解析と介入後decode
 
 - §12.2 の4手順: CEスイープ96条件 → 強度選定 → 17条件decode → 上位3層のzero robustness
-- $`\Delta`$CE と $`\Delta`$TED / $`\Delta`$skeleton / $`\Delta`$gen $`R^2`$ の順位相関（**P5 を判定**）
+- validation固定パネルで $`\Delta`$CE と $`\Delta`$TED / $`\Delta`$skeleton / $`\Delta`$gen $`R^2`$ の順位相関（**P5 を判定**）
 - causal top集合を formula-level 劣化で定義し、validation で凍結
 
 Go: **Go 5**。予算: **約3 h**。
@@ -907,7 +933,7 @@ Go: **Go 5**。予算: **約3 h**。
 - multi-IC selection を適用した full candidate decode
 - GRN primary metrics + ODEBench forgetting secondary metrics
 - **最終testへ進む5条件を凍結**（§8.3）
-- **final test を main test と family-holdout test で一度だけ評価**（**P7 を判定**）
+- **final test を main test と family-holdout test で一度だけ評価**（**P3・P4・P7 を判定**）
 
 test後に新しい条件を追加しない。追加仮説は次runへ送る。
 Go: final test の前に **Go 6**（selective FT を主張として報告できるか）と **Go 7**（凍結の確認）、
@@ -917,7 +943,7 @@ test 後に **Go 8**（DREAM4・実データへ進むか）。予算: **約20 h*
 
 ## Phase 9: 統合解析とreport
 
-- 予測 P1–P7 の的中判定を機械出力（`preregistration_outcome.json`）
+- 前向き予測P3–P7とretrospective R4–R5の判定を機械出力（`preregistration_outcome.json`）
 - Result A（decoded support）、B（GRN generation / selection）、C（GRN適応と層FT）、D（層解析）、E（3モデル横断）を分離
 - **Track E**: GPU_RUN2 / RUN3 / RUN4 / RUN5 の指標間順位不一致の統合表と図（GPU不要）
 - 事実 / RQ判定 / 考察 / 限界 / 未実施提案 を明確に分ける
@@ -981,24 +1007,26 @@ CE、probe、CKA、個別token精度は**副解析**とする。
 - checkpoint SHA256・architecture・`operators_to_use`・`max_dimension` を実体から確認した
 - GPU_RUN4 の finalize が完了し `status: complete` である
 - 形式フラグと構造指標の定義を凍結した
-- **予測 P1–P7 を commit した**
+- **前向き予測 P3–P7をcommitした**
 - R01–R08 の teacher 式が語彙でencodeでき、token長上限内である
 - throughput pilot を実施し、§8.3 の縮退判断を記録した
 
 ## Go 2: Track A 完了 → Track B の設計確定
 
 - 252 cell と全beam候補に形式判定が付き、失敗が理由付きで保存されている
-- P1・P2 の判定が出ている
-- **P1 が的中（`variable_denominator_form` 率 5%以上）した場合**: 中心の問いを
+- retrospective R4・R5の判定と、candidate内truth supportが出ている
+- **R4 が成立（`variable_denominator_form` 率 5%以上）した場合**: 中心の問いを
   「生成できるのに選べない／正しい指数を出せない」として Track B を予定どおり進める
-- **P1 が外れた場合**: §3 の generator 読解か checkpoint 設定が想定と異なる。
+- **R4 が不成立の場合**: §3 の generator 読解か checkpoint 設定が想定と異なる。
   Phase 0 へ戻って `operators_to_use` を再確認し、記述を訂正してから進む
 
 ## Go 3: GRN corpus 生成
 
 - 全 teacher 式が checkpoint 語彙でencodeでき、token長上限内である
 - canonical truth と teacher expression が代数的に同値である
-- split 間の式・trajectory 漏洩がない（skeleton fingerprint 監査）
+- main split間にsystem ID・parameter variant・trajectory漏洩がない
+- family holdoutのtrainとtestにcanonical skeleton fingerprint重複がない場合だけstructure-OODと表記し、
+  重複があればその件数を保存して部分的family holdoutと表記する
 - input / selection / generalization IC が分離されている
 - trajectory generation failure が理由付きで保存されている
 - 軌道の棄却率が 30% 未満である（超えたら §18 No-Go）
@@ -1061,7 +1089,7 @@ manifest で **test 未参照**が確認できること。
 - 介入後decode の valid rate が baseline で 0.5 未満（パネル設計の失敗）
 - 拡大corpusでも IOLE 差が雑音水準のままで、seed 間順位相関が 0 近傍
 - **throughput pilot の実測が §8.4 の見積りの2倍を超える**（§8.3 の縮退を1段深める）
-- 予測 P1–P7 のうち4つ以上が外れる（前提の理解が誤っている。再解釈してから進む）
+- 前向き予測P3–P7のうち3つ以上が外れる（前提の理解が誤っている。再解釈してから進む）
 
 ---
 
@@ -1129,7 +1157,7 @@ peak memory / wall time、layer ranking source。
 
 ```json
 {
-  "id": "P2",
+  "id": "P3",
   "statement": "exponent_aware_skeleton_exact == 0 on 60 rational cells",
   "committed_at_commit": "<sha>",
   "outcome": "hit | miss | undecidable"
@@ -1162,12 +1190,12 @@ graphs/<gpu-run5-run-id>/
 
 | # | レポート | 内容 |
 |---|---|---|
-| 1 | `GPU_RUN5_decoded_support_report.md` | Track A。形式別 candidate support、有理式系の層別集計。R1–R3、P1–P2 |
+| 1 | `GPU_RUN5_decoded_support_report.md` | Track A。形式別 candidate support、有理式系の層別集計。R1–R5 |
 | 2 | `GPU_RUN5_grn_benchmark_report.md` | Track B。frozen baseline、多軌道選択。P3・P4・P6 |
 | 3 | `GPU_RUN5_grn_adaptation_report.md` | Track C。full / selective FT、forgetting。P7 |
 | 4 | `GPU_RUN5_layer_analysis_report.md` | Track D。probe / lens / 因果 / 介入後decode。P5 |
 | 5 | `GPU_RUN5_cross_model_synthesis.md` | Track E。RUN2–RUN5 の指標間順位不一致 |
-| 6 | `preregistration_outcome.json` | P1–P7 の機械判定 |
+| 6 | `preregistration_outcome.json` | P3–P7、R4–R5の機械判定 |
 
 最低限の図表:
 
@@ -1225,7 +1253,7 @@ graphs/<gpu-run5-run-id>/
 # 23. 完了条件
 
 - 公開4+12 checkpoint の provenance と `operators_to_use` / `max_dimension` を実体から固定した
-- 予測 P1–P7 を実験前に commit し、Phase 9 で機械判定した
+- 前向き予測P3–P7を実験前にcommitし、Phase 9でP3–P7とretrospective R4–R5を機械判定した
 - 保存済み ODEBench beam 候補を形式別に再解析した
 - R01–R08 を閉じたODE系として生成し、split 漏洩を監査した
 - input / selection / generalization 軌道を分離した
@@ -1278,7 +1306,7 @@ GPU_RUN5 は次の3つを同時に行う。
    本研究の題目が要求する中核である。
 
 予測が外れても成果になる。
-P1 が外れれば checkpoint の学習設定の理解を修正する。
+R4 が不成立ならcheckpointの学習設定とdecode supportの理解を修正する。
 P5 が外れれば「CE は symbolic recovery の妥当な代理指標」となり、GPU_RUN4 の層順位を読み直せる。
 P6 が外れれば「GRN の識別不能性は初期条件の追加では解けない」となり、次段階は探索・データ取得設計へ移る。
 P7 が外れれば「少数層FTがpriorを保護する」という GPU_RUN2 の解釈が ODEFormer で否定される。

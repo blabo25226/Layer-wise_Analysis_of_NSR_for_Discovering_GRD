@@ -33,6 +33,7 @@ class ModelWrapper(nn.Module):
         max_generated_output_len=200,
         beam_temperature=1.0,
         average_trajectories=False,
+        generation_seed=0,
     ):
         super().__init__()
 
@@ -48,6 +49,9 @@ class ModelWrapper(nn.Module):
         self.beam_temperature = beam_temperature
         self.device = next(self.embedder.parameters()).device
         self.average_trajectories = average_trajectories
+        # LANSR compatibility extension: upstream hard-coded seed=0 at every
+        # decoder.generate call, making paired multi-seed sampling impossible.
+        self.generation_seed = int(generation_seed)
 
     @torch.no_grad()
     def forward(self, input):
@@ -72,7 +76,8 @@ class ModelWrapper(nn.Module):
                 x_len,
                 sample_temperature=None,
                 max_len=self.max_generated_output_len,
-                env=self.env
+                env=self.env,
+                seed=self.generation_seed,
             )
             
             generations = generations.unsqueeze(-1).view(generations.shape[0], bs, 1)
@@ -102,7 +107,7 @@ class ModelWrapper(nn.Module):
                     max_len=self.max_generated_output_len,
                     early_stopping=self.beam_early_stopping,
                     average_across_batch=self.average_trajectories,
-                    env=self.env
+                    env=self.env,
                 )
                 search_generations = [
                     sorted(
@@ -151,7 +156,8 @@ class ModelWrapper(nn.Module):
                     sample_temperature=self.beam_temperature,
                     max_len=self.max_generated_output_len,
                     average_across_batch=self.average_trajectories,
-                    env=self.env
+                    env=self.env,
+                    seed=self.generation_seed,
                 )
                 sampling_generations = sampling_generations.unsqueeze(-1).view(
                     sampling_generations.shape[0], bs, num_samples

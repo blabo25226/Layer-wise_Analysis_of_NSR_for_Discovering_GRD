@@ -1,0 +1,98 @@
+campaign: GPU_RUN5
+run_name: gpu_run5_local
+output_root: results/runs
+graphs_root: graphs
+
+odeformer_package_root: third_party/odeformer
+odeformer_checkpoint: assets/odeformer/weights/odeformer.pt
+odeformer_checkpoint_sha256: 56754040be5aa92ed4767fc43ee2008faa293f87c12b643e66c7df3e1623a5e8
+gpu_run4_source_run: results/runs/gpu_run4_phase0_01
+
+paper_protocol:
+  beam_size: 50
+  beam_temperature: 0.1
+  beam_type: sampling
+  rescale: true
+
+seed_bundles:
+  - {data_seed: 101, trajectory_seed: 2101, model_seed: 0, candidate_seed: 3101, corruption_seed: 4101, random_layer_seed: 5101}
+  - {data_seed: 202, trajectory_seed: 2202, model_seed: 1, candidate_seed: 3202, corruption_seed: 4202, random_layer_seed: 5202}
+  - {data_seed: 303, trajectory_seed: 2303, model_seed: 2, candidate_seed: 3303, corruption_seed: 4303, random_layer_seed: 5303}
+
+corruptions:
+  noise_sigmas: [0.0, 0.05]
+  subsample_rhos: [0.0, 0.5]
+
+grn:
+  families: [R01, R02, R03, R04, R05, R06, R07, R08]
+  hill_exponents: [1, 2, 4]
+  train_variants_per_family: 30
+  validation_variants_per_family: 10
+  test_variants_per_family: 10
+  n_points: 150
+  t_span: [0.0, 10.0]
+  input_trajectories: 1
+  selection_trajectories: 2
+  generalization_trajectories: 2
+  solve_rtol: 1.0e-8
+  solve_atol: 1.0e-10
+  minimum_variance: 1.0e-5
+  maximum_abs_state: 100.0
+  maximum_rejection_rate: 0.30
+
+selection:
+  aggregation: median
+  trajectory_nrmse_failure_penalty: 10.0
+  complexity_lambdas: [0.0, 0.0001, 0.001, 0.01]
+
+training:
+  learning_rates: [1.0e-6, 1.0e-5, 1.0e-4]
+  steps: [50, 200, 1000]
+  primary_comparison: step_matched
+  model_selection_score:
+    schema_version: failure_aware_formula_lexicographic_v1
+    unit: component_within_system
+    invalid_exponent_aware_skeleton_exact: 0.0
+    invalid_normalized_ted: 1.0
+    aggregation: macro_mean_by_system_then_seed
+    ranking:
+      - {metric: exponent_aware_skeleton_exact, direction: maximize}
+      - {metric: normalized_variable_aware_ted, direction: minimize}
+      - {metric: valid_rate, direction: maximize}
+      - {metric: validation_teacher_forcing_ce, direction: minimize}
+
+smoke:
+  n_seeds: 1
+  beam_size: 8
+  train_variants_per_family: 2
+  validation_variants_per_family: 1
+  test_variants_per_family: 1
+  n_points: 50
+  official_corpus_train: 16
+  official_corpus_validation: 8
+  official_corpus_test: 8
+  reduced_panel: 4
+  intervention_panel: 4
+  hyperparameter_learning_rates: [0.0001]
+  hyperparameter_steps: [2]
+  random_sets: 2
+
+full:
+  n_seeds: 3
+  beam_size: 50
+  train_variants_per_family: 30
+  validation_variants_per_family: 10
+  test_variants_per_family: 10
+  n_points: 150
+  official_corpus_train: 2000
+  official_corpus_validation: 500
+  official_corpus_test: 500
+  reduced_panel: 24
+  intervention_panel: 24
+  hyperparameter_learning_rates: [1.0e-6, 1.0e-5, 1.0e-4]
+  hyperparameter_steps: [50, 200, 1000]
+  random_sets: 5
+
+python_required: "3.10"
+allow_cpu: false
+fail_fast_on_oom: true
