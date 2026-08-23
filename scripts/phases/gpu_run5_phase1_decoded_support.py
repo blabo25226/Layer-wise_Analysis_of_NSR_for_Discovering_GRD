@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import sys
 from collections import Counter, defaultdict
@@ -13,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from evaluation.gpu_run5_structure import classify_formula  # noqa: E402
-from gpu_run2_runtime import sha256_file, write_json  # noqa: E402
+from gpu_run2_runtime import git_info, sha256_file, write_json  # noqa: E402
 from gpu_run5.config import load_config, phase_dir, read_json, run_dir, write_manifest  # noqa: E402
 
 
@@ -44,7 +45,7 @@ def _annotate(row: dict) -> dict:
 
 
 def _mean(rows: list[dict], key: str) -> float | None:
-    values = [float(row[key]) for row in rows if row.get(key) is not None]
+    values = [float(row[key]) for row in rows if row.get(key) is not None and math.isfinite(float(row[key]))]
     return sum(values) / len(values) if values else None
 
 
@@ -149,7 +150,7 @@ def main() -> int:
     write_json(out / "decoded_support.json", summary)
     write_json(out / "go.json", go)
     status = "complete" if all(go.values()) else "incomplete"
-    write_manifest(out, 1, status, go_conditions=go, summary=summary)
+    write_manifest(out, 1, status, go_conditions=go, summary=summary, git=git_info(), test_accessed=False)
     print(f"GPU_RUN5 Phase 1 {status}: {summary}")
     return 0 if status == "complete" else 1
 

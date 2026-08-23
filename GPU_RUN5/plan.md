@@ -1,7 +1,7 @@
 # GPU_RUN5 計画 — ODEFormerのGRN構造適応、多軌道候補選択、層解析の接続
 
 - 作成日: 2026-08-23
-- 状態: **Draft v1.1（Phase 0実体監査修正中、Go 1後にFixedへ昇格）**
+- 状態: **Fixed v1.2（Phase 0 Go 1完了、前向き予測・縮退・test firewall固定）**
 - 主モデル: 公開ODEFormer checkpoint（4 encoder + 12 decoder、60,646,773 parameters）
 - 前世代: [`GPU_RUN4/plan.md`](../GPU_RUN4/plan.md) / [`GPU_RUN4/GPU_RUN4_research_report_20260819.md`](../GPU_RUN4/GPU_RUN4_research_report_20260819.md)
 - 成立過程: [`plan-codex.md`](plan-codex.md) と [`plan-claudecode.md`](plan-claudecode.md) の2案、および相互レビューを統合した
@@ -515,7 +515,9 @@ RTX 2070 専有で3–4日。**Phase 0 のthroughput pilot で実測し、乖離
 1.78秒/cell、1 forward/backwardが0.179秒、peak allocated VRAMが約0.97 GBだった。
 beam推論は§8.1のGPU_RUN4実測1.89秒/cellと整合し、2倍超過ではないため、**§8.3の既定縮退を維持する。**
 同一candidate seedでは候補集合が再現し、異なるseedでは候補集合が変わることも確認した。
-authoritative Phase 0は、実験前固定commit後のclean treeで再実行する。
+authoritative Phase 0はcommit `472fa4fd`、run-id `gpu_run5_20260823_472fa4fd` のclean treeで再実行し、
+全Go 1条件を満たした。beam 50は1.77秒/cell、1 forward/backwardは0.143秒、peak allocated VRAMは約0.97 GB、
+teacher tokenizationはR01--R08 × $`n\in\{1,2,4\}`$ の24条件すべてでroundtrip数値誤差0だった。
 
 ---
 
