@@ -32,3 +32,18 @@ def test_cot_counts_as_variable_denominator_after_canonicalization():
     flags = classify_formula("cot(x_0)")
     assert flags["variable_denominator_form"]
     assert not flags["algebraically_rational"]
+
+
+def test_invalid_component_is_failure_aware_not_exception():
+    flags = classify_formula("nan")
+    assert flags["valid"] is False
+    assert flags["failure_reason"] == "ParseError"
+    assert flags["component_flags"] == [{
+        "variable_denominator_form": False,
+        "algebraically_rational": False,
+        "rational_with_variable_denominator": False,
+        "hill_form": False,
+        "modulated_hill_form": False,
+        "sigmoid_saturating_form": False,
+    }]
+    assert flags["exponent_aware_skeleton"] == ""

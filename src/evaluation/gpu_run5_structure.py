@@ -195,6 +195,17 @@ def classify_formula(text: str) -> dict[str, Any]:
     component_flags = []
     component_skeletons = []
     for tree in parsed["components"]:
+        if tree is None:
+            component_flags.append({
+                "variable_denominator_form": False,
+                "algebraically_rational": False,
+                "rational_with_variable_denominator": False,
+                "hill_form": False,
+                "modulated_hill_form": False,
+                "sigmoid_saturating_form": False,
+            })
+            component_skeletons.append("")
+            continue
         denominators = _denominators(tree)
         variable_denominator = any(_has_variable(item) for item in denominators)
         rational = _algebraically_rational(tree)
