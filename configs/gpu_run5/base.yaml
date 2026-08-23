@@ -41,6 +41,7 @@ grn:
   maximum_rejection_rate: 0.30
 
 selection:
+  candidate_seed_namespace: grn_main_decode_v1
   aggregation: median
   trajectory_nrmse_failure_penalty: 10.0
   complexity_lambdas: [0.0, 0.0001, 0.001, 0.01]

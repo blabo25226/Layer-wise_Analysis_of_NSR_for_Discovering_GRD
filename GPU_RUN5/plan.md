@@ -805,6 +805,8 @@ GPU_RUN4の失敗タグに `intervened_decode_failure` と `form_classification_
 ## 14.7 条件比較を公平にする
 
 同一seed内の条件は同じ初期checkpoint、data order、trajectory、candidate budget を使う。
+candidate seedはmethod名を含まない固定namespace `grn_main_decode_v1` から導出し、frozen / full / selectiveで
+同じsystem・corruption・bundleに同じ候補乱数を割り当てる。
 **各trainable条件へ同数のhyperparameter候補を与える。** wall time / peak memory / trainable parameter数を保存する。
 random block集合は test 前に5集合固定する。
 

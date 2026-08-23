@@ -2,6 +2,7 @@ import numpy as np
 
 from gpu_run5.grn import FAMILIES, generate_corpus, system_definition
 from scripts.phases.gpu_run5_phase2 import _trajectory_role_audit
+from scripts.phases.gpu_run5_phase3 import _observed_trajectories
 
 
 def test_all_families_have_matching_rhs_and_teacher_dimensions():
@@ -32,3 +33,17 @@ def test_corpus_keeps_trajectory_roles_together_and_distinct():
     audit = _trajectory_role_audit(corpus["records"])
     assert audit["invalid_role_counts"] == []
     assert audit["nonunique_within_system"] == []
+
+
+def test_phase3_observation_uses_earliest_retained_observed_state_as_ic():
+    corpus = generate_corpus(
+        variants={"train": 1, "validation": 0, "test": 0}, n_points=20,
+        t_span=(0.0, 2.0), seed=21, rtol=1e-8, atol=1e-10,
+        minimum_variance=1e-8, maximum_abs_state=100.0,
+    )
+    row = corpus["records"][0]
+    bundle = {"corruption_seed": 99}
+    observed = _observed_trajectories(row, sigma=0.05, rho=0.5, bundle=bundle, bundle_index=0)
+    for role in ("input", "selection"):
+        for trajectory in observed[role]:
+            assert trajectory["initial_condition"] == trajectory["observed_trajectory"][0]
