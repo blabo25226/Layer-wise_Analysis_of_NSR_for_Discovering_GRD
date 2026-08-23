@@ -476,6 +476,7 @@ def main() -> int:
     git = git_info()
     if git["status_short"]:
         raise RuntimeError(f"authoritative Phase 3 requires a clean worktree: {git['status_short']}")
+    environment = software_versions()
     cache_identity = {
         "schema_version": "gpu_run5_phase3_cell_v2_observed_reranking",
         "git_commit": git["commit"], "git_status_short": git["status_short"],
@@ -485,6 +486,7 @@ def main() -> int:
         "beam_type": str(config["paper_protocol"]["beam_type"]),
         "rescale": bool(config["paper_protocol"]["rescale"]), "failure_penalty": penalty,
         "candidate_seed_namespace": str(config["selection"]["candidate_seed_namespace"]),
+        "device": device, "environment_fingerprint": fingerprint_json(environment),
     }
     corruptions = [(float(sigma), float(rho)) for sigma in config["corruptions"]["noise_sigmas"] for rho in config["corruptions"]["subsample_rhos"]]
     jobs = [(row, bundle_index, sigma, rho) for bundle_index in range(n_seeds) for row in validation for sigma, rho in corruptions]
@@ -517,7 +519,10 @@ def main() -> int:
     cache_ok = all(cell.get("cache_identity") == cache_identity for cell in completed)
     go = {
         "all_validation_cells_complete": len(completed) == expected and not limited,
-        "candidates_saved": summary["n_candidates"] > 0,
+        "candidate_sets_saved_including_empty": all(
+            isinstance(cell.get("candidates"), list) and isinstance(cell.get("candidate_set_hash"), str)
+            for cell in completed
+        ),
         "each_cell_decoded_once_and_rules_share_candidate_hash": cache_ok,
         "test_not_accessed": True,
         "component_and_system_metrics_saved": schema_ok,
@@ -539,7 +544,7 @@ def main() -> int:
         started_utc=started_utc, finished_utc=finished_utc, wall_time_sec=perf_counter() - started_clock,
         cache_identity=cache_identity, phase2_manifest_sha256=sha256_file(phase2_manifest_path),
         phase2_validation_sha256=sha256_file(validation_path), checkpoint={"path": str(checkpoint), "sha256": checkpoint_sha},
-        config_fingerprint=fingerprint_json(config), environment=software_versions(), device=device,
+        config_fingerprint=fingerprint_json(config), environment=environment, device=device,
         test_accessed=False, beam_size=beam_size, n_seeds=n_seeds, corruption_cells=corruptions,
         selection_rules=list(RULES), failure_penalty=penalty,
         artifact_sha256={name: sha256_file(out / name) for name in artifact_names},
