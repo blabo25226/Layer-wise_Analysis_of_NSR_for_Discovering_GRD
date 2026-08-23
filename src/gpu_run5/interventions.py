@@ -73,7 +73,10 @@ def make_post_block_mean_hook(
             replaced = hidden
         else:
             target = stored_mean.to(device=hidden.device, dtype=hidden.dtype)
-            replaced = target.expand_as(hidden) if strength == 1.0 else torch.lerp(hidden, target, strength)
+            # ODEFormer masks the following block input in-place.  ``expand``
+            # alone aliases every batch/position to the same storage and makes
+            # that valid downstream operation fail, so materialize the mean.
+            replaced = target.expand_as(hidden).clone() if strength == 1.0 else torch.lerp(hidden, target, strength)
         if isinstance(output, tuple):
             return (replaced, *output[1:])
         return replaced

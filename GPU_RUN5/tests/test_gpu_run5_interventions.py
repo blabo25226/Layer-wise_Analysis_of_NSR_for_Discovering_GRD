@@ -35,6 +35,11 @@ def test_post_block_hook_broadcasts_mean_and_preserves_tuple_tail():
     identity = make_post_block_mean_hook(mean, alpha=0.0)(None, (), hidden)
     assert identity is hidden
 
+    full = make_post_block_mean_hook(mean, alpha=1.0)(None, (), hidden)
+    full.mul_(torch.tensor([[[1.0], [0.0], [1.0]], [[0.0], [1.0], [0.0]]]))
+    assert torch.equal(full[0, 0], mean)
+    assert torch.equal(full[0, 1], torch.zeros_like(mean))
+
 
 def _ce_grid(alpha_one_offset: float = 0.0):
     return {
