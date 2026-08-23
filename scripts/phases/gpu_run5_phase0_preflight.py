@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -167,7 +168,7 @@ def _throughput(model, config: dict, run_budget: dict, device: str) -> dict:
         torch.cuda.reset_peak_memory_stats()
         torch.cuda.synchronize()
     started = time.perf_counter()
-    with capture_numpy_permutation(1001):
+    with capture_numpy_permutation(1001) as permutation_a:
         candidates = regressor.fit(times, trajectory)
     if device == "cuda":
         torch.cuda.synchronize()
@@ -175,11 +176,11 @@ def _throughput(model, config: dict, run_budget: dict, device: str) -> dict:
     trees = list(candidates.get(0) or [])
     formulas_a = [candidate_infix(tree) for tree in trees]
     model.generation_seed = seed_a
-    with capture_numpy_permutation(1001):
+    with capture_numpy_permutation(1001) as permutation_repeat:
         repeat = regressor.fit(times, trajectory)
     formulas_repeat = [candidate_infix(tree) for tree in list(repeat.get(0) or [])]
     model.generation_seed = seed_b
-    with capture_numpy_permutation(1001):
+    with capture_numpy_permutation(1001) as permutation_b:
         alternate = regressor.fit(times, trajectory)
     formulas_b = [candidate_infix(tree) for tree in list(alternate.get(0) or [])]
 
@@ -192,14 +193,20 @@ def _throughput(model, config: dict, run_budget: dict, device: str) -> dict:
             break
     if not sample:
         raise RuntimeError("official generator failed to yield a throughput sample in 20 attempts")
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-6)
     train_started = time.perf_counter()
+    optimizer.zero_grad(set_to_none=True)
     loss = teacher_forcing_loss(model, sample["times"], sample["trajectory"], sample["tree_encoded"])
     loss.backward()
+    optimizer.step()
     if device == "cuda":
         torch.cuda.synchronize()
     train_seconds = time.perf_counter() - train_started
-    model.zero_grad(set_to_none=True)
+    optimizer.zero_grad(set_to_none=True)
     peak = int(torch.cuda.max_memory_allocated()) if device == "cuda" else None
+    peak_reserved = int(torch.cuda.max_memory_reserved()) if device == "cuda" else None
+    total_memory = int(torch.cuda.get_device_properties(0).total_memory) if device == "cuda" else None
+    formula_hash = lambda values: hashlib.sha256(json.dumps(values, sort_keys=False).encode()).hexdigest()
     per_cell_estimate = decode_seconds * (50 / max(beam_size, 1))
     return {
         "device": device,
@@ -211,15 +218,24 @@ def _throughput(model, config: dict, run_budget: dict, device: str) -> dict:
         "sampling_seed_b": seed_b,
         "same_seed_reproducible": formulas_a == formulas_repeat,
         "different_seed_changes_candidates": formulas_a != formulas_b,
-        "one_forward_backward_seconds": train_seconds,
+        "candidate_set_hash_a": formula_hash(formulas_a),
+        "candidate_set_hash_repeat": formula_hash(formulas_repeat),
+        "candidate_set_hash_b": formula_hash(formulas_b),
+        "input_permutation_a": permutation_a,
+        "input_permutation_repeat": permutation_repeat,
+        "input_permutation_b": permutation_b,
+        "one_full_adam_step_seconds": train_seconds,
         "teacher_forcing_loss": float(loss.detach().cpu()),
         "peak_memory_bytes": peak,
+        "peak_reserved_memory_bytes": peak_reserved,
+        "gpu_total_memory_bytes": total_memory,
         "estimated_beam50_seconds_per_cell": per_cell_estimate,
         "estimate_exceeds_plan_by_2x": per_cell_estimate > 14.0,
     }
 
 
 def main() -> int:
+    phase_started = time.perf_counter()
     args = parse_args()
     if sys.version_info[:2] != (3, 10):
         raise RuntimeError(f"GPU_RUN5 requires Python 3.10, found {sys.version.split()[0]}")
@@ -314,6 +330,7 @@ def main() -> int:
         "campaign": "GPU_RUN5", "phase": 0, "status": status, "at_utc": utc_now(),
         "run_id": args.run_id, "git": current_git, "hardware": hardware_identity(), "software": software_versions(),
         "device": device, "smoke": bool(args.smoke), "skip_throughput": bool(args.skip_throughput),
+        "argv": sys.argv, "elapsed_seconds": time.perf_counter() - phase_started,
         "test_accessed": False, "config_sha256": sha256_file(CONFIG_PATH),
         "preregistration_sha256": sha256_file(prereg_path), "go_conditions": go,
     })

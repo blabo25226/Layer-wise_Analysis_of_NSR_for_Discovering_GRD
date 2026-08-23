@@ -288,7 +288,9 @@ def generate_corpus(
                         "dimension": FAMILIES[family].dimension,
                         "split": split,
                         "variant_index": variant_index,
-                        "parameters": params,
+                        "sampled_parameters": params,
+                        "numeric_truth_source": "quantized_teacher_prefix",
+                        "effective_teacher_prefix": "|".join(components),
                         "teacher_prefix": "|".join(components),
                         "trajectories": trajectories,
                     })
