@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 from pathlib import Path
 from typing import Any
@@ -64,3 +65,14 @@ def load_sealed_test(path: Path, *, phase: int) -> Any:
     if int(phase) < 8:
         raise PermissionError(f"test firewall: phase {phase} cannot read {path}")
     return read_json(path)
+
+
+def sanitize_nonfinite(value: Any) -> Any:
+    """Recursively replace NaN/Inf with None for strict interoperable JSON."""
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
+    if isinstance(value, dict):
+        return {str(key): sanitize_nonfinite(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [sanitize_nonfinite(item) for item in value]
+    return value
