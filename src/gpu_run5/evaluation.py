@@ -62,13 +62,23 @@ def formula_metrics(true_infix: str, predicted_infix: str) -> dict[str, Any]:
     for index, (true_tree, pred_tree) in enumerate(zip(true_components, pred_components)):
         denom = tree_size(true_tree) + tree_size(pred_tree)
         raw = float(component["component_ted_raw"][index])
-        component_normalized.append(min(max(raw / max(denom, 1), 0.0), 1.0))
-        valid = true_tree is not None and pred_tree is not None
+        structure_component_valid = pred_structure.get("component_valid", [])
+        valid = (
+            true_tree is not None
+            and pred_tree is not None
+            and index < len(structure_component_valid)
+            and bool(structure_component_valid[index])
+        )
+        component_normalized.append(
+            min(max(raw / max(denom, 1), 0.0), 1.0) if valid else 1.0
+        )
         component_valid.append(bool(valid))
-        component_failures.append(None if valid else "TEDParseError")
+        component_failures.append(None if valid else (pred_structure["failure_reason"] or "TEDParseError"))
     return {
-        "valid": bool(comparison["valid"] and comparison["component_count_match"]),
-        "failure_reason": comparison["failure_reason"],
+        "valid": bool(
+            comparison["valid"] and comparison["component_count_match"] and pred_structure["valid"]
+        ),
+        "failure_reason": pred_structure["failure_reason"] or comparison["failure_reason"],
         "canonical_exact": comparison["canonical_exact"],
         "skeleton_exact": comparison["skeleton_exact"],
         "exponent_aware_skeleton_exact": float(

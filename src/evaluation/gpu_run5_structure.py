@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import re
 from typing import Any, Iterable
 
@@ -47,6 +48,18 @@ def _algebraically_rational(tree: Tree | None) -> bool:
             except ValueError:
                 return False
     return True
+
+
+def _has_nonfinite_numeric_leaf(tree: Tree | None) -> bool:
+    for label, children in _walk(tree):
+        if children:
+            continue
+        try:
+            if not math.isfinite(float(label)):
+                return True
+        except ValueError:
+            continue
+    return False
 
 
 def _contains_exp(tree: Tree) -> bool:
@@ -194,8 +207,13 @@ def classify_formula(text: str) -> dict[str, Any]:
     parsed = parse_system(text)
     component_flags = []
     component_skeletons = []
+    component_valid = []
+    has_nonfinite = False
     for tree in parsed["components"]:
-        if tree is None:
+        invalid_component = tree is None or _has_nonfinite_numeric_leaf(tree)
+        has_nonfinite |= tree is not None and _has_nonfinite_numeric_leaf(tree)
+        if invalid_component:
+            component_valid.append(False)
             component_flags.append({
                 "variable_denominator_form": False,
                 "algebraically_rational": False,
@@ -206,6 +224,7 @@ def classify_formula(text: str) -> dict[str, Any]:
             })
             component_skeletons.append("")
             continue
+        component_valid.append(True)
         denominators = _denominators(tree)
         variable_denominator = any(_has_variable(item) for item in denominators)
         rational = _algebraically_rational(tree)
@@ -231,8 +250,9 @@ def classify_formula(text: str) -> dict[str, Any]:
         "sigmoid_saturating_form",
     )
     return {
-        "valid": bool(parsed["valid"]),
-        "failure_reason": parsed["failure_reason"],
+        "valid": bool(parsed["valid"] and not has_nonfinite),
+        "failure_reason": "NonFiniteConstant" if has_nonfinite else parsed["failure_reason"],
+        "component_valid": component_valid,
         "component_flags": component_flags,
         **{key: any(row[key] for row in component_flags) for key in keys},
         "exponent_aware_skeleton": " | ".join(component_skeletons),

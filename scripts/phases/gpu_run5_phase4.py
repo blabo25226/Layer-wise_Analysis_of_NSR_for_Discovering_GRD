@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+from collections import Counter
 from pathlib import Path
 from time import perf_counter
 from typing import Any
@@ -27,6 +28,7 @@ from gpu_run5.config import (  # noqa: E402
 from gpu_run5.observational import (  # noqa: E402
     collect_layer_features, decoder_logit_lens, encoder_intermediate_greedy,
     fit_layer_probes, gradient_norms_by_layer, token_category, within_module_cka,
+    select_stratified_grn_panel,
 )
 
 
@@ -52,18 +54,6 @@ def _arrays(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         {**row, "times": np.asarray(row["times"], dtype=float), "trajectory": np.asarray(row["trajectory"], dtype=float)}
         for row in rows
     ]
-
-
-def _grn_panel(rows: list[dict[str, Any]], n: int) -> list[dict[str, Any]]:
-    by_family: dict[str, list[dict[str, Any]]] = {}
-    for row in sorted(rows, key=lambda item: str(item["system_id"])):
-        by_family.setdefault(str(row["family"]), []).append(row)
-    base = n // max(len(by_family), 1)
-    remainder = n % max(len(by_family), 1)
-    output = []
-    for index, family in enumerate(sorted(by_family)):
-        output.extend(by_family[family][: base + int(index < remainder)])
-    return output[:n]
 
 
 def _save_features(path: Path, prefix: str, payload: dict[str, Any]) -> None:
@@ -168,7 +158,13 @@ def main() -> int:
     n_panel = int(chosen_budget["intervention_panel"])
     official_panel = select_fixed_panel(validation, n_panel, seed=int(config["seed_bundles"][0]["data_seed"]))
     grn_validation = read_json(phase2_validation_path)
-    grn_panel = _grn_panel(grn_validation, n_panel)
+    if n_panel != 24 and not args.smoke:
+        raise ValueError("full fixed GRN intervention panel must contain 24 systems")
+    grn_panel = (
+        select_stratified_grn_panel(grn_validation)
+        if not args.smoke
+        else sorted(grn_validation, key=lambda row: str(row["system_id"]))[:n_panel]
+    )
     write_json(out / "fixed_official_validation_panel.json", [_serialize(row) for row in official_panel])
     write_json(out / "fixed_grn_validation_panel.json", grn_panel)
 
@@ -253,6 +249,14 @@ def main() -> int:
         and all(int(row.get("target_rank", 0)) >= 1 and row.get("target_category") for row in token_rank_rows)
         and all(row["target_category"] == token_category(row["target_token"]) for row in token_rank_rows)
     )
+    grn_panel_dimensions = Counter(int(row["dimension"]) for row in grn_panel)
+    grn_panel_families = Counter(str(row["family"]) for row in grn_panel)
+    grn_panel_stratified = (
+        len(grn_panel) == n_panel
+        if args.smoke
+        else grn_panel_dimensions == Counter({1: 8, 2: 8, 3: 8})
+        and max(grn_panel_families.values(), default=0) <= 4
+    )
     go = {
         "official_counts_exact": len(train) == int(chosen_budget["official_corpus_train"])
         and len(validation) == int(chosen_budget["official_corpus_validation"])
@@ -267,7 +271,7 @@ def main() -> int:
         "label_shuffle_controls_saved": probes_complete,
         "gradient_raw_and_normalized_saved": gradients_complete,
         "within_module_cka_saved": cka_matrix_complete(cka["encoder"]) and cka_matrix_complete(cka["decoder"]),
-        "fixed_validation_panels_saved": len(official_panel) == n_panel and len(grn_panel) == n_panel,
+        "fixed_validation_panels_saved": len(official_panel) == n_panel and grn_panel_stratified,
         "decoder_and_encoder_lens_saved": len(logit_lens["formula_rows"]) == n_panel * len(decoder_layers)
         and len(encoder_lens["rows"]) == n_panel * len(encoder_layers)
         and token_ranks_complete and not logit_lens["failures"] and not encoder_lens["failures"],
@@ -278,6 +282,11 @@ def main() -> int:
         "corpus_fingerprint": corpus_meta["fingerprint"], "corpus_failures": corpus_meta["n_failures"],
         "skeleton_leakage": corpus_meta["skeleton_leakage"], "teacher_forcing_ce_mean": float(np.mean(finite_ce)),
         "feature_failures": feature_failures, "throughput": throughput, "go_conditions": go,
+        "fixed_grn_panel_composition": {
+            "dimension_counts": {str(key): value for key, value in sorted(grn_panel_dimensions.items())},
+            "family_counts": {key: value for key, value in sorted(grn_panel_families.items())},
+            "family_cap": 4 if not args.smoke else None,
+        },
         "official_corpus_cache_reused": cache_valid,
         "official_generator_split_policy": "gen_expr(train=True) for all formula-disjoint splits; test is in-distribution, not generator-distribution OOD",
     }

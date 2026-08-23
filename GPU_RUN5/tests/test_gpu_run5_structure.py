@@ -1,4 +1,5 @@
 from evaluation.gpu_run5_structure import classify_formula
+from gpu_run5.evaluation import formula_metrics
 
 
 def test_variable_denominator_and_rational_are_distinct():
@@ -47,3 +48,23 @@ def test_invalid_component_is_failure_aware_not_exception():
         "sigmoid_saturating_form": False,
     }]
     assert flags["exponent_aware_skeleton"] == ""
+
+
+def test_nonfinite_constant_is_invalid_and_has_no_structure_flags():
+    for expression in ("inf", "-inf", "x_0 + inf"):
+        flags = classify_formula(expression)
+        assert flags["valid"] is False
+        assert flags["failure_reason"] == "NonFiniteConstant"
+        assert not flags["algebraically_rational"]
+        assert not flags["variable_denominator_form"]
+    metrics = formula_metrics("x_0", "-inf")
+    assert metrics["valid"] is False
+    assert metrics["failure_reason"] == "NonFiniteConstant"
+    assert metrics["component_valid"] == [False]
+    assert metrics["component_failure_reason"] == ["NonFiniteConstant"]
+    assert metrics["component_normalized_variable_aware_ted"] == [1.0]
+
+    partial = formula_metrics("x_0 | x_1", "x_0 | inf")
+    assert partial["component_valid"] == [True, False]
+    assert partial["component_normalized_variable_aware_ted"] == [0.0, 1.0]
+    assert partial["normalized_variable_aware_ted"] == 0.5

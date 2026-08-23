@@ -25,6 +25,53 @@ STRUCTURE_TASKS = (
 )
 
 
+def select_stratified_grn_panel(
+    records: Sequence[dict[str, Any]],
+    *,
+    dimensions: Sequence[int] = (1, 2, 3),
+    per_dimension: int = 8,
+    family_cap: int = 4,
+) -> list[dict[str, Any]]:
+    """Select the preregistered GRN intervention panel without outcome peeking.
+
+    Rows are considered in ``system_id`` order.  Within each dimension, the
+    selector cycles over families so that no family can dominate the panel.
+    The requested dimension counts and global family cap are hard constraints;
+    an infeasible corpus fails loudly instead of silently changing the panel.
+    """
+    ordered = sorted(records, key=lambda row: str(row["system_id"]))
+    family_counts: Counter[str] = Counter()
+    selected: list[dict[str, Any]] = []
+    for dimension in dimensions:
+        by_family: dict[str, list[dict[str, Any]]] = {}
+        for row in ordered:
+            if int(row["dimension"]) == int(dimension):
+                by_family.setdefault(str(row["family"]), []).append(row)
+        dimension_rows: list[dict[str, Any]] = []
+        while len(dimension_rows) < int(per_dimension):
+            progressed = False
+            for family in sorted(by_family):
+                if len(dimension_rows) >= int(per_dimension):
+                    break
+                rows = by_family[family]
+                if rows and family_counts[family] < int(family_cap):
+                    row = rows.pop(0)
+                    dimension_rows.append(row)
+                    family_counts[family] += 1
+                    progressed = True
+            if not progressed:
+                raise ValueError(
+                    "fixed GRN panel is infeasible: "
+                    f"dimension={dimension}, selected={len(dimension_rows)}/{per_dimension}, "
+                    f"family_cap={family_cap}"
+                )
+        selected.extend(dimension_rows)
+    expected = int(per_dimension) * len(tuple(dimensions))
+    if len(selected) != expected or any(count > int(family_cap) for count in family_counts.values()):
+        raise AssertionError("fixed GRN panel constraints were not preserved")
+    return selected
+
+
 def token_category(token: str) -> str:
     value = str(token)
     if value.startswith("x_"):
