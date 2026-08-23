@@ -62,6 +62,50 @@ training:
       - {metric: valid_rate, direction: maximize}
       - {metric: validation_teacher_forcing_ce, direction: minimize}
 
+  optimizer: adam
+  batch_size: 1
+  checkpoint_steps: [50, 200, 1000]
+  screening_beam_size: 8
+  confirmation_beam_size: 50
+  score_tie_tolerance: 1.0e-12
+  train_source_roles: [input]
+
+intervention:
+  corpus_mean_source: official_train
+  strength_selection_panel: fixed_official_validation_panel
+  p5_and_decode_panel: fixed_grn_validation_panel
+  holdout_causal_panel: family_holdout_validation_R06_all
+  alphas: [0.25, 0.5, 0.75, 1.0]
+  alpha_selection_order: [1.0, 0.75, 0.5, 0.25]
+  main_method: post_block_mean_interpolation
+  zero_role: all_layer_ce_sweep_and_causal_top3_decode_robustness
+  fixed_pair_status: deferred_pairing_and_budget_not_frozen
+  identity_ce_abs_tolerance: 1.0e-6
+  ce_tie_tolerance: 1.0e-6
+  minimum_tie_aware_groups: 8
+  minimum_layer_delta_range_relative_to_baseline_ce: 0.01
+  minimum_layer_delta_range_in_identity_tolerances: 10
+  finite_ce_ceiling: log_vocabulary_size
+  p5_spearman_threshold: 0.5
+  failure_aware_r2_penalty: -10.0
+
+family_holdout:
+  train_families: [R01, R02, R03, R04, R05]
+  selection_family: R06
+  sealed_test_families: [R07, R08]
+  label: system-structure-OOD_partial-component-overlap
+
+final_test:
+  conditions: [frozen, official_continued_full, grn_full, grn_top3, grn_random3_0]
+  go6_random_sets_to_beat: 3
+  go8_valid_rate_drop_max: 0.05
+  go8_generalization_nrmse_ratio_max: 1.10
+  go8_nontrivial_exact_truth_flags: [hill_form, modulated_hill_form, variable_denominator_form]
+  go8_primary_condition: grn_top3
+  go8_comparator: frozen
+  go8_aggregation: system_then_seed_macro
+  go8_nrmse_zero_tolerance: 1.0e-12
+
 smoke:
   n_seeds: 1
   beam_size: 8

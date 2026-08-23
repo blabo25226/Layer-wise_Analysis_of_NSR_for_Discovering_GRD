@@ -491,7 +491,7 @@ GPU_RUN4は1643行の計画に対し、実行は corpus 80式・4 Adam step と�
 | GRN test systems | 160 | **80** | family 8 × 10 variant |
 | IOLE の validation 評価 | 16 block × full validation | **16 block × reduced panel**、上位・下位・random の finalist のみ full validation | 30 h → 3 h |
 | hyperparameter探索の評価 | full validation | **reduced panel + validation CE** | 同上 |
-| **最終testへ進むFT条件** | 10条件 | **5条件**（frozen / official-continued / GRN full / GRN top-k best / GRN random 代表1） | 19 h → 10 h |
+| **最終testへ進むFT条件** | 10条件 | **5条件**（frozen / official-continued / GRN full / GRN top3 / GRN random3_0） | 19 h → 10 h |
 | 介入方式 × 強度のdecode | 最大81条件 | **validation CEで非飽和な1方式1強度を選び、17条件のみdecode** | codexレビュー修正点5 |
 | 公式corpus | 30,000式 | **3,000式**、throughput実測後にstretch判断 | 10 h → 1 h |
 
@@ -734,6 +734,78 @@ zero + mean + $`\alpha`$ 4水準を全てdecodeすると **最大81条件**で�
 ## 12.3 control hook
 
 GPU_RUN4の `control_hook_ok: true`（恒等hookがbaselineを変えない）を**全介入方式で**検証する。
+
+## 12.4 Phase 5開始前に固定した実行契約（2026-08-24追補）
+
+Phase 4までの結果を使って介入方式を事後選択しないため、Phase 5の実装・実行前に次を固定する。
+
+- corpus meanはPhase 4のofficial train 2,000式だけから作る。各式内のposition平均を先に取り、
+  その後に式間平均するformula-weighted meanとする。validation/testからmeanを作らない
+- 介入強度のCE sweepと強度選択は固定official validation 24式だけで行う。
+  P5用の $`\Delta`$CE再計算とmain decodeは固定GRN validation 24 systemだけで行う
+- mean置換はpost-block `layer_norm2` residual streamを $`\mu_l`$ へ置換し、補間は
+  $`(1-\alpha)h+\alpha\mu_l`$ とする。zeroはattention/FFN（decoderはcross-attentionも）の
+  branch出力を0にしresidual skipを保持するため、mean補間とは別estimandである
+- `mean` と $`\alpha=1`$ は同一性controlとして両方保存するが、強度候補へ二重計上しない。
+  fixed-pair patchingはpairing規則と予算が未固定なので本runのmain/Go/P5から除外し、次runへ送る
+- §12.2どおりzero / mean / $`\alpha`$ 4水準の16層CE（96 aggregate）は全て実行する。
+  zeroはmain decodeの強度選択候補にはせず、causal top3のdecode robustnessに用いる。
+  §12.3とGo 5の「全介入方式」は、このrunで実装するzero・mean・補間を指し、deferしたfixed-pairを含まない
+- 恒等hook、補間 $`\alpha=0`$、mean対 $`\alpha=1`$ のCE差は事前固定した絶対許容差
+  $`10^{-6}`$ 以下とする。観測差から許容差を作らない
+- main候補は補間 $`\alpha`$ を強い順 $`1,0.75,0.5,0.25`$ に判定する。全CEが有限で、
+  各層median CEが $`\log(|V|)`$ 未満、絶対差 $`10^{-6}`$ 以内をtieとするtie-aware groupが8以上、
+  16層の $`\Delta`$CE rangeが
+  $`\max(10^{-5},0.01\times\mathrm{baseline\ median\ CE})`$ 以上となる最初の強度を選ぶ。
+  全候補が不合格ならGo 5を落としdecodeしない
+- main decodeはGRN 24 ×（baseline + 16層）× candidate seed 3 = 1,224 cellを厳密に実行する。
+  baseline 72 cellは全層比較で共有する。main結果だけからcausal top3を凍結した後、
+  zero robustness 3層 × 24 × 3 = 216 cellを追加し、結果を見てtop3を選び直さない
+- main selected式はofficial candidate index 0とし、Phase 3のmulti-IC rerankingを混ぜない。
+  全beam候補、empty/shortfall、raw/canonical/skeleton式、失敗、candidate seed/hashを保存する
+- P5はGRN panelにおける16層の `damage_CE = median(CE_intervention - CE_baseline)` と
+  `damage_TED = median(TED_intervention - TED_baseline)` のSpearman相関とする。
+  tiesはaverage rank、NaN/constantは判定不能であり支持扱いしない。$`\rho\le0.5`$ をP5支持とする
+- causal rankはformula劣化だけをlexicographicに並べる（component exact loss、failure-aware TED増加、
+  component valid loss、generalization $`R^2`$ loss、最後に固定layer名）。CE/probe/CKAを混ぜない
+- family-holdout用causal rankはR06 validation 10 systemだけから別に作り、main rankを流用しない
+
+## 12.5 Phase 6--8の計算量・firewall追補（2026-08-24）
+
+- main viewはR01--R08 train/validation、family-holdout viewはR01--R05 trainとR06 selectionを用いる。
+  checkpoint、hyperparameter、IOLE rank、top/causal/bottom集合を完全に分離する。
+  **family-holdout viewでは** R07/R08をfinal testまで開かない（main viewではR07/R08のtrain/validationを計画どおり使う）
+- lr 3 × checkpoint step 3の9候補は全trainable条件へ同数与える。各lrはstep 1,000まで一度学習し、
+  50/200/1,000のsnapshotを評価することで9候補を等価に保つ。CE patienceは使わない
+- screeningは全条件でbeam 8、選択済みcandidateの確認とPhase 8はbeam 50とする。
+  reduced panelは24 systemの4 corruptionを意味し、24 cellへ暗黙縮退しない
+- model selection scoreはcomponent exponent-aware exact最大、failure-aware component TED最小、
+  valid rate最大、validation CE最小（最後のtie-breakだけ）の順とする。invalid componentのTEDは1である
+- trainingはclean full-resolution input-role trajectoryだけを使い、selection/generalization ICを学習へ入れない。
+  同一view/bundleではtrain orderを全条件でpairedにしorder hashを保存する
+- reduced-panel rankを凍結rankとし、full validation finalist確認で順位や集合を選び直さない。
+  $`C_l`$ はfailure-aware TEDをscalar $`L`$ とし、full TEDがfrozen TEDより小さいseedだけで算出する
+- tie groupはscore vectorを小数12桁へ量子化して作る。top-k境界tieは固定layer名で決着し記録する。
+  random3はseed 5101から**同一集合がない**5集合を事前固定する。異なる集合どうしの層の重複は許容して記録し、
+  top集合との重複を理由に再抽選しない。test代表は`random3_0`とする
+- ODEBench forgettingはcondition/checkpoint凍結後のsecondary評価だけに使い、選択へ戻さない
+- 最終testの5条件は `frozen / official_continued_full / grn_full / grn_top3 / grn_random3_0` とする。
+  これはP7が`grn_top3`を名指ししたpreregistrationと整合させるためであり、`top-k best`を事後選択しない
+- Go 6はmain validationで`grn_top3`がfrozenとrandom 5集合中3集合以上をformula scoreで上回ることとする。
+  満たさなければsealed testを開かず、P3/P4/P7は判定不能とする
+- Go 7の後にのみ一つの凍結protocolでmain testとfamily-holdout testを開く。resumeは同一freeze hash・
+  checkpoint hash・cell seedだけを許し、完了cellを再評価しない
+- family-holdoutは `system-structure-OOD_partial-component-overlap` と記載し、完全なcomponent OODと呼ばない
+- `sealed_family_holdout_test` 20 systemはmain `sealed_test` 80 system中のR07/R08部分集合であり、
+  独立な第2 testではなく同一test campaignのsubset viewとして扱う。二重の独立証拠として数えない
+- Go 8はmain final-testの`grn_top3`で、R03--R08のうちtruth componentが`hill_form`、
+  `modulated_hill_form`、または`variable_denominator_form`である非自明成分でexactが1 component以上、
+  family-holdout view固有checkpointのtop3が同viewのfrozenよりexact改善またはTED低下、P6支持、
+  main testの`grn_top3`対frozenでvalid率低下0.05以内、failure-aware generalization NRMSE比1.10以内、
+  main validationでtop3がrandom 5集合中3集合以上に優位、をすべて要求する。
+  率・TED・NRMSEはsystem内component/corruptionをまとめてからseed macroとする。NRMSE比はfrozenが
+  $`10^{-12}`$ 以下なら両条件が同閾値以下のとき1、top3だけ上回るとき無限大とする。
+  checkpoint `max_dimension=6` のためD4b size-10 decodeは行わずD4aだけを対象とする
 
 ---
 
