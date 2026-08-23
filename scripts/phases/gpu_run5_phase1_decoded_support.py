@@ -6,6 +6,7 @@ import argparse
 import json
 import math
 import os
+import statistics
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -50,14 +51,20 @@ def _mean(rows: list[dict], key: str) -> float | None:
 
 
 def _selected_summary(rows: list[dict]) -> dict:
+    finite_ted = [float(row["normalized_ted"]) for row in rows if row.get("normalized_ted") is not None and math.isfinite(float(row["normalized_ted"]))]
+    finite_recon = [float(row["reconstruction_r2"]) for row in rows if row.get("reconstruction_r2") is not None and math.isfinite(float(row["reconstruction_r2"]))]
+    finite_gen = [float(row["generalization_r2"]) for row in rows if row.get("generalization_r2") is not None and math.isfinite(float(row["generalization_r2"]))]
     return {
         "n": len(rows),
         "valid_rate": sum(bool(row.get("valid")) for row in rows) / max(len(rows), 1),
         "skeleton_exact_rate": _mean(rows, "skeleton_exact"),
         "exponent_aware_skeleton_exact_rate": sum(row["exponent_aware_skeleton_exact"] for row in rows) / max(len(rows), 1),
         "normalized_ted_mean": _mean(rows, "normalized_ted"),
+        "normalized_ted_median": statistics.median(finite_ted) if finite_ted else None,
         "reconstruction_r2_mean": _mean(rows, "reconstruction_r2"),
+        "reconstruction_r2_median": statistics.median(finite_recon) if finite_recon else None,
         "generalization_r2_mean": _mean(rows, "generalization_r2"),
+        "generalization_r2_median": statistics.median(finite_gen) if finite_gen else None,
         "failure_counts": dict(Counter(str(row.get("failure_reason") or "none") for row in rows)),
     }
 
@@ -106,12 +113,32 @@ def main() -> int:
             "n_candidates": len(rows),
             "variable_denominator_candidate_rate": sum(r["candidate_structure"]["variable_denominator_form"] for r in rows) / len(rows),
             "rational_with_variable_denominator_candidate_rate": sum(r["candidate_structure"]["rational_with_variable_denominator"] for r in rows) / len(rows),
+            "algebraically_rational_candidate_rate": sum(r["candidate_structure"]["algebraically_rational"] for r in rows) / len(rows),
             "hill_candidate_rate": sum(r["candidate_structure"]["hill_form"] for r in rows) / len(rows),
+            "modulated_hill_candidate_rate": sum(r["candidate_structure"]["modulated_hill_form"] for r in rows) / len(rows),
             "sigmoid_candidate_rate": sum(r["candidate_structure"]["sigmoid_saturating_form"] for r in rows) / len(rows),
         })
     selected_form_comparison = {
         "rational_with_variable_denominator": _selected_summary([r for r in selected if r["true_structure"]["rational_with_variable_denominator"]]),
         "other": _selected_summary([r for r in selected if not r["true_structure"]["rational_with_variable_denominator"]]),
+    }
+    structure_flags = [
+        "variable_denominator_form", "algebraically_rational", "rational_with_variable_denominator",
+        "hill_form", "modulated_hill_form", "sigmoid_saturating_form",
+    ]
+    truth_form_system_ids = {
+        flag: sorted({row["ode_id"] for row in selected if row["true_structure"][flag]})
+        for flag in structure_flags
+    }
+    selected_all_exact = sum(row["exponent_aware_skeleton_exact"] for row in selected)
+    generation_selection = {
+        "all_groups": len(grouped),
+        "true_exponent_skeleton_in_beam_count": int(sum(truth_in_beam)),
+        "selected_exponent_skeleton_exact_count": int(selected_all_exact),
+        "selection_miss_count_when_exact_in_beam": int(sum(truth_in_beam) - selected_all_exact),
+        "variable_denominator_groups": len(variable_group_support),
+        "variable_denominator_true_exponent_skeleton_in_beam_count": int(sum(variable_group_support)),
+        "interpretation": "truth-specific generation failure on variable-denominator systems" if not any(variable_group_support) else "selection is evaluable where truth support exists",
     }
     summary = {
         "selected_count": len(selected),
@@ -127,7 +154,9 @@ def main() -> int:
         "variable_denominator_group_true_exponent_skeleton_in_beam_count": int(sum(variable_group_support)),
         "variable_denominator_group_count": len(variable_group_support),
         "candidate_support_by_form_dimension_corruption": candidate_support_rows,
+        "truth_form_system_ids": truth_form_system_ids,
         "selected_rational_vs_other": selected_form_comparison,
+        "truth_specific_generation_selection": generation_selection,
         "source_artifacts": {
             "selected_sha256": sha256_file(source / "selected.json"),
             "all_candidates_sha256": sha256_file(source / "all_candidates.json"),
@@ -141,7 +170,12 @@ def main() -> int:
         "record_counts_ok": len(selected) == 252 and len(candidates) == 12600,
         "variable_denominator_count_ok": len(variable_denominator_ids) == 14,
         "all_records_classified": all(row["true_structure"]["valid"] and row["candidate_structure"]["valid"] for row in candidates),
-        "r1_r3_aggregates_saved": bool(candidate_support_rows and selected_form_comparison),
+        "r1_truth_form_breakdown_saved": all(flag in truth_form_system_ids for flag in structure_flags),
+        "r2_candidate_support_saved": all(
+            all(key in row for key in ["variable_denominator_candidate_rate", "algebraically_rational_candidate_rate", "hill_candidate_rate", "modulated_hill_candidate_rate", "sigmoid_candidate_rate"])
+            for row in candidate_support_rows
+        ),
+        "r3_rational_comparison_saved": all(value["n"] > 0 for value in selected_form_comparison.values()),
         "retrospective_outcomes_saved": True,
         "truth_specific_beam_support_saved": len(variable_group_support) == 56,
     }
