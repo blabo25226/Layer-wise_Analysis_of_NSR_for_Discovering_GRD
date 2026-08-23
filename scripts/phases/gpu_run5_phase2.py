@@ -7,12 +7,14 @@ import json
 import os
 import sys
 from pathlib import Path
+from time import perf_counter
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from evaluation.gpu_run5_structure import classify_formula  # noqa: E402
-from gpu_run2_runtime import git_info, sha256_file, write_json  # noqa: E402
+from gpu_run2_runtime import fingerprint_json, git_info, sha256_file, utc_now, write_json  # noqa: E402
+from gpu_run3_runtime import software_versions  # noqa: E402
 from gpu_run4_runtime import load_odeformer_model  # noqa: E402
 from gpu_run5.config import budget, load_config, phase_dir, read_json, run_dir, write_manifest  # noqa: E402
 from gpu_run5.grn import FAMILIES, generate_corpus  # noqa: E402
@@ -31,9 +33,23 @@ def _encode_teacher(model, row: dict) -> dict:
     encoded = model.env.equation_encoder.encode(tree) if tree is not None else []
     decoded = model.env.equation_encoder.decode(encoded) if encoded else None
     structure = classify_formula(row["teacher_prefix"])
+    teacher_components_prefix = row["teacher_prefix"].split("|")
+    teacher_infix = decoded.infix() if decoded is not None else None
+    numeric_tokens = []
+    for token in row["teacher_prefix"].replace("|", ",").split(","):
+        try:
+            numeric_tokens.append(float(token))
+        except ValueError:
+            pass
     return {
         **row,
-        "teacher_infix": decoded.infix() if decoded is not None else None,
+        "eq_id": row["system_id"],
+        "teacher_infix": teacher_infix,
+        "teacher_components_prefix": teacher_components_prefix,
+        "teacher_components_infix": teacher_infix.split(" | ") if teacher_infix else [],
+        "variable_to_gene": {f"x_{index}": f"synthetic_gene_{index}" for index in range(int(row["dimension"]))},
+        "sampled_parameters_full_precision": row["sampled_parameters"],
+        "effective_teacher_numeric_tokens": numeric_tokens,
         "tree_encoded": list(encoded),
         "teacher_token_length": len(encoded),
         "teacher_roundtrip_prefix": decoded.prefix() if decoded is not None else None,
@@ -64,13 +80,30 @@ def _component_skeletons(rows: list[dict]) -> set[str]:
     return values
 
 
+def _trajectory_role_audit(rows: list[dict]) -> dict:
+    expected = {"input": 1, "selection": 2, "generalization": 2}
+    invalid = []
+    nonunique = []
+    for row in rows:
+        counts = {role: sum(item["role"] == role for item in row["trajectories"]) for role in expected}
+        if counts != expected:
+            invalid.append({"system_id": row["system_id"], "counts": counts})
+        checksums = [item["checksum"] for item in row["trajectories"]]
+        if len(set(checksums)) != len(checksums):
+            nonunique.append(row["system_id"])
+    return {"expected_per_system": expected, "invalid_role_counts": invalid, "nonunique_within_system": nonunique}
+
+
 def main() -> int:
+    started_utc = utc_now()
+    started_clock = perf_counter()
     args = parse_args()
     config = load_config()
     root = run_dir(args.run_id)
     if read_json(root / "phase1" / "manifest.json", {}).get("status") != "complete":
         raise RuntimeError("Phase 1 is not complete")
     out = phase_dir(args.run_id, 2)
+    write_json(out / "config_snapshot.json", config)
     selected_budget = budget(config, args.smoke)
     grn = config["grn"]
     variants = {
@@ -121,6 +154,11 @@ def main() -> int:
     holdout_overlap = sorted(holdout_skeletons["train"] & holdout_skeletons["test"])
     holdout_component_skeletons = {name: _component_skeletons(items) for name, items in holdout.items()}
     holdout_component_overlap = sorted(holdout_component_skeletons["train"] & holdout_component_skeletons["test"])
+    holdout_family_sets = {name: sorted({row["family"] for row in items}) for name, items in holdout.items()}
+    expected_holdout_family_sets = {
+        "train": ["R01", "R02", "R03", "R04", "R05"], "validation": ["R06"], "test": ["R07", "R08"]
+    }
+    role_audit = _trajectory_role_audit(rows)
 
     write_json(out / "train.json", splits["train"])
     write_json(out / "validation.json", splits["validation"])
@@ -138,6 +176,8 @@ def main() -> int:
         "trajectory_overlap": trajectory_overlap,
         "parameter_variant_overlap": parameter_overlap,
         "family_holdout_counts": {name: len(items) for name, items in holdout.items()},
+        "family_holdout_family_sets": holdout_family_sets,
+        "expected_family_holdout_family_sets": expected_holdout_family_sets,
         "family_holdout_train_test_system_skeleton_overlap": holdout_overlap,
         "family_holdout_train_test_component_skeleton_overlap": holdout_component_overlap,
         "family_holdout_system_structure_ood": not holdout_overlap,
@@ -149,6 +189,8 @@ def main() -> int:
             row["teacher_roundtrip_prefix"] == row["teacher_prefix"].replace("|", ",|,")
             for row in rows
         ),
+        "truth_equivalence_basis": "numeric trajectories are integrated from effective_teacher_prefix itself; canonical truth and numerical truth are identical by construction",
+        "trajectory_role_audit": role_audit,
         "corpus_seed_bundle_index": 0,
         "corpus_seed_policy": "one frozen corpus shared across all paired model/candidate bundles; per-bundle data_seed controls training order, not evaluation-system identity",
         "test_generated_not_evaluated": True,
@@ -162,14 +204,33 @@ def main() -> int:
         "no_trajectory_leakage": not any(trajectory_overlap.values()),
         "sealed_test_written": (out / "sealed_test.json").is_file(),
         "family_holdout_separate": bool(holdout["train"] and holdout["validation"] and holdout["test"]),
+        "family_holdout_sets_exact_and_disjoint": holdout_family_sets == expected_holdout_family_sets
+        and not (set(holdout_family_sets["train"]) & set(holdout_family_sets["validation"]))
+        and not (set(holdout_family_sets["train"]) & set(holdout_family_sets["test"]))
+        and not (set(holdout_family_sets["validation"]) & set(holdout_family_sets["test"])),
+        "trajectory_roles_separated": not role_audit["invalid_role_counts"] and not role_audit["nonunique_within_system"],
     }
     write_json(out / "audit.json", audit)
     write_json(out / "go.json", go)
     status = "complete" if all(go.values()) else "incomplete"
+    artifact_names = [
+        "train.json", "validation.json", "sealed_test.json", "family_holdout_train.json",
+        "family_holdout_validation.json", "sealed_family_holdout_test.json", "rejections.json",
+        "audit.json", "go.json", "config_snapshot.json",
+    ]
+    checkpoint = ROOT / str(config["odeformer_checkpoint"])
+    finished_utc = utc_now()
     write_manifest(
         out, 2, status, go_conditions=go, audit=audit, git=git_info(),
         test_accessed=False, test_generated=True,
-        artifact_sha256={name: sha256_file(out / name) for name in ["train.json", "validation.json", "sealed_test.json"]},
+        started_utc=started_utc, finished_utc=finished_utc,
+        wall_time_sec=perf_counter() - started_clock,
+        config_path=str(ROOT / "configs/gpu_run5/base.yaml"),
+        config_fingerprint=fingerprint_json(config),
+        checkpoint={"path": str(checkpoint), "sha256": sha256_file(checkpoint)},
+        seed_bundles=config["seed_bundles"], corpus_seed_bundle_index=0,
+        environment=software_versions(),
+        artifact_sha256={name: sha256_file(out / name) for name in artifact_names},
     )
     print(f"GPU_RUN5 Phase 2 {status}: counts={audit['counts']} rejection={audit['rejection_rate']:.3f}")
     return 0 if status == "complete" else 1

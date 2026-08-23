@@ -1,6 +1,7 @@
 import numpy as np
 
 from gpu_run5.grn import FAMILIES, generate_corpus, system_definition
+from scripts.phases.gpu_run5_phase2 import _trajectory_role_audit
 
 
 def test_all_families_have_matching_rhs_and_teacher_dimensions():
@@ -28,3 +29,6 @@ def test_corpus_keeps_trajectory_roles_together_and_distinct():
         assert roles.count("generalization") == 2
         checksums = [item["checksum"] for item in row["trajectories"]]
         assert len(set(checksums)) == 5
+    audit = _trajectory_role_audit(corpus["records"])
+    assert audit["invalid_role_counts"] == []
+    assert audit["nonunique_within_system"] == []
