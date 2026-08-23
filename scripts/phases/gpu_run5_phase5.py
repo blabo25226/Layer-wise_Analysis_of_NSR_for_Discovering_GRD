@@ -55,7 +55,11 @@ def parse_args() -> argparse.Namespace:
 
 
 def _candidate_hash(infixes: list[str | None]) -> str:
-    encoded = json.dumps(infixes, ensure_ascii=True, separators=(",", ":")).encode()
+    # Persisted candidate rows represent a decoder ``None`` as the explicit
+    # empty raw formula.  Hash that same lossless persisted representation so
+    # the post-run audit can always reconstruct the candidate-set identity.
+    normalized = [value or "" for value in infixes]
+    encoded = json.dumps(normalized, ensure_ascii=True, separators=(",", ":")).encode()
     return hashlib.sha256(encoded).hexdigest()
 
 

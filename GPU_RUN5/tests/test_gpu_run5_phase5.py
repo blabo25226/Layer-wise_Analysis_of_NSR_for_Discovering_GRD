@@ -117,6 +117,12 @@ def test_candidate_audit_recomputes_ordered_formula_hash() -> None:
     assert _candidate_audit([cell], candidates)["pass"] is False
 
 
+def test_candidate_hash_matches_persisted_none_representation() -> None:
+    from scripts.phases.gpu_run5_phase5 import _candidate_hash
+
+    assert _candidate_hash(["x_0", None]) == _candidate_hash(["x_0", ""])
+
+
 def test_decode_cell_records_generation_failure_but_reraises_oom(monkeypatch) -> None:
     row = {
         "system_id": "R01_validation_000", "family": "R01", "dimension": 1,
