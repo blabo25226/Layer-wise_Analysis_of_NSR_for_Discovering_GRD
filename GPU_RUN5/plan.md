@@ -956,7 +956,9 @@ test 後に **Go 8**（DREAM4・実データへ進むか）。予算: **約20 h*
 
 ## 16.1 Seed
 
-**3 paired seed bundles を既定とする**（§8.3）。各bundleは data / trajectory-IC / model-dropout /
+**3 paired seed bundles を既定とする**（§8.3）。評価systemをseedごとに変えるとpaired比較が壊れるため、
+Phase 2ではbundle 0から一つの固定corpusを生成し、全bundleで共有する。各bundleの `data_seed` は
+学習時のdata orderに使う。その他、各bundleは trajectory-IC / model-dropout /
 candidate-sampling / corruption / random-layer-set の各seedを持つ。
 
 n=3 では95% Studentのt区間は自由度2で非常に広い（README §11.1）。

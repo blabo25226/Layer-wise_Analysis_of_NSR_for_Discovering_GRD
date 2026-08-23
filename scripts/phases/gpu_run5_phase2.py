@@ -46,6 +46,24 @@ def _checksums(rows: list[dict]) -> set[str]:
     return {item["checksum"] for row in rows for item in row["trajectories"]}
 
 
+def _parameter_fingerprints(rows: list[dict]) -> set[str]:
+    return {
+        __import__("hashlib").sha256(
+            json.dumps(row["sampled_parameters"], sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
+        for row in rows
+    }
+
+
+def _component_skeletons(rows: list[dict]) -> set[str]:
+    values: set[str] = set()
+    for row in rows:
+        values.update(
+            part for part in row["structure"]["exponent_aware_skeleton"].split(" | ") if part
+        )
+    return values
+
+
 def main() -> int:
     args = parse_args()
     config = load_config()
@@ -88,6 +106,12 @@ def main() -> int:
         "train_test": sorted(checksum_sets["train"] & checksum_sets["test"]),
         "validation_test": sorted(checksum_sets["validation"] & checksum_sets["test"]),
     }
+    parameter_sets = {name: _parameter_fingerprints(items) for name, items in splits.items()}
+    parameter_overlap = {
+        "train_validation": sorted(parameter_sets["train"] & parameter_sets["validation"]),
+        "train_test": sorted(parameter_sets["train"] & parameter_sets["test"]),
+        "validation_test": sorted(parameter_sets["validation"] & parameter_sets["test"]),
+    }
     holdout = {
         "train": [row for row in splits["train"] if row["family"] in {"R01", "R02", "R03", "R04", "R05"}],
         "validation": [row for row in splits["validation"] if row["family"] == "R06"],
@@ -95,6 +119,8 @@ def main() -> int:
     }
     holdout_skeletons = {name: {row["structure"]["exponent_aware_skeleton"] for row in items} for name, items in holdout.items()}
     holdout_overlap = sorted(holdout_skeletons["train"] & holdout_skeletons["test"])
+    holdout_component_skeletons = {name: _component_skeletons(items) for name, items in holdout.items()}
+    holdout_component_overlap = sorted(holdout_component_skeletons["train"] & holdout_component_skeletons["test"])
 
     write_json(out / "train.json", splits["train"])
     write_json(out / "validation.json", splits["validation"])
@@ -110,18 +136,29 @@ def main() -> int:
         "corpus_fingerprint": corpus["fingerprint"],
         "system_overlap": system_overlap,
         "trajectory_overlap": trajectory_overlap,
+        "parameter_variant_overlap": parameter_overlap,
         "family_holdout_counts": {name: len(items) for name, items in holdout.items()},
-        "family_holdout_train_test_skeleton_overlap": holdout_overlap,
-        "family_holdout_structure_ood": not holdout_overlap,
+        "family_holdout_train_test_system_skeleton_overlap": holdout_overlap,
+        "family_holdout_train_test_component_skeleton_overlap": holdout_component_overlap,
+        "family_holdout_system_structure_ood": not holdout_overlap,
+        "family_holdout_component_structure_ood": not holdout_component_overlap,
+        "family_holdout_label": "system-structure-OOD_partial-component-overlap" if not holdout_overlap and holdout_component_overlap else "structure-OOD" if not holdout_overlap else "partial-family-holdout",
         "max_teacher_token_length": max(row["teacher_token_length"] for row in rows),
         "all_teacher_valid": all(row["teacher_valid"] for row in rows),
+        "all_teacher_prefix_roundtrips_exactly": all(
+            row["teacher_roundtrip_prefix"] == row["teacher_prefix"].replace("|", ",|,")
+            for row in rows
+        ),
+        "corpus_seed_bundle_index": 0,
+        "corpus_seed_policy": "one frozen corpus shared across all paired model/candidate bundles; per-bundle data_seed controls training order, not evaluation-system identity",
         "test_generated_not_evaluated": True,
     }
     go = {
         "counts_ok": audit["counts"] == expected,
         "rejection_rate_ok": corpus["rejection_rate"] < float(grn["maximum_rejection_rate"]),
-        "teacher_ok": audit["all_teacher_valid"] and audit["max_teacher_token_length"] <= 200,
+        "teacher_ok": audit["all_teacher_valid"] and audit["all_teacher_prefix_roundtrips_exactly"] and audit["max_teacher_token_length"] <= 200,
         "no_system_leakage": not any(system_overlap.values()),
+        "no_parameter_variant_leakage": not any(parameter_overlap.values()),
         "no_trajectory_leakage": not any(trajectory_overlap.values()),
         "sealed_test_written": (out / "sealed_test.json").is_file(),
         "family_holdout_separate": bool(holdout["train"] and holdout["validation"] and holdout["test"]),
