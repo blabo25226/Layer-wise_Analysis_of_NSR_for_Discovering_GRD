@@ -1,7 +1,9 @@
 # LANSR研究：遺伝子制御ダイナミクスの発見に向けたニューラルシンボリック回帰の層別解析
 
-> **現在地（2026年8月16日）**：ローカルGPU（RTX 2070）でGPU_RUN2をPhase 0–5まで完走した。
-> GPU_RUN2は合成GNW式・oracle変数・解析的微分だけを使い、層解析と選択的fine-tuningを検証する実験である。
+> **現在地（2026年8月24日）** ：GPU_RUN2–4を完了し、公開ODEFormerを閉じたHill型GRNへ適応する
+> GPU_RUN5を固定計画に沿って実行している。GPU_RUN5の結果は[`GPU_RUN5/README.md`](GPU_RUN5/README.md)から辿り、
+> Phase 9完了前の途中値や、評価世代の異なるGPU_RUN2–4の数値と混ぜない。
+> GPU_RUN2は合成GNW式・oracle変数・解析的微分だけを使い、層解析と選択的fine-tuningを検証した実験である。
 > 主結果は「適応はdecoder中後段、とくに `decoder_4` に局在する」「少数層FTは全層FTより数値精度・生成安定性が良い」
 > 「しかし正しい式構造の回復はほぼ達成できていない」の3点である。
 > 本READMEの主結果はすべてGPU_RUN2であり、GPU_RUN1とCPU pilotは[§12](#12-過去のrunの位置づけ)に履歴として要約するにとどめる。
@@ -73,6 +75,7 @@
 | **GPU_RUN2** | **ローカルRTX 2070、固定commit、合成GNW式のみの層解析run** | **§7–§11の主結果** |
 | GPU_RUN3 | ND2の再現と層解析 | 本READMEの主結果と混ぜない。入口は [`GPU_RUN3/`](GPU_RUN3/) |
 | GPU_RUN4 | 公開ODEFormer checkpoint（4+12 / 約61M）の再現と層解析。reduced Phase 0–9済み | 本READMEの主結果と混ぜない。入口は [`GPU_RUN4/README.md`](GPU_RUN4/README.md) |
+| GPU_RUN5 | 同じ公開ODEFormerの閉じたHill型GRN適応、多軌道候補選択、formula-level層解析 | 固定計画とmanifest検証済み成果物は [`GPU_RUN5/README.md`](GPU_RUN5/README.md) から辿る。他世代のscoreと直接混ぜない |
 
 評価設計が世代間で異なるため、**GPU_RUN2の数値を他世代と同一表に混ぜてはならない。**
 
