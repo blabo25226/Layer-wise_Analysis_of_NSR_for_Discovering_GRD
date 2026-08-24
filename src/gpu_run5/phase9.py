@@ -971,7 +971,11 @@ def _layer_analysis_result(catalog: Catalog) -> dict[str, Any]:
             if isinstance(row, Mapping):
                 top3_effects[layer] = {
                     key: _finite_number(row.get(key))
-                    for key in ("damage_ce", "failure_aware_ted_increase", "exact_loss", "valid_loss")
+                    for key in (
+                        "damage_ce", "failure_aware_ted_increase",
+                        "component_exact_loss", "component_valid_loss",
+                        "generalization_r2_loss", "n_formula_pairs", "n_ce_pairs",
+                    )
                 }
     available = [artifact for artifact in (probes, lens, gradients, cka, effects, causal) if artifact is not None]
     return {

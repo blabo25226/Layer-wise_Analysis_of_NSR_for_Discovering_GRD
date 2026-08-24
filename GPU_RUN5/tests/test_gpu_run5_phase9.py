@@ -496,7 +496,9 @@ def test_result_d_summarizes_signed_observational_and_intervention_outputs(tmp_p
             "layer_effects.json": {
                 "decoder_0": {
                     "damage_ce": 0.2, "failure_aware_ted_increase": 0.3,
-                    "exact_loss": 0.1, "valid_loss": 0.0,
+                    "component_exact_loss": 0.1, "component_valid_loss": 0.0,
+                    "generalization_r2_loss": 1.25,
+                    "n_formula_pairs": 72, "n_ce_pairs": 24,
                 }
             },
             "causal_ranking.json": {"ranking": ["decoder_0"]},
@@ -510,6 +512,15 @@ def test_result_d_summarizes_signed_observational_and_intervention_outputs(tmp_p
     ]
     assert result["observational"]["within_module_cka"]["encoder"]["mean_off_diagonal"] == 0.5
     assert result["intervention"]["causal_top3"] == ["decoder_0"]
+    assert result["intervention"]["causal_top3_layer_effects"]["decoder_0"] == {
+        "damage_ce": 0.2,
+        "failure_aware_ted_increase": 0.3,
+        "component_exact_loss": 0.1,
+        "component_valid_loss": 0.0,
+        "generalization_r2_loss": 1.25,
+        "n_formula_pairs": 72.0,
+        "n_ce_pairs": 24.0,
+    }
     assert {row["artifact"] for row in result["signed_sources"]} == {
         "probes.json", "decoder_logit_lens.json", "gradient_norms.json",
         "cka.json", "layer_effects.json", "causal_ranking.json",
