@@ -29,6 +29,7 @@ mkdir -p "$LANSR_RUN_DIR"
 run_phase() {
   local phase="$1"
   local script="$2"
+  shift 2
   if [[ "$phase" -lt "$FROM_PHASE" || "$phase" -gt "$TO_PHASE" ]]; then
     return 0
   fi
@@ -36,7 +37,7 @@ run_phase() {
     echo "Phase $phase entrypoint is not implemented: $script" >&2
     return 2
   fi
-  local args=("$script" --run-id "$RUN_ID")
+  local args=("$script" --run-id "$RUN_ID" "$@")
   if [[ "$SMOKE" -eq 1 ]]; then args+=(--smoke); fi
   local started ended rc
   started="$(date +%s)"
@@ -51,6 +52,25 @@ run_phase() {
 
 run_phase 0 scripts/phases/gpu_run5_phase0_preflight.py
 run_phase 1 scripts/phases/gpu_run5_phase1_decoded_support.py
-for phase in 2 3 4 5 6 7 8 9; do
+for phase in 2 3 4 5 6 7; do
   run_phase "$phase" "scripts/phases/gpu_run5_phase${phase}.py"
 done
+run_phase 8 scripts/phases/gpu_run5_phase8.py --stage validation
+if [[ "$SMOKE" -eq 0 && "$FROM_PHASE" -le 8 && "$TO_PHASE" -ge 8 ]]; then
+  phase8_authorized="$(python - <<'PY'
+import json
+import os
+from pathlib import Path
+
+path = Path(os.environ["LANSR_RUN_DIR"]) / "phase8" / "manifest.json"
+payload = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
+print("1" if payload.get("final_test_authorized") is True else "0")
+PY
+)"
+  if [[ "$phase8_authorized" == "1" ]]; then
+    run_phase 8 scripts/phases/gpu_run5_phase8.py --stage final-test
+  else
+    echo "Phase 8 final test remains sealed because Go 6 / Go 7 did not authorize it."
+  fi
+fi
+run_phase 9 scripts/phases/gpu_run5_phase9.py
