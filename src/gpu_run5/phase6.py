@@ -504,6 +504,12 @@ def verify_holdout_selection_artifact(
     )
     if sorted(str(row.get("path")) for row in artifacts) != expected_paths:
         raise ValueError("R06 selection artifact source paths are not the exact allowlist")
+    if any(
+        str(row.get("path"))
+        != (Path("phase3") / "cells" / f"{row.get('cell_id')}.json").as_posix()
+        for row in artifacts
+    ):
+        raise ValueError("R06 selection artifact path/cell binding mismatch")
     allowed_root = (Path(source_root) / "phase3" / "cells").resolve()
     for row in artifacts:
         source = (Path(source_root) / str(row.get("path"))).resolve()

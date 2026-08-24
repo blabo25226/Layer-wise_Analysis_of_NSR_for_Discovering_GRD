@@ -331,6 +331,40 @@ def test_R06_selection_uses_explicit_shards_and_rejects_other_families(
             expected_holdout_validation_sha256="validation",
             source_root=tmp_path,
         )
+
+    second_cell_id = "R06_validation_0_b0_n0_r0p5"
+    second_path = cells_dir / f"{second_cell_id}.json"
+    second_path.write_text(json.dumps(_phase3_cell(second_cell_id)), encoding="utf-8")
+    two_cell_artifact = build_holdout_selection_artifact(
+        **{
+            **kwargs,
+            "cell_sources": [
+                *kwargs["cell_sources"],
+                (f"phase3/cells/{second_path.name}", second_path),
+            ],
+            "expected_cell_ids": [cell_id, second_cell_id],
+        }
+    )
+    forged_binding = json.loads(json.dumps(two_cell_artifact))
+    first, second = forged_binding["source_artifacts"]
+    first["cell_id"], second["cell_id"] = second["cell_id"], first["cell_id"]
+    forged_binding["source_artifact_index_sha256"] = fingerprint_json(
+        forged_binding["source_artifacts"]
+    )
+    unsigned = {
+        key: value for key, value in forged_binding.items() if key != "signature_sha256"
+    }
+    forged_binding["signature_sha256"] = fingerprint_json(unsigned)
+    with pytest.raises(ValueError, match="path/cell binding mismatch"):
+        verify_holdout_selection_artifact(
+            forged_binding,
+            expected_cell_ids=[cell_id, second_cell_id],
+            expected_system_ids=["R06_validation_0"],
+            expected_phase2_manifest_sha256="phase2",
+            expected_phase3_config_snapshot_sha256="phase3-config",
+            expected_holdout_validation_sha256="validation",
+            source_root=tmp_path,
+        )
     r06_path.write_text("{}", encoding="utf-8")
     with pytest.raises(ValueError, match="source hash mismatch"):
         verify_holdout_selection_artifact(
