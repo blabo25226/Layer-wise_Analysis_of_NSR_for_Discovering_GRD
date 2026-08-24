@@ -784,7 +784,9 @@ Phase 4までの結果を使って介入方式を事後選択しないため、P
   valid rate最大、validation CE最小（最後のtie-breakだけ）の順とする。invalid componentのTEDは1である
 - trainingはclean full-resolution input-role trajectoryだけを使い、selection/generalization ICを学習へ入れない。
   同一view/bundleではtrain orderを全条件でpairedにしorder hashを保存する
-- reduced-panel rankを凍結rankとし、full validation finalist確認で順位や集合を選び直さない。
+- reduced-panel rankを凍結rankとする。Phase 7の全16層 beam 50・3 bundle確認もreduced panelのままとし、
+  順位や集合を選び直さない。top / bottom / random 5集合等のより広いfull validation比較はPhase 8へ送り、
+  そこでもPhase 7のrankや層集合自体は変更しない。
   $`C_l`$ はfailure-aware TEDをscalar $`L`$ とし、full TEDがfrozen TEDより小さいseedだけで算出する
 - tie groupはscore vectorを小数12桁へ量子化して作る。top-k境界tieは固定layer名で決着し記録する。
   random3はseed 5101から**同一集合がない**5集合を事前固定する。異なる集合どうしの層の重複は許容して記録し、
@@ -999,7 +1001,11 @@ Go: **Go 5**。予算: **約3 h**。
 ## Phase 7: Track C — IOLE と layer freeze
 
 - 16 single-block FT を同一条件で実行（reduced panel 評価）
-- finalist（top / bottom / random 5集合）を full validation で評価
+- 各層の選択済みcheckpointは、**同じreduced panel**（main 24 system / family-holdout R06 10 system、
+  各4 corruption）で beam 50・3 paired bundle の確認を行う。Phase 7内ではfull validationへ拡張しない
+- full modeの厳密なdecode数は screening 19,584 cell + 全16層確認 6,528 cell = **26,112 cell** とする
+- top / bottom / random 5集合を含む、より広い条件のfull validation比較は **Phase 8** が担当する。
+  Phase 7確認結果からrankや層集合を選び直さない
 - IOLE formula ranking、causal ranking、tie-aware rank group
 - $`C_l`$ の分母成立を確認。不成立なら raw score 順序のみ
 - ranking stability（3 seed の Spearman / Kendall）

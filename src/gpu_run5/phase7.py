@@ -31,6 +31,81 @@ RANDOM_SET_SIZE = 3
 SCORE_QUANTIZATION_DIGITS = 12
 
 
+def phase6_reference_contract(
+    manifest: Mapping[str, Any],
+    *,
+    phase7_mode: str,
+    current_config_fingerprint: str,
+) -> dict[str, Any]:
+    """Validate whether Phase 6 can supply Phase 7's C_l references.
+
+    A full Phase 6 contains every smoke reference cell and may therefore feed
+    either Phase 7 mode.  A smoke Phase 6 has only bundle 0 / smoke panels and
+    must never feed an authoritative full Phase 7.
+    """
+    requested = str(phase7_mode)
+    upstream = str(manifest.get("mode") or "")
+    if requested not in {"smoke", "full"} or upstream not in {"smoke", "full"}:
+        raise ValueError("Phase 6/7 modes must be smoke or full")
+    if requested == "full" and upstream != "full":
+        raise ValueError("Phase 7 full requires Phase 6 full")
+    campaign = manifest.get("campaign_identity")
+    if not isinstance(campaign, Mapping):
+        raise ValueError("Phase 6 campaign identity is missing")
+    if campaign.get("mode") != upstream:
+        raise ValueError("Phase 6 mode disagrees with its campaign identity")
+    if str(campaign.get("config_fingerprint") or "") != str(
+        current_config_fingerprint
+    ):
+        raise ValueError("Phase 6 config fingerprint differs from Phase 7")
+    try:
+        beam_size = int(campaign["confirmation_beam_size"])
+        selected_trials = int(
+            manifest["summary"]["expected_counts"]["selected_training_trials"]
+        )
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError("Phase 6 reference budget provenance is missing") from exc
+    # Phase 6 has 2 views x 3 trainable confirmation conditions per bundle.
+    trials_per_bundle = len(VIEWS) * 3
+    if beam_size <= 0 or selected_trials <= 0 or selected_trials % trials_per_bundle:
+        raise ValueError("Phase 6 reference budget provenance is inconsistent")
+    n_bundles = selected_trials // trials_per_bundle
+    expected_bundles = 1 if upstream == "smoke" else 3
+    if n_bundles != expected_bundles:
+        raise ValueError("Phase 6 bundle count disagrees with its mode")
+    campaign_sha = str(manifest.get("campaign_identity_sha256") or "")
+    if len(campaign_sha) != 64 or campaign_sha != fingerprint_json(campaign):
+        raise ValueError("Phase 6 campaign identity hash mismatch")
+    view_identities = manifest.get("view_campaign_identities")
+    view_hashes = manifest.get("view_campaign_identity_sha256")
+    if (
+        not isinstance(view_identities, Mapping)
+        or set(view_identities) != set(VIEWS)
+        or not isinstance(view_hashes, Mapping)
+        or set(view_hashes) != set(VIEWS)
+        or any(
+            view_identities[view].get("view") != view
+            or view_identities[view].get("mode") != upstream
+            or view_identities[view].get("config_fingerprint")
+            != str(current_config_fingerprint)
+            or fingerprint_json(view_identities[view]) != view_hashes[view]
+            for view in VIEWS
+        )
+    ):
+        raise ValueError("Phase 6 view campaign identity hashes are invalid")
+    return {
+        "upstream_mode": upstream,
+        "phase7_mode": requested,
+        "confirmation_beam_size": beam_size,
+        "bundle_indices": list(range(n_bundles)),
+        "campaign_identity_sha256": campaign_sha,
+        "view_campaign_identity_sha256": {
+            view: str(view_hashes[view]) for view in VIEWS
+        },
+        "config_fingerprint": str(current_config_fingerprint),
+    }
+
+
 def freeze_view_selection_contracts(
     payload: Mapping[str, Any],
     *,

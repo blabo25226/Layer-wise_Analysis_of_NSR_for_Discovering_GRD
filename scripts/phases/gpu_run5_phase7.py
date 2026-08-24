@@ -24,6 +24,7 @@ import numpy as np
 import torch
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 
 from gpu_run2_runtime import (  # noqa: E402
@@ -72,6 +73,7 @@ from gpu_run5.phase7 import (  # noqa: E402
     freeze_view_selection_contracts,
     phase7_cell_identity,
     phase7_delta_identity,
+    phase6_reference_contract,
     phase7_trial_identity,
 )
 from gpu_run5.training import (  # noqa: E402
@@ -498,6 +500,9 @@ def _phase6_ted_by_seed(
     config: Mapping[str, Any],
     bundle_indices: Sequence[int],
     expected_beam_size: int,
+    expected_campaign_identity_sha256: str,
+    expected_seed_maps: Mapping[int, Mapping[str, int]],
+    expected_candidate_selection_sha256: str,
 ) -> dict[str, float]:
     """Read only hash-indexed Phase 6 validation shards needed for C_l."""
     if condition not in {"frozen", "grn_full"}:
@@ -510,16 +515,21 @@ def _phase6_ted_by_seed(
     }
     output: dict[str, float] = {}
     for bundle_index in sorted(int(value) for value in bundle_indices):
-        expected = sorted(
-            validation_cell_id(
-                system=str(row["system_id"]),
-                bundle_index=bundle_index,
-                noise_sigma=sigma,
-                subsample_rho=rho,
-            )
-            for row in rows
-            for sigma, rho in corruption_grid(config)
-        )
+        expected_metadata = {}
+        for row in rows:
+            for sigma, rho in corruption_grid(config):
+                cell_id = validation_cell_id(
+                    system=str(row["system_id"]),
+                    bundle_index=bundle_index,
+                    noise_sigma=sigma,
+                    subsample_rho=rho,
+                )
+                expected_metadata[cell_id] = {
+                    "system_id": str(row["system_id"]),
+                    "input_trajectory_checksum": str(_input_row(row)["checksum"]),
+                    "candidate_seed": int(expected_seed_maps[bundle_index][cell_id]),
+                }
+        expected = sorted(expected_metadata)
         selected_rows: list[dict[str, Any]] = []
         for cell_id in expected:
             relative = f"{prefix}{cell_id}.json"
@@ -531,6 +541,8 @@ def _phase6_ted_by_seed(
             if not path.is_file() or sha256_file(path) != indexed[relative]:
                 raise RuntimeError(f"Phase 6 C_l reference hash mismatch: {relative}")
             cell = read_json(path)
+            metadata = expected_metadata[cell_id]
+            identity = cell.get("cache_identity")
             if (
                 cell.get("status") != "complete"
                 or cell.get("view") != view
@@ -538,6 +550,32 @@ def _phase6_ted_by_seed(
                 or int(cell.get("bundle_index", -1)) != bundle_index
                 or int(cell.get("beam_size", -1)) != int(expected_beam_size)
                 or str(cell.get("cell_id")) != cell_id
+                or str(cell.get("system_id")) != metadata["system_id"]
+                or int(cell.get("candidate_seed", -1)) != metadata["candidate_seed"]
+                or str(cell.get("input_trajectory_checksum"))
+                != metadata["input_trajectory_checksum"]
+                or not isinstance(identity, Mapping)
+                or identity.get("campaign_identity_sha256")
+                != str(expected_campaign_identity_sha256)
+                or identity.get("stage") != "confirmation"
+                or identity.get("view") != view
+                or identity.get("condition") != condition
+                or int(identity.get("beam_size", -1)) != int(expected_beam_size)
+                or identity.get("cell_id") != cell_id
+                or int(identity.get("candidate_seed", -1))
+                != metadata["candidate_seed"]
+                or identity.get("input_trajectory_checksum")
+                != metadata["input_trajectory_checksum"]
+                or identity.get("candidate_selection_sha256")
+                != str(expected_candidate_selection_sha256)
+                or (
+                    condition == "frozen"
+                    and identity.get("delta_sha256") is not None
+                )
+                or (
+                    condition == "grn_full"
+                    and len(str(identity.get("delta_sha256") or "")) != 64
+                )
             ):
                 raise RuntimeError(f"Phase 6 C_l reference identity mismatch: {relative}")
             selected_rows.append(
@@ -695,13 +733,18 @@ def main() -> int:
         raise RuntimeError("Phase 7 main train/validation contains duplicate system IDs")
 
     mode = "smoke" if args.smoke else "full"
-    if str(inputs["manifests"][6].get("mode")) != mode:
-        raise RuntimeError(
-            f"Phase 7 {mode} cannot consume a Phase 6 "
-            f"{inputs['manifests'][6].get('mode')} campaign"
+    try:
+        phase6_reference = phase6_reference_contract(
+            inputs["manifests"][6],
+            phase7_mode=mode,
+            current_config_fingerprint=fingerprint_json(config),
         )
+    except ValueError as exc:
+        raise RuntimeError(f"Phase 6 reference campaign is incompatible: {exc}") from exc
     n_bundles = int(chosen_budget["n_seeds"])
     bundle_indices = list(range(n_bundles))
+    if not set(bundle_indices).issubset(phase6_reference["bundle_indices"]):
+        raise RuntimeError("Phase 6 does not contain every Phase 7 reference bundle")
     learning_rates = [
         float(value) for value in chosen_budget["hyperparameter_learning_rates"]
     ]
@@ -806,6 +849,7 @@ def main() -> int:
         ),
         "rank_source": "screening_reduced_panel_bundle0_beam8",
         "confirmation_may_change_rank": False,
+        "phase6_reference_contract": phase6_reference,
         "generalization_trajectory_accessed": False,
         "test_accessed": False,
     }
@@ -1288,11 +1332,7 @@ def main() -> int:
 
     phase6_dir = root / "phase6"
     contribution: dict[str, Any] = {}
-    phase6_reference_beam = (
-        int(chosen_budget["beam_size"])
-        if args.smoke
-        else CONFIRMATION_BEAM_SIZE
-    )
+    phase6_reference_beam = int(phase6_reference["confirmation_beam_size"])
     for view in VIEWS:
         frozen_ted = _phase6_ted_by_seed(
             phase6_dir=phase6_dir,
@@ -1303,6 +1343,13 @@ def main() -> int:
             config=config,
             bundle_indices=bundle_indices,
             expected_beam_size=phase6_reference_beam,
+            expected_campaign_identity_sha256=phase6_reference[
+                "view_campaign_identity_sha256"
+            ][view],
+            expected_seed_maps=seed_maps[view],
+            expected_candidate_selection_sha256=selection_contracts[view][
+                "source_artifact_sha256"
+            ],
         )
         full_ted = _phase6_ted_by_seed(
             phase6_dir=phase6_dir,
@@ -1313,6 +1360,13 @@ def main() -> int:
             config=config,
             bundle_indices=bundle_indices,
             expected_beam_size=phase6_reference_beam,
+            expected_campaign_identity_sha256=phase6_reference[
+                "view_campaign_identity_sha256"
+            ][view],
+            expected_seed_maps=seed_maps[view],
+            expected_candidate_selection_sha256=selection_contracts[view][
+                "source_artifact_sha256"
+            ],
         )
         layer_ted = {
             str(bundle): {
@@ -1321,11 +1375,24 @@ def main() -> int:
             }
             for bundle in bundle_indices
         }
-        contribution[view] = contribution_records(
+        contribution_row = contribution_records(
             frozen_ted_by_seed=frozen_ted,
             full_ted_by_seed=full_ted,
             layer_ted_by_seed=layer_ted,
         )
+        contribution_row["candidate_budget_match"] = (
+            phase6_reference_beam == confirmation_beam
+        )
+        if phase6_reference_beam != confirmation_beam:
+            contribution_row["normalized_contribution_reportable"] = False
+            contribution_row["eligible_seeds"] = []
+            contribution_row["ineligible_seeds"] = [str(value) for value in bundle_indices]
+            contribution_row["reason"] = (
+                "phase6_and_phase7_confirmation_beam_sizes_differ_in_smoke_mode"
+            )
+            for row in contribution_row["rows"]:
+                row["normalized_contribution"] = None
+        contribution[view] = contribution_row
     write_json(out / "iole_contribution.json", contribution)
 
     phase8_handoff = {
@@ -1361,6 +1428,17 @@ def main() -> int:
             for view in VIEWS
         },
         "phase8_selective_hyperparameters": "must_run_equal_own_grid",
+        "phase7_all_layer_confirmation_scope": {
+            "panel": "reduced_validation_only",
+            "all_16_single_blocks": True,
+            "systems_by_view": {view: len(panels[view]) for view in VIEWS},
+            "corruptions_per_system": len(corruption_grid(config)),
+            "bundle_indices": bundle_indices,
+            "beam_size": confirmation_beam,
+            "full_mode_confirmation_cells": 6528 if not args.smoke else None,
+            "may_reselect_rank_or_layer_sets": False,
+        },
+        "broader_finalist_full_validation_owner": "phase8",
         "final_test_random_representative": "random3_0",
         "test_accessed": False,
     }
@@ -1408,6 +1486,10 @@ def main() -> int:
             != selection_contracts["family_holdout"]["source_artifact_sha256"]
         ),
         "phase6_view_campaign_identities_independently_verified": True,
+        "phase6_reference_mode_beam_bundles_and_cell_identities_verified": (
+            set(bundle_indices).issubset(phase6_reference["bundle_indices"])
+            and phase6_reference_beam > 0
+        ),
         "all_16_layers_received_exact_equal_grid_in_both_views": observed_grid
         == expected_counts["screening_training_trials"],
         "screening_beam8_bundle0_reduced_panel_coverage_exact": (

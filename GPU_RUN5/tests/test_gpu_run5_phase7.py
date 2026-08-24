@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+import json
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
+from gpu_run2_runtime import fingerprint_json, sha256_file
+from gpu_run5.phase6 import candidate_seed_map, corruption_grid, validation_cell_id
 from gpu_run5.phase7 import (
     CONFIRMATION_BEAM_SIZE,
     PHASE7_SCHEMA_VERSION,
@@ -17,8 +22,10 @@ from gpu_run5.phase7 import (
     freeze_view_selection_contracts,
     phase7_cell_identity,
     phase7_trial_identity,
+    phase6_reference_contract,
 )
 from gpu_run5.training import OFFICIAL_LAYER_REGISTRY
+from scripts.phases.gpu_run5_phase7 import _phase6_ted_by_seed
 
 
 def _selection_contracts() -> dict:
@@ -54,6 +61,198 @@ def _scores(offset: float = 0.0) -> dict[str, list[float]]:
         ]
         for index, layer in enumerate(OFFICIAL_LAYER_REGISTRY)
     }
+
+
+def _phase6_manifest(mode: str) -> dict:
+    campaign = {
+        "mode": mode,
+        "config_fingerprint": "config-sha",
+        "confirmation_beam_size": 8 if mode == "smoke" else 50,
+    }
+    view_identities = {
+        view: {
+            "view": view,
+            "mode": mode,
+            "config_fingerprint": "config-sha",
+        }
+        for view in VIEWS
+    }
+    return {
+        "mode": mode,
+        "campaign_identity": campaign,
+        "campaign_identity_sha256": fingerprint_json(campaign),
+        "view_campaign_identities": view_identities,
+        "view_campaign_identity_sha256": {
+            view: fingerprint_json(identity)
+            for view, identity in view_identities.items()
+        },
+        "summary": {
+            "expected_counts": {
+                "selected_training_trials": 6 if mode == "smoke" else 18
+            }
+        },
+    }
+
+
+def test_phase6_reference_mode_matrix_and_budget_come_from_upstream() -> None:
+    full_to_smoke = phase6_reference_contract(
+        _phase6_manifest("full"),
+        phase7_mode="smoke",
+        current_config_fingerprint="config-sha",
+    )
+    assert full_to_smoke["confirmation_beam_size"] == 50
+    assert full_to_smoke["bundle_indices"] == [0, 1, 2]
+    assert set(full_to_smoke["view_campaign_identity_sha256"]) == set(VIEWS)
+
+    full_to_full = phase6_reference_contract(
+        _phase6_manifest("full"),
+        phase7_mode="full",
+        current_config_fingerprint="config-sha",
+    )
+    assert full_to_full["upstream_mode"] == "full"
+    smoke_to_smoke = phase6_reference_contract(
+        _phase6_manifest("smoke"),
+        phase7_mode="smoke",
+        current_config_fingerprint="config-sha",
+    )
+    assert smoke_to_smoke["confirmation_beam_size"] == 8
+    assert smoke_to_smoke["bundle_indices"] == [0]
+
+    with pytest.raises(ValueError, match="requires Phase 6 full"):
+        phase6_reference_contract(
+            _phase6_manifest("smoke"),
+            phase7_mode="full",
+            current_config_fingerprint="config-sha",
+        )
+    with pytest.raises(ValueError, match="config fingerprint"):
+        phase6_reference_contract(
+            _phase6_manifest("full"),
+            phase7_mode="smoke",
+            current_config_fingerprint="different",
+        )
+
+
+def test_phase7_launcher_help_runs_from_a_real_subprocess() -> None:
+    root = Path(__file__).resolve().parents[2]
+    completed = subprocess.run(
+        [sys.executable, "scripts/phases/gpu_run5_phase7.py", "--help"],
+        cwd=root,
+        text=True,
+        capture_output=True,
+        timeout=30,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert "GPU_RUN5 Phase 7" in completed.stdout
+    assert "--run-id" in completed.stdout
+
+
+def test_phase6_reference_cells_require_exact_upstream_identity(tmp_path: Path) -> None:
+    config = {
+        "selection": {"candidate_seed_namespace": "grn_main_decode_v1"},
+        "seed_bundles": [{"candidate_seed": 3101}],
+        "corruptions": {
+            "noise_sigmas": [0.0, 0.05],
+            "subsample_rhos": [0.0, 0.5],
+        },
+    }
+    row = {
+        "system_id": "R01_validation_000",
+        "family": "R01",
+        "dimension": 1,
+        "trajectories": [
+            {
+                "role": "input",
+                "role_index": 0,
+                "checksum": "trajectory-sha",
+            }
+        ],
+    }
+    campaign_sha = "c" * 64
+    selection_sha = "s" * 64
+    seed_map = candidate_seed_map([row], config=config, bundle_indices=[0])
+    phase6_dir = tmp_path / "phase6"
+    index = []
+    for sigma, rho in corruption_grid(config):
+        cell_id = validation_cell_id(
+            system=row["system_id"],
+            bundle_index=0,
+            noise_sigma=sigma,
+            subsample_rho=rho,
+        )
+        identity = {
+            "campaign_identity_sha256": campaign_sha,
+            "stage": "confirmation",
+            "view": "main",
+            "condition": "frozen",
+            "beam_size": 50,
+            "cell_id": cell_id,
+            "candidate_seed": seed_map[cell_id],
+            "input_trajectory_checksum": "trajectory-sha",
+            "candidate_selection_sha256": selection_sha,
+        }
+        payload = {
+            "status": "complete",
+            "cache_identity": identity,
+            "cell_id": cell_id,
+            "view": "main",
+            "condition": "frozen",
+            "system_id": row["system_id"],
+            "bundle_index": 0,
+            "beam_size": 50,
+            "candidate_seed": seed_map[cell_id],
+            "input_trajectory_checksum": "trajectory-sha",
+            "selected": {
+                "dimension": 1,
+                "component_exponent_aware_skeleton_exact": [0.0],
+                "component_normalized_variable_aware_ted": [0.25],
+                "component_valid": [True],
+            },
+        }
+        path = phase6_dir / "cells" / "confirmation" / "main" / "frozen" / f"{cell_id}.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(payload), encoding="utf-8")
+        index.append(
+            {
+                "path": path.relative_to(phase6_dir).as_posix(),
+                "sha256": sha256_file(path),
+            }
+        )
+
+    result = _phase6_ted_by_seed(
+        phase6_dir=phase6_dir,
+        cell_index=index,
+        view="main",
+        condition="frozen",
+        rows=[row],
+        config=config,
+        bundle_indices=[0],
+        expected_beam_size=50,
+        expected_campaign_identity_sha256=campaign_sha,
+        expected_seed_maps={0: seed_map},
+        expected_candidate_selection_sha256=selection_sha,
+    )
+    assert result == {"0": pytest.approx(0.25)}
+
+    first = phase6_dir / index[0]["path"]
+    payload = json.loads(first.read_text(encoding="utf-8"))
+    payload["cache_identity"]["campaign_identity_sha256"] = "wrong"
+    first.write_text(json.dumps(payload), encoding="utf-8")
+    index[0]["sha256"] = sha256_file(first)
+    with pytest.raises(RuntimeError, match="identity mismatch"):
+        _phase6_ted_by_seed(
+            phase6_dir=phase6_dir,
+            cell_index=index,
+            view="main",
+            condition="frozen",
+            rows=[row],
+            config=config,
+            bundle_indices=[0],
+            expected_beam_size=50,
+            expected_campaign_identity_sha256=campaign_sha,
+            expected_seed_maps={0: seed_map},
+            expected_candidate_selection_sha256=selection_sha,
+        )
 
 
 def test_view_specific_selection_contract_rejects_shared_or_leaky_artifact() -> None:
@@ -240,7 +439,13 @@ def test_launcher_never_names_or_discovers_sealed_test_artifacts() -> None:
     assert 'write_json(out / "layer_freeze.json"' in source
     assert 'write_json(out / "phase8_handoff.json"' in source
     assert '"phase8_selective_hyperparameters": "must_run_equal_own_grid"' in source
+    assert '"broader_finalist_full_validation_owner": "phase8"' in source
+    assert '"panel": "reduced_validation_only"' in source
     assert 'payload.get("candidate_selection_by_view")' in source
     assert 'payload.get("candidate_selection_artifact_sha256_by_view")' in source
     assert 'root / "phase6_holdout_prestage" / "selection.json"' in source
     assert 'prestage_selection.get("source_family") != "R06"' in source
+
+    plan = Path("GPU_RUN5/plan.md").read_text(encoding="utf-8")
+    assert "screening 19,584 cell + 全16層確認 6,528 cell" in plan
+    assert "より広い条件のfull validation比較は **Phase 8**" in plan
