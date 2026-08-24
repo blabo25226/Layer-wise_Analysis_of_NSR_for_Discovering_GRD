@@ -7,6 +7,7 @@ only then claim the single test-open event before it receives sealed records.
 
 from __future__ import annotations
 
+import fcntl
 import json
 import math
 import os
@@ -350,6 +351,7 @@ def audit_go7(
     upstream_test_accessed: Mapping[str, bool],
     observed_freeze_sha256: str,
 ) -> dict[str, Any]:
+    expected_upstream = {f"phase{phase}" for phase in range(2, 8)}
     checks = {
         "go6_passed": go6.get("pass") is True and go6.get("test_accessed") is False,
         "exact_preregistered_final_conditions": list(freeze.get("conditions") or []) == list(FINAL_CONDITIONS),
@@ -360,10 +362,149 @@ def audit_go7(
         "freeze_hash_matches_disk": str(freeze.get("freeze_sha256"))
         == str(observed_freeze_sha256)
         == fingerprint_json({key: value for key, value in freeze.items() if key != "freeze_sha256"}),
-        "all_upstream_phases_prove_test_unopened": bool(upstream_test_accessed) and not any(bool(value) for value in upstream_test_accessed.values()),
+        "all_upstream_phases_prove_test_unopened": set(upstream_test_accessed)
+        == expected_upstream
+        and all(value is False for value in upstream_test_accessed.values()),
         "freeze_itself_proves_test_unopened": freeze.get("test_accessed") is False,
     }
     return {"checks": checks, "pass": all(checks.values()), "test_accessed": False}
+
+
+def evaluate_preregistered_test_outcomes(
+    *,
+    main_summaries: Mapping[str, Mapping[str, Any]],
+    odebench_forgetting: Mapping[str, Mapping[str, Any]],
+    test_open_event_id: str,
+) -> dict[str, Any]:
+    """Mechanically evaluate the three preregistered Phase 8 predictions."""
+    required_grn = {"frozen", "grn_top3", "grn_full"}
+    if not required_grn.issubset(main_summaries):
+        raise ValueError(
+            f"preregistered GRN summaries missing: {sorted(required_grn - set(main_summaries))}"
+        )
+    if not required_grn.issubset(odebench_forgetting):
+        raise ValueError(
+            "preregistered ODEBench summaries missing: "
+            f"{sorted(required_grn - set(odebench_forgetting))}"
+        )
+
+    def formula_vector(condition: str) -> tuple[float, float, float]:
+        raw = tuple(
+            float(value)
+            for value in main_summaries[condition].get(
+                "formula_score_vector_without_ce", ()
+            )
+        )
+        if len(raw) != 3 or any(not math.isfinite(value) for value in raw):
+            raise ValueError(f"invalid final GRN formula score for {condition}: {raw}")
+        return tuple(round(value, SCORE_QUANTIZATION_DIGITS) for value in raw)  # type: ignore[return-value]
+
+    def ode_exact(condition: str) -> float:
+        value = float(
+            odebench_forgetting[condition].get(
+                "exponent_aware_skeleton_exact_system_then_seed_macro",
+                float("nan"),
+            )
+        )
+        if not math.isfinite(value) or not 0.0 <= value <= 1.0:
+            raise ValueError(f"invalid ODEBench exponent-aware exact rate for {condition}")
+        return value
+
+    def ode_drop(condition: str) -> float:
+        value = float(
+            odebench_forgetting[condition].get(
+                "paired_exponent_aware_skeleton_drop_from_frozen_system_then_seed_macro",
+                float("nan"),
+            )
+        )
+        if not math.isfinite(value):
+            raise ValueError(f"invalid paired ODEBench forgetting drop for {condition}")
+        return value
+
+    frozen_score = formula_vector("frozen")
+    top_score = formula_vector("grn_top3")
+    full_score = formula_vector("grn_full")
+    p3_rate = frozen_score[0]
+    p3_supported = p3_rate < 0.05
+    reconstruction = float(main_summaries["frozen"].get("reconstruction_r2_median"))
+    if not math.isfinite(reconstruction):
+        raise ValueError("invalid frozen reconstruction R2 median")
+    p4_supported = reconstruction >= 0.85 and p3_supported
+    frozen_exact, top_exact, full_exact = (
+        ode_exact(condition) for condition in ("frozen", "grn_top3", "grn_full")
+    )
+    top_drop = ode_drop("grn_top3")
+    full_drop = ode_drop("grn_full")
+    if not math.isclose(top_drop, frozen_exact - top_exact, abs_tol=1e-12) or not math.isclose(
+        full_drop, frozen_exact - full_exact, abs_tol=1e-12
+    ):
+        raise ValueError("paired ODEBench forgetting drop disagrees with frozen-rate difference")
+    top_better = top_score > full_score
+    p7_supported = top_better and top_drop < full_drop
+    return {
+        "schema_version": "gpu_run5_phase8_preregistered_test_outcomes_v1",
+        "P3": {
+            "metric": "main_frozen_component_exponent_aware_exact_system_then_seed_macro",
+            "value": p3_rate,
+            "operator": "<",
+            "threshold": 0.05,
+            "supported": p3_supported,
+            "outcome": "hit" if p3_supported else "miss",
+        },
+        "P4": {
+            "metric": "main_frozen_reconstruction_r2_median_and_P3",
+            "reconstruction_r2_median": reconstruction,
+            "reconstruction_operator": ">=",
+            "reconstruction_threshold": 0.85,
+            "P3_required_and_supported": p3_supported,
+            "supported": p4_supported,
+            "outcome": "hit" if p4_supported else "miss",
+        },
+        "P7": {
+            "metric": "main_test_formula_lexicographic_and_odebench_exponent_exact_forgetting",
+            "score_quantization_digits": SCORE_QUANTIZATION_DIGITS,
+            "grn_top3_formula_score": list(top_score),
+            "grn_full_formula_score": list(full_score),
+            "grn_top3_strictly_better": top_better,
+            "odebench_frozen_exponent_exact": frozen_exact,
+            "odebench_grn_top3_exponent_exact": top_exact,
+            "odebench_grn_full_exponent_exact": full_exact,
+            "odebench_grn_top3_drop_from_frozen": top_drop,
+            "odebench_grn_full_drop_from_frozen": full_drop,
+            "top3_drop_strictly_smaller": top_drop < full_drop,
+            "supported": p7_supported,
+            "outcome": "hit" if p7_supported else "miss",
+        },
+        "test_open_event_id": str(test_open_event_id),
+        "test_accessed": True,
+    }
+
+
+def _fsync_parent(path: Path) -> None:
+    descriptor = os.open(path.parent, os.O_RDONLY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def _replace_json_durably(path: Path, payload: Mapping[str, Any]) -> None:
+    temporary = path.with_name(f"{path.name}.{os.getpid()}.partial")
+    encoded = (json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(encoded)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+        _fsync_parent(path)
+    except BaseException:
+        try:
+            temporary.unlink()
+        except FileNotFoundError:
+            pass
+        raise
 
 
 def claim_test_open(ledger_path: Path, *, freeze_sha256: str, sealed_paths: Mapping[str, str]) -> dict[str, Any]:
@@ -399,11 +540,35 @@ def claim_test_open(ledger_path: Path, *, freeze_sha256: str, sealed_paths: Mapp
             "resume_count": 0,
             "claimed_at_utc": utc_now(),
         }
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_name(path.name + ".partial")
-    temporary.write_text(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    os.replace(temporary, path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        encoded = (json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode("utf-8")
+        try:
+            descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        except FileExistsError:
+            # Another process won the atomic claim.  The caller holds the
+            # campaign lock, so this indicates external protocol drift.
+            raise RuntimeError("test-open ledger was claimed concurrently")
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(encoded)
+            handle.flush()
+            os.fsync(handle.fileno())
+        _fsync_parent(path)
+        return payload
+    _replace_json_durably(path, payload)
     return payload
+
+
+def acquire_test_open_lock(lock_path: Path) -> Any:
+    """Hold an exclusive process lock for the complete final-test invocation."""
+    path = Path(lock_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    handle = path.open("a+", encoding="utf-8")
+    try:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        handle.close()
+        raise RuntimeError("another Phase 8 final-test process holds the test-open lock")
+    return handle
 
 
 def bind_test_artifact_hashes(ledger_path: Path, hashes: Mapping[str, str]) -> dict[str, Any]:
@@ -417,9 +582,7 @@ def bind_test_artifact_hashes(ledger_path: Path, hashes: Mapping[str, str]) -> d
         raise RuntimeError("sealed test artifact changed after the test-open event")
     payload["sealed_artifact_sha256"] = normalized
     payload["status"] = "running"
-    temporary = path.with_name(path.name + ".partial")
-    temporary.write_text(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    os.replace(temporary, path)
+    _replace_json_durably(path, payload)
     return payload
 
 
@@ -436,7 +599,5 @@ def complete_test_open(ledger_path: Path, *, final_artifact_sha256: Mapping[str,
     payload["final_artifact_sha256"] = normalized
     payload["status"] = "complete"
     payload["completed_at_utc"] = utc_now()
-    temporary = path.with_name(path.name + ".partial")
-    temporary.write_text(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    os.replace(temporary, path)
+    _replace_json_durably(path, payload)
     return payload

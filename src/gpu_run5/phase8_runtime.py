@@ -27,6 +27,124 @@ def candidate_set_sha256(infixes: Sequence[str | None]) -> str:
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
+def _finite_number(value: Any) -> bool:
+    try:
+        return math.isfinite(float(value))
+    except (TypeError, ValueError):
+        return False
+
+
+def audit_decode_cell(cell: Mapping[str, Any], *, require_clean_generalization: bool) -> dict[str, Any]:
+    """Reject malformed or truncated resume shards before aggregation."""
+    candidates = cell.get("candidates")
+    selected = cell.get("selected")
+    checks: dict[str, bool] = {
+        "status_complete": cell.get("status") == "complete",
+        "identity_present": isinstance(cell.get("cache_identity"), Mapping),
+        "truth_formula_prefix_and_variable_map_saved": bool(cell.get("true_formula"))
+        and isinstance(cell.get("true_prefix"), (str, list))
+        and bool(cell.get("true_prefix"))
+        and isinstance(cell.get("variable_to_gene"), Mapping),
+        "candidates_is_list": isinstance(candidates, list),
+        "selected_is_mapping": isinstance(selected, Mapping),
+    }
+    identity = cell.get("cache_identity") or {}
+    checks["cache_identity_matches_shard"] = isinstance(identity, Mapping) and all(
+        identity.get(key) == cell.get(key)
+        for key in (
+            "cell_id",
+            "stage",
+            "view",
+            "condition",
+            "beam_size",
+            "candidate_seed",
+            "input_trajectory_checksum",
+            "selection_contract_sha256",
+        )
+    )
+    rows = list(candidates) if isinstance(candidates, list) else []
+    indices = [row.get("candidate_index") for row in rows if isinstance(row, Mapping)]
+    raw = [str(row.get("candidate_formula_raw") or "") for row in rows if isinstance(row, Mapping)]
+    checks.update(
+        {
+            "candidate_count_exact": int(cell.get("n_candidates", -1)) == len(rows),
+            "candidate_indices_contiguous": indices == list(range(len(rows))),
+            "candidate_hash_exact": str(cell.get("candidate_set_hash")) == candidate_set_sha256(raw),
+            "candidate_shortfall_exact": int(cell.get("candidate_shortfall", -1))
+            == max(int(cell.get("beam_size", 0)) - len(rows), 0),
+            "every_candidate_formula_metrics_and_failure_visible": all(
+                isinstance(row, Mapping)
+                and "candidate_formula_raw" in row
+                and "candidate_formula_canonical" in row
+                and "candidate_formula_skeleton" in row
+                and "candidate_exponent_aware_skeleton" in row
+                and "valid" in row
+                and "failure_reason" in row
+                and isinstance(row.get("trajectory_metrics"), Mapping)
+                for row in rows
+            ),
+        }
+    )
+    if rows:
+        selected_index = selected.get("candidate_index") if isinstance(selected, Mapping) else None
+        checks["selected_is_exact_candidate"] = (
+            isinstance(selected_index, int)
+            and not isinstance(selected_index, bool)
+            and 0 <= selected_index < len(rows)
+            and dict(selected) == dict(rows[selected_index])
+        )
+        checks["empty_failure_visible"] = True
+    else:
+        checks["selected_is_exact_candidate"] = False
+        checks["empty_failure_visible"] = (
+            isinstance(selected, Mapping)
+            and selected.get("candidate_index") is None
+            and selected.get("empty_candidate_placeholder") is True
+            and bool(selected.get("failure_reason"))
+            and bool(cell.get("generation_failure"))
+        )
+        # An explicit placeholder is the selected record for an empty beam.
+        checks["selected_is_exact_candidate"] = checks["empty_failure_visible"]
+    clean = cell.get("selected_clean_trajectory_metrics")
+    if require_clean_generalization:
+        roles = clean.get("roles") if isinstance(clean, Mapping) else None
+        expected_counts = {"input": 1, "selection": 2, "generalization": 2}
+        checks["generalization_accessed_only_after_selection"] = (
+            cell.get("generalization_trajectory_accessed") is True
+            and isinstance(clean, Mapping)
+            and clean.get("candidate_selection_finished_before_generalization_access") is True
+        )
+        checks["clean_role_coverage_exact"] = isinstance(roles, Mapping) and set(roles) == set(expected_counts) and all(
+            isinstance(roles[role], list) and len(roles[role]) == count
+            for role, count in expected_counts.items()
+        )
+        checks["clean_metrics_finite_and_failures_visible"] = bool(checks["clean_role_coverage_exact"]) and all(
+            isinstance(row, Mapping)
+            and _finite_number(row.get("nrmse"))
+            and _finite_number(row.get("r2"))
+            and "failure" in row
+            and bool(row.get("source_checksum"))
+            for role in expected_counts
+            for row in roles[role]
+        )
+    else:
+        checks["generalization_accessed_only_after_selection"] = (
+            cell.get("generalization_trajectory_accessed") is False and clean is None
+        )
+        checks["clean_role_coverage_exact"] = True
+        checks["clean_metrics_finite_and_failures_visible"] = True
+    return {"checks": checks, "pass": all(checks.values())}
+
+
+def odebench_instantiated_exponent_aware_exact(selected: Mapping[str, Any]) -> float:
+    """Score ODEBench structure against its instantiated, not symbolic-c_i, truth."""
+    truth = str(selected.get("true_formula_canonical") or "")
+    candidate = str(selected.get("candidate_formula_raw") or "")
+    if not truth:
+        raise ValueError("ODEBench record lacks instantiated true_formula_canonical")
+    return float(formula_metrics(truth, candidate)["exponent_aware_skeleton_exact"])
+
+
 def input_trajectory(row: Mapping[str, Any]) -> Mapping[str, Any]:
     values = [item for item in row["trajectories"] if item.get("role") == "input"]
     if len(values) != 1:
@@ -241,14 +359,18 @@ def decode_cell(
         )
         for index, (tree, raw) in enumerate(zip(trees, infixes))
     ]
+    if not candidates and generation_failure is None:
+        generation_failure = "EmptyCandidateSet"
     selected_index = select_candidate(
         candidates,
         str(selection_contract["selection_rule"]),
         penalty=penalty,
         complexity_lambda=float(selection_contract["complexity_lambda"]),
     )
-    selected = dict(candidates[selected_index]) if selected_index is not None else failed_formula(
-        row, generation_failure or "EmptyCandidateSet"
+    selected = (
+        dict(candidates[selected_index])
+        if selected_index is not None
+        else failed_formula(row, str(generation_failure))
     )
     clean_metrics = None
     if include_clean_generalization:
@@ -360,6 +482,13 @@ def decode_panel(
                             cache_identity=identity, include_clean_generalization=final,
                         )
                         write_cached_cell(path, cached)
+                    shard_audit = audit_decode_cell(
+                        cached, require_clean_generalization=final
+                    )
+                    if not shard_audit["pass"]:
+                        raise RuntimeError(
+                            f"malformed Phase 8 resume shard {path}: {shard_audit['checks']}"
+                        )
                     cells.append(cached)
                     paths.append(path)
     return cells, paths

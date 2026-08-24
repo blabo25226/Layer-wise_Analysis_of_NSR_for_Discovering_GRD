@@ -44,11 +44,13 @@ from gpu_run5.phase8 import (  # noqa: E402
     REUSED_VALIDATION_CONDITIONS,
     VIEWS,
     audit_go7,
+    acquire_test_open_lock,
     bind_test_artifact_hashes,
     build_final_freeze,
     claim_test_open,
     complete_test_open,
     evaluate_go6,
+    evaluate_preregistered_test_outcomes,
     expected_layer_sets,
     expected_phase8_final_counts,
     expected_phase8_validation_counts,
@@ -56,7 +58,13 @@ from gpu_run5.phase8 import (  # noqa: E402
     selective_conditions,
     validate_selection_contracts,
 )
-from gpu_run5.phase8_runtime import decode_panel, make_regressor  # noqa: E402
+from gpu_run5.phase8_runtime import (  # noqa: E402
+    audit_decode_cell,
+    candidate_set_sha256,
+    decode_panel,
+    make_regressor,
+    odebench_instantiated_exponent_aware_exact,
+)
 from gpu_run5.training import (  # noqa: E402
     adapt_input_training_records,
     apply_delta_checkpoint,
@@ -101,23 +109,39 @@ def _verified_artifact(root: Path, *, phase: int, name: str, manifest: Mapping[s
 def _complete_manifest(root: Path, phase: int) -> dict[str, Any]:
     path = root / f"phase{phase}" / "manifest.json"
     payload = read_json(path, {})
-    if payload.get("status") != "complete" or not all((payload.get("go_conditions") or {}).values()):
+    go_conditions = payload.get("go_conditions")
+    if (
+        payload.get("status") != "complete"
+        or not isinstance(go_conditions, Mapping)
+        or not go_conditions
+        or any(value is not True for value in go_conditions.values())
+    ):
         raise RuntimeError(f"Phase {phase} is not complete with all Go conditions true")
     return payload
 
 
 def _validation_inputs(root: Path) -> dict[str, Any]:
     """Authorize an exhaustive pre-test allowlist; sealed files are absent here."""
-    manifests = {phase: _complete_manifest(root, phase) for phase in (2, 3, 4, 6, 7)}
+    manifests = {
+        phase: _complete_manifest(root, phase) for phase in (2, 3, 4, 5, 6, 7)
+    }
     test_flags = {
         "phase2": manifests[2].get("test_accessed"),
         "phase3": manifests[3].get("test_accessed"),
         "phase4": manifests[4].get("grn_test_accessed"),
+        "phase5": manifests[5].get("test_accessed"),
         "phase6": manifests[6].get("test_accessed"),
         "phase7": manifests[7].get("test_accessed"),
     }
     if any(value is not False for value in test_flags.values()):
         raise RuntimeError(f"upstream test-firewall provenance invalid: {test_flags}")
+    phase7_bound_manifests = manifests[7].get("phase_manifests") or {}
+    expected_bound = {
+        str(phase): sha256_file(root / f"phase{phase}" / "manifest.json")
+        for phase in (2, 3, 4, 5, 6)
+    }
+    if phase7_bound_manifests != expected_bound:
+        raise RuntimeError("Phase 7 does not bind the exact current Phase 2--6 manifests")
     paths = {
         "main_train": _verified_artifact(root, phase=2, name="train.json", manifest=manifests[2]),
         "main_validation": _verified_artifact(root, phase=2, name="validation.json", manifest=manifests[2]),
@@ -200,6 +224,11 @@ def _apply_checkpoint(
     checkpoint = load_delta_checkpoint(
         _checkpoint_path(record, root), expected_file_sha256=str(record["file_sha256"])
     )
+    if (
+        str(checkpoint.get("checkpoint_sha256")) != str(record.get("checkpoint_sha256"))
+        or str(checkpoint.get("delta_sha256")) != str(record.get("delta_sha256"))
+    ):
+        raise RuntimeError("delta checkpoint identity disagrees with the frozen registry")
     apply_delta_checkpoint(
         model,
         checkpoint,
@@ -210,7 +239,9 @@ def _apply_checkpoint(
     expected_state = verification.get("adapted_state_sha256") or verification.get(
         "adapted_model_state_sha256_after_reload"
     )
-    if expected_state is not None and model_state_sha256(model) != str(expected_state):
+    if not isinstance(expected_state, str) or len(expected_state) != 64:
+        raise RuntimeError("frozen checkpoint lacks an adapted-state verification hash")
+    if model_state_sha256(model) != expected_state:
         raise RuntimeError("adapted checkpoint state hash mismatch")
 
 
@@ -567,9 +598,10 @@ def _validation_stage(args: argparse.Namespace) -> int:
             checkpoint_registry=registry, layer_sets=inputs["layer_sets"],
             candidate_selection=inputs["candidate_selection"],
             upstream_manifest_sha256={
-                "phase3": sha256_file(root / "phase3" / "manifest.json"),
-                "phase6": sha256_file(root / "phase6" / "manifest.json"),
-                "phase7": sha256_file(root / "phase7" / "manifest.json"),
+                **{
+                    f"phase{phase}": sha256_file(root / f"phase{phase}" / "manifest.json")
+                    for phase in (2, 3, 4, 5, 6, 7)
+                },
                 "phase3_p6": sha256_file(inputs["paths"]["phase3_p6"]),
             },
             config_fingerprint=fingerprint_json(config), layer_freeze_sha256=layer_freeze_file_sha,
@@ -579,9 +611,9 @@ def _validation_stage(args: argparse.Namespace) -> int:
         write_json(out / "final_condition_freeze.json", final_freeze)
         upstream_flags = {
             "phase2": inputs["manifests"][2].get("test_accessed"),
-            "phase3": read_json(root / "phase3" / "manifest.json", {}).get("test_accessed"),
+            "phase3": inputs["manifests"][3].get("test_accessed"),
             "phase4": inputs["manifests"][4].get("grn_test_accessed"),
-            "phase5": read_json(root / "phase5" / "manifest.json", {}).get("test_accessed"),
+            "phase5": inputs["manifests"][5].get("test_accessed"),
             "phase6": inputs["manifests"][6].get("test_accessed"),
             "phase7": inputs["manifests"][7].get("test_accessed"),
         }
@@ -687,6 +719,7 @@ def _test_summary(cells: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     gen_nrmse_macro = float(np.mean(seed_gen)) if seed_gen and all(map(math.isfinite, seed_gen)) else float("inf")
     return {
         "formula_score_vector_without_ce": list(score[:3]),
+        "component_exponent_aware_skeleton_exact_system_then_seed_macro": float(score[0]),
         "component_exponent_aware_skeleton_exact_rate": float(np.mean(exact)) if exact else 0.0,
         "failure_aware_component_ted_mean": float(np.mean(ted)) if ted else 1.0,
         "component_valid_rate": float(np.mean(valid)) if valid else 0.0,
@@ -698,6 +731,115 @@ def _test_summary(cells: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
         "selected_trajectory_failure_reasons": sorted({value for value in failures}),
         "cells": len(cells),
     }
+
+
+def _preopen_revalidate(
+    *,
+    args: argparse.Namespace,
+    config: Mapping[str, Any],
+    root: Path,
+    out: Path,
+    validation_manifest: Mapping[str, Any],
+    freeze: Mapping[str, Any],
+) -> tuple[Any, dict[str, torch.Tensor], str, dict[str, Any]]:
+    """Revalidate every frozen dependency before any sealed path is touched."""
+    git = git_info()
+    validation_protocol = read_json(out / "validation_protocol_frozen.json", {})
+    if git["status_short"] or git["commit"] != validation_protocol.get("git_commit"):
+        raise RuntimeError("final-test git commit/cleanliness drifted after validation freeze")
+    if fingerprint_json(config) != str(freeze.get("config_fingerprint")):
+        raise RuntimeError("final-test config fingerprint drifted after validation freeze")
+    recomputed_freeze = fingerprint_json(
+        {key: value for key, value in freeze.items() if key != "freeze_sha256"}
+    )
+    if recomputed_freeze != str(freeze.get("freeze_sha256")):
+        raise RuntimeError("final condition freeze self-hash mismatch")
+    inputs = _validation_inputs(root)
+    current_upstream = {
+        **{
+            f"phase{phase}": sha256_file(root / f"phase{phase}" / "manifest.json")
+            for phase in (2, 3, 4, 5, 6, 7)
+        },
+        "phase3_p6": sha256_file(inputs["paths"]["phase3_p6"]),
+    }
+    if freeze.get("upstream_manifest_sha256") != current_upstream:
+        raise RuntimeError("an upstream manifest or P6 artifact drifted after Go 7")
+    if sha256_file(inputs["paths"]["phase7_layer_freeze"]) != str(
+        freeze.get("layer_freeze_sha256")
+    ):
+        raise RuntimeError("Phase 7 layer freeze drifted after Go 7")
+    if inputs["layer_sets"] != freeze.get("layer_sets"):
+        raise RuntimeError("Phase 7 layer sets drifted after Go 7")
+    if inputs["candidate_selection"] != freeze.get("candidate_selection"):
+        raise RuntimeError("candidate-selection contracts drifted after Go 7")
+    if sha256_file(out / "selective_hyperparameter_freeze.json") != str(
+        freeze.get("validation_freeze_sha256")
+    ):
+        raise RuntimeError("selective hyperparameter freeze drifted after Go 7")
+    expected_budget = {
+        "beam_size": 50,
+        "corruptions": [list(value) for value in corruption_grid(config)],
+        "bundles": 3,
+    }
+    if freeze.get("candidate_budget") != expected_budget:
+        raise RuntimeError("final candidate budget drifted after Go 7")
+    if list(freeze.get("conditions") or []) != list(FINAL_CONDITIONS):
+        raise RuntimeError("final five-condition registry drifted after Go 7")
+    if validation_manifest.get("test_accessed") is not False:
+        raise RuntimeError("validation manifest no longer proves the test unopened")
+
+    device = select_device(allow_cpu=args.allow_cpu)
+    checkpoint_path = ROOT / str(config["odeformer_checkpoint"])
+    raw_file_sha = sha256_file(checkpoint_path)
+    if raw_file_sha != str(config["odeformer_checkpoint_sha256"]):
+        raise RuntimeError("base checkpoint file drifted before test open")
+    model = load_odeformer_model(checkpoint_path, device=device)
+    base_sha = model_state_sha256(model)
+    base_state = {
+        key: value.detach().cpu().clone() for key, value in model.state_dict().items()
+    }
+    views = freeze.get("views") or {}
+    if set(views) != set(VIEWS):
+        raise RuntimeError("final checkpoint registry does not contain exactly both views")
+    for view in VIEWS:
+        if set(views[view]) != set(FINAL_CONDITIONS):
+            raise RuntimeError(f"final checkpoint condition registry mismatch for {view}")
+        for condition in FINAL_CONDITIONS:
+            records = views[view][condition]
+            if not isinstance(records, list) or len(records) != 3:
+                raise RuntimeError(f"final checkpoint bundle count mismatch: {view}/{condition}")
+            for bundle, record in enumerate(records):
+                if (
+                    str(record.get("view")) != view
+                    or str(record.get("condition")) != condition
+                    or int(record.get("bundle_index", -1)) != bundle
+                ):
+                    raise RuntimeError(f"final checkpoint provenance mismatch: {view}/{condition}/{bundle}")
+                path = _checkpoint_path(record, root)
+                if not path.is_file() or sha256_file(path) != str(record.get("file_sha256")):
+                    raise RuntimeError(f"final checkpoint file drift: {view}/{condition}/{bundle}")
+                if condition == "frozen":
+                    if (
+                        path.resolve() != checkpoint_path.resolve()
+                        or str(record.get("file_sha256")) != raw_file_sha
+                        or str(record.get("checkpoint_sha256")) != base_sha
+                    ):
+                        raise RuntimeError(f"frozen checkpoint identity drift: {view}/{bundle}")
+                    _restore_base(model, base_state)
+                else:
+                    _apply_checkpoint(model, base_state, record, root=root)
+    _restore_base(model, base_state)
+    preflight = {
+        "git_commit": git["commit"],
+        "config_fingerprint": fingerprint_json(config),
+        "upstream_manifest_sha256": current_upstream,
+        "base_checkpoint_file_sha256": raw_file_sha,
+        "base_model_state_sha256": base_sha,
+        "checkpoint_records_verified": len(VIEWS) * len(FINAL_CONDITIONS) * 3,
+        "test_accessed": False,
+    }
+    write_json(out / "final_preopen_audit.json", preflight)
+    return model, base_state, device, preflight
 
 
 def _odebench_forgetting(
@@ -740,12 +882,21 @@ def _odebench_forgetting(
                     cached = read_json(path)
                     if not isinstance(cached, Mapping) or cached.get("identity") != identity:
                         if ground_truth_failure is not None:
-                            cached = {"identity": identity, "records": [], "generation_failure": ground_truth_failure}
+                            cached = {
+                                "identity": identity,
+                                "records": [],
+                                "n_candidates": 0,
+                                "candidate_shortfall": 50,
+                                "candidate_set_hash": candidate_set_sha256([]),
+                                "generation_failure": ground_truth_failure,
+                            }
                             write_json(path, cached)
                             paths.append(path)
                             selected_records.append({
                                 "condition": condition, "bundle_index": bundle_index,
+                                "system_id": f"odebench_{item['id']}",
                                 "cell_id": cell_name, "selected": None,
+                                "exponent_aware_skeleton_exact": 0.0,
                                 "generation_failure": ground_truth_failure,
                             })
                             continue
@@ -763,24 +914,183 @@ def _odebench_forgetting(
                                 integration_timeout=10.0, gen_timeout=10.0, bfgs_timeout=10.0,
                                 save_all_candidates=True, run_opt=False,
                             )
-                            cached = {"identity": identity, "records": result["records"], "generation_failure": None}
+                            result_records = list(result["records"])
+                            cached = {
+                                "identity": identity,
+                                "records": result_records,
+                                "n_candidates": len(result_records),
+                                "candidate_shortfall": max(50 - len(result_records), 0),
+                                "candidate_set_hash": candidate_set_sha256(
+                                    [row.get("candidate_formula_raw") for row in result_records]
+                                ),
+                                "generation_failure": (
+                                    None if result_records else "EmptyCandidateSet"
+                                ),
+                            }
                         except torch.cuda.OutOfMemoryError:
                             raise
                         except Exception as exc:
-                            cached = {"identity": identity, "records": [], "generation_failure": f"{type(exc).__name__}:{exc}"}
+                            cached = {
+                                "identity": identity,
+                                "records": [],
+                                "n_candidates": 0,
+                                "candidate_shortfall": 50,
+                                "candidate_set_hash": candidate_set_sha256([]),
+                                "generation_failure": f"{type(exc).__name__}:{exc}",
+                            }
                         write_json(path, cached)
                     paths.append(path)
-                    rows = list(cached.get("records") or [])
+                    cached_rows = cached.get("records")
+                    if not isinstance(cached_rows, list):
+                        raise RuntimeError(f"malformed ODEBench resume shard: {path}")
+                    rows = list(cached_rows)
+                    raw_formulas = [
+                        row.get("candidate_formula_raw")
+                        for row in rows
+                        if isinstance(row, Mapping)
+                    ]
+                    selected_rows = [
+                        row for row in rows
+                        if isinstance(row, Mapping) and row.get("selected") is True
+                    ]
+                    ode_shard_checks = {
+                        "identity_exact": cached.get("identity") == identity,
+                        "candidate_count_exact": cached.get("n_candidates") == len(rows),
+                        "candidate_shortfall_exact": cached.get("candidate_shortfall")
+                        == max(50 - len(rows), 0),
+                        "candidate_hash_exact": cached.get("candidate_set_hash")
+                        == candidate_set_sha256(raw_formulas),
+                        "candidate_indices_contiguous": [
+                            row.get("candidate_index")
+                            for row in rows
+                            if isinstance(row, Mapping)
+                        ] == list(range(len(rows))),
+                        "candidate_formulas_and_failures_visible": all(
+                            isinstance(row, Mapping)
+                            and "true_formula_raw" in row
+                            and bool(row.get("true_formula_canonical"))
+                            and "candidate_formula_raw" in row
+                            and "candidate_formula_canonical" in row
+                            and "candidate_formula_skeleton" in row
+                            and "valid" in row
+                            and "failure_reason" in row
+                            for row in rows
+                        ),
+                        "one_selected_or_generation_failure": (
+                            len(selected_rows) == 1
+                            if rows
+                            else bool(cached.get("generation_failure"))
+                        ),
+                    }
+                    if not all(ode_shard_checks.values()):
+                        raise RuntimeError(
+                            f"malformed ODEBench resume shard {path}: {ode_shard_checks}"
+                        )
                     selected = next((row for row in rows if row.get("selected")), None)
-                    selected_records.append({"condition": condition, "bundle_index": bundle_index, "cell_id": cell_name, "selected": selected, "generation_failure": cached.get("generation_failure")})
+                    exponent_exact = 0.0
+                    if selected is not None:
+                        try:
+                            exponent_exact = odebench_instantiated_exponent_aware_exact(
+                                selected
+                            )
+                        except Exception:
+                            exponent_exact = 0.0
+                    selected_records.append({
+                        "condition": condition,
+                        "bundle_index": bundle_index,
+                        "system_id": str((selected or {}).get("problem_id") or f"odebench_{item['id']}"),
+                        "cell_id": cell_name,
+                        "selected": selected,
+                        "exponent_aware_skeleton_exact": exponent_exact,
+                        "generation_failure": cached.get("generation_failure"),
+                    })
     summary = {}
+    expected_per_condition = len(equations) * 3 * len(corruption_grid(config))
+    cell_ids_by_condition = {
+        condition: {
+            (int(row["bundle_index"]), str(row["cell_id"]))
+            for row in selected_records
+            if row["condition"] == condition
+        }
+        for condition in FINAL_CONDITIONS
+    }
+    if any(
+        cell_ids_by_condition[condition] != cell_ids_by_condition["frozen"]
+        for condition in FINAL_CONDITIONS
+    ):
+        raise RuntimeError("ODEBench forgetting cells are not exactly paired to frozen")
     for condition in FINAL_CONDITIONS:
         rows = [row for row in selected_records if row["condition"] == condition]
-        valid = [float(bool((row.get("selected") or {}).get("valid"))) for row in rows]
-        ted = [float((row.get("selected") or {}).get("normalized_ted") if (row.get("selected") or {}).get("normalized_ted") is not None else 1.0) for row in rows]
-        summary[condition] = {"cells": len(rows), "valid_rate": float(np.mean(valid)), "failure_aware_normalized_ted_mean": float(np.mean(ted))}
+        grouped: dict[int, dict[str, list[tuple[float, float, float]]]] = {}
+        for row in rows:
+            selected = row.get("selected") or {}
+            grouped.setdefault(int(row["bundle_index"]), {}).setdefault(
+                str(row["system_id"]), []
+            ).append(
+                (
+                    float(row["exponent_aware_skeleton_exact"]),
+                    float(bool(selected.get("valid"))),
+                    float(selected.get("normalized_ted"))
+                    if selected.get("normalized_ted") is not None
+                    and math.isfinite(float(selected.get("normalized_ted")))
+                    else 1.0,
+                )
+            )
+        seed_scores = []
+        for systems in grouped.values():
+            system_scores = [
+                tuple(float(np.mean([cell[index] for cell in cells])) for index in range(3))
+                for cells in systems.values()
+            ]
+            seed_scores.append(
+                tuple(float(np.mean([value[index] for value in system_scores])) for index in range(3))
+            )
+        macro = tuple(
+            float(np.mean([value[index] for value in seed_scores]))
+            for index in range(3)
+        ) if seed_scores else (0.0, 0.0, 1.0)
+        summary[condition] = {
+            "cells": len(rows),
+            "expected_cells": expected_per_condition,
+            "exponent_aware_skeleton_exact_system_then_seed_macro": macro[0],
+            "exponent_aware_skeleton_exact_rate": macro[0],
+            "aggregation": "failure_zero_then_corruption_within_system_then_system_within_seed_then_seed_macro",
+            "valid_rate_system_then_seed_macro": macro[1],
+            "failure_aware_normalized_ted_system_then_seed_macro": macro[2],
+        }
+    frozen_exact = summary["frozen"][
+        "exponent_aware_skeleton_exact_system_then_seed_macro"
+    ]
+    for condition in FINAL_CONDITIONS:
+        summary[condition][
+            "paired_exponent_aware_skeleton_drop_from_frozen_system_then_seed_macro"
+        ] = frozen_exact - summary[condition][
+            "exponent_aware_skeleton_exact_system_then_seed_macro"
+        ]
+        summary[condition]["paired_cell_identity_matches_frozen"] = True
     write_json(out / "odebench_forgetting_index.json", artifact_index(paths, relative_to=out))
     write_json(out / "odebench_forgetting_summary.json", summary)
+    ode_audit = {
+        "schema_version": "gpu_run5_phase8_odebench_forgetting_audit_v1",
+        "conditions": list(FINAL_CONDITIONS),
+        "expected_cells_per_condition": expected_per_condition,
+        "expected_cells_total": expected_per_condition * len(FINAL_CONDITIONS),
+        "observed_cells_total": len(paths),
+        "condition_cells_exact": {
+            condition: summary[condition]["cells"] == expected_per_condition
+            for condition in FINAL_CONDITIONS
+        },
+        "all_condition_cells_exactly_paired_to_frozen": all(
+            cell_ids_by_condition[condition] == cell_ids_by_condition["frozen"]
+            for condition in FINAL_CONDITIONS
+        ),
+    }
+    ode_audit["pass"] = (
+        len(paths) == ode_audit["expected_cells_total"]
+        and all(ode_audit["condition_cells_exact"].values())
+        and ode_audit["all_condition_cells_exactly_paired_to_frozen"]
+    )
+    write_json(out / "odebench_forgetting_audit.json", ode_audit)
     return summary
 
 
@@ -790,6 +1100,9 @@ def _final_test_stage(args: argparse.Namespace) -> int:
     started_utc, started = utc_now(), perf_counter()
     config, root = load_config(), run_dir(args.run_id)
     out = phase_dir(args.run_id, 8)
+    # The OS releases this advisory lock on crash.  Keeping the handle alive
+    # for the entire function prevents concurrent first-open and resume workers.
+    _test_open_lock = acquire_test_open_lock(out / "test_open.lock")
     manifest = read_json(out / "manifest.json", {})
     existing_ledger = read_json(out / "test_open_ledger.json")
     if isinstance(existing_ledger, Mapping) and existing_ledger.get("status") == "complete":
@@ -826,7 +1139,14 @@ def _final_test_stage(args: argparse.Namespace) -> int:
         return 0
     if manifest.get("status") != "complete" or manifest.get("substage") != "validation" or manifest.get("final_test_authorized") is not True:
         raise RuntimeError("Phase 8 validation did not authorize the final test")
-    for name in ("go6.json", "go7.json", "p6_for_go8.json", "final_condition_freeze.json"):
+    for name in (
+        "validation_protocol_frozen.json",
+        "selective_hyperparameter_freeze.json",
+        "go6.json",
+        "go7.json",
+        "p6_for_go8.json",
+        "final_condition_freeze.json",
+    ):
         expected = str((manifest.get("artifact_sha256") or {}).get(name, ""))
         if len(expected) != 64 or sha256_file(out / name) != expected:
             raise RuntimeError(f"frozen Phase 8 artifact drift: {name}")
@@ -835,6 +1155,14 @@ def _final_test_stage(args: argparse.Namespace) -> int:
         raise RuntimeError("Go 6 / Go 7 / freeze firewall does not authorize test access")
     if list(freeze.get("conditions") or []) != list(FINAL_CONDITIONS):
         raise RuntimeError("final condition freeze drift")
+    model, base_state, device, preopen = _preopen_revalidate(
+        args=args,
+        config=config,
+        root=root,
+        out=out,
+        validation_manifest=manifest,
+        freeze=freeze,
+    )
     sealed_paths = {
         "main": (root / "phase2" / "sealed_test.json").as_posix(),
         "family_holdout": (root / "phase2" / "sealed_family_holdout_test.json").as_posix(),
@@ -854,22 +1182,19 @@ def _final_test_stage(args: argparse.Namespace) -> int:
     if not test_audit["pass"]:
         raise RuntimeError(f"sealed test set audit failed: {test_audit['checks']}")
     write_json(out / "test_set_audit.json", test_audit)
-    device = select_device(allow_cpu=args.allow_cpu)
-    checkpoint_path = ROOT / str(config["odeformer_checkpoint"])
-    model = load_odeformer_model(checkpoint_path, device=device)
-    base_state = {key: value.detach().cpu().clone() for key, value in model.state_dict().items()}
     campaign = {
         "schema_version": "gpu_run5_phase8_final_test_campaign_v1",
         "final_freeze_sha256": str(freeze["freeze_sha256"]),
         "test_open_event_id": str(ledger["event_id"]),
         "sealed_artifact_sha256": sealed_hashes,
+        "preopen_audit_sha256": sha256_file(out / "final_preopen_audit.json"),
         "conditions": list(FINAL_CONDITIONS),
         "beam_size": 50,
     }
     campaign_sha = fingerprint_json(campaign)
     write_json(out / "final_test_protocol.json", campaign)
     rows_by_view = {"main": main_test, "family_holdout": holdout_test}
-    final_paths, summaries = [], {}
+    final_paths, summaries, shard_audits = [], {}, {}
     for view in VIEWS:
         rows = rows_by_view[view]
         contract = freeze["candidate_selection"][view]
@@ -896,11 +1221,54 @@ def _final_test_stage(args: argparse.Namespace) -> int:
             coverage = coverage_audit(cells, expected_cell_ids=expected_cells, expected_beam_size=50, expected_seed_map=merged_seed_map)
             if not coverage["pass"]:
                 raise RuntimeError(f"final test coverage failed: {view}/{condition}")
-            summaries[view][condition] = {**_test_summary(cells), "coverage_audit": coverage}
+            cell_audits = [
+                audit_decode_cell(cell, require_clean_generalization=True)
+                for cell in cells
+            ]
+            shard_audits[f"{view}/{condition}"] = {
+                "expected_cells": len(expected_cells),
+                "observed_cells": len(cells),
+                "all_shards_pass": bool(cell_audits)
+                and all(audit["pass"] for audit in cell_audits),
+                "all_candidate_sets_nonempty_or_failure_visible": all(
+                    bool(cell.get("candidates"))
+                    or (
+                        bool((cell.get("selected") or {}).get("failure_reason"))
+                        and bool(cell.get("generation_failure"))
+                    )
+                    for cell in cells
+                ),
+                "candidate_records_saved": sum(
+                    len(cell.get("candidates") or []) for cell in cells
+                ),
+            }
+            summaries[view][condition] = {
+                **_test_summary(cells),
+                "coverage_audit": coverage,
+                "resume_shard_audit": shard_audits[f"{view}/{condition}"],
+            }
             print(f"Phase8 final test {view}/{condition}: cells={len(cells)}", flush=True)
     expected = expected_phase8_final_counts(main_systems=80, holdout_systems=20, n_bundles=3, n_corruptions=4)
     if len(final_paths) != expected["cells_total"]:
         raise RuntimeError("final test exact cell budget mismatch")
+    final_shard_audit = {
+        "schema_version": "gpu_run5_phase8_final_shard_audit_v1",
+        "expected_cells": expected["cells_total"],
+        "observed_cells": len(final_paths),
+        "view_condition_audits": shard_audits,
+        "all_shards_complete_and_strictly_audited": (
+            len(shard_audits) == len(VIEWS) * len(FINAL_CONDITIONS)
+            and all(
+                row["expected_cells"] == row["observed_cells"]
+                and row["all_shards_pass"]
+                and row["all_candidate_sets_nonempty_or_failure_visible"]
+                for row in shard_audits.values()
+            )
+        ),
+    }
+    if not final_shard_audit["all_shards_complete_and_strictly_audited"]:
+        raise RuntimeError("final resume-shard audit failed")
+    write_json(out / "final_shard_audit.json", final_shard_audit)
     write_json(out / "final_cell_artifact_index.json", artifact_index(final_paths, relative_to=out))
     write_json(out / "final_test_summary.json", summaries)
     main_registry = {condition: {str(row["bundle_index"]): row for row in freeze["views"]["main"][condition]} for condition in FINAL_CONDITIONS}
@@ -945,6 +1313,14 @@ def _final_test_stage(args: argparse.Namespace) -> int:
         "family_holdout_is_subset_not_independent_evidence": True,
     }
     write_json(out / "go8.json", go8)
+    preregistered_test_outcomes = evaluate_preregistered_test_outcomes(
+        main_summaries=summaries["main"],
+        odebench_forgetting=forgetting,
+        test_open_event_id=str(ledger["event_id"]),
+    )
+    write_json(
+        out / "preregistered_test_outcomes.json", preregistered_test_outcomes
+    )
     final_result = {
         "status": "complete", "conditions": list(FINAL_CONDITIONS), "expected_counts": expected,
         "summaries": summaries, "odebench_forgetting_secondary": forgetting,
@@ -954,17 +1330,26 @@ def _final_test_stage(args: argparse.Namespace) -> int:
         "candidate_selection_used_input_and_selection_only": True,
         "generalization_evaluated_only_after_candidate_selection": True,
         "go8": go8,
+        "preregistered_test_outcomes": preregistered_test_outcomes,
         "test_accessed": True,
     }
     write_json(out / "final_result.json", final_result)
+    validation_artifacts = {
+        str(name): str(value)
+        for name, value in (manifest.get("artifact_sha256") or {}).items()
+    }
     final_artifacts = {
-        name: sha256_file(out / name)
-        for name in (
-            "test_set_audit.json", "final_test_protocol.json", "final_cell_artifact_index.json",
-            "final_test_summary.json", "odebench_forgetting_index.json",
-            "odebench_forgetting_summary.json", "final_result.json",
-            "go8.json",
-        )
+        **validation_artifacts,
+        **{
+            name: sha256_file(out / name)
+            for name in (
+                "final_preopen_audit.json", "test_set_audit.json", "final_test_protocol.json",
+                "final_cell_artifact_index.json", "final_shard_audit.json",
+                "final_test_summary.json", "odebench_forgetting_index.json",
+                "odebench_forgetting_summary.json", "odebench_forgetting_audit.json", "final_result.json",
+                "go8.json", "preregistered_test_outcomes.json",
+            )
+        },
     }
     complete_test_open(out / "test_open_ledger.json", final_artifact_sha256=final_artifacts)
     final_artifacts["test_open_ledger.json"] = sha256_file(out / "test_open_ledger.json")
@@ -973,9 +1358,13 @@ def _final_test_stage(args: argparse.Namespace) -> int:
         "single_test_open_event": True,
         "main_and_family_holdout_opened_in_one_protocol": True,
         "exact_final_five_conditions": list(freeze["conditions"]) == list(FINAL_CONDITIONS),
-        "all_6000_grn_cells_complete": len(final_paths) == 6000,
-        "all_candidates_formulas_failures_and_selected_generalization_saved": True,
-        "odebench_forgetting_secondary_complete": all(value["cells"] == 756 for value in forgetting.values()),
+        "all_expected_grn_cells_complete": len(final_paths) == expected["cells_total"],
+        "all_candidates_formulas_failures_and_selected_generalization_saved": final_shard_audit[
+            "all_shards_complete_and_strictly_audited"
+        ],
+        "odebench_forgetting_secondary_complete": read_json(
+            out / "odebench_forgetting_audit.json", {}
+        ).get("pass") is True,
     }
     write_manifest(
         out, 8, "complete" if all(go_conditions.values()) else "incomplete",
