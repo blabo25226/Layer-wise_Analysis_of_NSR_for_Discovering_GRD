@@ -35,7 +35,7 @@ from gpu_run2_runtime import (  # noqa: E402
 )
 from gpu_run3_runtime import software_versions  # noqa: E402
 from gpu_run4.architecture import inventory_odeformer  # noqa: E402
-from gpu_run4.inference import fit_and_collect  # noqa: E402
+from gpu_run4.inference import fit_and_collect, integrate_candidate  # noqa: E402
 from gpu_run4.training import teacher_forcing_loss  # noqa: E402
 from gpu_run4.trajectories import corrupt_trajectory  # noqa: E402
 from gpu_run4_runtime import (  # noqa: E402
@@ -52,8 +52,10 @@ from gpu_run5.config import (  # noqa: E402
     sanitize_nonfinite,
     write_manifest,
 )
-from gpu_run5.evaluation import formula_metrics  # noqa: E402
+from gpu_run5.evaluation import formula_metrics, select_candidate, trajectory_nrmse  # noqa: E402
 from gpu_run5.phase6 import (  # noqa: E402
+    PHASE3_COMPLEXITY_LAMBDA,
+    PHASE3_SELECTION_RULE,
     TRAINABLE_CONDITIONS,
     VIEWS,
     artifact_index,
@@ -66,6 +68,7 @@ from gpu_run5.phase6 import (  # noqa: E402
     coverage_audit,
     delta_identity,
     expected_phase6_counts,
+    freeze_phase3_selection,
     hyperparameter_grid,
     load_cached_cell,
     validation_cell_id,
@@ -73,7 +76,9 @@ from gpu_run5.phase6 import (  # noqa: E402
 )
 from gpu_run5.training import (  # noqa: E402
     adapt_input_training_records,
+    apply_delta_checkpoint,
     formula_score_vector,
+    load_delta_checkpoint,
     make_delta_checkpoint,
     model_state_sha256,
     restore_parameter_state,
@@ -150,31 +155,57 @@ def _variants_per_family(
     return [row for family in sorted(grouped) for row in grouped[family][: int(count)]]
 
 
-def _corrupted_input(
+def _observed_selection_trajectories(
     row: Mapping[str, Any],
     *,
     sigma: float,
     rho: float,
     bundle: Mapping[str, Any],
     bundle_index: int,
-) -> tuple[np.ndarray, np.ndarray, str]:
-    source = _input_row(row)
-    seed = __import__("gpu_run5.seeding", fromlist=["stable_problem_seed"]).stable_problem_seed(
-        int(bundle["corruption_seed"]),
-        system_id=str(row["system_id"]),
-        condition="input_0",
-        noise_sigma=float(sigma),
-        subsample_rho=float(rho),
-        sampling_replicate=int(bundle_index),
-    )
-    times, trajectory = corrupt_trajectory(
-        np.asarray(source["times"], dtype=float),
-        np.asarray(source["trajectory"], dtype=float),
-        sigma=float(sigma),
-        rho=float(rho),
-        seed=int(seed),
-    )
-    return times, trajectory, str(source["checksum"])
+) -> dict[str, list[dict[str, Any]]]:
+    """Return only corrupted input/selection ICs; generalization is unopened."""
+    stable_problem_seed = __import__(
+        "gpu_run5.seeding", fromlist=["stable_problem_seed"]
+    ).stable_problem_seed
+    output: dict[str, list[dict[str, Any]]] = {"input": [], "selection": []}
+    for role in output:
+        sources = sorted(
+            [item for item in row["trajectories"] if item.get("role") == role],
+            key=lambda item: int(item["role_index"]),
+        )
+        expected = 1 if role == "input" else 2
+        if len(sources) != expected:
+            raise ValueError(
+                f"{row.get('system_id')} requires {expected} {role} trajectories"
+            )
+        for source in sources:
+            seed = stable_problem_seed(
+                int(bundle["corruption_seed"]),
+                system_id=str(row["system_id"]),
+                condition=f"{role}_{int(source['role_index'])}",
+                noise_sigma=float(sigma),
+                subsample_rho=float(rho),
+                sampling_replicate=int(bundle_index),
+            )
+            times, trajectory = corrupt_trajectory(
+                np.asarray(source["times"], dtype=float),
+                np.asarray(source["trajectory"], dtype=float),
+                sigma=float(sigma),
+                rho=float(rho),
+                seed=int(seed),
+            )
+            output[role].append(
+                {
+                    "role": role,
+                    "role_index": int(source["role_index"]),
+                    "times": times,
+                    "trajectory": trajectory,
+                    "initial_condition": trajectory[0],
+                    "corruption_seed": int(seed),
+                    "source_checksum": str(source["checksum"]),
+                }
+            )
+    return output
 
 
 def _make_regressor(model: Any, config: Mapping[str, Any], beam_size: int, seed: int) -> Any:
@@ -197,6 +228,59 @@ def _failed_formula(row: Mapping[str, Any], reason: str) -> dict[str, Any]:
         "candidate_formula_raw": "",
         **metrics,
         "generation_failure": str(reason),
+        "empty_candidate_placeholder": True,
+        "trajectory_metrics": {
+            "input_nrmse": [],
+            "selection_nrmse": [],
+            "input_failures": [str(reason)],
+            "selection_failures": [str(reason)],
+        },
+    }
+
+
+def _evaluate_candidate_trajectories(
+    row: Mapping[str, Any],
+    *,
+    raw: str,
+    tree: Any,
+    index: int,
+    regressor: Any,
+    observations: Mapping[str, Sequence[Mapping[str, Any]]],
+    penalty: float,
+) -> dict[str, Any]:
+    try:
+        metrics = formula_metrics(str(row["teacher_infix"]), raw)
+    except Exception as exc:
+        metrics = formula_metrics(str(row["teacher_infix"]), "")
+        metrics["failure_reason"] = f"{type(exc).__name__}:{exc}"
+    trajectory_metrics: dict[str, list[Any]] = {
+        "input_nrmse": [],
+        "selection_nrmse": [],
+        "input_failures": [],
+        "selection_failures": [],
+    }
+    for role in ("input", "selection"):
+        for trajectory in observations[role]:
+            predicted, failure = integrate_candidate(
+                regressor,
+                np.asarray(trajectory["times"], dtype=float),
+                np.asarray(trajectory["initial_condition"], dtype=float),
+                tree,
+                timeout_sec=10.0,
+            )
+            trajectory_metrics[f"{role}_nrmse"].append(
+                trajectory_nrmse(
+                    np.asarray(trajectory["trajectory"], dtype=float),
+                    predicted,
+                    penalty=penalty,
+                )
+            )
+            trajectory_metrics[f"{role}_failures"].append(failure)
+    return {
+        "candidate_index": int(index),
+        "candidate_formula_raw": raw,
+        **metrics,
+        "trajectory_metrics": trajectory_metrics,
     }
 
 
@@ -213,13 +297,17 @@ def _decode_cell(
     cache_identity: Mapping[str, Any],
 ) -> dict[str, Any]:
     bundle = config["seed_bundles"][int(bundle_index)]
-    times, trajectory, source_checksum = _corrupted_input(
+    observations = _observed_selection_trajectories(
         row,
         sigma=sigma,
         rho=rho,
         bundle=bundle,
         bundle_index=bundle_index,
     )
+    input_observation = observations["input"][0]
+    times = np.asarray(input_observation["times"], dtype=float)
+    trajectory = np.asarray(input_observation["trajectory"], dtype=float)
+    source_checksum = str(input_observation["source_checksum"])
     if str(cache_identity["input_trajectory_checksum"]) != source_checksum:
         raise RuntimeError("cache identity input checksum mismatch")
     started = perf_counter()
@@ -228,6 +316,7 @@ def _decode_cell(
         regressor = _make_regressor(model, config, beam_size, candidate_seed)
         fit = fit_and_collect(regressor, times, trajectory, permutation_seed=candidate_seed)
         infixes = list(fit["infixes"])
+        trees = list(fit["trees"])
         decode_wall = float(fit["wall_time"])
     except torch.cuda.OutOfMemoryError:
         raise
@@ -235,24 +324,34 @@ def _decode_cell(
         if "out of memory" in str(exc).lower():
             raise
         generation_failure = f"{type(exc).__name__}:{exc}"
-        infixes, decode_wall = [], perf_counter() - started
+        infixes, trees, decode_wall = [], [], perf_counter() - started
     except Exception as exc:
         generation_failure = f"{type(exc).__name__}:{exc}"
-        infixes, decode_wall = [], perf_counter() - started
+        infixes, trees, decode_wall = [], [], perf_counter() - started
 
-    candidates = []
-    for index, raw in enumerate(infixes):
-        formula = raw or ""
-        try:
-            metrics = formula_metrics(str(row["teacher_infix"]), formula)
-        except Exception as exc:
-            metrics = formula_metrics(str(row["teacher_infix"]), "")
-            metrics["failure_reason"] = f"{type(exc).__name__}:{exc}"
-        candidates.append(
-            {"candidate_index": int(index), "candidate_formula_raw": formula, **metrics}
+    penalty = float(config["selection"]["trajectory_nrmse_failure_penalty"])
+    candidates = [
+        _evaluate_candidate_trajectories(
+            row,
+            raw=raw or "",
+            tree=tree,
+            index=index,
+            regressor=regressor,
+            observations=observations,
+            penalty=penalty,
         )
-    selected = dict(candidates[0]) if candidates else _failed_formula(
-        row, generation_failure or "EmptyCandidateSet"
+        for index, (tree, raw) in enumerate(zip(trees, infixes))
+    ]
+    selected_index = select_candidate(
+        candidates,
+        PHASE3_SELECTION_RULE,
+        penalty=penalty,
+        complexity_lambda=PHASE3_COMPLEXITY_LAMBDA,
+    )
+    selected = (
+        dict(candidates[selected_index])
+        if selected_index is not None
+        else _failed_formula(row, generation_failure or "EmptyCandidateSet")
     )
     return sanitize_nonfinite(
         {
@@ -273,43 +372,97 @@ def _decode_cell(
             "input_trajectory_checksum": source_checksum,
             "true_formula": str(row["teacher_infix"]),
             "true_prefix": row["teacher_prefix"],
+            "variable_to_gene": dict(row.get("variable_to_gene") or {}),
             "candidate_set_hash": _candidate_hash(infixes),
             "n_candidates": len(candidates),
             "candidate_shortfall": max(int(beam_size) - len(candidates), 0),
             "generation_failure": generation_failure,
             "decode_wall_time_sec": decode_wall,
-            "selection_rule": "official_candidate_index_0",
+            "selection_rule": PHASE3_SELECTION_RULE,
+            "complexity_lambda": PHASE3_COMPLEXITY_LAMBDA,
+            "selection_trajectory_contract": "corrupted_input_plus_selection_ic_only",
+            "generalization_trajectory_accessed": False,
+            "observation_provenance": {
+                role: [
+                    {
+                        "role_index": item["role_index"],
+                        "corruption_seed": item["corruption_seed"],
+                        "source_checksum": item["source_checksum"],
+                        "n_points": len(item["times"]),
+                    }
+                    for item in observations[role]
+                ]
+                for role in ("input", "selection")
+            },
             "selected": selected,
             "candidates": candidates,
         }
     )
 
 
-def _mean_validation_ce(model: Any, rows: Sequence[Mapping[str, Any]]) -> tuple[float, list[dict[str, Any]]]:
-    values = []
+def _validation_cell_ce(
+    model: Any,
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    config: Mapping[str, Any],
+    bundle_indices: Sequence[int],
+) -> tuple[float, list[dict[str, Any]]]:
+    """Compute CE on the exact paired corrupted input of every formula cell."""
+    values: list[dict[str, Any]] = []
     model.eval()
     with torch.no_grad():
-        for row in rows:
-            source = _input_row(row)
-            try:
-                loss = teacher_forcing_loss(
-                    model,
-                    np.asarray(source["times"], dtype=float),
-                    np.asarray(source["trajectory"], dtype=float),
-                    list(row["tree_encoded"]),
-                )
-                numeric = float(loss.detach().cpu())
-                if not math.isfinite(numeric):
-                    raise ValueError("non-finite CE")
-                failure = None
-            except torch.cuda.OutOfMemoryError:
-                raise
-            except Exception as exc:
-                numeric = float("inf")
-                failure = f"{type(exc).__name__}:{exc}"
-            values.append({"system_id": str(row["system_id"]), "ce": numeric, "failure": failure})
+        for bundle_index in sorted(int(value) for value in bundle_indices):
+            bundle = config["seed_bundles"][bundle_index]
+            for row in sorted(rows, key=lambda item: str(item["system_id"])):
+                for sigma, rho in corruption_grid(config):
+                    observations = _observed_selection_trajectories(
+                        row,
+                        sigma=sigma,
+                        rho=rho,
+                        bundle=bundle,
+                        bundle_index=bundle_index,
+                    )
+                    source = observations["input"][0]
+                    cell_id = validation_cell_id(
+                        system=str(row["system_id"]),
+                        bundle_index=bundle_index,
+                        noise_sigma=sigma,
+                        subsample_rho=rho,
+                    )
+                    try:
+                        loss = teacher_forcing_loss(
+                            model,
+                            np.asarray(source["times"], dtype=float),
+                            np.asarray(source["trajectory"], dtype=float),
+                            list(row["tree_encoded"]),
+                        )
+                        numeric = float(loss.detach().cpu())
+                        if not math.isfinite(numeric):
+                            raise ValueError("non-finite CE")
+                        failure = None
+                    except torch.cuda.OutOfMemoryError:
+                        raise
+                    except Exception as exc:
+                        numeric = float("inf")
+                        failure = f"{type(exc).__name__}:{exc}"
+                    values.append(
+                        {
+                            "cell_id": cell_id,
+                            "system_id": str(row["system_id"]),
+                            "bundle_index": bundle_index,
+                            "noise_sigma": sigma,
+                            "subsample_rho": rho,
+                            "input_trajectory_checksum": str(source["source_checksum"]),
+                            "ce": numeric,
+                            "failure": failure,
+                        }
+                    )
     finite = [float(row["ce"]) for row in values]
-    mean = float(np.mean(finite)) if finite and all(map(math.isfinite, finite)) else float("inf")
+    mean = (
+        float(np.mean(finite))
+        if finite and all(map(math.isfinite, finite))
+        else float("inf")
+    )
     return mean, values
 
 
@@ -373,13 +526,19 @@ def _decode_panel(
     return cells, paths
 
 
-def _selected_rows(cells: Sequence[Mapping[str, Any]], ce: float) -> list[dict[str, Any]]:
+def _selected_rows(
+    cells: Sequence[Mapping[str, Any]], ce_rows: Sequence[Mapping[str, Any]]
+) -> list[dict[str, Any]]:
+    ce_by_cell = {str(row["cell_id"]): float(row["ce"]) for row in ce_rows}
+    cell_ids = [str(cell["cell_id"]) for cell in cells]
+    if sorted(ce_by_cell) != sorted(cell_ids):
+        raise RuntimeError("CE coverage does not exactly match formula-cell coverage")
     return [
         {
             "cell_id": str(cell["cell_id"]),
             "system_id": str(cell["system_id"]),
             "bundle_index": int(cell["bundle_index"]),
-            "validation_teacher_forcing_ce": float(ce),
+            "validation_teacher_forcing_ce": ce_by_cell[str(cell["cell_id"])],
             **dict(cell["selected"]),
         }
         for cell in cells
@@ -419,6 +578,7 @@ def _save_current_delta(
         "persisted": bool(persist),
         **saved,
         "checkpoint_sha256": checkpoint["checkpoint_sha256"],
+        "base_model_state_sha256": checkpoint["base_model_state_sha256"],
         "parameter_keys": list(parameter_keys),
         "parameter_count": int(
             sum(dict(model.named_parameters())[key].numel() for key in parameter_keys)
@@ -429,13 +589,21 @@ def _save_current_delta(
 
 def _validate_inputs(root: Path) -> dict[str, Any]:
     phase2_manifest = read_json(root / "phase2" / "manifest.json", {})
+    phase3_manifest = read_json(root / "phase3" / "manifest.json", {})
     phase4_manifest = read_json(root / "phase4" / "manifest.json", {})
     phase5_manifest = read_json(root / "phase5" / "manifest.json", {})
-    for phase, manifest in ((2, phase2_manifest), (4, phase4_manifest), (5, phase5_manifest)):
+    for phase, manifest in (
+        (2, phase2_manifest),
+        (3, phase3_manifest),
+        (4, phase4_manifest),
+        (5, phase5_manifest),
+    ):
         if manifest.get("status") != "complete" or not all(manifest.get("go_conditions", {}).values()):
             raise RuntimeError(f"Phase {phase} is not complete with all Go conditions true")
     if phase2_manifest.get("test_accessed") is not False:
         raise RuntimeError("Phase 2 test-firewall provenance is invalid")
+    if phase3_manifest.get("test_accessed") is not False:
+        raise RuntimeError("Phase 3 test-firewall provenance is invalid")
     if phase4_manifest.get("grn_test_accessed") is not False:
         raise RuntimeError("Phase 4 GRN test-firewall provenance is invalid")
     if phase5_manifest.get("test_accessed") is not False:
@@ -450,6 +618,7 @@ def _validate_inputs(root: Path) -> dict[str, Any]:
         "holdout_validation": root / "phase2" / "family_holdout_validation.json",
         "official_train": root / "phase4" / "official_train.json",
         "reduced_main": root / "phase4" / "fixed_grn_validation_panel.json",
+        "phase3_lambda_selection": root / "phase3" / "lambda_selection.json",
     }
     manifest_by_key = {
         "main_train": phase2_manifest,
@@ -458,6 +627,7 @@ def _validate_inputs(root: Path) -> dict[str, Any]:
         "holdout_validation": phase2_manifest,
         "official_train": phase4_manifest,
         "reduced_main": phase4_manifest,
+        "phase3_lambda_selection": phase3_manifest,
     }
     names = {
         "main_train": "train.json",
@@ -466,6 +636,7 @@ def _validate_inputs(root: Path) -> dict[str, Any]:
         "holdout_validation": "family_holdout_validation.json",
         "official_train": "official_train.json",
         "reduced_main": "fixed_grn_validation_panel.json",
+        "phase3_lambda_selection": "lambda_selection.json",
     }
     for key, path in paths.items():
         expected = manifest_by_key[key].get("artifact_sha256", {}).get(names[key])
@@ -474,8 +645,10 @@ def _validate_inputs(root: Path) -> dict[str, Any]:
     return {
         "paths": paths,
         "phase2_manifest": phase2_manifest,
+        "phase3_manifest": phase3_manifest,
         "phase4_manifest": phase4_manifest,
         "phase5_manifest": phase5_manifest,
+        "phase3_manifest_path": root / "phase3" / "manifest.json",
     }
 
 
@@ -530,7 +703,8 @@ def main() -> int:
     base_state = {key: value.detach().cpu().clone() for key, value in model.state_dict().items()}
 
     loaded = {key: read_json(path) for key, path in inputs["paths"].items()}
-    if any(not isinstance(loaded[key], list) for key in loaded):
+    phase3_selection = freeze_phase3_selection(loaded.pop("phase3_lambda_selection"))
+    if any(not isinstance(value, list) for value in loaded.values()):
         raise RuntimeError("an authorized Phase 6 corpus artifact is not a list")
     view_audit = audit_data_views(
         main_train=loaded["main_train"],
@@ -615,13 +789,22 @@ def main() -> int:
         "device": device,
         "environment_fingerprint": fingerprint_json(environment),
         "authorized_input_sha256": {
-            key: sha256_file(path) for key, path in inputs["paths"].items()
+            **{key: sha256_file(path) for key, path in inputs["paths"].items()},
+            "phase3_manifest": sha256_file(inputs["phase3_manifest_path"]),
         },
         "screening_beam_size": screen_beam,
         "confirmation_beam_size": confirmation_beam,
         "learning_rates": learning_rates,
         "snapshot_steps": steps,
         "panel_sha256": panel_hashes,
+        "candidate_selection": phase3_selection,
+        "validation_ce_policy": {
+            "name": "paired_corrupted_input_trajectory_per_formula_cell",
+            "coverage": "every system_x_bundle_x_noise_sigma_x_subsample_rho formula cell",
+            "teacher_target": "same system teacher prefix",
+            "selection_ic_used_for_ce": False,
+            "role_in_model_selection": "fourth_lexicographic_tie_break_only",
+        },
         "test_accessed": False,
     }
     campaign_sha = fingerprint_json(campaign_identity)
@@ -639,7 +822,10 @@ def main() -> int:
         "schema_version": "gpu_run5_phase6_selection_freeze_v1",
         "campaign_identity_sha256": campaign_sha,
         "criterion": "formula_exact_then_failure_aware_ted_then_valid_then_ce",
-        "candidate_selection_rule": "official_candidate_index_0",
+        "candidate_selection_rule": PHASE3_SELECTION_RULE,
+        "complexity_lambda": PHASE3_COMPLEXITY_LAMBDA,
+        "trajectory_selection_roles": ["input", "selection"],
+        "generalization_used_for_selection": False,
         "screening_bundle_indices": [0],
         "screening_beam_size": screen_beam,
         "views": {},
@@ -761,11 +947,12 @@ def main() -> int:
                     )
                     if not coverage["pass"]:
                         raise RuntimeError(f"screening coverage failed: {view}/{condition}/{config_row}")
-                    ce, ce_rows = _mean_validation_ce(model, rows)
-                    selected_rows = _selected_rows(cells, ce)
+                    ce, ce_rows = _validation_cell_ce(
+                        model, rows, config=config, bundle_indices=[0]
+                    )
+                    selected_rows = _selected_rows(cells, ce_rows)
                     score = formula_score_vector(
                         selected_rows,
-                        validation_ce=ce,
                         expected_cell_ids=expected_cells,
                     )
                     candidates.append(
@@ -817,6 +1004,8 @@ def main() -> int:
 
     confirmation_paths: list[Path] = []
     checkpoint_records: list[dict[str, Any]] = []
+    confirmation_training_records: list[dict[str, Any]] = []
+    confirmation_training_paths: list[Path] = []
     confirmation_records: dict[str, Any] = {}
     bundle_indices = list(range(n_bundles))
     for view in VIEWS:
@@ -858,10 +1047,11 @@ def main() -> int:
             expected_beam_size=confirmation_beam,
             expected_seed_map=merged_seed_map,
         )
-        frozen_ce, frozen_ce_rows = _mean_validation_ce(model, rows)
+        frozen_ce, frozen_ce_rows = _validation_cell_ce(
+            model, rows, config=config, bundle_indices=bundle_indices
+        )
         frozen_score = formula_score_vector(
-            _selected_rows(frozen_cells, frozen_ce),
-            validation_ce=frozen_ce,
+            _selected_rows(frozen_cells, frozen_ce_rows),
             expected_cell_ids=frozen_expected,
         )
         view_records["frozen"] = {
@@ -896,6 +1086,30 @@ def main() -> int:
                     data_order_seed=int(bundle["data_seed"]),
                     model_seed=int(bundle["model_seed"]),
                 )
+                training_path = (
+                    out
+                    / "training"
+                    / "confirmation"
+                    / view
+                    / condition
+                    / f"bundle{bundle_index}.json"
+                )
+                training_record = {
+                    "path": training_path.relative_to(out).as_posix(),
+                    "view": view,
+                    "condition": condition,
+                    "bundle_index": bundle_index,
+                    "selected_config": selected_config,
+                    "checkpoint_file_sha256": None,
+                    "delta_sha256": None,
+                    **{
+                        key: value
+                        for key, value in result.items()
+                        if key != "snapshots"
+                    },
+                }
+                write_json(training_path, training_record)
+                confirmation_training_paths.append(training_path)
                 if result["status"] != "complete" or selected_step not in result["snapshots"]:
                     raise RuntimeError(
                         f"selected confirmation training failed: {view}/{condition}/bundle{bundle_index}: "
@@ -939,6 +1153,41 @@ def main() -> int:
                     base_sha=base_sha,
                     persist=True,
                 )
+                adapted_state_sha = model_state_sha256(model)
+                _restore_base(model, base_state)
+                restored_base_sha = model_state_sha256(model)
+                loaded_delta = load_delta_checkpoint(
+                    Path(str(delta["path"])),
+                    expected_file_sha256=str(delta["file_sha256"]),
+                )
+                apply_delta_checkpoint(
+                    model,
+                    loaded_delta,
+                    allowed_parameter_keys=result["trainable_parameter_keys"],
+                    expected_identity=identity,
+                )
+                reloaded_state_sha = model_state_sha256(model)
+                delta["verification"] = {
+                    "strategy": "restore_fresh_base_state_then_load_and_apply_delta",
+                    "fresh_base_state_sha256": restored_base_sha,
+                    "fresh_base_matches_expected": restored_base_sha == base_sha,
+                    "file_sha256_verified": True,
+                    "metadata_identity_verified": True,
+                    "parameter_allowlist_verified": True,
+                    "tensor_delta_sha256_verified": True,
+                    "adapted_model_state_sha256_before_save": adapted_state_sha,
+                    "adapted_model_state_sha256_after_reload": reloaded_state_sha,
+                    "adapted_state_matches": reloaded_state_sha == adapted_state_sha,
+                }
+                verification_flags = [
+                    value
+                    for key, value in delta["verification"].items()
+                    if key.endswith("_verified")
+                    or key.endswith("_matches_expected")
+                    or key == "adapted_state_matches"
+                ]
+                if not verification_flags or not all(verification_flags):
+                    raise RuntimeError("persisted delta failed fresh-base reload verification")
                 if bundle_index == 0:
                     delta["matches_selected_screening_delta"] = (
                         delta["delta_sha256"]
@@ -946,7 +1195,12 @@ def main() -> int:
                     )
                     if not delta["matches_selected_screening_delta"]:
                         raise RuntimeError("bundle-0 confirmation does not reproduce selected screening delta")
+                delta["training_record_path"] = training_record["path"]
                 checkpoint_records.append({"view": view, "condition": condition, "bundle_index": bundle_index, **delta})
+                training_record["checkpoint_file_sha256"] = delta["file_sha256"]
+                training_record["delta_sha256"] = delta["delta_sha256"]
+                write_json(training_path, training_record)
+                confirmation_training_records.append(training_record)
                 cells, paths = _decode_panel(
                     model=model,
                     rows=rows,
@@ -963,7 +1217,9 @@ def main() -> int:
                 )
                 confirmation_paths.extend(paths)
                 all_cells.extend(cells)
-                ce, ce_detail = _mean_validation_ce(model, rows)
+                ce, ce_detail = _validation_cell_ce(
+                    model, rows, config=config, bundle_indices=[bundle_index]
+                )
                 ce_rows_by_bundle[str(bundle_index)] = {"mean": ce, "rows": ce_detail}
                 del result
                 gc.collect()
@@ -980,9 +1236,13 @@ def main() -> int:
             condition_ce = float(
                 np.mean([ce_rows_by_bundle[str(index)]["mean"] for index in bundle_indices])
             )
+            condition_ce_rows = [
+                row
+                for index in bundle_indices
+                for row in ce_rows_by_bundle[str(index)]["rows"]
+            ]
             condition_score = formula_score_vector(
-                _selected_rows(all_cells, condition_ce),
-                validation_ce=condition_ce,
+                _selected_rows(all_cells, condition_ce_rows),
                 expected_cell_ids=frozen_expected,
             )
             view_records[condition] = {
@@ -997,6 +1257,11 @@ def main() -> int:
 
     write_json(out / "confirmation_summary.json", confirmation_records)
     write_json(out / "checkpoint_index.json", checkpoint_records)
+    write_json(out / "confirmation_training_index.json", confirmation_training_records)
+    write_json(
+        out / "confirmation_training_artifact_index.json",
+        artifact_index(confirmation_training_paths, relative_to=out),
+    )
     all_cell_paths = screening_paths + confirmation_paths
     cell_index = artifact_index(all_cell_paths, relative_to=out)
     write_json(out / "cell_artifact_index.json", cell_index)
@@ -1031,8 +1296,35 @@ def main() -> int:
         for trial in selection_payload["views"][view][condition]["trials"]
         if trial["status"] == "complete"
     )
+    all_delta_verifications_pass = len(checkpoint_records) == expected_counts[
+        "selected_training_trials"
+    ] and all(
+        row["base_model_state_sha256"] == base_sha
+        and bool(row.get("matches_selected_screening_delta", True))
+        and row["verification"]["fresh_base_matches_expected"]
+        and row["verification"]["file_sha256_verified"]
+        and row["verification"]["metadata_identity_verified"]
+        and row["verification"]["parameter_allowlist_verified"]
+        and row["verification"]["tensor_delta_sha256_verified"]
+        and row["verification"]["adapted_state_matches"]
+        for row in checkpoint_records
+    )
+    confirmation_training_audit_pass = len(confirmation_training_records) == expected_counts[
+        "selected_training_trials"
+    ] and all(
+        row["status"] == "complete"
+        and row["completed_steps"] == row["requested_steps"]
+        and len(row["losses"]) == row["completed_steps"]
+        and row["optimizer"] == "Adam"
+        and row["determinism"]["deterministic_algorithms"] is True
+        and row["determinism"]["cudnn_benchmark"] is False
+        and row["determinism"]["cudnn_deterministic"] is True
+        and math.isfinite(float(row["wall_time_sec"]))
+        and "peak_gpu_memory_bytes" in row
+        for row in confirmation_training_records
+    )
     go = {
-        "phase2_phase4_phase5_complete_and_hashed": True,
+        "phase2_phase3_phase4_phase5_complete_and_hashed": True,
         "test_not_accessed": True,
         "main_and_family_holdout_views_separate": bool(view_audit["pass"]),
         "every_trainable_condition_received_exact_grid": observed_trainable_grid
@@ -1045,15 +1337,19 @@ def main() -> int:
             if trial["status"] == "complete"
         ),
         "screening_beam_and_bundle_contract_exact": all_screen_coverages_pass,
+        "phase3_multi_ic_complexity_lambda_frozen": phase3_selection
+        == {
+            "selection_rule": PHASE3_SELECTION_RULE,
+            "complexity_lambda": PHASE3_COMPLEXITY_LAMBDA,
+            "source_split": "validation",
+            "candidate_lambdas": [0.0, 0.0001, 0.001, 0.01],
+        },
         "formula_primary_selection_frozen_before_confirmation": freeze_sha
         == sha256_file(out / "hyperparameter_freeze.json"),
         "selected_and_frozen_confirmation_exact": all_coverages_pass
         and observed_confirmation == expected_counts["confirmation_cells_total"],
-        "delta_allowlists_base_hash_and_bundle0_reproduction_pass": all(
-            row["base_model_state_sha256"] == base_sha
-            and bool(row.get("matches_selected_screening_delta", True))
-            for row in checkpoint_records
-        ),
+        "confirmation_training_history_complete": confirmation_training_audit_pass,
+        "persisted_delta_fresh_base_reload_verified": all_delta_verifications_pass,
         "paired_candidate_seed_maps_and_atomic_cell_identities_pass": all_coverages_pass
         and all_screen_coverages_pass,
         "all_formulas_failures_and_artifact_hashes_saved": len(cell_index)
@@ -1075,6 +1371,7 @@ def main() -> int:
             "screening_cells": len(screening_paths),
             "confirmation_cells": observed_confirmation,
             "checkpoint_count": len(checkpoint_records),
+            "confirmation_training_records": len(confirmation_training_records),
         },
         "selected_hyperparameters": {
             view: {
@@ -1103,39 +1400,51 @@ def main() -> int:
         "odebench_forgetting_path_check.json",
         "confirmation_summary.json",
         "checkpoint_index.json",
+        "confirmation_training_index.json",
+        "confirmation_training_artifact_index.json",
         "cell_artifact_index.json",
         "summary.json",
         "go.json",
     ]
-    write_manifest(
-        out,
-        6,
-        status,
-        go_conditions=go,
-        summary=summary,
-        git=git_info(),
-        git_at_start=git,
-        started_utc=started_utc,
-        finished_utc=utc_now(),
-        wall_time_sec=perf_counter() - started_clock,
-        mode=mode,
-        device=device,
-        environment=environment,
-        checkpoint={"path": str(checkpoint_path), "sha256": raw_checkpoint_sha, "base_model_state_sha256": base_sha},
-        config_fingerprint=fingerprint_json(config),
-        campaign_identity=campaign_identity,
-        campaign_identity_sha256=campaign_sha,
-        hyperparameter_freeze_sha256=freeze_sha,
-        authorized_inputs={key: sha256_file(path) for key, path in inputs["paths"].items()},
-        phase_manifests={
-            "phase2": sha256_file(root / "phase2" / "manifest.json"),
-            "phase4": sha256_file(root / "phase4" / "manifest.json"),
-            "phase5": sha256_file(root / "phase5" / "manifest.json"),
-        },
-        test_accessed=False,
-        odebench_outcomes_read=False,
-        artifact_sha256={name: sha256_file(out / name) for name in artifact_names},
+    manifest_payload = sanitize_nonfinite(
+        {
+            "go_conditions": go,
+            "summary": summary,
+            "git": git_info(),
+            "git_at_start": git,
+            "started_utc": started_utc,
+            "finished_utc": utc_now(),
+            "wall_time_sec": perf_counter() - started_clock,
+            "mode": mode,
+            "device": device,
+            "environment": environment,
+            "checkpoint": {
+                "path": str(checkpoint_path),
+                "sha256": raw_checkpoint_sha,
+                "base_model_state_sha256": base_sha,
+            },
+            "config_fingerprint": fingerprint_json(config),
+            "campaign_identity": campaign_identity,
+            "campaign_identity_sha256": campaign_sha,
+            "hyperparameter_freeze_sha256": freeze_sha,
+            "authorized_inputs": {
+                **{key: sha256_file(path) for key, path in inputs["paths"].items()},
+                "phase3_manifest": sha256_file(inputs["phase3_manifest_path"]),
+            },
+            "phase_manifests": {
+                "phase2": sha256_file(root / "phase2" / "manifest.json"),
+                "phase3": sha256_file(root / "phase3" / "manifest.json"),
+                "phase4": sha256_file(root / "phase4" / "manifest.json"),
+                "phase5": sha256_file(root / "phase5" / "manifest.json"),
+            },
+            "test_accessed": False,
+            "odebench_outcomes_read": False,
+            "artifact_sha256": {
+                name: sha256_file(out / name) for name in artifact_names
+            },
+        }
     )
+    write_manifest(out, 6, status, **manifest_payload)
     print(
         f"GPU_RUN5 Phase 6 {status}: grid={observed_trainable_grid} "
         f"screen={len(screening_paths)} confirm={observed_confirmation}",

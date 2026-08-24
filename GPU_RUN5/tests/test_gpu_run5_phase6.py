@@ -15,11 +15,13 @@ from gpu_run5.phase6 import (
     cell_cache_identity,
     coverage_audit,
     expected_phase6_counts,
+    freeze_phase3_selection,
     hyperparameter_grid,
     load_cached_cell,
     validation_cell_id,
     write_cached_cell,
 )
+from scripts.phases.gpu_run5_phase6 import write_json as phase6_write_json
 
 
 def _row(system_id: str, family: str, checksum: str | None = None) -> dict:
@@ -108,6 +110,37 @@ def test_exact_grid_and_phase_counts_match_preregistered_contract() -> None:
         "confirmation_cells_total": 4320,
         "all_decode_cells_total": 7992,
     }
+
+
+def test_phase3_multi_ic_complexity_freeze_rejects_drift() -> None:
+    payload = {
+        "chosen_lambda": 0.01,
+        "split": "validation",
+        "audit": [
+            {"lambda": 0.0},
+            {"lambda": 0.0001},
+            {"lambda": 0.001},
+            {"lambda": 0.01},
+        ],
+    }
+    assert freeze_phase3_selection(payload) == {
+        "selection_rule": "multi_ic_complexity",
+        "complexity_lambda": 0.01,
+        "source_split": "validation",
+        "candidate_lambdas": [0.0, 0.0001, 0.001, 0.01],
+    }
+    with pytest.raises(ValueError, match="chosen lambda changed"):
+        freeze_phase3_selection({**payload, "chosen_lambda": 0.001})
+    with pytest.raises(ValueError, match="not selected on validation"):
+        freeze_phase3_selection({**payload, "split": "test"})
+    with pytest.raises(ValueError, match="duplicates"):
+        freeze_phase3_selection(
+            {**payload, "audit": [{"lambda": 0.01}, {"lambda": 0.01}]}
+        )
+    with pytest.raises(ValueError, match="non-finite"):
+        freeze_phase3_selection(
+            {**payload, "audit": [{"lambda": 0.01}, {"lambda": float("nan")}]}
+        )
 
 
 def test_candidate_seeds_are_condition_neutral_and_cells_resume_by_exact_identity(
@@ -222,6 +255,14 @@ def test_trial_identity_and_launcher_keep_the_firewall_explicit() -> None:
     assert "load_sealed_test" not in launcher
     assert "sealed_test.json" not in launcher
     assert "sealed_family_holdout_test.json" not in launcher
+    assert '"phase3_lambda_selection": root / "phase3" / "lambda_selection.json"' in launcher
+    assert '"candidate_selection_rule": PHASE3_SELECTION_RULE' in launcher
+    assert '"trajectory_selection_roles": ["input", "selection"]' in launcher
+    assert '"generalization_used_for_selection": False' in launcher
+    assert '"variable_to_gene": dict(row.get("variable_to_gene") or {})' in launcher
+    assert "manifest_payload = sanitize_nonfinite(" in launcher
+    assert "load_delta_checkpoint(" in launcher
+    assert "apply_delta_checkpoint(" in launcher
     assert launcher.index('write_json(out / "hyperparameter_freeze.json"') < launcher.index(
         "_odebench_path_check(config)"
     )
@@ -236,3 +277,15 @@ def test_cached_cell_rejects_noncomplete_payload(tmp_path: Path) -> None:
     malformed = tmp_path / "malformed.json"
     malformed.write_text(json.dumps({"status": "complete"}), encoding="utf-8")
     assert load_cached_cell(malformed, {"cell_id": "x"}) is None
+
+
+def test_phase6_json_writer_never_persists_nonfinite_constants(tmp_path: Path) -> None:
+    path = tmp_path / "strict.json"
+    phase6_write_json(
+        path,
+        {"failed_score": -float("inf"), "nan": float("nan"), "status": "failed"},
+    )
+    raw = path.read_text(encoding="utf-8")
+    assert "Infinity" not in raw
+    assert "NaN" not in raw
+    assert json.loads(raw) == {"failed_score": None, "nan": None, "status": "failed"}

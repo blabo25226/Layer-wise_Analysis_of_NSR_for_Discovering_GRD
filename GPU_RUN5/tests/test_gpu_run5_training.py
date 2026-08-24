@@ -104,6 +104,7 @@ def test_adam_snapshots_are_exact_and_nonfinite_is_visible() -> None:
         "cudnn_deterministic": True,
         "cublas_workspace_config": ":4096:8",
     }
+    assert result["peak_gpu_memory_bytes"] is None
     assert len(result["training_corpus_sha256"]) == 64
     assert not torch.equal(result["snapshots"][2]["linear.weight"], result["snapshots"][7]["linear.weight"])
 

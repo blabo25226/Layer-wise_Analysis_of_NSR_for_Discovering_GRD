@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -23,6 +24,8 @@ TRAINABLE_CONDITIONS = (
     "grn_decoder_all",
 )
 VIEWS = ("main", "family_holdout")
+PHASE3_SELECTION_RULE = "multi_ic_complexity"
+PHASE3_COMPLEXITY_LAMBDA = 0.01
 
 
 def system_id(row: Mapping[str, Any]) -> str:
@@ -129,6 +132,42 @@ def corruption_grid(config: Mapping[str, Any]) -> list[tuple[float, float]]:
         for sigma in corruptions["noise_sigmas"]
         for rho in corruptions["subsample_rhos"]
     ]
+
+
+def freeze_phase3_selection(
+    payload: Mapping[str, Any],
+    *,
+    expected_lambda: float = PHASE3_COMPLEXITY_LAMBDA,
+) -> dict[str, Any]:
+    """Validate the Phase 3 validation-only multi-IC selection freeze."""
+    try:
+        chosen = float(payload["chosen_lambda"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError("Phase 3 lambda selection has no numeric chosen_lambda") from exc
+    if not math.isfinite(chosen) or chosen != float(expected_lambda):
+        raise ValueError(
+            f"Phase 3 chosen lambda changed: observed={chosen}, expected={expected_lambda}"
+        )
+    if payload.get("split") != "validation":
+        raise ValueError("Phase 3 complexity lambda was not selected on validation")
+    audit = payload.get("audit")
+    if not isinstance(audit, list) or not audit:
+        raise ValueError("Phase 3 lambda selection audit is missing")
+    candidates = []
+    for row in audit:
+        if not isinstance(row, Mapping) or "lambda" not in row:
+            raise ValueError("Phase 3 lambda audit contains an invalid row")
+        candidates.append(float(row["lambda"]))
+    if not all(map(math.isfinite, candidates)):
+        raise ValueError("Phase 3 lambda audit contains a non-finite candidate")
+    if chosen not in candidates or len(candidates) != len(set(candidates)):
+        raise ValueError("Phase 3 chosen lambda is absent or the audit grid has duplicates")
+    return {
+        "selection_rule": PHASE3_SELECTION_RULE,
+        "complexity_lambda": chosen,
+        "source_split": "validation",
+        "candidate_lambdas": candidates,
+    }
 
 
 def validation_cell_id(

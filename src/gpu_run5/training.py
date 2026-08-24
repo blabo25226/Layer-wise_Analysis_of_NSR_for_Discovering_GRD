@@ -296,6 +296,9 @@ def train_adam_with_snapshots(
         raise ValueError("trainable layer selection produced no parameters")
     parameters = [dict(model.named_parameters())[key] for key in parameter_keys]
     optimizer = torch.optim.Adam(parameters, lr=rate)
+    cuda_device = parameters[0].device if parameters[0].is_cuda else None
+    if cuda_device is not None:
+        torch.cuda.reset_peak_memory_stats(cuda_device)
     losses: list[float] = []
     snapshots: dict[int, dict[str, torch.Tensor]] = {}
     failure_reason: str | None = None
@@ -367,6 +370,10 @@ def train_adam_with_snapshots(
         "optimizer": "Adam",
         "determinism": torch_determinism_record(),
         "wall_time_sec": time.perf_counter() - started,
+        "peak_gpu_memory_bytes": (
+            int(torch.cuda.max_memory_allocated(cuda_device))
+            if cuda_device is not None else None
+        ),
     }
 
 
