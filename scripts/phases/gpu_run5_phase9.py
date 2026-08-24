@@ -18,12 +18,14 @@ from gpu_run2_runtime import utc_now  # noqa: E402
 from gpu_run5.phase9 import (  # noqa: E402
     Catalog,
     aggregate_results,
+    campaign_terminal_state,
     condition_rows,
     cross_run_synthesis,
     evaluate_preregistration,
     failure_rows,
     formula_examples,
     render_reports,
+    required_result_sources_available,
     sha256_file,
     write_csv,
     write_figures,
@@ -94,6 +96,7 @@ def main() -> int:
     args = parse_args()
     started_utc, started = utc_now(), perf_counter()
     repo_root = args.repo_root.resolve()
+    git_at_start = _git(repo_root)
     run_id = args.run_id or "gpu_run5_local"
     run_root = (args.run_dir or repo_root / "results" / "runs" / run_id).resolve()
     out = run_root / "phase9"
@@ -104,11 +107,20 @@ def main() -> int:
 
     catalog = Catalog(run_root)
     prereg = evaluate_preregistration(catalog)
+    terminal = campaign_terminal_state(
+        catalog,
+        phase8_final_test_available=bool(
+            prereg["test_firewall"]["phase8_final_test_available"]
+        ),
+    )
     cross = cross_run_synthesis(repo_root, catalog)
     results = aggregate_results(catalog, prereg, cross)
     examples = formula_examples(catalog)
     failures = failure_rows(catalog)
     conditions = condition_rows(catalog)
+    required_sources = required_result_sources_available(
+        catalog, terminal_state=str(terminal["state"])
+    )
 
     _write_json(out / "preregistration_outcome.json", prereg)
     _write_json(out / "integrated_results.json", results)
@@ -154,21 +166,46 @@ def main() -> int:
     ]
     table_paths = sorted(tables.glob("phase9_*"))
     outcome_counts = prereg["counts"]
+    git_at_end = _git(repo_root)
+    git_provenance_ok = (
+        bool(git_at_start["commit"])
+        and not git_at_start["status_short"]
+        and git_at_end["commit"] == git_at_start["commit"]
+    )
+    failure_visibility = bool(failures) and all(
+        isinstance(row.get("value"), (int, float))
+        and row.get("value_kind") in {"count", "rate"}
+        for row in failures
+    )
+    phase9_complete = bool(
+        terminal["terminal"] and required_sources["pass"] and failure_visibility
+        and git_provenance_ok
+    )
     manifest = {
-        "campaign": "GPU_RUN5", "phase": 9, "status": "complete",
+        "campaign": "GPU_RUN5", "phase": 9,
+        "status": "complete" if phase9_complete else "incomplete",
         "at_utc": utc_now(), "started_utc": started_utc,
         "wall_time_sec": perf_counter() - started, "mode": "cpu_only_aggregation",
-        "run_id": run_id, "git": _git(repo_root),
+        "run_id": run_id,
+        "git_at_start": git_at_start,
+        "git_at_end": git_at_end,
+        "output_directories": {
+            "phase9": out.as_posix(),
+            "reports": reports_dir.as_posix(),
+            "figures": figures.as_posix(),
+            "tables": tables.as_posix(),
+        },
         "test_accessed_by_phase9": False,
         "phase8_final_test_available": prereg["test_firewall"]["phase8_final_test_available"],
         "outcome_counts": outcome_counts,
-        "campaign_terminal_state": (
-            "reported_after_final_test"
-            if prereg["test_firewall"]["phase8_final_test_available"]
-            else "reported_with_sealed_or_missing_final_test"
-        ),
+        "campaign_terminal_state": terminal["state"],
+        "campaign_terminal_audit": terminal,
+        "required_result_sources": required_sources,
         "go_conditions": {
             "registered_outcomes_all_emitted": len(prereg["outcomes"]) == 7,
+            "git_clean_at_start_and_commit_stable": git_provenance_ok,
+            "upstream_campaign_terminal": terminal["terminal"],
+            "required_result_sources_available": required_sources["pass"],
             "missing_upstream_is_undecidable_not_fabricated": True,
             "gpu_run5_sources_manifest_hash_verified": all(
                 row["status"] in {"loaded", "verified", "missing"}
@@ -180,6 +217,7 @@ def main() -> int:
             "tables_and_figures_written": bool(table_paths) and len(figure_paths) == 10,
             "cross_generation_scores_not_pooled": True,
             "formulas_and_failures_exported": (tables / "phase9_formula_examples.csv").is_file() and (tables / "phase9_failure_funnel.csv").is_file(),
+            "failure_funnel_has_concrete_schema_aware_values": failure_visibility,
         },
         "artifact_sha256": {path.name: sha256_file(path) for path in local_artifacts},
         "table_sha256": {path.name: sha256_file(path) for path in table_paths},
@@ -188,11 +226,11 @@ def main() -> int:
     }
     _write_json(out / "manifest.json", manifest)
     print(
-        f"GPU_RUN5 Phase 9 complete: hit={outcome_counts['hit']} "
+        f"GPU_RUN5 Phase 9 {manifest['status']}: hit={outcome_counts['hit']} "
         f"miss={outcome_counts['miss']} undecidable={outcome_counts['undecidable']}",
         flush=True,
     )
-    return 0
+    return 0 if phase9_complete or args.smoke else 1
 
 
 if __name__ == "__main__":

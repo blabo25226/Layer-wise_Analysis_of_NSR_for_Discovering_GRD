@@ -28,6 +28,12 @@ FINAL_CONDITIONS = (
     "grn_top3",
     "grn_random3_0",
 )
+P6_EXPECTED_CELLS = 960
+P6_EXPECTED_SYSTEM_CLUSTERS = 80
+P5_EXPECTED_LAYERS = frozenset(
+    [f"encoder_{index}" for index in range(4)]
+    + [f"decoder_{index}" for index in range(12)]
+)
 
 
 def strict_json(path: Path) -> Any:
@@ -97,22 +103,44 @@ class Catalog:
     def artifact(self, phase: int, name: str, *, required: bool = False) -> Artifact | None:
         manifest = self.manifest(phase)
         path = self.run_dir / f"phase{phase}" / name
-        if manifest is None or not path.is_file():
+        if manifest is None:
+            if path.is_file():
+                raise ArtifactError(f"Phase {phase}/{name} exists without a producer manifest")
             if required:
                 raise ArtifactError(f"required Phase {phase} artifact missing: {name}")
             self.audit.append({"phase": phase, "name": name, "status": "missing"})
             return None
         hashes = manifest.get("artifact_sha256") or {}
-        expected = hashes.get(name) if isinstance(hashes, Mapping) else None
+        advertised = isinstance(hashes, Mapping) and name in hashes
+        expected = hashes.get(name) if advertised else None
         # Phase 8 keeps the immutable validation freeze under a dedicated key
         # after replacing the validation manifest with the final-test manifest.
         if phase == 8 and name == "final_condition_freeze.json" and expected is None:
             expected = manifest.get("final_condition_freeze_sha256")
-        if not isinstance(expected, str) or len(expected) != 64:
+            advertised = expected is not None
+        if advertised and (not isinstance(expected, str) or len(expected) != 64):
+            raise ArtifactError(f"Phase {phase}/{name} has a malformed advertised hash")
+        if advertised and not path.is_file():
+            raise ArtifactError(f"Phase {phase}/{name} is signed by the manifest but missing")
+        if manifest.get("status") != "complete":
             if required:
-                raise ArtifactError(f"Phase {phase}/{name} has no signed manifest hash")
-            self.audit.append({"phase": phase, "name": name, "status": "unsigned"})
+                raise ArtifactError(f"required Phase {phase} producer is not complete: {name}")
+            self.audit.append(
+                {
+                    "phase": phase,
+                    "name": name,
+                    "status": "producer_incomplete",
+                    "phase_status": manifest.get("status"),
+                }
+            )
             return None
+        if not path.is_file():
+            if required:
+                raise ArtifactError(f"required Phase {phase} artifact missing: {name}")
+            self.audit.append({"phase": phase, "name": name, "status": "missing"})
+            return None
+        if not isinstance(expected, str) or len(expected) != 64:
+            raise ArtifactError(f"Phase {phase}/{name} exists without a signed manifest hash")
         observed = sha256_file(path)
         if observed != expected:
             raise ArtifactError(f"Phase {phase}/{name} hash mismatch")
@@ -168,6 +196,105 @@ def _lexicographic_better(left: Sequence[Any], right: Sequence[Any]) -> bool | N
     return tuple(round(value, 12) for value in lhs) > tuple(round(value, 12) for value in rhs)
 
 
+def _phase8_ledger_audit(
+    catalog: Catalog,
+    *,
+    manifest: Mapping[str, Any] | None,
+    ledger_art: Artifact | None,
+    final_art: Artifact | None,
+    outcomes_art: Artifact | None,
+) -> dict[str, Any]:
+    """Validate durable Phase 8 single-open evidence without opening test data."""
+    if not all(
+        isinstance(value, Mapping)
+        for value in (
+            manifest,
+            ledger_art.value if ledger_art is not None else None,
+            final_art.value if final_art is not None else None,
+            outcomes_art.value if outcomes_art is not None else None,
+        )
+    ):
+        return {"pass": False, "reason": "signed Phase 8 ledger or final evidence is unavailable"}
+    assert ledger_art is not None and final_art is not None and outcomes_art is not None
+    assert isinstance(manifest, Mapping)
+    ledger = ledger_art.value
+    final = final_art.value
+    registered = outcomes_art.value
+    assert isinstance(ledger, Mapping) and isinstance(final, Mapping) and isinstance(registered, Mapping)
+
+    event_ids = {
+        ledger.get("event_id"),
+        final.get("test_open_event_id"),
+        registered.get("test_open_event_id"),
+        manifest.get("test_open_event_id"),
+    }
+    manifest_hashes = manifest.get("artifact_sha256")
+    ledger_final_hashes = ledger.get("final_artifact_sha256")
+    ledger_sealed_hashes = ledger.get("sealed_artifact_sha256")
+    manifest_sealed_hashes = manifest.get("sealed_artifact_sha256")
+    sealed_hashes_well_formed = (
+        isinstance(ledger_sealed_hashes, Mapping)
+        and set(ledger_sealed_hashes) == {"main", "family_holdout"}
+        and all(
+            isinstance(digest, str)
+            and len(digest) == 64
+            and all(character in "0123456789abcdef" for character in digest.lower())
+            for digest in ledger_sealed_hashes.values()
+        )
+    )
+    expected_final_hashes = (
+        {
+            str(name): str(digest)
+            for name, digest in manifest_hashes.items()
+            if name != "test_open_ledger.json"
+        }
+        if isinstance(manifest_hashes, Mapping)
+        else None
+    )
+    normalized_ledger_final = (
+        {str(name): str(digest) for name, digest in ledger_final_hashes.items()}
+        if isinstance(ledger_final_hashes, Mapping)
+        else None
+    )
+    hashes_well_formed = bool(normalized_ledger_final) and all(
+        Path(name).name == name
+        and len(digest) == 64
+        and all(character in "0123456789abcdef" for character in digest.lower())
+        for name, digest in normalized_ledger_final.items()
+    )
+    basic_checks = {
+        "schema_supported": ledger.get("schema_version") == "gpu_run5_phase8_test_open_ledger_v1",
+        "ledger_complete": ledger.get("status") == "complete",
+        "single_open_count": ledger.get("open_count") == 1,
+        "final_result_single_open_count": final.get("test_open_count") == 1,
+        "event_id_consistent": None not in event_ids and len(event_ids) == 1,
+        "sealed_hashes_bound_to_manifest": (
+            sealed_hashes_well_formed
+            and dict(ledger_sealed_hashes) == dict(manifest_sealed_hashes or {})
+        ),
+        "final_hash_set_bound_to_manifest": (
+            hashes_well_formed
+            and normalized_ledger_final == expected_final_hashes
+        ),
+    }
+    if not all(basic_checks.values()):
+        failed = [name for name, passed in basic_checks.items() if not passed]
+        return {"pass": False, "reason": f"Phase 8 ledger checks failed: {failed}", "checks": basic_checks}
+
+    # Verify every final product bound by the ledger while deliberately never
+    # resolving or reading ledger.sealed_paths.
+    assert normalized_ledger_final is not None
+    for name in sorted(normalized_ledger_final):
+        catalog.artifact(8, name, required=True)
+    return {
+        "pass": True,
+        "reason": None,
+        "checks": basic_checks,
+        "test_open_event_id": next(iter(event_ids)),
+        "verified_final_artifact_count": len(normalized_ledger_final),
+    }
+
+
 def evaluate_preregistration(catalog: Catalog) -> dict[str, Any]:
     """Evaluate P3--P7 and R4--R5 from their signed source artifacts."""
 
@@ -193,6 +320,7 @@ def evaluate_preregistration(catalog: Catalog) -> dict[str, Any]:
     forgetting_art = catalog.artifact(8, "odebench_forgetting_summary.json")
     forgetting_audit_art = catalog.artifact(8, "odebench_forgetting_audit.json")
     p8_outcomes_art = catalog.artifact(8, "preregistered_test_outcomes.json")
+    ledger_art = catalog.artifact(8, "test_open_ledger.json")
     p8_manifest = catalog.manifest(8)
     phase_manifests = {phase: catalog.manifest(phase) for phase in (1, 3, 5)}
     if not isinstance(phase_manifests[1], Mapping) or phase_manifests[1].get("status") != "complete":
@@ -258,22 +386,41 @@ def evaluate_preregistration(catalog: Catalog) -> dict[str, Any]:
         row = p5_art.value
         rho = _finite_number(row.get("rho"))
         threshold = _finite_number(predictions["P5"].get("threshold"))
+        layers = row.get("layers")
+        exact_layer_inventory = (
+            isinstance(layers, list)
+            and len(layers) == len(P5_EXPECTED_LAYERS)
+            and all(isinstance(layer, str) for layer in layers)
+            and set(layers) == P5_EXPECTED_LAYERS
+        )
         determinate = (
             row.get("determinate") is True and rho is not None
             and row.get("n_layers") == 16
             and row.get("expected_layer_count", 16) == 16
+            and exact_layer_inventory
         )
+        p5_hit = rho <= threshold if determinate and threshold is not None else None
+        if p5_hit is not None and row.get("supported") is not p5_hit:
+            raise ArtifactError("Phase 5 saved P5 outcome disagrees with Phase 9 recomputation")
         outcomes["P5"] = _outcome(
             "P5", predictions["P5"],
-            hit=(rho <= threshold if determinate and threshold is not None else None),
+            hit=p5_hit,
             observed={
                 "rho": rho,
                 "p_value_two_sided": _finite_number(row.get("p_value_two_sided")),
                 "n_layers": row.get("n_layers"),
+                "layers": layers if exact_layer_inventory else None,
                 "determinate": row.get("determinate"),
             },
             sources=[p5_art],
-            reason=None if determinate else str(row.get("reason") or "P5 is not determinate"),
+            reason=(
+                None if determinate
+                else (
+                    str(row.get("reason") or "P5 is not determinate")
+                    if exact_layer_inventory
+                    else "P5 requires the exact unique encoder_0..3 and decoder_0..11 inventory"
+                )
+            ),
         )
 
     if p6_art is None or not isinstance(p6_art.value, Mapping):
@@ -286,18 +433,31 @@ def evaluate_preregistration(catalog: Catalog) -> dict[str, Any]:
         upper = _finite_number(row.get("ci95_upper"))
         threshold = _finite_number(predictions["P6"].get("threshold"))
         interval = row.get("student_t_95_ci")
+        paired = row.get("paired_cell_differences")
+        paired_systems = {
+            str(value.get("system_id"))
+            for value in paired
+            if isinstance(value, Mapping) and value.get("system_id") is not None
+        } if isinstance(paired, list) else set()
         interval_valid = (
             isinstance(interval, Sequence) and len(interval) == 2
             and _finite_number(interval[0]) is not None
             and _finite_number(interval[1]) is not None
             and upper is not None
             and math.isclose(float(interval[1]), upper, abs_tol=1e-12)
-            and isinstance(row.get("n_system_clusters"), int)
-            and int(row["n_system_clusters"]) >= 2
+            and row.get("n_cells") == P6_EXPECTED_CELLS
+            and row.get("n_system_clusters") == P6_EXPECTED_SYSTEM_CLUSTERS
+            and isinstance(paired, list) and len(paired) == P6_EXPECTED_CELLS
+            and len(paired_systems) == P6_EXPECTED_SYSTEM_CLUSTERS
         )
+        p6_hit = None if not interval_valid or threshold is None else upper < threshold
+        if p6_hit is not None:
+            expected_saved = "supported" if p6_hit else "not_supported"
+            if row.get("prediction_P6") != expected_saved:
+                raise ArtifactError("Phase 3 saved P6 outcome disagrees with Phase 9 recomputation")
         outcomes["P6"] = _outcome(
             "P6", predictions["P6"],
-            hit=(None if not interval_valid or threshold is None else upper < threshold),
+            hit=p6_hit,
             observed={
                 "mean_clustered_difference": _finite_number(row.get("mean_clustered_difference")),
                 "student_t_95_ci": row.get("student_t_95_ci"),
@@ -305,9 +465,16 @@ def evaluate_preregistration(catalog: Catalog) -> dict[str, Any]:
                 "n_system_clusters": row.get("n_system_clusters"),
             },
             sources=[p6_art],
-            reason=None if interval_valid else "P6 requires a consistent two-sided Student-t interval over at least two system clusters",
+            reason=None if interval_valid else "P6 requires the fixed 960 paired cells, 80 system clusters, and a consistent Student-t interval",
         )
 
+    ledger_audit = _phase8_ledger_audit(
+        catalog,
+        manifest=p8_manifest,
+        ledger_art=ledger_art,
+        final_art=p8_art,
+        outcomes_art=p8_outcomes_art,
+    )
     final_available = (
         p8_art is not None
         and isinstance(p8_art.value, Mapping)
@@ -322,6 +489,7 @@ def evaluate_preregistration(catalog: Catalog) -> dict[str, Any]:
         and p8_manifest.get("status") == "complete"
         and p8_manifest.get("substage") == "final-test"
         and p8_manifest.get("test_open_count") == 1
+        and ledger_audit["pass"] is True
     )
     if not final_available:
         reason = "Phase 8 final test was not opened under the single-open protocol"
@@ -331,13 +499,6 @@ def evaluate_preregistration(catalog: Catalog) -> dict[str, Any]:
             )
     else:
         final = p8_art.value
-        event_ids = {
-            final.get("test_open_event_id"),
-            p8_outcomes_art.value.get("test_open_event_id"),
-            p8_manifest.get("test_open_event_id"),
-        }
-        if None in event_ids or len(event_ids) != 1:
-            raise ArtifactError("Phase 8 final-test open-event identity is inconsistent")
         summaries = final.get("summaries")
         main = summaries.get("main") if isinstance(summaries, Mapping) else None
         frozen = main.get("frozen") if isinstance(main, Mapping) else None
@@ -358,7 +519,7 @@ def evaluate_preregistration(catalog: Catalog) -> dict[str, Any]:
         outcomes["P3"] = _outcome(
             "P3", predictions["P3"], hit=p3_hit,
             observed={"component_exponent_aware_skeleton_exact_system_then_seed_macro": exact_rate},
-            sources=[p8_art, p8_outcomes_art], reason=p3_reason,
+            sources=[p8_art, p8_outcomes_art, ledger_art], reason=p3_reason,
         )
         recon = _finite_number(frozen.get("reconstruction_r2_median")) if isinstance(frozen, Mapping) else None
         p4_clause = (predictions["P4"].get("clauses") or [{}])[0]
@@ -367,7 +528,7 @@ def evaluate_preregistration(catalog: Catalog) -> dict[str, Any]:
         outcomes["P4"] = _outcome(
             "P4", predictions["P4"], hit=p4_hit,
             observed={"reconstruction_r2_median": recon, "P3_hit": p3_hit},
-            sources=[p8_art, p8_outcomes_art],
+            sources=[p8_art, p8_outcomes_art, ledger_art],
             reason=None if p4_hit is not None else "P4 requires both the frozen reconstruction median and determinate P3",
         )
 
@@ -465,7 +626,7 @@ def evaluate_preregistration(catalog: Catalog) -> dict[str, Any]:
             expected_word = "hit" if supported else "miss"
             if registered.get("outcome") != expected_word:
                 raise ArtifactError(f"Phase 8 {prediction_id} outcome label is inconsistent")
-        sources = [p8_art, p8_outcomes_art] + ([forgetting_art] if forgetting_art is not None else []) + ([forgetting_audit_art] if forgetting_audit_art is not None else [])
+        sources = [p8_art, p8_outcomes_art, ledger_art] + ([forgetting_art] if forgetting_art is not None else []) + ([forgetting_audit_art] if forgetting_audit_art is not None else [])
         outcomes["P7"] = _outcome(
             "P7", predictions["P7"], hit=p7_hit,
             observed={
@@ -495,6 +656,7 @@ def evaluate_preregistration(catalog: Catalog) -> dict[str, Any]:
             "phase8_final_test_available": final_available,
             "phase8_substage": p8_manifest.get("substage") if isinstance(p8_manifest, Mapping) else None,
             "phase8_test_open_count": p8_manifest.get("test_open_count") if isinstance(p8_manifest, Mapping) else None,
+            "phase8_test_open_ledger": ledger_audit,
             "sealed_test_files_read_by_phase9": False,
         },
     }
@@ -631,6 +793,207 @@ def cross_run_synthesis(repo_root: Path, catalog: Catalog) -> dict[str, Any]:
     }
 
 
+def campaign_terminal_state(
+    catalog: Catalog, *, phase8_final_test_available: bool
+) -> dict[str, Any]:
+    """Distinguish a valid terminal No-Go from an unfinished campaign."""
+    phase_status = {}
+    for phase in range(9):
+        manifest = catalog.manifest(phase)
+        phase_status[str(phase)] = manifest.get("status") if isinstance(manifest, Mapping) else "missing"
+    incomplete = [int(key) for key, value in phase_status.items() if int(key) <= 7 and value != "complete"]
+    phase8_manifest = catalog.manifest(8)
+    if incomplete:
+        return {
+            "terminal": False,
+            "state": "deferred_upstream_incomplete",
+            "reason": f"required phases not complete: {incomplete}",
+            "phase_status": phase_status,
+        }
+    if phase8_final_test_available:
+        return {
+            "terminal": True,
+            "state": "reported_after_final_test",
+            "reason": None,
+            "phase_status": phase_status,
+        }
+    if (
+        isinstance(phase8_manifest, Mapping)
+        and phase8_manifest.get("status") == "complete"
+        and phase8_manifest.get("substage") == "validation"
+        and phase8_manifest.get("mode") == "full"
+        and phase8_manifest.get("test_accessed") is False
+    ):
+        validation_art = catalog.artifact(8, "validation_summary.json")
+        validation = validation_art.value if validation_art is not None else None
+        if (
+            isinstance(validation, Mapping)
+            and validation.get("status") == "complete"
+            and validation.get("mode") == "full"
+            and validation.get("validation_complete") is True
+            and validation.get("test_accessed") is False
+            and validation.get("final_test_authorized") is False
+            and isinstance(validation.get("go6"), Mapping)
+            and validation["go6"].get("pass") is False
+        ):
+            return {
+                "terminal": True,
+                "state": "reported_terminal_validation_no_go",
+                "reason": "Go 6 failed under the full validation protocol; sealed test correctly remained unopened",
+                "phase_status": phase_status,
+            }
+    return {
+        "terminal": False,
+        "state": "deferred_phase8_not_terminal",
+        "reason": "Phase 8 final test is pending, incomplete, unsupported, or only smoke-validated",
+        "phase_status": phase_status,
+    }
+
+
+def required_result_sources_available(
+    catalog: Catalog, *, terminal_state: str
+) -> dict[str, Any]:
+    """Require the signed inputs needed for all five integrated results."""
+    required = {
+        0: ("preregistration.json",),
+        1: ("decoded_support.json", "selected_annotated.json"),
+        2: ("validation.json",),
+        3: ("summary.json", "p6_validation.json", "failure_funnel.json", "selected.json", "beam_groups.json"),
+        4: (
+            "summary.json", "probes.json", "decoder_logit_lens.json",
+            "gradient_norms.json", "cka.json",
+        ),
+        5: ("summary.json", "p5.json", "failure_funnel.json", "layer_effects.json", "causal_ranking.json"),
+        6: ("summary.json", "confirmation_training_index.json"),
+        7: ("summary.json", "layer_freeze.json"),
+    }
+    if terminal_state == "reported_after_final_test":
+        required[8] = (
+            "final_result.json",
+            "preregistered_test_outcomes.json",
+            "odebench_forgetting_summary.json",
+            "odebench_forgetting_audit.json",
+            "test_open_ledger.json",
+        )
+    elif terminal_state == "reported_terminal_validation_no_go":
+        required[8] = ("validation_summary.json",)
+    missing = []
+    for phase, names in required.items():
+        for name in names:
+            if catalog.artifact(phase, name) is None:
+                missing.append(f"phase{phase}/{name}")
+    return {"pass": not missing, "missing": missing}
+
+
+def _layer_analysis_result(catalog: Catalog) -> dict[str, Any]:
+    """Build a compact, signed Track D summary without copying large row artifacts."""
+    probes = catalog.artifact(4, "probes.json")
+    lens = catalog.artifact(4, "decoder_logit_lens.json")
+    gradients = catalog.artifact(4, "gradient_norms.json")
+    cka = catalog.artifact(4, "cka.json")
+    effects = catalog.artifact(5, "layer_effects.json")
+    causal = catalog.artifact(5, "causal_ranking.json")
+
+    probe_scores: dict[str, float] = {}
+    if probes is not None and isinstance(probes.value, Mapping):
+        decoder_token = probes.value.get("decoder_token")
+        if isinstance(decoder_token, Mapping):
+            for layer, tasks in decoder_token.items():
+                next_token = tasks.get("next_token") if isinstance(tasks, Mapping) else None
+                probe = next_token.get("probe") if isinstance(next_token, Mapping) else None
+                shuffle = next_token.get("label_shuffle_control") if isinstance(next_token, Mapping) else None
+                accuracy = _finite_number(probe.get("accuracy")) if isinstance(probe, Mapping) else None
+                baseline = _finite_number(shuffle.get("accuracy")) if isinstance(shuffle, Mapping) else None
+                if accuracy is not None and baseline is not None:
+                    probe_scores[str(layer)] = accuracy - baseline
+    probe_top3 = [
+        {"layer": layer, "accuracy_minus_shuffle": value}
+        for layer, value in sorted(probe_scores.items(), key=lambda item: (-item[1], item[0]))[:3]
+    ]
+
+    lens_by_layer: dict[str, list[float]] = defaultdict(list)
+    lens_counts = {"formula_rows": None, "token_rows": None, "failure_count": None}
+    if lens is not None and isinstance(lens.value, Mapping):
+        formula_rows = lens.value.get("formula_rows")
+        token_rows = lens.value.get("token_rows")
+        failures = lens.value.get("failures")
+        lens_counts = {
+            "formula_rows": len(formula_rows) if isinstance(formula_rows, list) else None,
+            "token_rows": len(token_rows) if isinstance(token_rows, list) else None,
+            "failure_count": len(failures) if isinstance(failures, list) else None,
+        }
+        for row in formula_rows if isinstance(formula_rows, list) else []:
+            if isinstance(row, Mapping):
+                value = _finite_number(row.get("normalized_variable_aware_ted"))
+                if value is not None:
+                    lens_by_layer[str(row.get("layer"))].append(value)
+    decoder_lens_ted = [
+        {"layer": layer, "median_normalized_variable_aware_ted": statistics.median(values), "n": len(values)}
+        for layer, values in sorted(lens_by_layer.items())
+    ]
+
+    gradient_top3 = []
+    if gradients is not None and isinstance(gradients.value, Mapping):
+        rows = gradients.value.get("layers")
+        if isinstance(rows, Mapping):
+            ranked = []
+            for layer, row in rows.items():
+                value = _finite_number(row.get("per_sqrt_parameter")) if isinstance(row, Mapping) else None
+                if value is not None:
+                    ranked.append((str(layer), value))
+            gradient_top3 = [
+                {"layer": layer, "per_sqrt_parameter": value}
+                for layer, value in sorted(ranked, key=lambda item: (-item[1], item[0]))[:3]
+            ]
+
+    cka_summary: dict[str, Any] = {}
+    if cka is not None and isinstance(cka.value, Mapping):
+        for module in ("encoder", "decoder"):
+            matrix = cka.value.get(module)
+            off_diagonal = []
+            if isinstance(matrix, list):
+                for i, row in enumerate(matrix):
+                    if isinstance(row, list):
+                        off_diagonal.extend(
+                            value for j, raw in enumerate(row)
+                            if i != j and (value := _finite_number(raw)) is not None
+                        )
+            cka_summary[module] = {
+                "n_layers": len(matrix) if isinstance(matrix, list) else None,
+                "mean_off_diagonal": statistics.fmean(off_diagonal) if off_diagonal else None,
+            }
+
+    causal_top3 = _top3(causal.value.get("ranking")) if causal is not None and isinstance(causal.value, Mapping) else []
+    top3_effects = {}
+    if effects is not None and isinstance(effects.value, Mapping):
+        for layer in causal_top3:
+            row = effects.value.get(layer)
+            if isinstance(row, Mapping):
+                top3_effects[layer] = {
+                    key: _finite_number(row.get(key))
+                    for key in ("damage_ce", "failure_aware_ted_increase", "exact_loss", "valid_loss")
+                }
+    available = [artifact for artifact in (probes, lens, gradients, cka, effects, causal) if artifact is not None]
+    return {
+        "observational": {
+            "decoder_next_token_probe_top3": probe_top3,
+            "decoder_lens": {"counts": lens_counts, "per_layer_ted": decoder_lens_ted},
+            "gradient_norm_top3": gradient_top3,
+            "within_module_cka": cka_summary,
+        },
+        "intervention": {
+            "causal_top3": causal_top3,
+            "causal_top3_layer_effects": top3_effects,
+        },
+        "signed_sources": [_source(artifact) for artifact in available],
+        "figure_paths": [
+            "figures/phase9_decoder_depth_ted.svg",
+            "figures/phase9_delta_ce_vs_delta_ted.svg",
+            "figures/phase9_cross_run_rank_disagreement.svg",
+        ],
+    }
+
+
 def aggregate_results(catalog: Catalog, prereg: Mapping[str, Any], cross_run: Mapping[str, Any]) -> dict[str, Any]:
     support = catalog.artifact(1, "decoded_support.json")
     phase3 = catalog.artifact(3, "summary.json")
@@ -657,6 +1020,7 @@ def aggregate_results(catalog: Catalog, prereg: Mapping[str, Any], cross_run: Ma
             "phase4": phase4.value if phase4 is not None else {"status": "unavailable"},
             "phase5": phase5.value if phase5 is not None else {"status": "unavailable"},
             "failure_funnel": funnel5.value if funnel5 is not None else None,
+            **_layer_analysis_result(catalog),
         },
         "E_cross_model_synthesis": cross_run,
         "preregistration": prereg,
@@ -737,12 +1101,28 @@ def failure_rows(catalog: Catalog) -> list[dict[str, Any]]:
         artifact = catalog.artifact(phase, "failure_funnel.json")
         if artifact is None or not isinstance(artifact.value, Mapping):
             continue
-        for key, value in sorted(artifact.value.items()):
-            if isinstance(value, Mapping):
-                count = value.get("count", value.get("n"))
-            else:
-                count = value
-            rows.append({"phase": phase, "failure_stage": key, "count": count})
+
+        def flatten(value: Mapping[str, Any], prefix: tuple[str, ...] = ()) -> None:
+            for key, item in sorted(value.items()):
+                path = (*prefix, str(key))
+                if isinstance(item, Mapping):
+                    flatten(item, path)
+                    continue
+                number = _finite_number(item)
+                if number is None:
+                    continue
+                metric = path[-1]
+                rows.append(
+                    {
+                        "phase": phase,
+                        "subgroup": "/".join(path[:-1]) or "all",
+                        "metric": metric,
+                        "value": number,
+                        "value_kind": "rate" if metric.endswith("_rate") else "count",
+                    }
+                )
+
+        flatten(artifact.value)
     return rows
 
 
@@ -807,7 +1187,14 @@ def write_figures(catalog: Catalog, figures: Path, cross_run: Mapping[str, Any])
 
     failures = failure_rows(catalog)
     path = figures / "phase9_failure_funnel.svg"
-    _svg(path, "Generation → selection → integration failure funnel", [f"phase {row['phase']} | {row['failure_stage']} | {row['count']}" for row in failures] or ["undecidable: failure artifacts unavailable"])
+    _svg(
+        path,
+        "Generation → selection → integration failure funnel",
+        [
+            f"phase {row['phase']} | {row['subgroup']} | {row['metric']}={_fmt(row['value'])} ({row['value_kind']})"
+            for row in failures
+        ] or ["undecidable: failure artifacts unavailable"],
+    )
     outputs.append(path)
 
     groups_art = catalog.artifact(3, "beam_groups.json")
@@ -822,13 +1209,19 @@ def write_figures(catalog: Catalog, figures: Path, cross_run: Mapping[str, Any])
         if selected_family_art is not None and isinstance(selected_family_art.value, list):
             for row in selected_family_art.value:
                 if isinstance(row, Mapping) and row.get("selection_rule") == "multi_ic_complexity":
-                    selected_grouped[str(row.get("family"))].append(
-                        float(row.get("exponent_aware_skeleton_exact") or 0.0)
-                    )
-        family_lines = [
-            f"{family}: truth-in-beam={statistics.fmean(values):.4f}; selected-exact={statistics.fmean(selected_grouped.get(family) or [0.0]):.4f} (n={len(values)})"
-            for family, values in sorted(grouped.items())
-        ]
+                    exact = _finite_number(row.get("exponent_aware_skeleton_exact"))
+                    if exact is not None:
+                        selected_grouped[str(row.get("family"))].append(exact)
+        family_lines = []
+        for family, values in sorted(grouped.items()):
+            selected_values = selected_grouped.get(family)
+            selected_text = (
+                f"{statistics.fmean(selected_values):.4f}"
+                if selected_values else "undecidable (selected records unavailable)"
+            )
+            family_lines.append(
+                f"{family}: truth-in-beam={statistics.fmean(values):.4f}; selected-exact={selected_text} (beam n={len(values)})"
+            )
     path = figures / "phase9_family_generation_recovery.svg"
     _svg(path, "Family-level true structure in beam", family_lines or ["undecidable: Phase 3 beam groups unavailable"])
     outputs.append(path)
@@ -1110,7 +1503,14 @@ Run: `{run_id}`。
 - Phase 4 status: {_fmt((d.get('phase4') or {{}}).get('status'))}
 - Phase 5 status: {_fmt((d.get('phase5') or {{}}).get('status'))}
 - main causal top3: `{json.dumps((d.get('phase5') or {{}}).get('main_causal_top3'), ensure_ascii=False)}`
+- decoder next-token probe top3（accuracy−shuffle）: `{json.dumps((d.get('observational') or {{}}).get('decoder_next_token_probe_top3'), ensure_ascii=False, sort_keys=True)}`
+- gradient norm top3（parameter正規化）: `{json.dumps((d.get('observational') or {{}}).get('gradient_norm_top3'), ensure_ascii=False, sort_keys=True)}`
+- DecoderLens: `{json.dumps((d.get('observational') or {{}}).get('decoder_lens'), ensure_ascii=False, sort_keys=True)}`
+- within-module CKA: `{json.dumps((d.get('observational') or {{}}).get('within_module_cka'), ensure_ascii=False, sort_keys=True)}`
+- causal top3 intervention effects: `{json.dumps((d.get('intervention') or {{}}).get('causal_top3_layer_effects'), ensure_ascii=False, sort_keys=True)}`
 - P5: **{out['P5']['outcome']}**、観測値: `{json.dumps(out['P5']['observed'], ensure_ascii=False, sort_keys=True)}`
+
+署名済みsource: `{json.dumps(d.get('signed_sources'), ensure_ascii=False, sort_keys=True)}`。対応図: `{json.dumps(d.get('figure_paths'), ensure_ascii=False)}`。
 
 ## RQ判定
 

@@ -10,14 +10,23 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
+EXPECTED_LAYERS = [
+    *(f"encoder_{index}" for index in range(4)),
+    *(f"decoder_{index}" for index in range(12)),
+]
+
 from gpu_run5.phase9 import (  # noqa: E402
     ArtifactError,
     Catalog,
+    aggregate_results,
+    campaign_terminal_state,
     cross_run_synthesis,
     evaluate_preregistration,
+    failure_rows,
     formula_examples,
     sha256_file,
     strict_json,
+    write_figures,
 )
 
 
@@ -70,6 +79,10 @@ def _preregistration() -> dict:
 def _base_run(tmp_path: Path, *, final: bool) -> Path:
     run = tmp_path / "run"
     _phase(run, 0, {"preregistration.json": _preregistration()})
+    paired = [
+        {"system_id": f"s{index % 80:02d}", "paired_index": index}
+        for index in range(960)
+    ]
     _phase(
         run,
         1,
@@ -90,8 +103,10 @@ def _base_run(tmp_path: Path, *, final: bool) -> Path:
                 "mean_clustered_difference": -0.2,
                 "student_t_95_ci": [-0.3, -0.1],
                 "ci95_upper": -0.1,
+                "n_cells": 960,
                 "n_system_clusters": 80,
-                "paired_cell_differences": [],
+                "prediction_P6": "supported",
+                "paired_cell_differences": paired,
             },
             "summary.json": {"status": "complete", "n_cells": 960},
             "failure_funnel.json": {"generation_failure": 2},
@@ -101,7 +116,11 @@ def _base_run(tmp_path: Path, *, final: bool) -> Path:
         run,
         5,
         {
-            "p5.json": {"rho": 0.2, "p_value_two_sided": 0.4, "n_layers": 16, "determinate": True},
+            "p5.json": {
+                "rho": 0.2, "p_value_two_sided": 0.4, "n_layers": 16,
+                "expected_layer_count": 16, "layers": EXPECTED_LAYERS,
+                "determinate": True, "supported": True,
+            },
             "summary.json": {"status": "complete", "main_causal_top3": ["decoder_1"]},
             "failure_funnel.json": {"decode_failure": 3},
         },
@@ -118,11 +137,12 @@ def _base_run(tmp_path: Path, *, final: bool) -> Path:
                 "grn_full": {"formula_score_vector_without_ce": [0.1, -0.2, 0.95]},
             }
         }
-        _phase(
-            run,
-            8,
-            {
-                "final_result.json": {"status": "complete", "test_accessed": True, "test_open_event_id": "event-1", "summaries": summaries},
+        phase8_artifacts = {
+                "final_result.json": {
+                    "status": "complete", "test_accessed": True,
+                    "test_open_event_id": "event-1", "test_open_count": 1,
+                    "summaries": summaries,
+                },
                 "preregistered_test_outcomes.json": {
                     "schema_version": "gpu_run5_phase8_preregistered_test_outcomes_v1",
                     "test_accessed": True,
@@ -155,10 +175,29 @@ def _base_run(tmp_path: Path, *, final: bool) -> Path:
                     },
                 },
                 "odebench_forgetting_audit.json": {"pass": True},
-            },
+        }
+        for name, value in phase8_artifacts.items():
+            _write(run / "phase8" / name, value)
+        final_hashes = {
+            name: sha256_file(run / "phase8" / name)
+            for name in phase8_artifacts
+        }
+        sealed_hashes = {"main": "a" * 64, "family_holdout": "b" * 64}
+        phase8_artifacts["test_open_ledger.json"] = {
+            "schema_version": "gpu_run5_phase8_test_open_ledger_v1",
+            "event_id": "event-1", "status": "complete", "open_count": 1,
+            "sealed_paths": {"main": "/sealed/main", "family_holdout": "/sealed/holdout"},
+            "sealed_artifact_sha256": sealed_hashes,
+            "final_artifact_sha256": final_hashes,
+        }
+        _phase(
+            run,
+            8,
+            phase8_artifacts,
             substage="final-test",
             test_open_count=1,
             test_open_event_id="event-1",
+            sealed_artifact_sha256=sealed_hashes,
         )
     return run
 
@@ -178,15 +217,60 @@ def test_catalog_rejects_hash_drift(tmp_path: Path) -> None:
         Catalog(run).artifact(1, "decoded_support.json", required=True)
 
 
+def test_catalog_rejects_manifest_advertised_artifact_deletion(tmp_path: Path) -> None:
+    run = _base_run(tmp_path, final=False)
+    (run / "phase1" / "decoded_support.json").unlink()
+    with pytest.raises(ArtifactError, match="signed by the manifest but missing"):
+        Catalog(run).artifact(1, "decoded_support.json")
+
+
+def test_catalog_rejects_existing_unsigned_artifact(tmp_path: Path) -> None:
+    run = _base_run(tmp_path, final=False)
+    _write(run / "phase1" / "unexpected.json", {"value": 1})
+    with pytest.raises(ArtifactError, match="without a signed manifest hash"):
+        Catalog(run).artifact(1, "unexpected.json")
+
+
+def test_catalog_rejects_orphan_artifact_without_producer_manifest(tmp_path: Path) -> None:
+    run = _base_run(tmp_path, final=False)
+    _write(run / "phase2" / "orphan.json", {"value": 1})
+    with pytest.raises(ArtifactError, match="without a producer manifest"):
+        Catalog(run).artifact(2, "orphan.json")
+
+
 def test_all_registered_outcomes_are_machine_evaluated(tmp_path: Path) -> None:
     run = _base_run(tmp_path, final=True)
     payload = evaluate_preregistration(Catalog(run))
     assert [row["id"] for row in payload["outcomes"]] == ["P3", "P4", "P5", "P6", "P7", "R4", "R5"]
     assert payload["counts"] == {"hit": 7, "miss": 0, "undecidable": 0}
     assert payload["test_firewall"]["sealed_test_files_read_by_phase9"] is False
+    assert payload["test_firewall"]["phase8_test_open_ledger"]["pass"] is True
     p7 = next(row for row in payload["outcomes"] if row["id"] == "P7")
     assert p7["observed"]["grn_top3_formula_better_than_grn_full"] is True
     assert p7["observed"]["grn_top3_forgetting_less_than_grn_full"] is True
+
+
+def test_invalid_signed_phase8_ledger_keeps_final_outcomes_undecidable(tmp_path: Path) -> None:
+    run = _base_run(tmp_path, final=True)
+    phase8 = run / "phase8"
+    ledger = strict_json(phase8 / "test_open_ledger.json")
+    ledger["event_id"] = "different-event"
+    artifacts = {
+        path.name: strict_json(path)
+        for path in phase8.glob("*.json")
+        if path.name != "manifest.json"
+    }
+    artifacts["test_open_ledger.json"] = ledger
+    _phase(
+        run, 8, artifacts,
+        substage="final-test", test_open_count=1, test_open_event_id="event-1",
+        sealed_artifact_sha256=ledger["sealed_artifact_sha256"],
+    )
+    payload = evaluate_preregistration(Catalog(run))
+    outcomes = {row["id"]: row["outcome"] for row in payload["outcomes"]}
+    assert all(outcomes[key] == "undecidable" for key in ("P3", "P4", "P7"))
+    assert payload["test_firewall"]["phase8_final_test_available"] is False
+    assert payload["test_firewall"]["phase8_test_open_ledger"]["pass"] is False
 
 
 def test_unopened_test_remains_undecidable(tmp_path: Path) -> None:
@@ -197,6 +281,64 @@ def test_unopened_test_remains_undecidable(tmp_path: Path) -> None:
         "P3": "undecidable", "P4": "undecidable", "P5": "hit", "P6": "hit",
         "P7": "undecidable", "R4": "hit", "R5": "hit",
     }
+
+
+def test_p6_truncated_signed_artifact_is_undecidable(tmp_path: Path) -> None:
+    run = _base_run(tmp_path, final=False)
+    p3 = run / "phase3"
+    p6 = strict_json(p3 / "p6_validation.json")
+    p6["n_cells"] = 959
+    p6["paired_cell_differences"] = p6["paired_cell_differences"][:959]
+    _phase(
+        run,
+        3,
+        {
+            "p6_validation.json": p6,
+            "summary.json": strict_json(p3 / "summary.json"),
+            "failure_funnel.json": strict_json(p3 / "failure_funnel.json"),
+        },
+    )
+    outcome = {
+        row["id"]: row for row in evaluate_preregistration(Catalog(run))["outcomes"]
+    }["P6"]
+    assert outcome["outcome"] == "undecidable"
+    assert "960 paired cells" in outcome["reason"]
+
+
+def test_p5_requires_fixed_unique_layer_inventory(tmp_path: Path) -> None:
+    run = _base_run(tmp_path, final=False)
+    p5 = strict_json(run / "phase5" / "p5.json")
+    p5["layers"] = ["encoder_0"] * 16
+    _phase(
+        run, 5,
+        {
+            "p5.json": p5,
+            "summary.json": strict_json(run / "phase5" / "summary.json"),
+            "failure_funnel.json": strict_json(run / "phase5" / "failure_funnel.json"),
+        },
+    )
+    outcome = {
+        row["id"]: row for row in evaluate_preregistration(Catalog(run))["outcomes"]
+    }["P5"]
+    assert outcome["outcome"] == "undecidable"
+    assert "exact unique" in outcome["reason"]
+
+
+def test_p6_saved_outcome_must_match_recomputation(tmp_path: Path) -> None:
+    run = _base_run(tmp_path, final=False)
+    phase3 = run / "phase3"
+    p6 = strict_json(phase3 / "p6_validation.json")
+    p6["prediction_P6"] = "not_supported"
+    _phase(
+        run, 3,
+        {
+            "p6_validation.json": p6,
+            "summary.json": strict_json(phase3 / "summary.json"),
+            "failure_funnel.json": strict_json(phase3 / "failure_funnel.json"),
+        },
+    )
+    with pytest.raises(ArtifactError, match="saved P6 outcome disagrees"):
+        evaluate_preregistration(Catalog(run))
 
 
 def test_formula_examples_keep_truth_predictions_mapping_and_failures(tmp_path: Path) -> None:
@@ -240,6 +382,158 @@ def test_cross_run_missing_sources_are_explicit(tmp_path: Path) -> None:
     assert "never compared" in payload["comparison_policy"]
 
 
+def test_incomplete_producer_is_excluded(tmp_path: Path) -> None:
+    run = _base_run(tmp_path, final=False)
+    _phase(run, 6, {"summary.json": {"status": "smoke-value"}})
+    manifest = strict_json(run / "phase6" / "manifest.json")
+    manifest["status"] = "incomplete"
+    _write(run / "phase6" / "manifest.json", manifest)
+    catalog = Catalog(run)
+    assert catalog.artifact(6, "summary.json") is None
+    assert any(row["status"] == "producer_incomplete" for row in catalog.audit)
+
+
+def test_incomplete_producer_still_rejects_advertised_deletion(tmp_path: Path) -> None:
+    run = _base_run(tmp_path, final=False)
+    _phase(run, 6, {"summary.json": {"status": "smoke-value"}})
+    manifest = strict_json(run / "phase6" / "manifest.json")
+    manifest["status"] = "incomplete"
+    _write(run / "phase6" / "manifest.json", manifest)
+    (run / "phase6" / "summary.json").unlink()
+    with pytest.raises(ArtifactError, match="signed by the manifest but missing"):
+        Catalog(run).artifact(6, "summary.json")
+
+
+def test_full_validation_nogo_is_terminal_but_missing_phase_is_not(tmp_path: Path) -> None:
+    run = _base_run(tmp_path, final=False)
+    assert campaign_terminal_state(Catalog(run), phase8_final_test_available=False)["terminal"] is False
+    for phase in (2, 4, 6, 7):
+        _phase(run, phase, {})
+    _phase(
+        run,
+        8,
+        {
+            "validation_summary.json": {
+                "status": "complete", "mode": "full", "validation_complete": True,
+                "test_accessed": False, "final_test_authorized": False,
+                "go6": {"pass": False}, "go7": {"pass": False},
+            }
+        },
+        substage="validation", mode="full", test_accessed=False,
+    )
+    state = campaign_terminal_state(Catalog(run), phase8_final_test_available=False)
+    assert state["terminal"] is True
+    assert state["state"] == "reported_terminal_validation_no_go"
+
+
+def test_failure_funnel_nested_schema_is_flattened_without_none(tmp_path: Path) -> None:
+    run = _base_run(tmp_path, final=False)
+    _phase(
+        run,
+        5,
+        {
+            "failure_funnel.json": {
+                "main": {
+                    "n_cells": 1224, "empty_beam": 0, "beam_shortfall": 478,
+                    "selected_valid": 955, "selected_valid_rate": 0.78,
+                    "selected_failure_reasons": {"none": 955, "TEDParseError": 110, "ParseError": 159},
+                },
+                "zero_robustness": {
+                    "n_cells": 216, "selected_failure_reasons": {"NonFiniteConstant": 72}
+                },
+            },
+            "p5.json": {"rho": 0.2, "n_layers": 16, "determinate": True},
+            "summary.json": {"status": "complete"},
+        },
+    )
+    rows = failure_rows(Catalog(run))
+    assert {row["subgroup"] for row in rows if row["phase"] == 5} >= {
+        "main", "main/selected_failure_reasons", "zero_robustness/selected_failure_reasons"
+    }
+    assert all(row["value"] is not None for row in rows)
+    parse = next(row for row in rows if row["subgroup"] == "main/selected_failure_reasons" and row["metric"] == "ParseError")
+    assert parse["value"] == 159
+
+
+def test_result_d_summarizes_signed_observational_and_intervention_outputs(tmp_path: Path) -> None:
+    run = _base_run(tmp_path, final=False)
+    _phase(
+        run, 4,
+        {
+            "summary.json": {"status": "complete"},
+            "probes.json": {
+                "decoder_token": {
+                    "decoder_0": {
+                        "next_token": {
+                            "probe": {"accuracy": 0.8},
+                            "label_shuffle_control": {"accuracy": 0.2},
+                        }
+                    }
+                }
+            },
+            "decoder_logit_lens.json": {
+                "formula_rows": [
+                    {"layer": "decoder_0", "normalized_variable_aware_ted": 0.25}
+                ],
+                "token_rows": [{"layer": "decoder_0"}], "failures": [],
+            },
+            "gradient_norms.json": {
+                "layers": {"decoder_0": {"per_sqrt_parameter": 0.3}}
+            },
+            "cka.json": {
+                "encoder": [[1.0, 0.5], [0.5, 1.0]],
+                "decoder": [[1.0, 0.4], [0.4, 1.0]],
+            },
+        },
+    )
+    phase5 = run / "phase5"
+    _phase(
+        run, 5,
+        {
+            "summary.json": strict_json(phase5 / "summary.json"),
+            "p5.json": strict_json(phase5 / "p5.json"),
+            "failure_funnel.json": strict_json(phase5 / "failure_funnel.json"),
+            "layer_effects.json": {
+                "decoder_0": {
+                    "damage_ce": 0.2, "failure_aware_ted_increase": 0.3,
+                    "exact_loss": 0.1, "valid_loss": 0.0,
+                }
+            },
+            "causal_ranking.json": {"ranking": ["decoder_0"]},
+        },
+    )
+    result = aggregate_results(Catalog(run), {"outcomes": []}, {"rows": []})[
+        "D_layer_analysis"
+    ]
+    assert result["observational"]["decoder_next_token_probe_top3"] == [
+        {"layer": "decoder_0", "accuracy_minus_shuffle": pytest.approx(0.6)}
+    ]
+    assert result["observational"]["within_module_cka"]["encoder"]["mean_off_diagonal"] == 0.5
+    assert result["intervention"]["causal_top3"] == ["decoder_0"]
+    assert {row["artifact"] for row in result["signed_sources"]} == {
+        "probes.json", "decoder_logit_lens.json", "gradient_norms.json",
+        "cka.json", "layer_effects.json", "causal_ranking.json",
+    }
+
+
+def test_family_figure_marks_missing_selected_recovery_undecidable(tmp_path: Path) -> None:
+    run = _base_run(tmp_path, final=False)
+    p3 = run / "phase3"
+    existing = {
+        name: strict_json(p3 / name)
+        for name in ("p6_validation.json", "summary.json", "failure_funnel.json")
+    }
+    existing["beam_groups.json"] = [
+        {"family": "R01", "true_exponent_aware_skeleton_in_beam": False}
+    ]
+    _phase(run, 3, existing)
+    out = tmp_path / "figures"
+    write_figures(Catalog(run), out, {"rows": []})
+    text = (out / "phase9_family_generation_recovery.svg").read_text(encoding="utf-8")
+    assert "selected-exact=undecidable" in text
+    assert "selected-exact=0.0000" not in text
+
+
 def test_phase9_entrypoint_writes_reports_tables_figures_and_manifest(tmp_path: Path) -> None:
     run = _base_run(tmp_path, final=False)
     reports = tmp_path / "reports"
@@ -252,11 +546,11 @@ def test_phase9_entrypoint_writes_reports_tables_figures_and_manifest(tmp_path: 
         ],
         cwd=ROOT, text=True, capture_output=True,
     )
-    assert proc.returncode == 0, proc.stderr
+    assert proc.returncode == 1, proc.stderr
     manifest = strict_json(run / "phase9" / "manifest.json")
-    assert manifest["status"] == "complete"
-    assert manifest["campaign_terminal_state"] == "reported_with_sealed_or_missing_final_test"
-    assert all(manifest["go_conditions"].values())
+    assert manifest["status"] == "incomplete"
+    assert manifest["campaign_terminal_state"] == "deferred_upstream_incomplete"
+    assert manifest["go_conditions"]["upstream_campaign_terminal"] is False
     assert len(list(reports.glob("GPU_RUN5_*report.md"))) == 4
     assert (reports / "GPU_RUN5_cross_model_synthesis.md").is_file()
     assert len(list((graphs / "figures").glob("*.svg"))) == 10
