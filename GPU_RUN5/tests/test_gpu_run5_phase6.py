@@ -1,14 +1,17 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
 import pytest
 
+from gpu_run2_runtime import fingerprint_json
 from gpu_run5.phase6 import (
     TRAINABLE_CONDITIONS,
     VIEWS,
     audit_data_views,
+    build_holdout_selection_artifact,
     build_trial_identity,
     candidate_seed_map,
     candidate_seed_map_sha256,
@@ -18,7 +21,9 @@ from gpu_run5.phase6 import (
     freeze_phase3_selection,
     hyperparameter_grid,
     load_cached_cell,
+    phase3_cell_filename,
     validation_cell_id,
+    verify_holdout_selection_artifact,
     write_cached_cell,
 )
 from scripts.phases.gpu_run5_phase6 import write_json as phase6_write_json
@@ -52,6 +57,68 @@ def _config() -> dict:
             "noise_sigmas": [0.0, 0.05],
             "subsample_rhos": [0.0, 0.5],
         },
+    }
+
+
+def _phase3_cell(cell_id: str, *, family: str = "R06") -> dict:
+    candidates = [
+        {
+            "candidate_index": 0,
+            "candidate_formula_raw": "x_0",
+            "complexity": 100,
+            "trajectory_metrics": {
+                "input_nrmse": [0.0],
+                "selection_nrmse": [0.0],
+                "input_failures": [None],
+                "selection_failures": [None],
+            },
+            "component_exponent_aware_skeleton_exact": [0.0],
+            "component_normalized_variable_aware_ted": [1.0],
+            "component_valid": [True],
+        },
+        {
+            "candidate_index": 1,
+            "candidate_formula_raw": "x_0 + 1",
+            "complexity": 1,
+            "trajectory_metrics": {
+                "input_nrmse": [0.5],
+                "selection_nrmse": [0.5],
+                "input_failures": [None],
+                "selection_failures": [None],
+            },
+            "component_exponent_aware_skeleton_exact": [1.0],
+            "component_normalized_variable_aware_ted": [0.0],
+            "component_valid": [True],
+        },
+    ]
+    raw = [row["candidate_formula_raw"] for row in candidates]
+    return {
+        "status": "complete",
+        "cell_id": cell_id,
+        "system_id": "R06_validation_0" if family == "R06" else "R07_validation_0",
+        "family": family,
+        "dimension": 1,
+        "bundle_index": 0,
+        "candidate_set_hash": hashlib.sha256(
+            json.dumps(raw, ensure_ascii=True, separators=(",", ":")).encode()
+        ).hexdigest(),
+        "n_candidates": len(candidates),
+        "cache_identity": {
+            "schema_version": "phase3",
+            "git_commit": "old",
+            "git_status_short": "",
+            "config_fingerprint": "config",
+            "checkpoint_sha256": "checkpoint",
+            "beam_size": 50,
+            "beam_temperature": 0.1,
+            "beam_type": "sampling",
+            "rescale": True,
+            "failure_penalty": 10.0,
+            "candidate_seed_namespace": "paired",
+            "device": "cuda",
+            "environment_fingerprint": "environment",
+        },
+        "candidates": candidates,
     }
 
 
@@ -143,6 +210,149 @@ def test_phase3_multi_ic_complexity_freeze_rejects_drift() -> None:
         )
 
 
+def test_R06_selection_uses_explicit_shards_and_rejects_other_families(
+    tmp_path: Path,
+) -> None:
+    cell_id = "R06_validation_0_b0_n0_r0"
+    cells_dir = tmp_path / "phase3" / "cells"
+    cells_dir.mkdir(parents=True)
+    r06_path = cells_dir / f"{cell_id}.json"
+    r06_path.write_text(json.dumps(_phase3_cell(cell_id)), encoding="utf-8")
+    r07_path = cells_dir / "R07_validation_0_b0_n0_r0.json"
+    r07_path.write_text(
+        json.dumps(_phase3_cell("R07_validation_0_b0_n0_r0", family="R07")),
+        encoding="utf-8",
+    )
+    r08_path = cells_dir / "R08_validation_0_b0_n0_r0.json"
+    r08_path.write_text(
+        json.dumps(_phase3_cell("R08_validation_0_b0_n0_r0", family="R08")),
+        encoding="utf-8",
+    )
+    kwargs = {
+        "cell_sources": [(f"phase3/cells/{r06_path.name}", r06_path)],
+        "expected_cell_ids": [cell_id],
+        "expected_system_ids": ["R06_validation_0"],
+        "candidate_lambdas": [0.0, 0.01],
+        "failure_penalty": 10.0,
+        "source_phase2_manifest_sha256": "phase2",
+        "source_phase3_config_snapshot_sha256": "phase3-config",
+        "source_holdout_validation_sha256": "validation",
+        "config_fingerprint": "config",
+        "git_provenance": {"commit": "abc", "status_short": ""},
+        "expected_beam_size": 50,
+        "expected_checkpoint_sha256": "checkpoint",
+    }
+    artifact = build_holdout_selection_artifact(**kwargs)
+    assert artifact["chosen_lambda"] == 0.01
+    assert artifact["source_family"] == "R06"
+    assert artifact["source_cell_count"] == 1
+    assert artifact["source_artifacts"][0]["path"] == f"phase3/cells/{r06_path.name}"
+    protocol = verify_holdout_selection_artifact(
+        artifact,
+        expected_cell_ids=[cell_id],
+        expected_system_ids=["R06_validation_0"],
+        expected_phase2_manifest_sha256="phase2",
+        expected_phase3_config_snapshot_sha256="phase3-config",
+        expected_holdout_validation_sha256="validation",
+        source_root=tmp_path,
+    )
+    assert protocol["complexity_lambda"] == 0.01
+
+    bad_candidate_hash = _phase3_cell(cell_id)
+    bad_candidate_hash["candidate_set_hash"] = "0" * 64
+    r06_path.write_text(json.dumps(bad_candidate_hash), encoding="utf-8")
+    with pytest.raises(ValueError, match="candidate-set hash mismatch"):
+        build_holdout_selection_artifact(**kwargs)
+    r06_path.write_text(json.dumps(_phase3_cell(cell_id)), encoding="utf-8")
+
+    # Unlisted R07/R08 shards in the same directory cannot influence the signed result.
+    assert build_holdout_selection_artifact(**kwargs)["signature_sha256"] == artifact[
+        "signature_sha256"
+    ]
+    with pytest.raises(ValueError, match="non-R06"):
+        build_holdout_selection_artifact(
+            **{
+                **kwargs,
+                "cell_sources": [
+                    *kwargs["cell_sources"],
+                    (f"phase3/cells/{r07_path.name}", r07_path),
+                ],
+            }
+        )
+    with pytest.raises(ValueError, match="non-R06"):
+        build_holdout_selection_artifact(
+            **{
+                **kwargs,
+                "cell_sources": [
+                    *kwargs["cell_sources"],
+                    (f"phase3/cells/{r08_path.name}", r08_path),
+                ],
+            }
+        )
+    tampered = {**artifact, "chosen_lambda": 0.0}
+    with pytest.raises(ValueError, match="signature mismatch"):
+        verify_holdout_selection_artifact(
+            tampered,
+            expected_cell_ids=[cell_id],
+            expected_system_ids=["R06_validation_0"],
+            expected_phase2_manifest_sha256="phase2",
+            expected_phase3_config_snapshot_sha256="phase3-config",
+            expected_holdout_validation_sha256="validation",
+            source_root=tmp_path,
+        )
+    forged_path = json.loads(json.dumps(artifact))
+    forged_path["source_artifacts"][0]["path"] = (
+        "phase3/cells/R06_validation_0_b0_n0_r0_extra.json"
+    )
+    forged_path["source_artifact_index_sha256"] = fingerprint_json(
+        forged_path["source_artifacts"]
+    )
+    forged_path["source_path_sha256_index_sha256"] = fingerprint_json(
+        [
+            {"path": row["path"], "sha256": row["sha256"]}
+            for row in forged_path["source_artifacts"]
+        ]
+    )
+    forged_path["source_filename_sha256_index_sha256"] = fingerprint_json(
+        [
+            {"path": Path(row["path"]).name, "sha256": row["sha256"]}
+            for row in forged_path["source_artifacts"]
+        ]
+    )
+    unsigned = {key: value for key, value in forged_path.items() if key != "signature_sha256"}
+    forged_path["signature_sha256"] = fingerprint_json(unsigned)
+    with pytest.raises(ValueError, match="paths are not the exact allowlist"):
+        verify_holdout_selection_artifact(
+            forged_path,
+            expected_cell_ids=[cell_id],
+            expected_system_ids=["R06_validation_0"],
+            expected_phase2_manifest_sha256="phase2",
+            expected_phase3_config_snapshot_sha256="phase3-config",
+            expected_holdout_validation_sha256="validation",
+            source_root=tmp_path,
+        )
+    r06_path.write_text("{}", encoding="utf-8")
+    with pytest.raises(ValueError, match="source hash mismatch"):
+        verify_holdout_selection_artifact(
+            artifact,
+            expected_cell_ids=[cell_id],
+            expected_system_ids=["R06_validation_0"],
+            expected_phase2_manifest_sha256="phase2",
+            expected_phase3_config_snapshot_sha256="phase3-config",
+            expected_holdout_validation_sha256="validation",
+            source_root=tmp_path,
+        )
+
+
+def test_phase3_cell_filename_is_exact_and_has_no_family_discovery() -> None:
+    assert phase3_cell_filename(
+        system="R06_validation_0",
+        bundle_index=2,
+        noise_sigma=0.05,
+        subsample_rho=0.5,
+    ) == "R06_validation_0_b2_n0p05_r0p5.json"
+
+
 def test_candidate_seeds_are_condition_neutral_and_cells_resume_by_exact_identity(
     tmp_path: Path,
 ) -> None:
@@ -164,6 +374,7 @@ def test_candidate_seeds_are_condition_neutral_and_cells_resume_by_exact_identit
         cell_id=cell,
         candidate_seed=seed_map[cell],
         input_trajectory_checksum="trajectory-sha",
+        candidate_selection_sha256="selection-main",
     )
     path = tmp_path / "cell.json"
     payload = {
@@ -196,6 +407,7 @@ def test_coverage_rejects_seed_or_beam_drift() -> None:
             cell_id=cell_id,
             candidate_seed=seed,
             input_trajectory_checksum="x",
+            candidate_selection_sha256="selection-main",
         )
         cells.append(
             {
@@ -256,16 +468,30 @@ def test_trial_identity_and_launcher_keep_the_firewall_explicit() -> None:
     assert "sealed_test.json" not in launcher
     assert "sealed_family_holdout_test.json" not in launcher
     assert '"phase3_lambda_selection": root / "phase3" / "lambda_selection.json"' in launcher
-    assert '"candidate_selection_rule": PHASE3_SELECTION_RULE' in launcher
+    assert '"candidate_selection_by_view": selection_protocols' in launcher
     assert '"trajectory_selection_roles": ["input", "selection"]' in launcher
     assert '"generalization_used_for_selection": False' in launcher
     assert '"variable_to_gene": dict(row.get("variable_to_gene") or {})' in launcher
     assert "manifest_payload = sanitize_nonfinite(" in launcher
     assert "load_delta_checkpoint(" in launcher
     assert "apply_delta_checkpoint(" in launcher
+    assert "view_campaign_sha256[view]" in launcher
     assert launcher.index('write_json(out / "hyperparameter_freeze.json"') < launcher.index(
         "_odebench_path_check(config)"
     )
+
+    prestage = Path(
+        "scripts/phases/gpu_run5_phase6_holdout_prestage.py"
+    ).read_text(encoding="utf-8")
+    assert "glob(" not in prestage
+    assert "rglob(" not in prestage
+    assert '"phase3" / "manifest.json"' not in prestage
+    assert "all_candidates.json" not in prestage
+    assert "selected.json" not in prestage
+    assert "lambda_selection.json" not in prestage
+    assert "load_config" not in prestage
+    assert "run_dir(" not in prestage
+    assert 'expected_family = "R06"' in prestage
 
 
 def test_cached_cell_rejects_noncomplete_payload(tmp_path: Path) -> None:

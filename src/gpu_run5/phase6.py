@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from gpu_run2_runtime import fingerprint_json, sha256_file, write_json
+from gpu_run5.evaluation import formula_selection_key, select_candidate
 from gpu_run5.seeding import stable_problem_seed
 
 
@@ -26,6 +27,7 @@ TRAINABLE_CONDITIONS = (
 VIEWS = ("main", "family_holdout")
 PHASE3_SELECTION_RULE = "multi_ic_complexity"
 PHASE3_COMPLEXITY_LAMBDA = 0.01
+HOLDOUT_SELECTION_SCHEMA_VERSION = "gpu_run5_R06_only_selection_v1"
 
 
 def system_id(row: Mapping[str, Any]) -> str:
@@ -170,6 +172,361 @@ def freeze_phase3_selection(
     }
 
 
+def phase3_cell_filename(
+    *, system: str, bundle_index: int, noise_sigma: float, subsample_rho: float
+) -> str:
+    """Return the exact Phase 3 shard filename without directory discovery."""
+    value = (
+        f"{system}_b{int(bundle_index)}_n{float(noise_sigma):g}"
+        f"_r{float(subsample_rho):g}"
+    )
+    return value.replace(".", "p") + ".json"
+
+
+def _empty_formula_placeholder(cell: Mapping[str, Any]) -> dict[str, Any]:
+    dimension = max(int(cell.get("dimension") or 0), 1)
+    return {
+        "cell_id": str(cell["cell_id"]),
+        "system_id": str(cell["system_id"]),
+        "bundle_index": int(cell["bundle_index"]),
+        "component_exponent_aware_skeleton_exact": [0.0] * dimension,
+        "component_normalized_variable_aware_ted": [1.0] * dimension,
+        "component_valid": [False] * dimension,
+        "empty_candidate_placeholder": True,
+    }
+
+
+def build_holdout_selection_artifact(
+    *,
+    cell_sources: Sequence[tuple[str, Path]],
+    expected_cell_ids: Sequence[str],
+    expected_system_ids: Sequence[str],
+    candidate_lambdas: Sequence[float],
+    failure_penalty: float,
+    source_phase2_manifest_sha256: str,
+    source_phase3_config_snapshot_sha256: str,
+    source_holdout_validation_sha256: str,
+    config_fingerprint: str,
+    git_provenance: Mapping[str, Any],
+    expected_beam_size: int,
+    expected_checkpoint_sha256: str,
+) -> dict[str, Any]:
+    """Select the complexity lambda from explicitly allowlisted R06 shards only."""
+    expected_cells = sorted(str(value) for value in expected_cell_ids)
+    expected_systems = sorted(str(value) for value in expected_system_ids)
+    if not expected_cells or len(expected_cells) != len(set(expected_cells)):
+        raise ValueError("R06 expected cell IDs must be non-empty and unique")
+    if not expected_systems or len(expected_systems) != len(set(expected_systems)):
+        raise ValueError("R06 expected system IDs must be non-empty and unique")
+    if not str(git_provenance.get("commit") or ""):
+        raise ValueError("R06 selection signing requires a Git commit")
+    if git_provenance.get("status_short"):
+        raise ValueError("R06 selection signing requires a clean worktree")
+    lambdas = [float(value) for value in candidate_lambdas]
+    if (
+        not lambdas
+        or len(lambdas) != len(set(lambdas))
+        or any(not math.isfinite(value) or value < 0 for value in lambdas)
+    ):
+        raise ValueError("R06 candidate lambdas must be finite, non-negative, and unique")
+    penalty = float(failure_penalty)
+    if not math.isfinite(penalty) or penalty <= 0:
+        raise ValueError("R06 failure penalty must be finite and positive")
+
+    observed: list[dict[str, Any]] = []
+    source_artifacts: list[dict[str, Any]] = []
+    cache_projections: list[dict[str, Any]] = []
+    for label, path in sorted(cell_sources, key=lambda item: item[0]):
+        source = Path(path)
+        try:
+            cell = json.loads(source.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ValueError(f"cannot read authorized R06 shard: {label}") from exc
+        if not isinstance(cell, dict) or cell.get("status") != "complete":
+            raise ValueError(f"R06 shard is not complete: {label}")
+        if str(cell.get("family")) != "R06":
+            raise ValueError(f"non-R06 shard rejected: {label}")
+        if str(cell.get("system_id")) not in expected_systems:
+            raise ValueError(f"unexpected R06 system rejected: {label}")
+        if str(cell.get("cell_id")) not in expected_cells:
+            raise ValueError(f"unexpected R06 cell rejected: {label}")
+        if not isinstance(cell.get("candidates"), list):
+            raise ValueError(f"R06 shard has no candidate list: {label}")
+        candidates = list(cell["candidates"])
+        raw_formulas = [str(row.get("candidate_formula_raw") or "") for row in candidates]
+        recomputed_candidate_hash = hashlib.sha256(
+            json.dumps(raw_formulas, ensure_ascii=True, separators=(",", ":")).encode(
+                "utf-8"
+            )
+        ).hexdigest()
+        if cell.get("candidate_set_hash") != recomputed_candidate_hash:
+            raise ValueError(f"R06 shard candidate-set hash mismatch: {label}")
+        if int(cell.get("n_candidates", -1)) != len(candidates):
+            raise ValueError(f"R06 shard candidate count mismatch: {label}")
+        candidate_indices = [int(row.get("candidate_index", -1)) for row in candidates]
+        if candidate_indices != list(range(len(candidates))):
+            raise ValueError(f"R06 shard candidate indices are not contiguous: {label}")
+        cache = cell.get("cache_identity")
+        if not isinstance(cache, Mapping):
+            raise ValueError(f"R06 shard cache identity is missing: {label}")
+        projection = {
+            key: cache.get(key)
+            for key in (
+                "schema_version",
+                "git_commit",
+                "git_status_short",
+                "config_fingerprint",
+                "checkpoint_sha256",
+                "beam_size",
+                "beam_temperature",
+                "beam_type",
+                "rescale",
+                "failure_penalty",
+                "candidate_seed_namespace",
+                "device",
+                "environment_fingerprint",
+            )
+        }
+        if projection["config_fingerprint"] != str(config_fingerprint):
+            raise ValueError(f"R06 shard config fingerprint mismatch: {label}")
+        if projection["checkpoint_sha256"] != str(expected_checkpoint_sha256):
+            raise ValueError(f"R06 shard checkpoint mismatch: {label}")
+        if int(projection["beam_size"] or -1) != int(expected_beam_size):
+            raise ValueError(f"R06 shard beam mismatch: {label}")
+        if projection["git_status_short"]:
+            raise ValueError(f"R06 shard was generated from a dirty worktree: {label}")
+        cache_projections.append(projection)
+        observed.append(cell)
+        source_artifacts.append(
+            {
+                "path": str(label),
+                "sha256": sha256_file(source),
+                "bytes": source.stat().st_size,
+                "cell_id": str(cell["cell_id"]),
+                "system_id": str(cell["system_id"]),
+                "family": "R06",
+                "candidate_set_sha256": recomputed_candidate_hash,
+            }
+        )
+    observed_ids = sorted(str(cell["cell_id"]) for cell in observed)
+    if observed_ids != expected_cells or len(observed_ids) != len(set(observed_ids)):
+        raise ValueError("R06 source shard coverage is not exact")
+    if sorted({str(cell["system_id"]) for cell in observed}) != expected_systems:
+        raise ValueError("R06 source system coverage is not exact")
+    if not cache_projections or any(
+        projection != cache_projections[0] for projection in cache_projections[1:]
+    ):
+        raise ValueError("R06 source shard cache identities are not paired")
+
+    audit = []
+    for complexity_lambda in lambdas:
+        selected_rows: list[dict[str, Any]] = []
+        empty_count = 0
+        for cell in observed:
+            candidate_index = select_candidate(
+                list(cell["candidates"]),
+                PHASE3_SELECTION_RULE,
+                penalty=penalty,
+                complexity_lambda=complexity_lambda,
+            )
+            if candidate_index is None:
+                selected_rows.append(_empty_formula_placeholder(cell))
+                empty_count += 1
+                continue
+            by_index = {
+                int(candidate["candidate_index"]): candidate
+                for candidate in cell["candidates"]
+            }
+            if int(candidate_index) not in by_index:
+                raise ValueError("R06 selected candidate index is absent from its shard")
+            selected_rows.append(
+                {
+                    "cell_id": str(cell["cell_id"]),
+                    "system_id": str(cell["system_id"]),
+                    "bundle_index": int(cell["bundle_index"]),
+                    **dict(by_index[int(candidate_index)]),
+                }
+            )
+        score = formula_selection_key(selected_rows)
+        audit.append(
+            {
+                "lambda": complexity_lambda,
+                "selection_key": list(score),
+                "n_cells": len(selected_rows),
+                "n_empty_candidate_placeholders": empty_count,
+            }
+        )
+    chosen = max(
+        audit,
+        key=lambda row: (*[float(value) for value in row["selection_key"]], -float(row["lambda"])),
+    )
+    body = {
+        "schema_version": HOLDOUT_SELECTION_SCHEMA_VERSION,
+        "selection_rule": PHASE3_SELECTION_RULE,
+        "source_split": "family_holdout_validation_R06_only",
+        "source_family": "R06",
+        "source_system_ids": expected_systems,
+        "source_cell_ids": expected_cells,
+        "source_cell_count": len(expected_cells),
+        "source_artifacts": source_artifacts,
+        "candidate_lambdas": lambdas,
+        "audit": audit,
+        "chosen_lambda": float(chosen["lambda"]),
+        "failure_penalty": penalty,
+        "source_phase2_manifest_sha256": str(source_phase2_manifest_sha256),
+        "source_phase3_config_snapshot_sha256": str(
+            source_phase3_config_snapshot_sha256
+        ),
+        "source_holdout_validation_sha256": str(source_holdout_validation_sha256),
+        "source_system_ids_sha256": fingerprint_json(expected_systems),
+        "source_cell_ids_sha256": fingerprint_json(expected_cells),
+        "source_artifact_index_sha256": fingerprint_json(source_artifacts),
+        "source_path_sha256_index_sha256": fingerprint_json(
+            [
+                {"path": row["path"], "sha256": row["sha256"]}
+                for row in source_artifacts
+            ]
+        ),
+        "source_filename_sha256_index_sha256": fingerprint_json(
+            [
+                {
+                    "path": Path(str(row["path"])).name,
+                    "sha256": row["sha256"],
+                }
+                for row in source_artifacts
+            ]
+        ),
+        "source_phase3_cache_identity_projection": cache_projections[0],
+        "config_fingerprint": str(config_fingerprint),
+        "git": dict(git_provenance),
+        "forbidden_family_outcomes_accessed": False,
+        "directory_discovery_used": False,
+        "retrospective_signing_limitation": (
+            "legacy Phase3 shards were not individually pinned by a safe pre-outcome "
+            "manifest; this artifact revalidates internal candidate hashes and signs "
+            "their current exact file hashes retrospectively"
+        ),
+    }
+    return {**body, "signature_sha256": fingerprint_json(body)}
+
+
+def verify_holdout_selection_artifact(
+    artifact: Mapping[str, Any],
+    *,
+    expected_cell_ids: Sequence[str],
+    expected_system_ids: Sequence[str],
+    expected_phase2_manifest_sha256: str,
+    expected_phase3_config_snapshot_sha256: str,
+    expected_holdout_validation_sha256: str,
+    source_root: Path,
+) -> dict[str, Any]:
+    """Verify signature, exact R06 provenance, and return its decode protocol."""
+    payload = dict(artifact)
+    signature = payload.pop("signature_sha256", None)
+    if payload.get("schema_version") != HOLDOUT_SELECTION_SCHEMA_VERSION:
+        raise ValueError("unsupported R06 selection artifact schema")
+    if signature != fingerprint_json(payload):
+        raise ValueError("R06 selection artifact signature mismatch")
+    expected_cells = sorted(str(value) for value in expected_cell_ids)
+    expected_systems = sorted(str(value) for value in expected_system_ids)
+    if payload.get("source_family") != "R06":
+        raise ValueError("R06 selection artifact has a forbidden family")
+    if payload.get("selection_rule") != PHASE3_SELECTION_RULE:
+        raise ValueError("R06 selection artifact rule mismatch")
+    if payload.get("source_split") != "family_holdout_validation_R06_only":
+        raise ValueError("R06 selection artifact split mismatch")
+    if payload.get("source_cell_ids") != expected_cells:
+        raise ValueError("R06 selection artifact cell coverage mismatch")
+    if payload.get("source_system_ids") != expected_systems:
+        raise ValueError("R06 selection artifact system coverage mismatch")
+    if payload.get("source_cell_count") != len(expected_cells):
+        raise ValueError("R06 selection artifact cell count mismatch")
+    if payload.get("source_system_ids_sha256") != fingerprint_json(expected_systems):
+        raise ValueError("R06 selection artifact system ID-set hash mismatch")
+    if payload.get("source_cell_ids_sha256") != fingerprint_json(expected_cells):
+        raise ValueError("R06 selection artifact cell ID-set hash mismatch")
+    if payload.get("source_phase2_manifest_sha256") != str(expected_phase2_manifest_sha256):
+        raise ValueError("R06 selection artifact Phase 2 manifest mismatch")
+    if payload.get("source_phase3_config_snapshot_sha256") != str(
+        expected_phase3_config_snapshot_sha256
+    ):
+        raise ValueError("R06 selection artifact Phase 3 config snapshot mismatch")
+    if payload.get("source_holdout_validation_sha256") != str(expected_holdout_validation_sha256):
+        raise ValueError("R06 selection artifact validation source mismatch")
+    if payload.get("forbidden_family_outcomes_accessed") is not False:
+        raise ValueError("R06 selection artifact reports forbidden-family access")
+    if payload.get("directory_discovery_used") is not False:
+        raise ValueError("R06 selection artifact reports directory discovery")
+    provenance = payload.get("git")
+    if (
+        not isinstance(provenance, Mapping)
+        or not str(provenance.get("commit") or "")
+        or provenance.get("status_short")
+    ):
+        raise ValueError("R06 selection artifact Git provenance is invalid")
+    if not str(payload.get("retrospective_signing_limitation") or ""):
+        raise ValueError("R06 selection artifact omits its retrospective limitation")
+    artifacts = payload.get("source_artifacts")
+    if not isinstance(artifacts, list) or len(artifacts) != len(expected_cells):
+        raise ValueError("R06 selection artifact source index mismatch")
+    if any(row.get("family") != "R06" for row in artifacts):
+        raise ValueError("R06 selection artifact source index contains another family")
+    if sorted(str(row.get("cell_id")) for row in artifacts) != expected_cells:
+        raise ValueError("R06 selection artifact source cell index mismatch")
+    if sorted({str(row.get("system_id")) for row in artifacts}) != expected_systems:
+        raise ValueError("R06 selection artifact source system index mismatch")
+    if any(len(str(row.get("candidate_set_sha256") or "")) != 64 for row in artifacts):
+        raise ValueError("R06 selection artifact candidate-set audit is missing")
+    if payload.get("source_artifact_index_sha256") != fingerprint_json(artifacts):
+        raise ValueError("R06 selection artifact source-index hash mismatch")
+    path_sha_index = [
+        {"path": row.get("path"), "sha256": row.get("sha256")}
+        for row in artifacts
+    ]
+    if payload.get("source_path_sha256_index_sha256") != fingerprint_json(
+        path_sha_index
+    ):
+        raise ValueError("R06 selection artifact path/hash index mismatch")
+    filename_sha_index = [
+        {
+            "path": Path(str(row.get("path"))).name,
+            "sha256": row.get("sha256"),
+        }
+        for row in artifacts
+    ]
+    if payload.get("source_filename_sha256_index_sha256") != fingerprint_json(
+        filename_sha_index
+    ):
+        raise ValueError("R06 selection artifact filename/hash index mismatch")
+    expected_paths = sorted(
+        (Path("phase3") / "cells" / f"{cell_id}.json").as_posix()
+        for cell_id in expected_cells
+    )
+    if sorted(str(row.get("path")) for row in artifacts) != expected_paths:
+        raise ValueError("R06 selection artifact source paths are not the exact allowlist")
+    allowed_root = (Path(source_root) / "phase3" / "cells").resolve()
+    for row in artifacts:
+        source = (Path(source_root) / str(row.get("path"))).resolve()
+        if source.parent != allowed_root:
+            raise ValueError("R06 selection artifact source path escaped the shard allowlist")
+        if (
+            not source.is_file()
+            or source.stat().st_size != int(row.get("bytes", -1))
+            or sha256_file(source) != str(row.get("sha256"))
+        ):
+            raise ValueError("R06 selection artifact source hash mismatch")
+    chosen = float(payload.get("chosen_lambda"))
+    candidates = [float(value) for value in payload.get("candidate_lambdas") or []]
+    if not math.isfinite(chosen) or chosen not in candidates:
+        raise ValueError("R06 selection artifact chosen lambda is invalid")
+    return {
+        "selection_rule": PHASE3_SELECTION_RULE,
+        "complexity_lambda": chosen,
+        "source_split": "family_holdout_validation_R06_only",
+        "selection_artifact_signature_sha256": str(signature),
+    }
+
+
 def validation_cell_id(
     *, system: str, bundle_index: int, noise_sigma: float, subsample_rho: float
 ) -> str:
@@ -286,6 +643,7 @@ def cell_cache_identity(
     cell_id: str,
     candidate_seed: int,
     input_trajectory_checksum: str,
+    candidate_selection_sha256: str,
 ) -> dict[str, Any]:
     """Build the exact resume identity for one decode shard."""
     return {
@@ -299,6 +657,7 @@ def cell_cache_identity(
         "cell_id": str(cell_id),
         "candidate_seed": int(candidate_seed),
         "input_trajectory_checksum": str(input_trajectory_checksum),
+        "candidate_selection_sha256": str(candidate_selection_sha256),
     }
 
 

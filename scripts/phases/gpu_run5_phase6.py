@@ -71,7 +71,9 @@ from gpu_run5.phase6 import (  # noqa: E402
     freeze_phase3_selection,
     hyperparameter_grid,
     load_cached_cell,
+    phase3_cell_filename,
     validation_cell_id,
+    verify_holdout_selection_artifact,
     write_cached_cell,
 )
 from gpu_run5.training import (  # noqa: E402
@@ -295,6 +297,8 @@ def _decode_cell(
     beam_size: int,
     candidate_seed: int,
     cache_identity: Mapping[str, Any],
+    selection_rule: str,
+    complexity_lambda: float,
 ) -> dict[str, Any]:
     bundle = config["seed_bundles"][int(bundle_index)]
     observations = _observed_selection_trajectories(
@@ -344,9 +348,9 @@ def _decode_cell(
     ]
     selected_index = select_candidate(
         candidates,
-        PHASE3_SELECTION_RULE,
+        selection_rule,
         penalty=penalty,
-        complexity_lambda=PHASE3_COMPLEXITY_LAMBDA,
+        complexity_lambda=complexity_lambda,
     )
     selected = (
         dict(candidates[selected_index])
@@ -378,8 +382,8 @@ def _decode_cell(
             "candidate_shortfall": max(int(beam_size) - len(candidates), 0),
             "generation_failure": generation_failure,
             "decode_wall_time_sec": decode_wall,
-            "selection_rule": PHASE3_SELECTION_RULE,
-            "complexity_lambda": PHASE3_COMPLEXITY_LAMBDA,
+            "selection_rule": str(selection_rule),
+            "complexity_lambda": float(complexity_lambda),
             "selection_trajectory_contract": "corrupted_input_plus_selection_ic_only",
             "generalization_trajectory_accessed": False,
             "observation_provenance": {
@@ -480,6 +484,8 @@ def _decode_panel(
     beam_size: int,
     bundle_indices: Sequence[int],
     seed_maps: Mapping[int, Mapping[str, int]],
+    selection_protocol: Mapping[str, Any],
+    selection_artifact_sha256: str,
 ) -> tuple[list[dict[str, Any]], list[Path]]:
     cells: list[dict[str, Any]] = []
     paths: list[Path] = []
@@ -505,6 +511,7 @@ def _decode_panel(
                     cell_id=cell_id,
                     candidate_seed=candidate_seed,
                     input_trajectory_checksum=source_checksum,
+                    candidate_selection_sha256=selection_artifact_sha256,
                 )
                 path = out / "cells" / stage / view / condition / f"{cell_id}.json"
                 cached = load_cached_cell(path, identity)
@@ -519,6 +526,8 @@ def _decode_panel(
                         beam_size=beam_size,
                         candidate_seed=candidate_seed,
                         cache_identity=identity,
+                        selection_rule=str(selection_protocol["selection_rule"]),
+                        complexity_lambda=float(selection_protocol["complexity_lambda"]),
                     )
                     write_cached_cell(path, cached)
                 cells.append(cached)
@@ -716,6 +725,76 @@ def main() -> int:
     )
     if not view_audit["pass"]:
         raise RuntimeError(f"Phase 6 data-view audit failed: {view_audit['pass_flags']}")
+    holdout_prestage_dir = root / "phase6_holdout_prestage"
+    holdout_prestage_manifest_path = holdout_prestage_dir / "manifest.json"
+    holdout_selection_path = holdout_prestage_dir / "selection.json"
+    holdout_prestage_manifest = read_json(holdout_prestage_manifest_path, {})
+    if (
+        holdout_prestage_manifest.get("status") != "complete"
+        or not all(holdout_prestage_manifest.get("go_conditions", {}).values())
+        or holdout_prestage_manifest.get("test_accessed") is not False
+        or holdout_prestage_manifest.get("git", {}).get("commit") != git["commit"]
+        or holdout_prestage_manifest.get("git", {}).get("status_short")
+        or holdout_prestage_manifest.get("selection_artifact_sha256")
+        != sha256_file(holdout_selection_path)
+    ):
+        raise RuntimeError("signed R06-only selection pre-stage is not complete")
+    holdout_selection_artifact = read_json(holdout_selection_path)
+    holdout_systems = sorted(
+        str(row["system_id"]) for row in loaded["holdout_validation"]
+    )
+    holdout_expected_cells = [
+        phase3_cell_filename(
+            system=system,
+            bundle_index=bundle_index,
+            noise_sigma=sigma,
+            subsample_rho=rho,
+        ).removesuffix(".json")
+        for bundle_index in range(len(config["seed_bundles"]))
+        for system in holdout_systems
+        for sigma, rho in corruption_grid(config)
+    ]
+    phase3_config_snapshot_path = root / "phase3" / "config_snapshot.json"
+    holdout_selection_protocol = verify_holdout_selection_artifact(
+        holdout_selection_artifact,
+        expected_cell_ids=holdout_expected_cells,
+        expected_system_ids=holdout_systems,
+        expected_phase2_manifest_sha256=sha256_file(root / "phase2" / "manifest.json"),
+        expected_phase3_config_snapshot_sha256=sha256_file(
+            phase3_config_snapshot_path
+        ),
+        expected_holdout_validation_sha256=sha256_file(
+            inputs["paths"]["holdout_validation"]
+        ),
+        source_root=root,
+    )
+    holdout_selection_sha = sha256_file(holdout_selection_path)
+    expected_prestage_sources = {
+        "phase2_manifest_sha256": sha256_file(root / "phase2" / "manifest.json"),
+        "family_holdout_validation_sha256": sha256_file(
+            inputs["paths"]["holdout_validation"]
+        ),
+        "phase3_config_snapshot_sha256": sha256_file(phase3_config_snapshot_path),
+    }
+    if (
+        holdout_prestage_manifest.get("safe_sources") != expected_prestage_sources
+        or holdout_prestage_manifest.get("selection_signature_sha256")
+        != holdout_selection_artifact.get("signature_sha256")
+        or holdout_prestage_manifest.get("source_system_ids_sha256")
+        != holdout_selection_artifact.get("source_system_ids_sha256")
+        or holdout_prestage_manifest.get("source_cell_ids_sha256")
+        != holdout_selection_artifact.get("source_cell_ids_sha256")
+        or holdout_selection_artifact.get("git", {}).get("commit") != git["commit"]
+    ):
+        raise RuntimeError("R06-only selection pre-stage provenance mismatch")
+    selection_protocols = {
+        "main": phase3_selection,
+        "family_holdout": holdout_selection_protocol,
+    }
+    selection_artifact_sha256 = {
+        "main": sha256_file(inputs["paths"]["phase3_lambda_selection"]),
+        "family_holdout": holdout_selection_sha,
+    }
     reduced_ids = {str(row["system_id"]) for row in loaded["reduced_main"]}
     validation_by_id = {str(row["system_id"]): row for row in loaded["main_validation"]}
     if not reduced_ids or not reduced_ids.issubset(validation_by_id):
@@ -797,7 +876,8 @@ def main() -> int:
         "learning_rates": learning_rates,
         "snapshot_steps": steps,
         "panel_sha256": panel_hashes,
-        "candidate_selection": phase3_selection,
+        "candidate_selection_by_view": selection_protocols,
+        "candidate_selection_artifact_sha256_by_view": selection_artifact_sha256,
         "validation_ce_policy": {
             "name": "paired_corrupted_input_trajectory_per_formula_cell",
             "coverage": "every system_x_bundle_x_noise_sigma_x_subsample_rho formula cell",
@@ -808,7 +888,67 @@ def main() -> int:
         "test_accessed": False,
     }
     campaign_sha = fingerprint_json(campaign_identity)
+    view_campaign_identities = {
+        "main": {
+            "schema_version": "gpu_run5_phase6_view_campaign_v1",
+            "view": "main",
+            "git_commit": git["commit"],
+            "mode": mode,
+            "config_fingerprint": fingerprint_json(config),
+            "raw_checkpoint_sha256": raw_checkpoint_sha,
+            "base_model_state_sha256": base_sha,
+            "selection_protocol": selection_protocols["main"],
+            "selection_artifact_sha256": selection_artifact_sha256["main"],
+            "authorized_inputs": {
+                key: sha256_file(inputs["paths"][key])
+                for key in (
+                    "main_train",
+                    "main_validation",
+                    "official_train",
+                    "reduced_main",
+                    "phase3_lambda_selection",
+                )
+            },
+        },
+        "family_holdout": {
+            "schema_version": "gpu_run5_phase6_view_campaign_v1",
+            "view": "family_holdout",
+            "git_commit": git["commit"],
+            "mode": mode,
+            "config_fingerprint": fingerprint_json(config),
+            "raw_checkpoint_sha256": raw_checkpoint_sha,
+            "base_model_state_sha256": base_sha,
+            "selection_protocol": selection_protocols["family_holdout"],
+            "selection_artifact_sha256": selection_artifact_sha256[
+                "family_holdout"
+            ],
+            "authorized_inputs": {
+                "holdout_train": sha256_file(inputs["paths"]["holdout_train"]),
+                "holdout_validation": sha256_file(
+                    inputs["paths"]["holdout_validation"]
+                ),
+                "official_train": sha256_file(inputs["paths"]["official_train"]),
+                "phase2_manifest": sha256_file(root / "phase2" / "manifest.json"),
+                "phase3_config_snapshot": sha256_file(phase3_config_snapshot_path),
+                "R06_prestage_manifest": sha256_file(
+                    holdout_prestage_manifest_path
+                ),
+                "R06_selection": holdout_selection_sha,
+            },
+        },
+    }
+    view_campaign_sha256 = {
+        view: fingerprint_json(identity)
+        for view, identity in view_campaign_identities.items()
+    }
     write_json(out / "protocol_frozen.json", campaign_identity)
+    write_json(
+        out / "view_protocols_frozen.json",
+        {
+            "view_campaign_identities": view_campaign_identities,
+            "view_campaign_identity_sha256": view_campaign_sha256,
+        },
+    )
     write_json(out / "data_view_audit.json", view_audit)
     write_json(out / "config_snapshot.json", config)
 
@@ -821,9 +961,10 @@ def main() -> int:
     selection_payload: dict[str, Any] = {
         "schema_version": "gpu_run5_phase6_selection_freeze_v1",
         "campaign_identity_sha256": campaign_sha,
+        "view_campaign_identity_sha256": view_campaign_sha256,
         "criterion": "formula_exact_then_failure_aware_ted_then_valid_then_ce",
-        "candidate_selection_rule": PHASE3_SELECTION_RULE,
-        "complexity_lambda": PHASE3_COMPLEXITY_LAMBDA,
+        "candidate_selection_by_view": selection_protocols,
+        "candidate_selection_artifact_sha256_by_view": selection_artifact_sha256,
         "trajectory_selection_roles": ["input", "selection"],
         "generalization_used_for_selection": False,
         "screening_bundle_indices": [0],
@@ -929,7 +1070,7 @@ def main() -> int:
                         rows=rows,
                         config=config,
                         out=out,
-                        campaign_identity_sha256=campaign_sha,
+                        campaign_identity_sha256=view_campaign_sha256[view],
                         stage=f"screening_lr{lr:g}_s{step}",
                         view=view,
                         condition=condition,
@@ -937,6 +1078,8 @@ def main() -> int:
                         beam_size=screen_beam,
                         bundle_indices=[0],
                         seed_maps=screen_seed_maps[view],
+                        selection_protocol=selection_protocols[view],
+                        selection_artifact_sha256=selection_artifact_sha256[view],
                     )
                     screening_paths.extend(paths)
                     coverage = coverage_audit(
@@ -1027,7 +1170,7 @@ def main() -> int:
             rows=rows,
             config=config,
             out=out,
-            campaign_identity_sha256=campaign_sha,
+            campaign_identity_sha256=view_campaign_sha256[view],
             stage="confirmation",
             view=view,
             condition="frozen",
@@ -1035,6 +1178,8 @@ def main() -> int:
             beam_size=confirmation_beam,
             bundle_indices=bundle_indices,
             seed_maps=seed_maps,
+            selection_protocol=selection_protocols[view],
+            selection_artifact_sha256=selection_artifact_sha256[view],
         )
         confirmation_paths.extend(paths)
         frozen_expected = [item for bundle in bundle_indices for item in expected_by_bundle[bundle]]
@@ -1206,7 +1351,7 @@ def main() -> int:
                     rows=rows,
                     config=config,
                     out=out,
-                    campaign_identity_sha256=campaign_sha,
+                    campaign_identity_sha256=view_campaign_sha256[view],
                     stage="confirmation",
                     view=view,
                     condition=condition,
@@ -1214,6 +1359,8 @@ def main() -> int:
                     beam_size=confirmation_beam,
                     bundle_indices=[bundle_index],
                     seed_maps={bundle_index: seed_maps[bundle_index]},
+                    selection_protocol=selection_protocols[view],
+                    selection_artifact_sha256=selection_artifact_sha256[view],
                 )
                 confirmation_paths.extend(paths)
                 all_cells.extend(cells)
@@ -1337,13 +1484,39 @@ def main() -> int:
             if trial["status"] == "complete"
         ),
         "screening_beam_and_bundle_contract_exact": all_screen_coverages_pass,
-        "phase3_multi_ic_complexity_lambda_frozen": phase3_selection
+        "main_phase3_multi_ic_complexity_lambda_frozen": phase3_selection
         == {
             "selection_rule": PHASE3_SELECTION_RULE,
             "complexity_lambda": PHASE3_COMPLEXITY_LAMBDA,
             "source_split": "validation",
             "candidate_lambdas": [0.0, 0.0001, 0.001, 0.01],
         },
+        "family_holdout_R06_only_selection_signed_and_frozen": (
+            holdout_selection_artifact["source_family"] == "R06"
+            and holdout_selection_artifact["source_cell_count"]
+            == len(loaded["holdout_validation"])
+            * len(config["seed_bundles"])
+            * len(corruption_grid(config))
+            and all(
+                row["family"] == "R06"
+                for row in holdout_selection_artifact["source_artifacts"]
+            )
+            and holdout_selection_artifact["forbidden_family_outcomes_accessed"] is False
+            and holdout_selection_protocol["selection_artifact_signature_sha256"]
+            == holdout_selection_artifact["signature_sha256"]
+            and holdout_selection_sha
+            == sha256_file(holdout_selection_path)
+            and holdout_prestage_manifest["selection_signature_sha256"]
+            == holdout_selection_artifact["signature_sha256"]
+        ),
+        "family_holdout_cache_identity_excludes_main_selection": (
+            selection_artifact_sha256["main"]
+            not in json.dumps(
+                view_campaign_identities["family_holdout"],
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+        ),
         "formula_primary_selection_frozen_before_confirmation": freeze_sha
         == sha256_file(out / "hyperparameter_freeze.json"),
         "selected_and_frozen_confirmation_exact": all_coverages_pass
@@ -1365,6 +1538,8 @@ def main() -> int:
         "mode": mode,
         "campaign_identity_sha256": campaign_sha,
         "hyperparameter_freeze_sha256": freeze_sha,
+        "candidate_selection_by_view": selection_protocols,
+        "candidate_selection_artifact_sha256_by_view": selection_artifact_sha256,
         "expected_counts": expected_counts,
         "observed": {
             "grid_candidates": observed_trainable_grid,
@@ -1394,6 +1569,7 @@ def main() -> int:
     write_json(out / "go.json", go)
     artifact_names = [
         "protocol_frozen.json",
+        "view_protocols_frozen.json",
         "data_view_audit.json",
         "config_snapshot.json",
         "hyperparameter_freeze.json",
@@ -1426,10 +1602,16 @@ def main() -> int:
             "config_fingerprint": fingerprint_json(config),
             "campaign_identity": campaign_identity,
             "campaign_identity_sha256": campaign_sha,
+            "view_campaign_identities": view_campaign_identities,
+            "view_campaign_identity_sha256": view_campaign_sha256,
             "hyperparameter_freeze_sha256": freeze_sha,
             "authorized_inputs": {
                 **{key: sha256_file(path) for key, path in inputs["paths"].items()},
                 "phase3_manifest": sha256_file(inputs["phase3_manifest_path"]),
+                "R06_prestage_manifest": sha256_file(
+                    holdout_prestage_manifest_path
+                ),
+                "R06_selection": holdout_selection_sha,
             },
             "phase_manifests": {
                 "phase2": sha256_file(root / "phase2" / "manifest.json"),
