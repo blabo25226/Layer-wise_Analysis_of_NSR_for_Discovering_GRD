@@ -222,19 +222,24 @@ def evaluate_preregistration(catalog: Catalog) -> dict[str, Any]:
         )
         r5_value = support.get("variable_denominator_selected_exponent_exact_count")
         r5_threshold = retros["R5"].get("threshold")
-        r5_valid = isinstance(r5_value, int) and not isinstance(r5_value, bool)
+        r5_expected_n = retros["R5"].get("n_cells")
+        r5_observed_n = support.get("variable_denominator_cell_count")
+        r5_valid = (
+            isinstance(r5_value, int) and not isinstance(r5_value, bool)
+            and isinstance(r5_expected_n, int) and r5_observed_n == r5_expected_n
+        )
         outcomes["R5"] = _outcome(
             "R5", retros["R5"],
             hit=(None if not r5_valid else r5_value == r5_threshold),
             observed={
                 "exact_count": r5_value if r5_valid else None,
-                "n_cells": support.get("variable_denominator_cell_count"),
+                "n_cells": r5_observed_n,
                 "candidate_truth_support_count": support.get(
                     "variable_denominator_group_true_exponent_skeleton_in_beam_count"
                 ),
             },
             sources=[support_art],
-            reason=None if r5_valid else "registered Phase 1 exact-count metric is absent",
+            reason=None if r5_valid else "registered Phase 1 exact count or exact 56-cell coverage is absent",
         )
         saved_retrospective = support.get("retrospective_outcomes")
         if isinstance(saved_retrospective, Mapping):
@@ -253,7 +258,11 @@ def evaluate_preregistration(catalog: Catalog) -> dict[str, Any]:
         row = p5_art.value
         rho = _finite_number(row.get("rho"))
         threshold = _finite_number(predictions["P5"].get("threshold"))
-        determinate = row.get("determinate") is True and rho is not None
+        determinate = (
+            row.get("determinate") is True and rho is not None
+            and row.get("n_layers") == 16
+            and row.get("expected_layer_count", 16) == 16
+        )
         outcomes["P5"] = _outcome(
             "P5", predictions["P5"],
             hit=(rho <= threshold if determinate and threshold is not None else None),
@@ -276,9 +285,19 @@ def evaluate_preregistration(catalog: Catalog) -> dict[str, Any]:
         row = p6_art.value
         upper = _finite_number(row.get("ci95_upper"))
         threshold = _finite_number(predictions["P6"].get("threshold"))
+        interval = row.get("student_t_95_ci")
+        interval_valid = (
+            isinstance(interval, Sequence) and len(interval) == 2
+            and _finite_number(interval[0]) is not None
+            and _finite_number(interval[1]) is not None
+            and upper is not None
+            and math.isclose(float(interval[1]), upper, abs_tol=1e-12)
+            and isinstance(row.get("n_system_clusters"), int)
+            and int(row["n_system_clusters"]) >= 2
+        )
         outcomes["P6"] = _outcome(
             "P6", predictions["P6"],
-            hit=(None if upper is None or threshold is None else upper < threshold),
+            hit=(None if not interval_valid or threshold is None else upper < threshold),
             observed={
                 "mean_clustered_difference": _finite_number(row.get("mean_clustered_difference")),
                 "student_t_95_ci": row.get("student_t_95_ci"),
@@ -286,7 +305,7 @@ def evaluate_preregistration(catalog: Catalog) -> dict[str, Any]:
                 "n_system_clusters": row.get("n_system_clusters"),
             },
             sources=[p6_art],
-            reason=None if upper is not None else "registered P6 CI upper bound is absent",
+            reason=None if interval_valid else "P6 requires a consistent two-sided Student-t interval over at least two system clusters",
         )
 
     final_available = (
