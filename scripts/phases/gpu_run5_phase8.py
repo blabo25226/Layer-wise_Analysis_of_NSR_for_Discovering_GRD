@@ -292,8 +292,13 @@ def _validation_stage(args: argparse.Namespace) -> int:
     out = phase_dir(args.run_id, 8)
     chosen_budget = budget(config, args.smoke)
     mode = "smoke" if args.smoke else "full"
-    if any(str(inputs["manifests"][phase].get("mode")) != mode for phase in (6, 7)):
-        raise RuntimeError("Phase 8 mode must exactly match Phase 6 and Phase 7")
+    upstream_modes = {phase: str(inputs["manifests"][phase].get("mode")) for phase in (6, 7)}
+    if (not args.smoke and any(value != "full" for value in upstream_modes.values())) or (
+        args.smoke and any(value not in {"smoke", "full"} for value in upstream_modes.values())
+    ):
+        raise RuntimeError(
+            "full Phase 8 requires full Phase 6/7; smoke Phase 8 accepts smoke or full upstream artifacts"
+        )
     if (out / "test_open_ledger.json").exists():
         raise RuntimeError("validation cannot run after a test-open event exists")
     data = {
