@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import signal
+import time
 from contextlib import contextmanager
 from typing import Any, Sequence
 
@@ -45,12 +46,13 @@ class TedTimeout(Exception):
 
 @contextmanager
 def time_limit(seconds: float):
-    """Wall-clock guard. SIGALRM works only on the main thread."""
+    """Nested-safe wall-clock guard. SIGALRM works only on the main thread."""
     if seconds <= 0:
         yield
         return
     try:
         previous = signal.getsignal(signal.SIGALRM)
+        previous_delay, previous_interval = signal.getitimer(signal.ITIMER_REAL)
     except (ValueError, AttributeError):
         yield
         return
@@ -58,10 +60,22 @@ def time_limit(seconds: float):
     def _handler(_signum, _frame):
         raise TedTimeout(f"exceeded {seconds}s")
 
+    started = time.monotonic()
+    effective_seconds = min(
+        float(seconds),
+        previous_delay if previous_delay > 0.0 else float(seconds),
+    )
+    handler_installed = False
     try:
         signal.signal(signal.SIGALRM, _handler)
-        signal.setitimer(signal.ITIMER_REAL, float(seconds))
+        handler_installed = True
+        signal.setitimer(signal.ITIMER_REAL, effective_seconds)
     except ValueError:
+        if handler_installed:
+            try:
+                signal.signal(signal.SIGALRM, previous)
+            except ValueError:
+                pass
         yield
         return
     try:
@@ -69,6 +83,13 @@ def time_limit(seconds: float):
     finally:
         signal.setitimer(signal.ITIMER_REAL, 0.0)
         signal.signal(signal.SIGALRM, previous)
+        if previous_delay > 0.0:
+            elapsed = time.monotonic() - started
+            signal.setitimer(
+                signal.ITIMER_REAL,
+                max(previous_delay - elapsed, 1.0e-6),
+                previous_interval,
+            )
 
 
 def is_float_token(token: str) -> bool:

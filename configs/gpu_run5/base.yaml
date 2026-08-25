@@ -44,6 +44,8 @@ selection:
   candidate_seed_namespace: grn_main_decode_v1
   aggregation: median
   trajectory_nrmse_failure_penalty: 10.0
+  cell_evaluation_timeout_sec: 180.0
+  trajectory_integration_timeout_sec: 10.0
   complexity_lambdas: [0.0, 0.0001, 0.001, 0.01]
 
 training:

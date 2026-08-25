@@ -37,6 +37,7 @@ from gpu_run2_runtime import (  # noqa: E402
 from gpu_run3_runtime import software_versions  # noqa: E402
 from gpu_run4.architecture import inventory_odeformer  # noqa: E402
 from gpu_run4.inference import fit_and_collect  # noqa: E402
+from gpu_run4.ted import time_limit  # noqa: E402
 from gpu_run4_runtime import load_odeformer_model, select_device  # noqa: E402
 from gpu_run5.config import (  # noqa: E402
     budget,
@@ -97,6 +98,7 @@ from scripts.phases.gpu_run5_phase6 import (  # noqa: E402
     _restore_base,
     _save_current_delta,
     _selected_rows,
+    _timed_out_candidate,
     _validation_cell_ce,
     _variants_per_family,
 )
@@ -154,12 +156,20 @@ def _decode_cell(
     times = np.asarray(input_observation["times"], dtype=float)
     trajectory = np.asarray(input_observation["trajectory"], dtype=float)
     started = perf_counter()
+    cell_timeout_sec = float(config["selection"]["cell_evaluation_timeout_sec"])
+    integration_timeout_sec = float(
+        config["selection"]["trajectory_integration_timeout_sec"]
+    )
+    if cell_timeout_sec <= 0.0 or integration_timeout_sec <= 0.0:
+        raise ValueError("Phase7 evaluation timeouts must be positive")
+    deadline = started + cell_timeout_sec
     generation_failure: str | None = None
     try:
         regressor = _make_regressor(model, config, beam_size, candidate_seed)
-        fit = fit_and_collect(
-            regressor, times, trajectory, permutation_seed=candidate_seed
-        )
+        with time_limit(cell_timeout_sec):
+            fit = fit_and_collect(
+                regressor, times, trajectory, permutation_seed=candidate_seed
+            )
         infixes = list(fit["infixes"])
         trees = list(fit["trees"])
         decode_wall = float(fit["wall_time"])
@@ -175,18 +185,38 @@ def _decode_cell(
         infixes, trees, decode_wall = [], [], perf_counter() - started
 
     penalty = float(config["selection"]["trajectory_nrmse_failure_penalty"])
-    candidates = [
-        _evaluate_candidate_trajectories(
-            row,
-            raw=raw or "",
-            tree=tree,
-            index=index,
-            regressor=regressor,
-            observations=observations,
-            penalty=penalty,
+    candidates = []
+    for index, (tree, raw) in enumerate(zip(trees, infixes)):
+        raw_text = raw or ""
+        if perf_counter() >= deadline:
+            candidates.append(
+                _timed_out_candidate(
+                    row,
+                    raw=raw_text,
+                    index=index,
+                    reason="CellEvaluationTimeout",
+                    observations=observations,
+                    penalty=penalty,
+                )
+            )
+            continue
+        candidates.append(
+            _evaluate_candidate_trajectories(
+                row,
+                raw=raw_text,
+                tree=tree,
+                index=index,
+                regressor=regressor,
+                observations=observations,
+                penalty=penalty,
+                deadline=deadline,
+                integration_timeout_sec=integration_timeout_sec,
+            )
         )
-        for index, (tree, raw) in enumerate(zip(trees, infixes))
-    ]
+    cell_timeout_triggered = any(
+        candidate.get("generation_failure") == "CellEvaluationTimeout"
+        for candidate in candidates
+    ) or (generation_failure is not None and "exceeded" in generation_failure)
     rule = str(selection_contract["selection_rule"])
     complexity_lambda = float(selection_contract["complexity_lambda"])
     selected_index = select_candidate(
@@ -226,6 +256,10 @@ def _decode_cell(
             "candidate_shortfall": max(int(beam_size) - len(candidates), 0),
             "generation_failure": generation_failure,
             "decode_wall_time_sec": decode_wall,
+            "cell_evaluation_wall_time_sec": perf_counter() - started,
+            "cell_evaluation_timeout_sec": cell_timeout_sec,
+            "trajectory_integration_timeout_sec": integration_timeout_sec,
+            "cell_evaluation_timeout_triggered": cell_timeout_triggered,
             "selection_rule": rule,
             "complexity_lambda": complexity_lambda,
             "selection_contract_sha256": str(

@@ -456,7 +456,11 @@ def test_empty_beam_is_a_complete_failure_aware_shard(
         model=object(),
         config={
             "seed_bundles": [{"candidate_seed": 1}],
-            "selection": {"trajectory_nrmse_failure_penalty": 10.0},
+            "selection": {
+                "trajectory_nrmse_failure_penalty": 10.0,
+                "cell_evaluation_timeout_sec": 180.0,
+                "trajectory_integration_timeout_sec": 10.0,
+            },
         },
         selection_contract={
             "selection_rule": "multi_ic_complexity",

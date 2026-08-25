@@ -36,6 +36,7 @@ from gpu_run2_runtime import (  # noqa: E402
 from gpu_run3_runtime import software_versions  # noqa: E402
 from gpu_run4.architecture import inventory_odeformer  # noqa: E402
 from gpu_run4.inference import fit_and_collect, integrate_candidate  # noqa: E402
+from gpu_run4.ted import TedTimeout, time_limit  # noqa: E402
 from gpu_run4.training import teacher_forcing_loss  # noqa: E402
 from gpu_run4.trajectories import corrupt_trajectory  # noqa: E402
 from gpu_run4_runtime import (  # noqa: E402
@@ -222,12 +223,48 @@ def _make_regressor(model: Any, config: Mapping[str, Any], beam_size: int, seed:
     )
 
 
+def _unevaluated_formula_metrics(row: Mapping[str, Any], reason: str) -> dict[str, Any]:
+    """Return conservative metrics without invoking parsing or symbolic algebra."""
+    n_components = max(int(row.get("dimension", 1)), 1)
+    return {
+        "valid": False,
+        "failure_reason": str(reason),
+        "canonical_exact": 0.0,
+        "skeleton_exact": 0.0,
+        "exponent_aware_skeleton_exact": 0.0,
+        "component_exponent_aware_skeleton_exact": [0.0] * n_components,
+        "ted_raw": None,
+        "ted_skeleton": None,
+        "normalized_ted": 1.0,
+        "component_ted_raw": [None] * n_components,
+        "component_ted_skeleton": [None] * n_components,
+        "component_normalized_variable_aware_ted": [1.0] * n_components,
+        "component_valid": [False] * n_components,
+        "component_failure_reason": [str(reason)] * n_components,
+        "normalized_variable_aware_ted": 1.0,
+        "variable_aware_ted_definition": (
+            "index-aligned component TED preserving x_i identity / "
+            "(true_size + predicted_size)"
+        ),
+        "complexity": None,
+        "candidate_formula_canonical": "",
+        "candidate_formula_skeleton": "",
+        "candidate_exponent_aware_skeleton": "",
+        "structure": {
+            "valid": False,
+            "failure_reason": str(reason),
+            "exponent_aware_skeleton": "",
+            "component_valid": [False] * n_components,
+        },
+    }
+
+
 def _failed_formula(row: Mapping[str, Any], reason: str) -> dict[str, Any]:
-    metrics = formula_metrics(str(row["teacher_infix"]), "")
-    metrics["failure_reason"] = str(reason)
+    metrics = _unevaluated_formula_metrics(row, reason)
     return {
         "candidate_index": None,
         "candidate_formula_raw": "",
+        "formula_metrics_evaluated": False,
         **metrics,
         "generation_failure": str(reason),
         "empty_candidate_placeholder": True,
@@ -240,6 +277,37 @@ def _failed_formula(row: Mapping[str, Any], reason: str) -> dict[str, Any]:
     }
 
 
+def _timed_out_candidate(
+    row: Mapping[str, Any],
+    *,
+    raw: str,
+    index: int,
+    reason: str,
+    observations: Mapping[str, Sequence[Mapping[str, Any]]] | None = None,
+    penalty: float = 10.0,
+) -> dict[str, Any]:
+    """Persist an unevaluated beam candidate instead of dropping it on timeout."""
+    candidate = _failed_formula(row, reason)
+    candidate.update(
+        {
+            "candidate_index": int(index),
+            "candidate_formula_raw": str(raw),
+            "empty_candidate_placeholder": False,
+            "formula_metrics_evaluated": False,
+        }
+    )
+    if observations is not None:
+        candidate["trajectory_metrics"] = {
+            f"{role}_{suffix}": [
+                float(penalty) if suffix == "nrmse" else str(reason)
+                for _ in observations[role]
+            ]
+            for role in ("input", "selection")
+            for suffix in ("nrmse", "failures")
+        }
+    return candidate
+
+
 def _evaluate_candidate_trajectories(
     row: Mapping[str, Any],
     *,
@@ -249,12 +317,41 @@ def _evaluate_candidate_trajectories(
     regressor: Any,
     observations: Mapping[str, Sequence[Mapping[str, Any]]],
     penalty: float,
+    deadline: float,
+    integration_timeout_sec: float,
 ) -> dict[str, Any]:
+    if perf_counter() >= deadline:
+        return _timed_out_candidate(
+            row,
+            raw=raw,
+            index=index,
+            reason="CellEvaluationTimeout",
+            observations=observations,
+            penalty=penalty,
+        )
+    formula_metrics_evaluated = True
     try:
-        metrics = formula_metrics(str(row["teacher_infix"]), raw)
+        with time_limit(max(deadline - perf_counter(), 1.0e-6)):
+            metrics = formula_metrics(str(row["teacher_infix"]), raw)
+    except TedTimeout:
+        timeout_reason = (
+            "CellEvaluationTimeout"
+            if perf_counter() >= deadline
+            else "FormulaMetricsTimeout"
+        )
+        return _timed_out_candidate(
+            row,
+            raw=raw,
+            index=index,
+            reason=timeout_reason,
+            observations=observations,
+            penalty=penalty,
+        )
     except Exception as exc:
-        metrics = formula_metrics(str(row["teacher_infix"]), "")
-        metrics["failure_reason"] = f"{type(exc).__name__}:{exc}"
+        formula_metrics_evaluated = False
+        metrics = _unevaluated_formula_metrics(
+            row, f"{type(exc).__name__}:{exc}"
+        )
     trajectory_metrics: dict[str, list[Any]] = {
         "input_nrmse": [],
         "selection_nrmse": [],
@@ -263,13 +360,17 @@ def _evaluate_candidate_trajectories(
     }
     for role in ("input", "selection"):
         for trajectory in observations[role]:
-            predicted, failure = integrate_candidate(
-                regressor,
-                np.asarray(trajectory["times"], dtype=float),
-                np.asarray(trajectory["initial_condition"], dtype=float),
-                tree,
-                timeout_sec=10.0,
-            )
+            remaining = deadline - perf_counter()
+            if remaining <= 0.0:
+                predicted, failure = None, "CellEvaluationTimeout"
+            else:
+                predicted, failure = integrate_candidate(
+                    regressor,
+                    np.asarray(trajectory["times"], dtype=float),
+                    np.asarray(trajectory["initial_condition"], dtype=float),
+                    tree,
+                    timeout_sec=min(float(integration_timeout_sec), remaining),
+                )
             trajectory_metrics[f"{role}_nrmse"].append(
                 trajectory_nrmse(
                     np.asarray(trajectory["trajectory"], dtype=float),
@@ -281,6 +382,7 @@ def _evaluate_candidate_trajectories(
     return {
         "candidate_index": int(index),
         "candidate_formula_raw": raw,
+        "formula_metrics_evaluated": formula_metrics_evaluated,
         **metrics,
         "trajectory_metrics": trajectory_metrics,
     }
@@ -315,10 +417,20 @@ def _decode_cell(
     if str(cache_identity["input_trajectory_checksum"]) != source_checksum:
         raise RuntimeError("cache identity input checksum mismatch")
     started = perf_counter()
+    cell_timeout_sec = float(config["selection"]["cell_evaluation_timeout_sec"])
+    integration_timeout_sec = float(
+        config["selection"]["trajectory_integration_timeout_sec"]
+    )
+    if cell_timeout_sec <= 0.0 or integration_timeout_sec <= 0.0:
+        raise ValueError("Phase6 evaluation timeouts must be positive")
+    deadline = started + cell_timeout_sec
     generation_failure: str | None = None
     try:
         regressor = _make_regressor(model, config, beam_size, candidate_seed)
-        fit = fit_and_collect(regressor, times, trajectory, permutation_seed=candidate_seed)
+        with time_limit(cell_timeout_sec):
+            fit = fit_and_collect(
+                regressor, times, trajectory, permutation_seed=candidate_seed
+            )
         infixes = list(fit["infixes"])
         trees = list(fit["trees"])
         decode_wall = float(fit["wall_time"])
@@ -334,18 +446,38 @@ def _decode_cell(
         infixes, trees, decode_wall = [], [], perf_counter() - started
 
     penalty = float(config["selection"]["trajectory_nrmse_failure_penalty"])
-    candidates = [
-        _evaluate_candidate_trajectories(
-            row,
-            raw=raw or "",
-            tree=tree,
-            index=index,
-            regressor=regressor,
-            observations=observations,
-            penalty=penalty,
+    candidates = []
+    for index, (tree, raw) in enumerate(zip(trees, infixes)):
+        raw_text = raw or ""
+        if perf_counter() >= deadline:
+            candidates.append(
+                _timed_out_candidate(
+                    row,
+                    raw=raw_text,
+                    index=index,
+                    reason="CellEvaluationTimeout",
+                    observations=observations,
+                    penalty=penalty,
+                )
+            )
+            continue
+        candidates.append(
+            _evaluate_candidate_trajectories(
+                row,
+                raw=raw_text,
+                tree=tree,
+                index=index,
+                regressor=regressor,
+                observations=observations,
+                penalty=penalty,
+                deadline=deadline,
+                integration_timeout_sec=integration_timeout_sec,
+            )
         )
-        for index, (tree, raw) in enumerate(zip(trees, infixes))
-    ]
+    cell_timeout_triggered = any(
+        candidate.get("generation_failure") == "CellEvaluationTimeout"
+        for candidate in candidates
+    ) or generation_failure is not None and "exceeded" in generation_failure
     selected_index = select_candidate(
         candidates,
         selection_rule,
@@ -382,6 +514,10 @@ def _decode_cell(
             "candidate_shortfall": max(int(beam_size) - len(candidates), 0),
             "generation_failure": generation_failure,
             "decode_wall_time_sec": decode_wall,
+            "cell_evaluation_wall_time_sec": perf_counter() - started,
+            "cell_evaluation_timeout_sec": cell_timeout_sec,
+            "trajectory_integration_timeout_sec": integration_timeout_sec,
+            "cell_evaluation_timeout_triggered": cell_timeout_triggered,
             "selection_rule": str(selection_rule),
             "complexity_lambda": float(complexity_lambda),
             "selection_trajectory_contract": "corrupted_input_plus_selection_ic_only",

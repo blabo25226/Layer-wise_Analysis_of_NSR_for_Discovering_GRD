@@ -13,6 +13,7 @@ import numpy as np
 import torch
 
 from gpu_run4.inference import fit_and_collect, integrate_candidate
+from gpu_run4.ted import TedTimeout, time_limit
 from gpu_run4.trajectories import corrupt_trajectory, r2_score
 from gpu_run4_runtime import make_symbolic_regressor
 from gpu_run5.config import sanitize_nonfinite
@@ -211,12 +212,48 @@ def make_regressor(model: Any, config: Mapping[str, Any], *, beam_size: int, see
     )
 
 
+def unevaluated_formula_metrics(row: Mapping[str, Any], reason: str) -> dict[str, Any]:
+    """Build penalized formula fields without parsing a pathological expression."""
+    n_components = max(int(row.get("dimension", 1)), 1)
+    return {
+        "valid": False,
+        "failure_reason": str(reason),
+        "canonical_exact": 0.0,
+        "skeleton_exact": 0.0,
+        "exponent_aware_skeleton_exact": 0.0,
+        "component_exponent_aware_skeleton_exact": [0.0] * n_components,
+        "ted_raw": None,
+        "ted_skeleton": None,
+        "normalized_ted": 1.0,
+        "component_ted_raw": [None] * n_components,
+        "component_ted_skeleton": [None] * n_components,
+        "component_normalized_variable_aware_ted": [1.0] * n_components,
+        "component_valid": [False] * n_components,
+        "component_failure_reason": [str(reason)] * n_components,
+        "normalized_variable_aware_ted": 1.0,
+        "variable_aware_ted_definition": (
+            "index-aligned component TED preserving x_i identity / "
+            "(true_size + predicted_size)"
+        ),
+        "complexity": None,
+        "candidate_formula_canonical": "",
+        "candidate_formula_skeleton": "",
+        "candidate_exponent_aware_skeleton": "",
+        "structure": {
+            "valid": False,
+            "failure_reason": str(reason),
+            "exponent_aware_skeleton": "",
+            "component_valid": [False] * n_components,
+        },
+    }
+
+
 def failed_formula(row: Mapping[str, Any], reason: str) -> dict[str, Any]:
-    metrics = formula_metrics(str(row["teacher_infix"]), "")
-    metrics["failure_reason"] = str(reason)
+    metrics = unevaluated_formula_metrics(row, reason)
     return {
         "candidate_index": None,
         "candidate_formula_raw": "",
+        "formula_metrics_evaluated": False,
         **metrics,
         "generation_failure": str(reason),
         "empty_candidate_placeholder": True,
@@ -229,6 +266,37 @@ def failed_formula(row: Mapping[str, Any], reason: str) -> dict[str, Any]:
     }
 
 
+def timed_out_candidate(
+    row: Mapping[str, Any],
+    *,
+    raw: str,
+    index: int,
+    reason: str,
+    observations: Mapping[str, Sequence[Mapping[str, Any]]] | None = None,
+    penalty: float = 10.0,
+) -> dict[str, Any]:
+    """Retain a beam formula whose trajectory evaluation exceeded the cell budget."""
+    candidate = failed_formula(row, reason)
+    candidate.update(
+        {
+            "candidate_index": int(index),
+            "candidate_formula_raw": str(raw),
+            "empty_candidate_placeholder": False,
+            "formula_metrics_evaluated": False,
+        }
+    )
+    if observations is not None:
+        candidate["trajectory_metrics"] = {
+            f"{role}_{suffix}": [
+                float(penalty) if suffix == "nrmse" else str(reason)
+                for _ in observations[role]
+            ]
+            for role in ("input", "selection")
+            for suffix in ("nrmse", "failures")
+        }
+    return candidate
+
+
 def evaluate_candidate(
     row: Mapping[str, Any],
     *,
@@ -238,29 +306,68 @@ def evaluate_candidate(
     regressor: Any,
     observations: Mapping[str, Sequence[Mapping[str, Any]]],
     penalty: float,
+    deadline: float,
+    integration_timeout_sec: float,
 ) -> dict[str, Any]:
+    if perf_counter() >= deadline:
+        return timed_out_candidate(
+            row,
+            raw=raw,
+            index=index,
+            reason="CellEvaluationTimeout",
+            observations=observations,
+            penalty=penalty,
+        )
+    formula_metrics_evaluated = True
     try:
-        metrics = formula_metrics(str(row["teacher_infix"]), raw)
+        with time_limit(max(deadline - perf_counter(), 1.0e-6)):
+            metrics = formula_metrics(str(row["teacher_infix"]), raw)
+    except TedTimeout:
+        timeout_reason = (
+            "CellEvaluationTimeout"
+            if perf_counter() >= deadline
+            else "FormulaMetricsTimeout"
+        )
+        return timed_out_candidate(
+            row,
+            raw=raw,
+            index=index,
+            reason=timeout_reason,
+            observations=observations,
+            penalty=penalty,
+        )
     except Exception as exc:
-        metrics = formula_metrics(str(row["teacher_infix"]), "")
-        metrics["failure_reason"] = f"{type(exc).__name__}:{exc}"
+        formula_metrics_evaluated = False
+        metrics = unevaluated_formula_metrics(
+            row, f"{type(exc).__name__}:{exc}"
+        )
     trajectory_metrics: dict[str, list[Any]] = {
         "input_nrmse": [], "selection_nrmse": [], "input_failures": [], "selection_failures": []
     }
     for role in ("input", "selection"):
         for trajectory in observations[role]:
-            predicted, failure = integrate_candidate(
-                regressor,
-                np.asarray(trajectory["times"], dtype=float),
-                np.asarray(trajectory["initial_condition"], dtype=float),
-                tree,
-                timeout_sec=10.0,
-            )
+            remaining = deadline - perf_counter()
+            if remaining <= 0.0:
+                predicted, failure = None, "CellEvaluationTimeout"
+            else:
+                predicted, failure = integrate_candidate(
+                    regressor,
+                    np.asarray(trajectory["times"], dtype=float),
+                    np.asarray(trajectory["initial_condition"], dtype=float),
+                    tree,
+                    timeout_sec=min(float(integration_timeout_sec), remaining),
+                )
             trajectory_metrics[f"{role}_nrmse"].append(
                 trajectory_nrmse(np.asarray(trajectory["trajectory"], dtype=float), predicted, penalty=penalty)
             )
             trajectory_metrics[f"{role}_failures"].append(failure)
-    return {"candidate_index": int(index), "candidate_formula_raw": raw, **metrics, "trajectory_metrics": trajectory_metrics}
+    return {
+        "candidate_index": int(index),
+        "candidate_formula_raw": raw,
+        "formula_metrics_evaluated": formula_metrics_evaluated,
+        **metrics,
+        "trajectory_metrics": trajectory_metrics,
+    }
 
 
 def selected_clean_trajectory_metrics(
@@ -269,6 +376,8 @@ def selected_clean_trajectory_metrics(
     prediction: Any,
     regressor: Any,
     penalty: float,
+    deadline: float,
+    integration_timeout_sec: float,
 ) -> dict[str, Any]:
     """Evaluate the already-selected formula on clean ICs, including generalization."""
     output: dict[str, Any] = {"candidate_selection_finished_before_generalization_access": True, "roles": {}}
@@ -282,13 +391,17 @@ def selected_clean_trajectory_metrics(
         records = []
         for source in sources:
             truth = np.asarray(source["trajectory"], dtype=float)
-            predicted, failure = integrate_candidate(
-                regressor,
-                np.asarray(source["times"], dtype=float),
-                truth[0],
-                prediction,
-                timeout_sec=10.0,
-            )
+            remaining = deadline - perf_counter()
+            if remaining <= 0.0:
+                predicted, failure = None, "CellEvaluationTimeout"
+            else:
+                predicted, failure = integrate_candidate(
+                    regressor,
+                    np.asarray(source["times"], dtype=float),
+                    truth[0],
+                    prediction,
+                    timeout_sec=min(float(integration_timeout_sec), remaining),
+                )
             try:
                 r2 = float(r2_score(truth, predicted)) if predicted is not None else -10.0
             except Exception:
@@ -330,15 +443,23 @@ def decode_cell(
     if str(cache_identity["input_trajectory_checksum"]) != str(input_observation["source_checksum"]):
         raise RuntimeError("cache identity input checksum mismatch")
     started = perf_counter()
+    cell_timeout_sec = float(config["selection"]["cell_evaluation_timeout_sec"])
+    integration_timeout_sec = float(
+        config["selection"]["trajectory_integration_timeout_sec"]
+    )
+    if cell_timeout_sec <= 0.0 or integration_timeout_sec <= 0.0:
+        raise ValueError("Phase8 evaluation timeouts must be positive")
+    deadline = started + cell_timeout_sec
     generation_failure = None
     regressor = make_regressor(model, config, beam_size=beam_size, seed=candidate_seed)
     try:
-        fit = fit_and_collect(
-            regressor,
-            np.asarray(input_observation["times"], dtype=float),
-            np.asarray(input_observation["trajectory"], dtype=float),
-            permutation_seed=candidate_seed,
-        )
+        with time_limit(cell_timeout_sec):
+            fit = fit_and_collect(
+                regressor,
+                np.asarray(input_observation["times"], dtype=float),
+                np.asarray(input_observation["trajectory"], dtype=float),
+                permutation_seed=candidate_seed,
+            )
         infixes, trees = list(fit["infixes"]), list(fit["trees"])
         wall = float(fit["wall_time"])
     except torch.cuda.OutOfMemoryError:
@@ -352,13 +473,34 @@ def decode_cell(
         generation_failure = f"{type(exc).__name__}:{exc}"
         infixes, trees, wall = [], [], perf_counter() - started
     penalty = float(config["selection"]["trajectory_nrmse_failure_penalty"])
-    candidates = [
-        evaluate_candidate(
-            row, raw=raw or "", tree=tree, index=index, regressor=regressor,
-            observations=observations, penalty=penalty,
+    candidates = []
+    for index, (tree, raw) in enumerate(zip(trees, infixes)):
+        raw_text = raw or ""
+        if perf_counter() >= deadline:
+            candidates.append(
+                timed_out_candidate(
+                    row,
+                    raw=raw_text,
+                    index=index,
+                    reason="CellEvaluationTimeout",
+                    observations=observations,
+                    penalty=penalty,
+                )
+            )
+            continue
+        candidates.append(
+            evaluate_candidate(
+                row,
+                raw=raw_text,
+                tree=tree,
+                index=index,
+                regressor=regressor,
+                observations=observations,
+                penalty=penalty,
+                deadline=deadline,
+                integration_timeout_sec=integration_timeout_sec,
+            )
         )
-        for index, (tree, raw) in enumerate(zip(trees, infixes))
-    ]
     if not candidates and generation_failure is None:
         generation_failure = "EmptyCandidateSet"
     selected_index = select_candidate(
@@ -376,8 +518,24 @@ def decode_cell(
     if include_clean_generalization:
         prediction = (trees[selected_index] if selected_index is not None else "")
         clean_metrics = selected_clean_trajectory_metrics(
-            row, prediction=prediction, regressor=regressor, penalty=penalty
+            row,
+            prediction=prediction,
+            regressor=regressor,
+            penalty=penalty,
+            deadline=deadline,
+            integration_timeout_sec=integration_timeout_sec,
         )
+    cell_timeout_triggered = any(
+        candidate.get("generation_failure") == "CellEvaluationTimeout"
+        for candidate in candidates
+    ) or (
+        isinstance(clean_metrics, Mapping)
+        and any(
+            record.get("failure") == "CellEvaluationTimeout"
+            for records in clean_metrics.get("roles", {}).values()
+            for record in records
+        )
+    ) or (generation_failure is not None and "exceeded" in generation_failure)
     return sanitize_nonfinite(
         {
             "status": "complete",
@@ -404,6 +562,10 @@ def decode_cell(
             "candidate_shortfall": max(int(beam_size) - len(candidates), 0),
             "generation_failure": generation_failure,
             "decode_wall_time_sec": wall,
+            "cell_evaluation_wall_time_sec": perf_counter() - started,
+            "cell_evaluation_timeout_sec": cell_timeout_sec,
+            "trajectory_integration_timeout_sec": integration_timeout_sec,
+            "cell_evaluation_timeout_triggered": cell_timeout_triggered,
             "selection_rule": str(selection_contract["selection_rule"]),
             "complexity_lambda": float(selection_contract["complexity_lambda"]),
             "selection_contract_sha256": str(cache_identity["selection_contract_sha256"]),

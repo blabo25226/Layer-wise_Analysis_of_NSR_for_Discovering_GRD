@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import time
 from pathlib import Path
 
 import pytest
+import scripts.phases.gpu_run5_phase6 as phase6_runtime
 
 from gpu_run2_runtime import fingerprint_json
 from gpu_run5.phase6 import (
@@ -26,7 +28,11 @@ from gpu_run5.phase6 import (
     verify_holdout_selection_artifact,
     write_cached_cell,
 )
-from scripts.phases.gpu_run5_phase6 import write_json as phase6_write_json
+from scripts.phases.gpu_run5_phase6 import (
+    _evaluate_candidate_trajectories,
+    _timed_out_candidate,
+    write_json as phase6_write_json,
+)
 
 
 def _row(system_id: str, family: str, checksum: str | None = None) -> dict:
@@ -43,6 +49,85 @@ def _row(system_id: str, family: str, checksum: str | None = None) -> dict:
             }
         ],
     }
+
+
+def test_phase6_cell_timeout_preserves_raw_candidate_and_failure() -> None:
+    row = {"teacher_infix": "x_0"}
+    timed_out = _timed_out_candidate(
+        row,
+        raw="x_0 / (x_0 - x_0)",
+        index=7,
+        reason="CellEvaluationTimeout",
+        observations={"input": [{}], "selection": [{}, {}]},
+        penalty=10.0,
+    )
+    assert timed_out["candidate_index"] == 7
+    assert timed_out["candidate_formula_raw"] == "x_0 / (x_0 - x_0)"
+    assert timed_out["generation_failure"] == "CellEvaluationTimeout"
+    assert timed_out["valid"] is False
+    assert timed_out["empty_candidate_placeholder"] is False
+    assert timed_out["formula_metrics_evaluated"] is False
+    assert len(timed_out["trajectory_metrics"]["input_failures"]) == 1
+    assert len(timed_out["trajectory_metrics"]["selection_failures"]) == 2
+
+    result = _evaluate_candidate_trajectories(
+        row,
+        raw="x_0",
+        tree=object(),
+        index=0,
+        regressor=object(),
+        observations={"input": [], "selection": []},
+        penalty=10.0,
+        deadline=0.0,
+        integration_timeout_sec=10.0,
+    )
+    assert result["generation_failure"] == "CellEvaluationTimeout"
+
+
+def test_phase6_cell_deadline_interrupts_formula_metrics(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def explode(*_args, **_kwargs):
+        time.sleep(1.0)
+
+    monkeypatch.setattr(phase6_runtime, "formula_metrics", explode)
+    started = time.monotonic()
+    result = _evaluate_candidate_trajectories(
+        {"teacher_infix": "x_0"},
+        raw="x_0",
+        tree=object(),
+        index=0,
+        regressor=object(),
+        observations={"input": [{}], "selection": [{}, {}]},
+        penalty=10.0,
+        deadline=phase6_runtime.perf_counter() + 0.05,
+        integration_timeout_sec=10.0,
+    )
+    assert time.monotonic() - started < 0.25
+    assert result["generation_failure"] == "CellEvaluationTimeout"
+    assert result["formula_metrics_evaluated"] is False
+
+
+def test_phase6_formula_exception_has_truthful_evaluation_flag(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fail(*_args, **_kwargs):
+        raise ValueError("bad expression")
+
+    monkeypatch.setattr(phase6_runtime, "formula_metrics", fail)
+    result = _evaluate_candidate_trajectories(
+        {"teacher_infix": "x_0", "dimension": 1},
+        raw="invalid",
+        tree=object(),
+        index=0,
+        regressor=object(),
+        observations={"input": [], "selection": []},
+        penalty=10.0,
+        deadline=phase6_runtime.perf_counter() + 1.0,
+        integration_timeout_sec=10.0,
+    )
+    assert result["formula_metrics_evaluated"] is False
+    assert result["failure_reason"] == "ValueError:bad expression"
 
 
 def _config() -> dict:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
@@ -84,6 +85,25 @@ def test_ted_timeout_guard() -> None:
     probe = timeout_probe(seconds=0.05)
     assert probe["ok"] is True
     assert probe["failure_reason"] == "TEDTimeout"
+
+
+def test_nested_timeout_cannot_extend_outer_deadline() -> None:
+    started = time.monotonic()
+    with pytest.raises(TedTimeout):
+        with time_limit(0.05):
+            with time_limit(1.0):
+                time.sleep(1.0)
+    assert time.monotonic() - started < 0.25
+
+
+def test_timeout_guard_falls_back_off_main_thread() -> None:
+    def worker() -> str:
+        with time_limit(0.01):
+            time.sleep(0.02)
+        return "complete"
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        assert pool.submit(worker).result(timeout=1.0) == "complete"
 
 
 def test_singularity_is_not_forced_equivalent() -> None:
