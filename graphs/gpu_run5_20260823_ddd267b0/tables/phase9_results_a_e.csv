@@ -1,0 +1,13 @@
+comparison_generation,result,section,status
+within_run_only,A,A_decoded_support,aggregated
+within_run_only,B,B_grn_generation_selection,aggregated
+within_run_only,C,C_grn_adaptation,aggregated
+within_run_only,D,D_layer_analysis,aggregated
+within_run_only,E,E_cross_model_synthesis,aggregated
+registered_threshold,preregistration,P3,hit
+registered_threshold,preregistration,P4,hit
+registered_threshold,preregistration,P5,hit
+registered_threshold,preregistration,P6,hit
+registered_threshold,preregistration,P7,miss
+registered_threshold,preregistration,R4,hit
+registered_threshold,preregistration,R5,hit

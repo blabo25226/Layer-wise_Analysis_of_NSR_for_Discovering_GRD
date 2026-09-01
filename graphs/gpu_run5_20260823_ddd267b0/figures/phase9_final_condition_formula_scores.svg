@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="410" viewBox="0 0 960 410">
+<rect width="100%" height="100%" fill="#fbfbf8"/>
+<text x="36" y="52" font-family="sans-serif" font-size="25" font-weight="bold">Frozen / continued / full / selective / random</text>
+<text x="42" y="95" font-family="monospace" font-size="15">main | frozen | exact=0.029901960784313727 | TED=0.4791681470787335 | valid=1.0</text>
+<text x="42" y="123" font-family="monospace" font-size="15">main | official_continued_full | exact=0.07303921568627451 | TED=0.46147034120653424 | valid=1.0</text>
+<text x="42" y="151" font-family="monospace" font-size="15">main | grn_full | exact=0.20147058823529412 | TED=0.3686524061512837 | valid=0.9715686274509804</text>
+<text x="42" y="179" font-family="monospace" font-size="15">main | grn_top3 | exact=0.13529411764705881 | TED=0.4611131384502525 | valid=0.9911764705882353</text>
+<text x="42" y="207" font-family="monospace" font-size="15">main | grn_random3_0 | exact=0.13431372549019607 | TED=0.4422260095332133 | valid=1.0</text>
+<text x="42" y="235" font-family="monospace" font-size="15">family_holdout | frozen | exact=0.0625 | TED=0.48817282143022617 | valid=1.0</text>
+<text x="42" y="263" font-family="monospace" font-size="15">family_holdout | official_continued_full | exact=0.14305555555555555 | TED=0.47044190846261275 | valid=1.0</text>
+<text x="42" y="291" font-family="monospace" font-size="15">family_holdout | grn_full | exact=0.1875 | TED=0.45672188415870146 | valid=1.0</text>
+<text x="42" y="319" font-family="monospace" font-size="15">family_holdout | grn_top3 | exact=0.05277777777777778 | TED=0.4914477317325233 | valid=1.0</text>
+<text x="42" y="347" font-family="monospace" font-size="15">family_holdout | grn_random3_0 | exact=0.034722222222222224 | TED=0.5019550468171464 | valid=1.0</text>
+</svg>

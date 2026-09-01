@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="360" viewBox="0 0 960 360">
+<rect width="100%" height="100%" fill="#fbfbf8"/>
+<text x="36" y="52" font-family="sans-serif" font-size="25" font-weight="bold">Layer intervention: ΔCE versus ΔTED</text>
+<text x="42" y="95" font-family="monospace" font-size="15">n_layers=16; blue=layer; dashed red is y=0</text>
+<rect x="90" y="148" width="820" height="177" fill="white" stroke="#555"/>
+<line x1="90.00" y1="325" x2="90.00" y2="330" stroke="#555"/>
+<text x="90.00" y="345" text-anchor="middle" font-family="sans-serif" font-size="11">-1.62</text>
+<line x1="85" y1="325.00" x2="90" y2="325.00" stroke="#555"/>
+<text x="80" y="329.00" text-anchor="end" font-family="sans-serif" font-size="11">-0.00238</text>
+<line x1="295.00" y1="325" x2="295.00" y2="330" stroke="#555"/>
+<text x="295.00" y="345" text-anchor="middle" font-family="sans-serif" font-size="11">-1.1</text>
+<line x1="85" y1="280.75" x2="90" y2="280.75" stroke="#555"/>
+<text x="80" y="284.75" text-anchor="end" font-family="sans-serif" font-size="11">0.13</text>
+<line x1="500.00" y1="325" x2="500.00" y2="330" stroke="#555"/>
+<text x="500.00" y="345" text-anchor="middle" font-family="sans-serif" font-size="11">-0.583</text>
+<line x1="85" y1="236.50" x2="90" y2="236.50" stroke="#555"/>
+<text x="80" y="240.50" text-anchor="end" font-family="sans-serif" font-size="11">0.262</text>
+<line x1="705.00" y1="325" x2="705.00" y2="330" stroke="#555"/>
+<text x="705.00" y="345" text-anchor="middle" font-family="sans-serif" font-size="11">-0.0656</text>
+<line x1="85" y1="192.25" x2="90" y2="192.25" stroke="#555"/>
+<text x="80" y="196.25" text-anchor="end" font-family="sans-serif" font-size="11">0.395</text>
+<line x1="910.00" y1="325" x2="910.00" y2="330" stroke="#555"/>
+<text x="910.00" y="345" text-anchor="middle" font-family="sans-serif" font-size="11">0.452</text>
+<line x1="85" y1="148.00" x2="90" y2="148.00" stroke="#555"/>
+<text x="80" y="152.00" text-anchor="end" font-family="sans-serif" font-size="11">0.527</text>
+<text x="500" y="359" text-anchor="middle" font-family="sans-serif" font-size="13">damage CE</text>
+<text x="18" y="236.50" text-anchor="middle" transform="rotate(-90 18 236.50)" font-family="sans-serif" font-size="13">failure-aware TED increase</text>
+<line x1="90" y1="324.20" x2="910" y2="324.20" stroke="#b33" stroke-dasharray="7,5"/>
+<text x="805" y="319.20" font-family="sans-serif" font-size="12" fill="#b33">reference: y=0</text>
+<circle cx="713.05" cy="317.18" r="4" fill="#2b6cb0"><title>encoder_0</title></circle>
+<circle cx="744.38" cy="307.33" r="4" fill="#2b6cb0"><title>encoder_1</title></circle>
+<circle cx="680.08" cy="325.00" r="4" fill="#2b6cb0"><title>encoder_2</title></circle>
+<circle cx="841.19" cy="278.94" r="4" fill="#2b6cb0"><title>encoder_3</title></circle>
+<circle cx="905.71" cy="324.20" r="4" fill="#2b6cb0"><title>decoder_0</title></circle>
+<circle cx="717.84" cy="324.20" r="4" fill="#2b6cb0"><title>decoder_1</title></circle>
+<circle cx="910.00" cy="324.20" r="4" fill="#2b6cb0"><title>decoder_2</title></circle>
+<circle cx="768.48" cy="184.87" r="4" fill="#2b6cb0"><title>decoder_3</title></circle>
+<circle cx="613.32" cy="293.06" r="4" fill="#2b6cb0"><title>decoder_4</title></circle>
+<circle cx="589.63" cy="315.45" r="4" fill="#2b6cb0"><title>decoder_5</title></circle>
+<circle cx="377.35" cy="324.20" r="4" fill="#2b6cb0"><title>decoder_6</title></circle>
+<circle cx="458.02" cy="323.21" r="4" fill="#2b6cb0"><title>decoder_7</title></circle>
+<circle cx="446.56" cy="320.27" r="4" fill="#2b6cb0"><title>decoder_8</title></circle>
+<circle cx="421.21" cy="324.33" r="4" fill="#2b6cb0"><title>decoder_9</title></circle>
+<circle cx="626.36" cy="324.20" r="4" fill="#2b6cb0"><title>decoder_10</title></circle>
+<circle cx="90.00" cy="148.00" r="4" fill="#2b6cb0"><title>decoder_11</title></circle>
+</svg>

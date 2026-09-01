@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="440" viewBox="0 0 960 440">
+<rect width="100%" height="100%" fill="#fbfbf8"/>
+<text x="36" y="52" font-family="sans-serif" font-size="25" font-weight="bold">Efficiency / recovery Pareto</text>
+<text x="42" y="95" font-family="monospace" font-size="15">frozen: trainable=0; mean training wall=0.000s; exact macro=0.0240</text>
+<text x="42" y="123" font-family="monospace" font-size="15">grn_full: trainable=60646773; mean training wall=222.163s; exact macro=0.1597</text>
+<text x="42" y="151" font-family="monospace" font-size="15">grn_random3_0: trainable=5521408; mean training wall=107.498s; exact macro=0.1076</text>
+<text x="42" y="179" font-family="monospace" font-size="15">grn_top3: trainable=11825664; mean training wall=16.312s; exact macro=0.1094</text>
+<text x="42" y="207" font-family="monospace" font-size="15">official_continued_full: trainable=60646773; mean training wall=220.240s; exact macro=0.0597</text>
+<rect x="90" y="260" width="820" height="145" fill="white" stroke="#555"/>
+<line x1="90.00" y1="405" x2="90.00" y2="410" stroke="#555"/>
+<text x="90.00" y="425" text-anchor="middle" font-family="sans-serif" font-size="11">0</text>
+<line x1="85" y1="405.00" x2="90" y2="405.00" stroke="#555"/>
+<text x="80" y="409.00" text-anchor="end" font-family="sans-serif" font-size="11">0.024</text>
+<line x1="295.00" y1="405" x2="295.00" y2="410" stroke="#555"/>
+<text x="295.00" y="425" text-anchor="middle" font-family="sans-serif" font-size="11">1.52e+07</text>
+<line x1="85" y1="368.75" x2="90" y2="368.75" stroke="#555"/>
+<text x="80" y="372.75" text-anchor="end" font-family="sans-serif" font-size="11">0.0579</text>
+<line x1="500.00" y1="405" x2="500.00" y2="410" stroke="#555"/>
+<text x="500.00" y="425" text-anchor="middle" font-family="sans-serif" font-size="11">3.03e+07</text>
+<line x1="85" y1="332.50" x2="90" y2="332.50" stroke="#555"/>
+<text x="80" y="336.50" text-anchor="end" font-family="sans-serif" font-size="11">0.0918</text>
+<line x1="705.00" y1="405" x2="705.00" y2="410" stroke="#555"/>
+<text x="705.00" y="425" text-anchor="middle" font-family="sans-serif" font-size="11">4.55e+07</text>
+<line x1="85" y1="296.25" x2="90" y2="296.25" stroke="#555"/>
+<text x="80" y="300.25" text-anchor="end" font-family="sans-serif" font-size="11">0.126</text>
+<line x1="910.00" y1="405" x2="910.00" y2="410" stroke="#555"/>
+<text x="910.00" y="425" text-anchor="middle" font-family="sans-serif" font-size="11">6.06e+07</text>
+<line x1="85" y1="260.00" x2="90" y2="260.00" stroke="#555"/>
+<text x="80" y="264.00" text-anchor="end" font-family="sans-serif" font-size="11">0.16</text>
+<text x="500" y="439" text-anchor="middle" font-family="sans-serif" font-size="13">trainable parameters</text>
+<text x="18" y="332.50" text-anchor="middle" transform="rotate(-90 18 332.50)" font-family="sans-serif" font-size="13">exact recovery macro</text>
+<circle cx="90.00" cy="405.00" r="4" fill="#2b6cb0"><title>frozen</title></circle>
+<circle cx="910.00" cy="260.00" r="4" fill="#2b6cb0"><title>grn_full</title></circle>
+<circle cx="164.65" cy="315.63" r="4" fill="#2b6cb0"><title>grn_random3_0</title></circle>
+<circle cx="249.89" cy="313.77" r="4" fill="#2b6cb0"><title>grn_top3</title></circle>
+<circle cx="910.00" cy="366.80" r="4" fill="#2b6cb0"><title>official_continued_full</title></circle>
+</svg>
