@@ -63,6 +63,10 @@ results/GPU_RUN1_drive/
 # which requires a completely clean working tree.
 graphs/*_smoke/
 graphs/gpu_smoke_*/
+# Phase 9 keeps every physical failure event locally.  The export is tens of
+# megabytes and reproducible from the signed, gitignored run shards; commit the
+# compact failure funnel and provenance map instead.
+graphs/gpu_run5_*/tables/phase9_failure_events.csv
 results/published/*_smoke/
 results/synthetic/_test_tmp/
 .claude/*

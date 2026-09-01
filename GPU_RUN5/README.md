@@ -62,3 +62,5 @@ Phase 9は次の5結果を別レポートとして生成する。GPU_RUN2 / RUN3
 `results/runs/<run-id>/phase9/preregistration_outcome.json`、図表は
 `graphs/<run-id>/figures/` と `graphs/<run-id>/tables/` に生成する。成功式だけでなく、
 真式、生の予測式、変数名対応、構造metric、failure reasonを表へ残す。
+問題単位の全failure event CSVは約58 MBの再生成可能なローカル成果物なのでGit管理外とし、
+署名済みrun shard、compactなfailure funnel、図表provenanceをGitで保持する。

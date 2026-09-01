@@ -768,6 +768,10 @@ def test_phase9_entrypoint_writes_reports_tables_figures_and_manifest(tmp_path: 
     assert (reports / "GPU_RUN5_cross_model_synthesis.md").is_file()
     assert len(list((graphs / "figures").glob("*.svg"))) == 10
     assert len(list((graphs / "tables").glob("*.csv"))) == 7
+    assert all(
+        b"\r\n" not in path.read_bytes()
+        for path in (graphs / "tables").glob("*.csv")
+    )
 
 
 @pytest.mark.parametrize("mutation", ["duplicate", "traversal", "size", "sha"])

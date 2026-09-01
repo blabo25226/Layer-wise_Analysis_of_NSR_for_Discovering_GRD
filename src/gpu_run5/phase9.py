@@ -2166,7 +2166,12 @@ def write_csv(path: Path, rows: Sequence[Mapping[str, Any]], *, fields: Sequence
     if fields is None:
         fields = sorted({str(key) for row in rows for key in row})
     with path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=list(fields), extrasaction="ignore")
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=list(fields),
+            extrasaction="ignore",
+            lineterminator="\n",
+        )
         writer.writeheader()
         for row in rows:
             writer.writerow({key: json.dumps(value, ensure_ascii=False, sort_keys=True) if isinstance(value, (dict, list)) else value for key, value in row.items()})
