@@ -811,7 +811,8 @@ def test_failure_analysis_has_nonduplicated_event_and_funnel_layers(tmp_path: Pa
         run, 6, "cell_artifact_index.json", [failed_cell],
         {"summary.json": {"expected_counts": {"all_decode_cells_total": 1}}},
     )
-    analysis = failure_analysis(Catalog(run))
+    catalog = Catalog(run)
+    analysis = failure_analysis(catalog)
     assert analysis["coverage_pass"] is True
     assert analysis["event_identity_unique"] is True
     assert analysis["selected_is_attribute_not_event"] is True
@@ -850,6 +851,35 @@ def test_full_mode_phase8_validation_uses_correct_registered_count(tmp_path: Pat
     row = analysis["index_coverage"][0]
     assert row["expected_shards"] == 20736
     assert row["pass"] is False
+
+
+def test_full_mode_odebench_forgetting_is_stream_verified(tmp_path: Path) -> None:
+    run = tmp_path / "run"
+    _indexed_cells(
+        run, 8, "odebench_forgetting_index.json", [_cell(0)],
+        {
+            "validation_summary.json": {
+                "mode": "full", "expected_counts": {"all_decode_cells_total": 20736}
+            },
+            "odebench_forgetting_audit.json": {
+                "expected_cells_total": 1, "observed_cells_total": 1, "pass": True
+            },
+        },
+        substage="final-test",
+    )
+    catalog = Catalog(run)
+    analysis = failure_analysis(catalog)
+    row = analysis["index_coverage"][0]
+    assert row["index"] == "odebench_forgetting_index.json"
+    assert row["verified_shards"] == 1
+    assert row["expected_shards"] == 3780
+    assert row["pass"] is False
+    audit_row = next(
+        item for item in catalog.audit
+        if item.get("name") == "odebench_forgetting_index.json"
+        and item.get("status") == "indexed_shards_verified"
+    )
+    assert audit_row["verified_shard_count"] == 1
 
 
 def test_terminal_uncertainty_uses_signed_three_seed_component_shards(tmp_path: Path) -> None:

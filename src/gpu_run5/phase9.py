@@ -1401,7 +1401,11 @@ def failure_analysis(catalog: Catalog) -> dict[str, Any]:
     index_names = {
         6: ("cell_artifact_index.json",),
         7: ("cell_artifact_index.json",),
-        8: ("validation_cell_artifact_index.json", "final_cell_artifact_index.json"),
+        8: (
+            "validation_cell_artifact_index.json",
+            "final_cell_artifact_index.json",
+            "odebench_forgetting_index.json",
+        ),
     }
     index_coverage: list[dict[str, Any]] = []
     representative_formulas: dict[tuple[int, str], dict[str, Any]] = {}
@@ -1708,6 +1712,7 @@ def failure_analysis(catalog: Catalog) -> dict[str, Any]:
         (7, "cell_artifact_index.json"): 26112,
         (8, "validation_cell_artifact_index.json"): 20736,
         (8, "final_cell_artifact_index.json"): 6000,
+        (8, "odebench_forgetting_index.json"): 3780,
     }
     for phase in (6, 7):
         summary_art = catalog.artifact(phase, "summary.json")
@@ -1748,6 +1753,23 @@ def failure_analysis(catalog: Catalog) -> dict[str, Any]:
         if isinstance(validation, Mapping) and validation.get("mode") == "full"
         else int(expected_final)
         if isinstance(expected_final, int) and not isinstance(expected_final, bool)
+        else None
+    )
+    forgetting_audit_art = catalog.artifact(8, "odebench_forgetting_audit.json")
+    forgetting_audit = (
+        forgetting_audit_art.value if forgetting_audit_art is not None else None
+    )
+    expected_forgetting = (
+        forgetting_audit.get("expected_cells_total")
+        if isinstance(forgetting_audit, Mapping)
+        else None
+    )
+    expected_by_index[(8, "odebench_forgetting_index.json")] = (
+        registered_full_counts[(8, "odebench_forgetting_index.json")]
+        if isinstance(validation, Mapping) and validation.get("mode") == "full"
+        else int(expected_forgetting)
+        if isinstance(expected_forgetting, int)
+        and not isinstance(expected_forgetting, bool)
         else None
     )
     for row in index_coverage:

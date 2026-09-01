@@ -4,6 +4,25 @@ GPU_RUN5は、公開ODEFormer（4 encoder + 12 decoder、約61M）を閉じたHi
 多軌道候補選択、formula-level層ranking、介入後decodeを接続する実験である。
 計画正本は [`plan.md`](plan.md)、実験前固定値は [`preregistration.json`](preregistration.json) に置く。
 
+## 完了状態と主結果
+
+固定run `gpu_run5_20260823_ddd267b0` は、2026年9月1日にPhase 0–9まで完了した。
+Phase 8はvalidation 20,736 cellを使ってGo 6 / Go 7を通過した後、sealed testを一度だけ開いた。
+final testはGRN 6,000 cellとODEBench forgetting 3,780 cellを完了し、開封台帳は
+`open_count=1`、`resume_count=0`である。Phase 9はPhase 6–8の署名済みshardを実ファイルまで検証し、
+前向き予測とretrospective hypothesisを **6 hit / 1 miss / 0 undecidable** と判定した。
+
+- hit: P3、P4、P5、P6、R4、R5
+- miss: P7。`grn_top3`はODEBench forgettingを`grn_full`より抑えたが、GRN testのformula scoreでは`grn_full`を上回らなかった。
+- Go 8: **NO-GO**。R03–R08の非自明構造でexact回復がなく、family-holdoutでtop3改善がなく、
+  main generalization NRMSE比が1.6275で事前上限1.10を超えた。
+- Go 8の事前固定停止に従い、DREAM4・実データへの追加実験は行っていない。性能不足をデータ側の難しさと混同しない。
+
+したがって、選択的fine-tuningの忘却抑制は観測されたものの、全層GRN適応を上回るformula recoveryや
+未知の生物学的方程式発見は支持されなかった。これは欠損したrunではなく、一度限りのtestを保持した負／混合結果である。
+実行正本は `results/runs/gpu_run5_20260823_ddd267b0/`、図表とprovenanceは
+[`graphs/gpu_run5_20260823_ddd267b0/`](../graphs/gpu_run5_20260823_ddd267b0/) にある。
+
 ## 実行
 
 Python 3.10の`lansr310`環境とCUDA GPUを使う。
