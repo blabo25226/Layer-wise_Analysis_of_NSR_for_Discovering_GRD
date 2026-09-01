@@ -22,6 +22,8 @@ final testはGRN 6,000 cellとODEBench forgetting 3,780 cellを完了し、開�
 未知の生物学的方程式発見は支持されなかった。これは欠損したrunではなく、一度限りのtestを保持した負／混合結果である。
 実行正本は `results/runs/gpu_run5_20260823_ddd267b0/`、図表とprovenanceは
 [`graphs/gpu_run5_20260823_ddd267b0/`](../graphs/gpu_run5_20260823_ddd267b0/) にある。
+目的、方法、結果、考察、限界を一つにまとめた報告は
+[`GPU_RUN5_experiment_summary_report.md`](GPU_RUN5_experiment_summary_report.md) を参照する。
 
 ## 実行
 
