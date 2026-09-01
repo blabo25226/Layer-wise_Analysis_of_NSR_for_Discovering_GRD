@@ -1176,6 +1176,7 @@ def aggregate_results(catalog: Catalog, prereg: Mapping[str, Any], cross_run: Ma
     phase8_final = catalog.artifact(8, "final_result.json")
     go6 = catalog.artifact(8, "go6.json")
     go7 = catalog.artifact(8, "go7.json")
+    go8 = catalog.artifact(8, "go8.json")
     failure = failure_analysis(catalog)
     uncertainty = condition_uncertainty(catalog)
     support_result = (
@@ -1239,6 +1240,7 @@ def aggregate_results(catalog: Catalog, prereg: Mapping[str, Any], cross_run: Ma
             ),
             "go6": go6.value if go6 is not None else None,
             "go7": go7.value if go7 is not None else None,
+            "go8": go8.value if go8 is not None else None,
             "sealed_test_remained_unopened": phase8_final is None,
             "uncertainty": uncertainty,
             "condition_metrics": condition_rows(catalog),
@@ -1704,7 +1706,7 @@ def failure_analysis(catalog: Catalog) -> dict[str, Any]:
     registered_full_counts = {
         (6, "cell_artifact_index.json"): 7992,
         (7, "cell_artifact_index.json"): 26112,
-        (8, "validation_cell_artifact_index.json"): 17496,
+        (8, "validation_cell_artifact_index.json"): 20736,
         (8, "final_cell_artifact_index.json"): 6000,
     }
     for phase in (6, 7):
@@ -2418,6 +2420,22 @@ def render_reports(
     c = results["C_grn_adaptation"]
     d = results["D_layer_analysis"]
     e = results["E_cross_model_synthesis"]
+    go8 = c.get("go8") if isinstance(c, Mapping) else None
+    if isinstance(go8, Mapping) and go8.get("pass") is False:
+        progression_note = (
+            "**Go 8 は NO-GO だったため、DREAM4・実データへの追加実験は実施しなかった。** "
+            "性能不足をデータ側の難しさと混同しないための事前固定停止であり、"
+            "Phase 8の一度限りのfinal testは負／混合結果として保持する。"
+        )
+    elif isinstance(go8, Mapping) and go8.get("pass") is True:
+        progression_note = (
+            "**Go 8 はGOだった。** DREAM4・実データへの進行可否と実施状況は、"
+            "それぞれの署名済み成果物を根拠に別途報告する。"
+        )
+    else:
+        progression_note = (
+            "**Go 8は未判定であり、DREAM4・実データへの追加実験は実施していない。**"
+        )
     example_lines = [
         f"| {_md_cell(row.get('category'))} | {_md_cell(row.get('cell_id'))} | `{_md_cell(row.get('true_formula'))}` | `{_md_cell(row.get('predicted_formula_raw'))}` | {_md_cell(_fmt(row.get('failure_reason')))} |"
         for row in examples
@@ -2487,6 +2505,8 @@ def render_reports(
 
 Run: `{run_id}`。数値はmanifest hashで検証した保存済みrecordだけから生成した。
 
+{progression_note}
+
 ## 事実
 
 - candidate数: {_fmt(a.get('candidate_count') if isinstance(a, Mapping) else None)}
@@ -2517,6 +2537,8 @@ beam budgetを変える追試は次runとして事前固定し、本runへ事後
         "GPU_RUN5_grn_benchmark_report.md": f"""# GPU_RUN5 GRN benchmark report（Result B）
 
 Run: `{run_id}`。
+
+{progression_note}
 
 ## 事実
 
@@ -2554,6 +2576,8 @@ failure-aware penaltyを主集計へ含め、valid式だけの条件付き性能
 
 Run: `{run_id}`。
 
+{progression_note}
+
 ## 事実
 
 - Phase 6: {_fmt((c.get('phase6') or {}).get('status'))}
@@ -2561,6 +2585,7 @@ Run: `{run_id}`。
 - Phase 8 validation: {_fmt((c.get('phase8_validation') or {}).get('status'))}
 - Go 6: `{json.dumps(c.get('go6'), ensure_ascii=False, sort_keys=True)}`
 - Go 7: `{json.dumps(c.get('go7'), ensure_ascii=False, sort_keys=True)}`
+- Go 8: `{json.dumps(c.get('go8'), ensure_ascii=False, sort_keys=True)}`
 - Phase 8 final: {_fmt((c.get('phase8_final') or {}).get('status'))}
 - sealed test remained unopened: {_fmt(c.get('sealed_test_remained_unopened'))}
 - P7: **{out['P7']['outcome']}**、観測値: `{json.dumps(out['P7']['observed'], ensure_ascii=False, sort_keys=True)}`
@@ -2590,6 +2615,8 @@ Go 6不成立でtestを開かなかった場合、P3/P4/P7を埋めるためだ�
         "GPU_RUN5_layer_analysis_report.md": f"""# GPU_RUN5 layer analysis report（Result D）
 
 Run: `{run_id}`。
+
+{progression_note}
 
 ## 事実
 
@@ -2628,6 +2655,8 @@ exact lossが全層tieの場合、TED/validが順位を決める。少数panel�
         "GPU_RUN5_cross_model_synthesis.md": f"""# GPU_RUN5 cross-model synthesis（Result E）
 
 Run: `{run_id}`。対象はGPU_RUN2 NeSymReS、GPU_RUN3 NDformer、GPU_RUN4/5 ODEFormerである。
+
+{progression_note}
 
 ## 事実
 

@@ -837,6 +837,21 @@ def test_full_mode_coverage_uses_registered_counts_not_self_report_only(tmp_path
     assert analysis["coverage_pass"] is False
 
 
+def test_full_mode_phase8_validation_uses_correct_registered_count(tmp_path: Path) -> None:
+    run = tmp_path / "run"
+    _indexed_cells(
+        run, 8, "validation_cell_artifact_index.json", [_cell(0)],
+        {"validation_summary.json": {
+            "mode": "full", "expected_counts": {"all_decode_cells_total": 1}
+        }},
+        substage="validation",
+    )
+    analysis = failure_analysis(Catalog(run))
+    row = analysis["index_coverage"][0]
+    assert row["expected_shards"] == 20736
+    assert row["pass"] is False
+
+
 def test_terminal_uncertainty_uses_signed_three_seed_component_shards(tmp_path: Path) -> None:
     run = tmp_path / "run"
     cells = [_cell(0), _cell(1), _cell(2, failure=True)]
@@ -950,7 +965,10 @@ def test_report_escapes_formula_pipes_and_labels_gpu2_robustness(tmp_path: Path)
     }
     results = {
         "A_decoded_support": {}, "B_grn_generation_selection": {},
-        "C_grn_adaptation": {"condition_metrics": []},
+        "C_grn_adaptation": {
+            "condition_metrics": [],
+            "go8": {"pass": False},
+        },
         "D_layer_analysis": {},
         "E_cross_model_synthesis": {"rows": [{
             "run": "GPU_RUN2", "model": "NeSymReS", "generation": "old|generation",
@@ -972,6 +990,9 @@ def test_report_escapes_formula_pipes_and_labels_gpu2_robustness(tmp_path: Path)
     cross = reports["GPU_RUN5_cross_model_synthesis.md"]
     assert "old\\|generation" in cross
     assert "robustness_least_damage" in cross
+    for report in reports.values():
+        assert "Go 8 は NO-GO" in report
+        assert "DREAM4・実データへの追加実験は実施しなかった" in report
 
 
 def test_signed_index_rejects_symlink_shard(tmp_path: Path) -> None:
