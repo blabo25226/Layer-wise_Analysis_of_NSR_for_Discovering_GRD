@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C /home/blabo/Layer-wise_Analysis_of_NSR_for_Discovering_GRD log --oneline -1 --stat)",
+      "Bash(python -c ' *)"
+    ]
+  }
+}
