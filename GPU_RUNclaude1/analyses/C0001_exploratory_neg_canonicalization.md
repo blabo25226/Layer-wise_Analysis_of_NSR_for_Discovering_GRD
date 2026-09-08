@@ -74,8 +74,48 @@ with a clustered confidence interval, with this exploratory value disclosed as p
 with the *system-level* rate as the primary endpoint (which I have seen only as 0/960, consistent with
 the already-published GPU_RUN5 value, so no new information was gained there).
 
-Also note for Part B: **0/960 truth skeletons contain `pow2`**, and the truth vocabulary contains only
-`pow,2` (2376 occurrences), never `pow,4`. The validation truths in this corpus realize Hill exponents
-1 and 2, not 4. The multiplicative-Hill-4 unary-budget argument (5 non-identity unaries vs
-`max_unary_ops_per_dim = 3`) therefore applies to **fewer systems than assumed**, and Part B must count
-the actual realized exponents rather than the configured `hill_exponents: [1, 2, 4]`.
+Also note for Part B: see the CORRECTION below. My original note here claimed the corpus realized only
+Hill exponents 1 and 2. That claim was wrong and is retracted.
+
+---
+
+# CORRECTION (2026-09-09) — retraction of the "no Hill exponent 4" claim
+
+**Retracted claim** (mine, written before verification): "0/960 truth skeletons contain `pow2`; the
+validation truths realize Hill exponents 1 and 2, not 4."
+
+**This was a detection artifact of my own search, not a property of the corpus.** I grepped canonical
+skeletons for the literal token `pow2` and for the token `4`. Neither ever appears, because:
+
+- the corpus writes Hill-4 as `((x_i)**2)**2` (nested squaring), never `x_i**4`;
+- the canonicalizer rewrites `pow2(X)` to `pow(X,2)`, so the literal string `pow2` is absent from every
+  canonical skeleton by construction.
+
+Hill exponent 4 is spelled `pow,pow,x_i,2,2`, which my search could not see.
+
+**Verified counts** (one cell per system, `*_validation_*b0_n0_r0.json`; 80 systems, 170 components):
+
+| quantity | value |
+|---|---|
+| components containing nested `pow,pow` | **39 / 170 = 22.9%** |
+| systems with >= 1 nested-`pow` component | **24 / 80 = 30.0%** |
+| literal `pow2` token present anywhere | False |
+| literal `4` token present anywhere | False |
+
+Nested-`pow` components by family: R01 3/10, R02 3/10, R03 6/20, R04 3/20, R05 6/20, R06 9/30,
+R07 6/30, R08 3/30.
+
+Representative R01 truth:
+`0.1791 + 2.05 * ((x_0)**2)**2 * 1/(1.676 + ((x_0)**2)**2) + -1 * 0.7968 * x_0`
+-> `add,add,CONST,mul,mul,CONST,inv,add,CONST,pow,pow,x_0,2,2,pow,pow,x_0,2,2,neg,mul,CONST,x_0`
+
+**Consequence: E1' (generator-support exclusion) is LIVE, not inapplicable.** Multiplicative Hill-4
+needs 5 non-identity unaries against `max_unary_ops_per_dim = 3`. Stage 3 established further that
+over-budget counts reach 6 and 10, because multi-term components exceed the budget even at exponent 2,
+where affine decomposition does not rescue them. Part B counts realized per-dimension unary usage from
+the stored truths, as the frozen preregistration specifies.
+
+**Methodological lesson for this campaign**: never test for an operator by searching for its surface
+token in a canonicalized string. Count structure on the parsed tree, or search for the canonical form
+the rewriter actually emits. The same error class would silently understate operator usage anywhere
+else in this pipeline.
