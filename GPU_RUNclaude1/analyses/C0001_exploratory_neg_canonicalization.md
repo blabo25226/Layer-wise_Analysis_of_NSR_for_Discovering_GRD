@@ -1,5 +1,15 @@
 # C0001 — EXPLORATORY diagnostic: `neg` canonicalization asymmetry in the truth-in-beam matcher
 
+> **RETRACTED IN PART — see [`C0001_RETRACTION_neg_finding.md`](C0001_RETRACTION_neg_finding.md).**
+> The claim that the frozen matcher scored 107 component matches as misses is **false**. The stored
+> truth skeleton is prefix-derived (960/960) while candidates are infix-derived (0/960), so the
+> "raw 0/2040" baseline below measured my own representation mismatch. The 107/2040 = 0.0525 figure
+> is GPU_RUN5's **already-published** value, stored in
+> `phase3/beam_groups.json:component_true_exponent_aware_skeleton_in_beam`. Explanation E0 loses its
+> component-level support. The `neg` asymmetry between the two encodings is real; it is not a defect
+> in GPU_RUN5's measurement. Read the retraction before relying on anything below.
+
+
 **LABEL: EXPLORATORY.** Run by the supervisor on 2026-09-09 *before* the C0001 preregistration was
 frozen, as a feasibility probe on whether the planned Part A measurement is well-posed. It is **not**
 a confirmatory C0001 result and must be disclosed as prior information in

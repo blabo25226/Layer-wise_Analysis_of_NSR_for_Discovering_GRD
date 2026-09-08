@@ -1,5 +1,15 @@
 # C0001 Stage 1 — pre-preregistration observation (expressibility check)
 
+> **RETRACTED IN PART — see [`C0001_RETRACTION_neg_finding.md`](C0001_RETRACTION_neg_finding.md).**
+> The claim that the frozen matcher scored 107 component matches as misses is **false**. The stored
+> truth skeleton is prefix-derived (960/960) while candidates are infix-derived (0/960), so the
+> "raw 0/2040" baseline below measured my own representation mismatch. The 107/2040 = 0.0525 figure
+> is GPU_RUN5's **already-published** value, stored in
+> `phase3/beam_groups.json:component_true_exponent_aware_skeleton_in_beam`. Explanation E0 loses its
+> component-level support. The `neg` asymmetry between the two encodings is real; it is not a defect
+> in GPU_RUN5's measurement. Read the retraction before relying on anything below.
+
+
 **Status**: exploratory, zero-compute, read-only re-analysis of an **already-stored field** in
 GPU_RUN5's train/validation splits. No test data touched. Recorded before preregistration so that it
 cannot be presented later as a confirmatory result.

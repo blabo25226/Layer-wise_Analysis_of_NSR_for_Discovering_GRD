@@ -30,9 +30,14 @@ The autonomous loop does not wait on this queue unless a hard stop is triggered.
   in-support operators. Yet GPU_RUN5 measured
   `true_exponent_aware_skeleton_in_beam_rate = 0.0` over 960 cells / 47,987 candidates.
 - This is a clean dissociation: neither expressibility nor operator support explains the GRN generation
-  failure. It leaves exactly two live explanations (prior mass vs search budget), which C0001 is designed
-  to discriminate.
-- status: informational; this is the motivation for C0001. Loop is NOT blocked.
+  failure at the system level.
+- **CORRECTION 2026-09-09**: an earlier version of this entry also claimed the component-level rate was
+  biased to zero by the matcher. **That claim is retracted** — see
+  `GPU_RUNclaude1/analyses/C0001_RETRACTION_neg_finding.md`. GPU_RUN5 had already measured and stored
+  the component-level rate as 107/2040 = 0.0525 in `phase3/beam_groups.json`; the supervisor's "0/2040"
+  baseline was an artifact of comparing prefix-derived truths against infix-derived candidates. The
+  expressibility half of this entry (560/560 encodable) is unaffected and stands.
+- status: informational; the surviving system-level dissociation motivates C0001. Loop is NOT blocked.
 
 ## Normal priority
 
@@ -52,6 +57,17 @@ The autonomous loop does not wait on this queue unless a hard stop is triggered.
 - `results/runs/gpu_run4_phase0_01/manifest.json` status is stuck at `running`, commit `0641fa7`.
 - Both are human-led-track artifacts. Per rule 00 the autonomous track must not rewrite GPU_RUN1-5
   history, so these are reported rather than edited.
+
+### HRQ-0006 — Supervisor retraction: the `neg`-canonicalization finding was an analysis artifact
+- raised: 2026-09-09, C0001 Stage 3, found by the reproducibility auditor and verified by the supervisor
+- evidence: `GPU_RUNclaude1/analyses/C0001_RETRACTION_neg_finding.md`
+- Logged here for visibility because the retracted claim reached a commit message (`bfbf727`) and
+  briefly reframed the cycle's design. Two compounding supervisor errors: comparing string
+  representations without checking they shared a derivation path, and not grepping the source run's
+  own artifacts for the quantity being "discovered".
+- A standing campaign rule was added to `research_state.md` §8 as a result.
+- status: self-reported, corrected before any experiment ran. No result was published on it. Loop is
+  NOT blocked.
 
 ## Reviewed
 None.

@@ -305,6 +305,42 @@ runtime dependency.
 
 None of these are hard stops. Items 1, 2 and 4 are safe to fix inside a cycle.
 
+6. **`pytest GPU_RUN5/tests` fails collection without `PYTHONPATH=.`** — 6 files raise
+   `ModuleNotFoundError: No module named 'scripts'`, including `test_gpu_run5_phase8.py`, which holds
+   the actual sealed-test firewall-ordering assertions. With `PYTHONPATH=.` all 124 collect and the 4
+   firewall tests pass. So the defect-1 fix needs `pythonpath = .` in `pytest.ini`, not just the extra
+   testpath. (Found in C0001 Stage 3 reproducibility audit.)
+7. **`scripts/ops/run_manifest.py:28 tree_sha256` byte-reads every file under a `--data-path` via
+   `rglob("*")`.** Pointing it at a GPU_RUN5 run directory would open all three sealed test artifacts,
+   including the campaign's only **unspent** seal. GPU_RUN5's own phase 8 treats hashing sealed bytes as
+   the test-open event. Any C0001 manifest call must pass an explicit narrow path list, never the run
+   root. (Found in C0001 Stage 3 reproducibility audit; leakage-relevant.)
+8. **`src/gpu_run4/formulas.py` CAS equivalence has a silent-failure surface.**
+   `SYMPY_MAX_NODES = 40` is a *combined* truth+candidate node budget and `formulas.py:434` returns
+   `0.0, None` on exceeding it — no failure reason recorded. Asked whether a GRN truth equals *itself*,
+   the CAS path answers no for 52/80 systems (R05-R08: 0/10 each); over 3,000 real pairs 55.1% exceed
+   the cap (R06/R07/R08 at 100%). Every bare `except Exception` in that path likewise returns an
+   unlabelled non-match. This is *conservative for a recovery score* but **anti-conservative for any
+   null-shaped claim**, and no monotonicity or failure-budget check can detect it because a spuriously
+   empty result is monotonicity-consistent. Must be fixed or explicitly bounded before any CAS-based
+   null is reported. (Found in C0001 Stage 3 reproducibility audit.)
+
+---
+
+## 8b. Standing campaign rules adopted from cycle experience
+
+**R1 (adopted 2026-09-09, C0001, after a supervisor retraction).**
+Before reporting any re-measurement of a prior run as new:
+(a) verify that both sides of any comparison come from the **same derivation path** — do not compare a
+prefix-derived string against an infix-derived string, and do not test for an operator by searching a
+canonicalized string for its surface token; and
+(b) **grep the source run's stored artifacts for the quantity itself** before claiming to have measured
+it. Re-deriving an already-published number is a *positive control*, not a finding, and should be run
+and labeled as such.
+Origin: `GPU_RUNclaude1/analyses/C0001_RETRACTION_neg_finding.md`. Two errors of exactly this shape
+occurred in C0001 Stage 1 (the `pow2` surface-token search and the prefix-vs-infix skeleton comparison).
+
+
 ---
 
 ## 9. Hard-stop status
