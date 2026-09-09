@@ -43,7 +43,28 @@ back. Prefer appending to a dated running log over rewriting history, so a revie
 campaign's understanding changed. State negative and null results as plainly as positive ones, and
 never quietly drop a retraction from the body once it has appeared there.
 
-Use `gh pr edit <n> --body-file <path>`. Write the body to the scratchpad, not into the repository.
+### Mechanics — `gh pr edit --body-file` can silently fail
+
+Observed 2026-09-09 with gh 2.46.0: `gh pr edit 4 --body-file <path>` exited without error (emitting
+only an unrelated Projects-classic deprecation notice) yet **left the body empty**. Reading it back
+and appending then destroyed the description outright.
+
+Use the REST API instead, and always verify:
+
+```bash
+python3 -c "import json;json.dump({'body':open('BODY.md').read()},open('P.json','w'))"
+gh api -X PATCH repos/<owner>/<repo>/pulls/<n> --input P.json --jq '.body | length'
+gh api repos/<owner>/<repo>/pulls/<n> --jq '.body' | wc -c      # confirm non-trivial
+```
+
+Rules that follow from this:
+
+- **Never append to a body you have not verified you actually read.** A read that returns one byte is
+  a failed read, not an empty description. Check the byte count before appending.
+- **Always verify after writing**, by reading the body back and confirming a plausible length.
+- **Keep the full assembled body in the scratchpad** (`pr4_body.md` + the running log), so the
+  description can be reconstructed if a write clobbers it. Write bodies to the scratchpad, never into
+  the repository.
 
 ## Relationship to the commit-message rule
 
