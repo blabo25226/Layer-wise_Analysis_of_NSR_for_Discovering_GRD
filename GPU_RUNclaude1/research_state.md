@@ -286,11 +286,19 @@ runtime dependency.
 
 ## 8. Known defects and cheap fixes (candidates for safe repo-level changes)
 
-1. **`pytest.ini` omits `GPU_RUN5/tests`.** `testpaths = tests GPU_RUN1/tests GPU_RUN2/tests
-   GPU_RUN3/tests GPU_RUN4/tests` collects 178 tests; `GPU_RUN5/tests` collects a further **124** on its
-   own, including `test_gpu_run5_firewall.py`. A bare `pytest` run therefore silently skips the newest and
-   most firewall-sensitive coverage. One-line fix.
-2. `assets/nd2/weights/checkpoint.pth` has no recorded SHA256 anywhere.
+1. ~~**`pytest.ini` omits `GPU_RUN5/tests`.**~~ **FIXED (C0001)**: `GPU_RUN5/tests` added to
+   `testpaths` and `pythonpath = .` added. The default suite now runs **301 passed, 1 skipped**
+   (the skip is the optional DREAM4 archive), up from 178 collected, so the 124 GPU_RUN5 tests
+   including the sealed-test firewall coverage now execute by default.
+   Note on the audit's related claim: `ModuleNotFoundError: No module named 'scripts'` did **not**
+   reproduce here — `GPU_RUN5/tests` collected 124 and passed 124 bare, because
+   `GPU_RUN5/tests/conftest.py` inserts `src/` on `sys.path`. It does not insert the repo root, which is
+   the latent fragility, so `pythonpath = .` was added defensively to make that assumption explicit
+   rather than to fix an observed failure.
+2. ~~`assets/nd2/weights/checkpoint.pth` has no recorded SHA256 anywhere.~~ **FIXED (C0001)**: recorded
+   as `619d419b449a309c97d5b9ab6b8c9f53c91b45a409a3a9bf5b6ac79cb4f625d4` (81,136,260 B) in
+   `assets/nd2/README.md`. Identity record for the artifact on disk, not verification against an
+   upstream published checksum.
 3. `GPU_RUN5/README.md` and `GPU_RUN5_summary_report.md` §9.1 link six report filenames that do not exist
    (`GPU_RUN5_experiment_summary_report.md`, `..._decoded_support_report.md`, `..._grn_benchmark_report.md`,
    `..._grn_adaptation_report.md`, `..._layer_analysis_report.md`, `..._cross_model_synthesis.md`).
