@@ -393,6 +393,15 @@ negative-control cases were commutative no-ops where matching is correct) had ex
 Corollary adopted with it: run the control battery **before** the expensive endpoint pass, so a
 hard-abort costs the battery rather than the whole budget.
 
+**R4 (adopted 2026-09-09, C0001, from the PC2b discrepancy).**
+A control's reduction level must match its endpoint's reduction level. Scoring a *system* while
+counting *components* lets untouched components match themselves and inflates the result to a
+trivial-match count reported against the wrong denominator. State each control's unit explicitly, and
+when a rewrite or alteration fires on only part of a system, compare **only the parts where it fired**.
+Corollary: any rewrite used by both a control and a reported endpoint must be identity-verified per
+instance, because a rewrite that is not an identity corrupts both.
+Origin: `GPU_RUNclaude1/analyses/C0001_pc2b_discrepancy_resolution.md`.
+
 **R3 (adopted 2026-09-09, C0001).**
 Before asserting that a sealed or otherwise restricted artifact is untouched, verify how its recorded
 digest was produced. A hash present in a run's metadata may have been computed by the producing phase
