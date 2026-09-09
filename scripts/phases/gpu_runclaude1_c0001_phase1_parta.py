@@ -313,6 +313,8 @@ def main() -> int:
                     "bound_of_record_method": primary.bound_of_record_method,
                     "could_not_evaluate_rate": primary.could_not_evaluate_rate,
                     "sensitivity_agrees": primary.sensitivity_agrees,
+                    "sensitivity_verdict_non_match_direction": primary.sensitivity_verdict_non_match_direction,
+                    "sensitivity_verdict_match_direction": primary.sensitivity_verdict_match_direction,
                     "verdict_scope_sentence": (
                         "conditional on the single initial condition per system stored in GPU_RUN5 "
                         "phase 3, and on the 10 distinct conditioning payloads its 12 cells realize; "

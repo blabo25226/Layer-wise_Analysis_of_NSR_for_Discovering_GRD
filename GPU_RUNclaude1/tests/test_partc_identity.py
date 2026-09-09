@@ -8,6 +8,7 @@ from gpu_runclaude1.partc import (
     audit_reencoding_roundtrip,
     cell_input_payload_sha256,
     check_distinct_payload_count,
+    classify_token_class,
     normalize_prefix_separator,
     stahlberg_byrne_indicator,
     system_attribution,
@@ -113,3 +114,48 @@ def test_system_attribution_thresholds():
     assert system_attribution(0.0)["E2_system"] is True
     assert system_attribution(0.3)["E2_system"] is False
     assert system_attribution(0.3)["E3_system"] is False
+
+
+# --- classify_token_class: the C2-S5 token taxonomy (operator/mantissa/exponent/separator) --
+
+
+def test_classify_token_class_separator():
+    assert classify_token_class("|") == "separator"
+
+
+def test_classify_token_class_mantissa_sign_and_digits():
+    assert classify_token_class("+") == "mantissa"
+    assert classify_token_class("-") == "mantissa"
+    assert classify_token_class("N1954") == "mantissa"
+    assert classify_token_class("N8878") == "mantissa"
+
+
+def test_classify_token_class_exponent():
+    assert classify_token_class("E-4") == "exponent"
+    assert classify_token_class("E0") == "exponent"
+    assert classify_token_class("E12") == "exponent"
+
+
+def test_classify_token_class_integer_literal():
+    assert classify_token_class("INT-") == "mantissa"
+    assert classify_token_class("INT+") == "mantissa"
+    assert classify_token_class("1") == "mantissa"
+
+
+def test_classify_token_class_operators_and_variables_fall_to_operator():
+    assert classify_token_class("add") == "operator"
+    assert classify_token_class("mul") == "operator"
+    assert classify_token_class("sin") == "operator"
+    assert classify_token_class("x_0") == "operator"
+    assert classify_token_class("y") == "operator"
+
+
+def test_classify_token_class_real_tree_encoded_example_classifies_every_token():
+    # A real GT `tree_encoded` fragment (v2 §8.2 step 1), sanity-checked
+    # against the actual model vocabulary: every token must land in exactly
+    # one of the four named classes, none unclassified.
+    example = ["add", "+", "N1954", "E-4", "add", "mul", "mul", "+", "N8878", "E-4", "x_0",
+               "inv", "add", "+", "N8392", "E-4", "x_0", "mul", "INT-", "1", "mul", "+", "N3968", "E-4", "x_0"]
+    classes = {classify_token_class(tok) for tok in example}
+    assert classes <= {"operator", "mantissa", "exponent", "separator"}
+    assert "mantissa" in classes and "exponent" in classes and "operator" in classes

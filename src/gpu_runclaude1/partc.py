@@ -143,3 +143,36 @@ def stahlberg_byrne_indicator(lp_gt: float, lp_sel: float, lp_best: float) -> St
 def system_attribution(sb_rate: float) -> dict[str, bool]:
     """``E3_system(s) = 1[sb_rate >= 0.5]``; ``E2_system(s) = 1[sb_rate == 0]`` (v2 §8.3)."""
     return {"E3_system": sb_rate >= 0.5, "E2_system": sb_rate == 0.0}
+
+
+# Token-class taxonomy for C2-S5 (v2 §8.3): "operator, mantissa, exponent,
+# the `|` separator". The frozen text names exactly these four classes but
+# does not give a vocabulary mapping; this classifier is grounded in the
+# model's own emitted vocabulary (odeformer.envs.encoders.FloatSequences /
+# ConstantEncoder), inspected directly against a real decoded token stream
+# (v2 §8.2 step 1's `tree_encoded`, e.g. "add", "+", "N1954", "E-4", "x_0",
+# "INT-", "1"): a float leaf is always the triple (sign, mantissa, exponent).
+# Sign and mantissa are grouped as "mantissa" (both carry the token's
+# magnitude, as opposed to "exponent"); this grouping choice is recorded
+# here, not silently assumed, since the frozen text does not itself split
+# out a fifth "sign" class. Anything not numeric or the separator --
+# operators, variables (`x_0`, ...), and the leaf `y` -- falls to
+# "operator", the frozen taxonomy's catch-all for structural/non-numeric
+# tokens.
+def classify_token_class(token: str) -> str:
+    """One of ``"separator"``, ``"mantissa"``, ``"exponent"``, ``"operator"``
+    for a single decoded vocabulary token string (v2 §8.3 C2-S5).
+    """
+    if token == "|":
+        return "separator"
+    if token in ("+", "-"):
+        return "mantissa"  # FloatSequences.encode's leading sign token
+    if token.startswith("N") and (token[1:].isdigit() or (len(token) > 1 and token[1] == "+") or (len(token) > 1 and token[1] == "-")):
+        return "mantissa"  # FloatSequences.encode's "N<mantissa digits>"
+    if token.startswith("E") and token[1:].lstrip("-").isdigit():
+        return "exponent"  # FloatSequences.encode's "E<exponent>"
+    if token.startswith("INT"):
+        return "mantissa"  # ConstantEncoder / integer-literal sign marker
+    if token.replace("-", "", 1).isdigit():
+        return "mantissa"  # a bare digit token following an INT+/INT- marker
+    return "operator"

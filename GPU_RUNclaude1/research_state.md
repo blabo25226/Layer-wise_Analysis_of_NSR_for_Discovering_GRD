@@ -393,6 +393,25 @@ Git 管理されている付随物: `graphs/gpu_run5_20260823_ddd267b0/`（59 M�
 
 ---
 
+- **凍結契約の引用ミス（v2.1 §8.3 の選択規則）。** §8.3 は「the frozen selection rule
+  (`gpu_run5_selection.py:11`)」を `lp_sel` の定義に用いているが、そのファイルの関数
+  `formula_selection_key`（`src/evaluation/gpu_run5_selection.py:9`）は
+  「lexicographic minimization key, macro-averaged by system then seed」であり、
+  **run 間のモデル選択スコアラであってセルごとの候補選択器ではない**。
+  リポジトリ内でセルごとの候補選択に使われている実装は
+  `src/gpu_run5/evaluation.py:107 select_candidate` で、GPU_RUN5 自身が登録した比較子
+  `"official_reconstruction"` は**無条件に index 0 を返す**。
+  実装エージェントは後者を採用し、引用不一致をコードに記録した。実質的な妥当性は高い
+  （一次解析者が独立に算出した「selected = `candidate_index == 0` で 58/2040」と整合する）。
+  **ただしこれは契約の欠陥に対する判断であり、独立査読を経ずに確定させてはならない。**
+  `lp_sel` は Part C の決定エンドポイント C2-P の定義に直接入るため、科学的に有意な選択である。
+  **契約側は修正しない。** 記録し、次サイクルの事前登録で正しい引用に差し替える。
+  （C0001 Stage 8 で `lansr-implementation-engineer` が発見。）
+- **`phase1/partA_component_summary.json` が書かれていない**（v2.1 §12.1 が要求）。
+  この欠落により Gate B→C 項目 (ii) の後半（in-support 系統の Part A 成分 gain が 0 であること）は
+  **機械的に通過しえない**。現在の gate は「成果物が無いなら通過と見なす」のではなく
+  **拒否する**よう実装されている（正しい方向）。§12.1 の他の欠落成果物とあわせて対応が必要。
+
 ## 8b. サイクルの経験から採用した常設キャンペーン規則
 
 **R1（2026-09-09、C0001、supervisor の撤回を受けて採用）。**
@@ -528,7 +547,7 @@ Gate A→B は 9 項目すべて通過。項目 (i) の凍結値を `cell_cache`
   PC2c 170/170、PC2d 170/170、PC3a 48/48、PC3b 60/60、
   **PC4 gain 100/170（H 100、寄与家系 6、`gates_ok=True`）**、PC4b 60/60
 
-### 未解決の争点 — 主エンドポイントの verdict（Stage 8 で独立導出中）
+### 主エンドポイントの verdict = `undecidable`（独立3者一致で確定）
 
 `partA_endpoints.json` の `verdict` フィールドは ladder rung `no_gain_observed_bound_only` を
 書いているが、v2.1 §7.5 item 3 と named contingency 1 は、二方向感度分析が異なる rung に落ちた場合の
@@ -548,8 +567,27 @@ cutpoint が 3 しかないため、9 件のトリプルで rung が動く。
 
 **v2.1 は mid-cycle でのタイムアウト引き上げを明示的に禁じている**（named contingency 1:
 "No timeout value is raised mid-cycle — that would change the frozen instrument"）。
-したがって本サイクル内での解決手段はない。この争点は `lansr-results-analyst` と
-`lansr-statistical-reviewer` に**私の結論を伝えずに**独立導出させている（規則 R5 の理由により）。
+本サイクル内での解決手段はない。
+
+**独立導出は3者一致**（supervisor、`lansr-results-analyst`、`lansr-statistical-reviewer`。
+後二者には supervisor の結論を伝えていない）。解析者は v2.1 の `undecidable` 条件 13 件を
+列挙して 1 件ずつ照合し、成立するのはこの 1 件だけであることを確認した。
+
+**したがって仮説 H-C0001-P は supported でも unsupported でも refuted でもない。**
+`K = 0` は生の観測として `undecidable` のラベル付きで報告してよいが、
+**E0 の賛否いずれにも引用してはならず**、§9.5 item 1 の `K = 0` 文（`supported` verdict の
+報告形式）は発行できない。
+
+補足所見:
+- 9 件のタイムアウトを 2 点数値プローブにかけると全件で差が非ゼロ（|d| 0.4485–20.52）。
+  実質的には `proved_different` である。**しかし凍結された計器は `could_not_evaluate` と言った。**
+  verdict はデータの曖昧さではなく契約の機械的規則によって動いている。
+  なお 9 件はすべて `SIGALRM` による実時間タイムアウト（`SYMPY_OP_TIMEOUT_SEC = 10.0`）なので、
+  **この verdict は非決定的**である（統計レビュアー MAJOR-4）。
+- §7.5 item 3 の基準は cutpoint 3 に対して尺度が合っていない。101,963 トリプル中 9 件（0.0088%）が
+  成分あたり 600 トリプルの ANY レバーで 130 成分中 6 件（4.6%）に増幅される。
+  凍結上限 2.0% では 130 成分すべてが反転する。§7.5 item 2 の
+  「(0, 2.0%] なら感度分析付きで報告」分岐は**実際上到達不能**（統計レビュアー MAJOR-3）。
 
 ### PC0-CAS の検証を discharge（保留を解消）
 

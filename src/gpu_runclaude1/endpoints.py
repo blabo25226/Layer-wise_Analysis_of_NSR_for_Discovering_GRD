@@ -132,7 +132,19 @@ def compute_primary_endpoint(
         n_h=n_h,
         k_gains=k,
         ladder_cutpoint=ladder_cutpoint(n_h) if n_h else 0,
-        verdict=verdict_non_match_direction,
+        # v2.1 §10.3 / §7.5 item 3: "the two-sided sensitivity analysis
+        # disagrees on the rung" is itself one of the ``undecidable``
+        # criteria. Reporting `verdict_non_match_direction` unconditionally
+        # here (as this function did until this fix) let a disagreement
+        # silently present as an ordinary ladder rung (e.g.
+        # `no_gain_observed_bound_only`) with `sensitivity_agrees: false`
+        # sitting unread beside it -- the verdict of record must fold that
+        # disagreement in, not leave it to the caller to notice.
+        verdict=(
+            verdict_non_match_direction
+            if verdict_non_match_direction == verdict_match_direction
+            else "undecidable (two-sided sensitivity disagreement)"
+        ),
         wilson_95=wilson,
         cluster_bootstrap=bootstrap,
         family_wilson=family_wilson,
