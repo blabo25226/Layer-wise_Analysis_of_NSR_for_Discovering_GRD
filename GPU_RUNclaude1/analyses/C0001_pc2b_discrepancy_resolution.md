@@ -70,20 +70,44 @@ eligible if *any* component was rewritten while the system score is dominated by
 The result is a system-level trivial-match count reported against a component-level denominator. It
 measures neither the audit's quantity nor the preregistered one.
 
-## Second finding: a real bug in the rewrite, affecting Part B
+## Second finding — RETRACTED: the rewrite is sound; my identity check was not
 
-**5 of the 60 fired rewrites are not true algebraic identities** (55/60 verified identical). Example
-where it fails:
+**I originally reported here that 5 of the 60 fired rewrites were not true algebraic identities, and
+instructed that Part B's B-R1 be withheld. That claim is retracted.** The implementation engineer
+declined to accept it, and re-measurement proves the implementation right.
+
+All 60 fired rewrites **are** true algebraic identities:
+
+| verification method | result |
+|---|---|
+| exact rational arithmetic (`nsimplify(..., rational=True)`) | **60 / 60** |
+| numeric probe at 5 positive points | **60 / 60** |
+| my original naive Float `simplify(a - b) == 0` | 55 / 60 |
+
+Maximum absolute difference for the 5 my method rejected:
 
 ```
-orig : 0.1954 + 0.8878 * x_0 * 1/(0.8392 + x_0) + -1 * 0.3968 * x_0
-rewr : ((0.1954 + (-0.3968 * x_0)) + (0.8878 + (-((0.8878 * 0.8392) * (1 / (0.8392 + x_0))))))
-true identity: False
+3.331e-16   0.1954 + 0.8878 * x_0 * 1/(0.8392 + x_0) + -1 * 0.3968 * x_0
+4.441e-16   0.1085 + 1.912 * ((x_1)**2)**2 * 1/(0.4429 + ((x_1)**2)**2) + ...
+2.220e-16   1.203 * ((x_0)**2)**2 * 1/(0.7487 + ((x_0)**2)**2) * 1 * ((x_1)**2)**2 ...
+2.220e-16   2.119 * x_0 * 1/(1.388 + x_0) * 1 * x_1 * 1/(0.4059 + x_1) + ...
+0.000e+00   1.146 * (x_0)**2 * 1/(1.013 + (x_0)**2) * 1 * (x_1)**2 * 1/(2.082 + ...
 ```
 
-This matters beyond PC2b: **Part B's B-R1 endpoint uses the same function** to count the affine-form
-unary budget. A rewrite that is not an identity produces a wrong unary count for those components, so
-B-R1 must not be reported until this is fixed and every fired rewrite is identity-verified.
+All at machine precision, and the last has a difference of **exactly zero** which my check still
+rejected. Cause: `sympy.simplify` does not reliably cancel `Float` coefficients. **This is precisely
+the mechanism the v2.1 audit had already documented as V21-MAJ-1** — sympy `Float`
+non-cancellation — and I committed the same error after reading that finding.
+
+**Consequences of the retraction:**
+- `src/gpu_runclaude1/partb.py:349 rewrite_b_r1_affine_infix` is **sound**. No fix is required.
+- **B-R1 is not withheld.** My instruction to withhold it is rescinded.
+- F2 was moot: Part B's `affine_rewrite_component` was independently checked and never applied an
+  unverified rewrite.
+- The **first** finding in this document (F1, the reduction-level scoring bug inflating 0/60 to an
+  apparent 110/170) is **unaffected and stands** — the implementer reproduced and fixed it, and PC2b
+  now measures 60 eligible / 0 matched, exactly the frozen v2.1 expectation.
+- Standing rule **R4** is unaffected and stands on the F1 evidence alone.
 
 ## Required actions
 

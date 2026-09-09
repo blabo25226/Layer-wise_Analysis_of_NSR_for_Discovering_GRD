@@ -14,7 +14,7 @@ import pytest
 
 from gpu_runclaude1.ladder import build_ladder_realized_artifact
 from gpu_runclaude1.matcher import score_pair
-from gpu_runclaude1.partA_driver import score_cell
+from gpu_runclaude1.partA_driver import demonstrate_timeout_inside_worker, score_cell, score_cells_parallel
 from gpu_runclaude1.strata import (
     STRATUM_H,
     STRATUM_L,
@@ -135,3 +135,36 @@ def test_score_pair_itself_is_ungated_low_level_primitive():
     """
     result = score_pair("x_0", "x_0")
     assert result.m3_system == 1.0
+
+
+def test_score_cells_parallel_also_requires_a_strata_token(tmp_path):
+    with pytest.raises(TypeError):
+        score_cells_parallel([{"true_formula": "x_0", "candidates": []}], strata_token=None)
+
+
+def test_score_cells_parallel_matches_sequential_scoring(tmp_path):
+    strata_path, ladder_path, _ = _write_frozen_artifacts(tmp_path)
+    token = require_strata_frozen(strata_path, ladder_path)
+    cells = [
+        {"true_formula": SYNTHETIC_ROWS[0]["teacher_components_infix"][0], "candidates": [{"candidate_formula_raw": "x_0"}]},
+        {"true_formula": SYNTHETIC_ROWS[1]["teacher_components_infix"][0], "candidates": [{"candidate_formula_raw": "x_0"}]},
+    ]
+    sequential = [score_cell(cell, token) for cell in cells]
+    parallel = score_cells_parallel(cells, token, n_workers=2)
+    assert len(parallel) == len(sequential)
+    for seq_result, par_result in zip(sequential, parallel):
+        assert seq_result[0].m3_system == par_result[0].m3_system
+        assert seq_result[0].m0_system == par_result[0].m0_system
+
+
+def test_timeout_fires_inside_a_worker_process_not_only_the_main_thread():
+    """v2 §3: thread-based parallelism is forbidden because `_time_limit`
+    silently no-ops off the main thread; process-based parallelism must be
+    used instead because a worker *process* has its own genuine main
+    thread, where the SIGALRM guard fires normally. This is the Gate 0 /
+    Stage-6 smoke assertion v2 §10.1 item 7 requires.
+    """
+    result = demonstrate_timeout_inside_worker()
+    assert result["ok"] is True
+    assert result["triggered"] is True
+    assert result["elapsed_sec"] < 2.0  # bounded by the 1s guard, not the 5s sleep it interrupted

@@ -393,6 +393,23 @@ negative-control cases were commutative no-ops where matching is correct) had ex
 Corollary adopted with it: run the control battery **before** the expensive endpoint pass, so a
 hard-abort costs the battery rather than the whole budget.
 
+**R5 (adopted 2026-09-09, C0001, after three supervisor false negatives in one cycle).**
+Never assert a **negative** result from a comparison method that has not been validated on cases whose
+answer is known. Validate the instrument first, in the direction that would produce the negative.
+Concretely, for symbolic work: do not conclude non-equivalence from `sympy.simplify(a - b) == 0` on
+expressions carrying `Float` coefficients — `simplify` does not reliably cancel Floats, and it rejects
+differences of exactly zero. Use exact rational arithmetic (`nsimplify(..., rational=True)`) plus a
+multi-point numeric probe, and report the disagreement between methods when they differ.
+Origin: three supervisor errors of one family within cycle C0001, each producing a **false negative**
+from an unvalidated comparison: (i) searching a canonicalized string for the surface token `pow2`,
+concluding Hill-4 was absent; (ii) differencing a prefix-derived skeleton against infix-derived
+candidates, concluding a 0/2040 baseline; (iii) naive Float `simplify` equality, concluding 5 of 60
+rewrites were non-identities. All three were caught by other agents.
+**Why this rule is load-bearing for this campaign**: C0001's primary endpoint is null-shaped, and a
+false negative is exactly the error that manufactures a spurious null. This supervisor's demonstrated
+error direction and the cycle's primary hypothesis point the same way, which must be disclosed as a
+threat to validity in the C0001 report.
+
 **R4 (adopted 2026-09-09, C0001, from the PC2b discrepancy).**
 A control's reduction level must match its endpoint's reduction level. Scoring a *system* while
 counting *components* lets untouched components match themselves and inflates the result to a
