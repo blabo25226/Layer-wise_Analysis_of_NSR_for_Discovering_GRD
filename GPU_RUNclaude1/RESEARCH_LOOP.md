@@ -379,7 +379,9 @@ Every completed cycle must create:
 - configs/commands needed for reproduction
 
 Commit small research metadata and source changes when safe.
-Push only if allowed by repository/user settings.
+Push to the campaign branch at a moderate, regular cadence, and keep the open PR's description
+current — both are pre-authorized and need no per-instance confirmation. Force pushes and history
+rewrites remain forbidden. See `.claude/rules/14-push-and-pr.md`.
 Do not commit huge raw datasets/checkpoints merely to satisfy archival rules.
 
 ### Stage 13 — Reflection / negative result recovery

@@ -72,6 +72,14 @@ class MatchResult:
     components: tuple  # tuple[ComponentMatch, ...]
     valid: bool
     failure_reason: Optional[str]
+    # Position of this candidate within its cell's stored beam. Required by
+    # rule 03 so an analyst can join a match record back to the immutable
+    # GPU_RUN5 candidate record by an explicit key rather than by list
+    # position, and so generation coverage / oracle candidate / selected
+    # candidate stay distinguishable. Set by
+    # :func:`gpu_runclaude1.partA_driver.score_cell`; -1 means "not scored
+    # in a cell context" (e.g. a synthetic control pair).
+    candidate_index: int = -1
 
 
 def _outcome_for_skeleton(skeleton: float, reason: Optional[str]) -> str:

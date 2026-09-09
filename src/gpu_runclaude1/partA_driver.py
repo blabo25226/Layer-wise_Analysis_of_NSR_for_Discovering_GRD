@@ -42,7 +42,13 @@ def score_cell(cell: dict[str, Any], strata_token: StrataFrozenToken) -> list[Ma
     """
     _require_token(strata_token)
     true_infix = str(cell["true_formula"])
-    return [score_pair(true_infix, str(c.get("candidate_formula_raw") or "")) for c in cell.get("candidates", [])]
+    return [
+        dataclasses.replace(
+            score_pair(true_infix, str(c.get("candidate_formula_raw") or "")),
+            candidate_index=index,
+        )
+        for index, c in enumerate(cell.get("candidates", []))
+    ]
 
 
 def _score_cell_worker(args: tuple) -> list[MatchResult]:

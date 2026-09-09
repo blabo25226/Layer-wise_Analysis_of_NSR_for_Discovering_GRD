@@ -294,7 +294,7 @@ def main() -> int:
     (out_dir / "partA_endpoints.json").write_text(
         json.dumps(
             {
-                "prior_information_disclosed": "GPU_RUNclaude1/plans/C0001_preregistration_v2.md §0",
+                "prior_information_disclosed": "GPU_RUNclaude1/plans/C0001_preregistration_v2.1.md §0.1-§0.4",
                 "primary": {
                     "n_h": primary.n_h,
                     "k_gains": primary.k_gains,

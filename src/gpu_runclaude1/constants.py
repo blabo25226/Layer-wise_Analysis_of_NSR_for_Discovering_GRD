@@ -1,7 +1,7 @@
 """Frozen numeric constants for GPU_RUNclaude1 cycle C0001.
 
 Every value below is copied verbatim from
-``GPU_RUNclaude1/plans/C0001_preregistration_v2.md`` (the frozen contract).
+``GPU_RUNclaude1/plans/C0001_preregistration_v2.1.md`` (the frozen contract).
 Per v2 §2.5, none of these may change after the first Part A match indicator
 is computed except through the §14 deviation policy (a dated ``DEVIATION-nn``
 block in that file), which also forbids raising a threshold to rescue a
