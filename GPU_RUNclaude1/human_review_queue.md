@@ -71,3 +71,18 @@
 
 ## レビュー済み
 なし。
+
+## HRQ-0007: 事前登録 gate の違反下で Part C が実行された（C0001、非ブロッキング）
+
+**2026-09-09。** Part A の記録すべき verdict は `undecidable` であり、v2.1 Gate B→C 項目 (i) は
+その場合 Part C を実行してはならないと定めていた。supervisor が実装した `gate_b_to_c()` が
+その条件を落としていたため、Part C が完走した。
+
+- 消費 GPU 約 1 分、ピーク VRAM 0.454 GiB、封印テストへの接触なし
+- **Part C から導出した科学的主張はゼロ**。決定エンドポイント C2-P はそもそも未計算
+- 無効化される結論はない。既存成果物は `INADMISSIBLE.md` を添えて保存
+- 契約は変更しない。Part C は C0001 では再実行しない
+
+人間側に確認いただきたい点: 本件を DEVIATION として報告し C0001 を継続する判断が妥当か。
+supervisor の判断ではハードストップ条件（`RESEARCH_LOOP.md` §6）に該当しない。
+詳細: `analyses/C0001_DEVIATION_gate_b_to_c_violation.md`
