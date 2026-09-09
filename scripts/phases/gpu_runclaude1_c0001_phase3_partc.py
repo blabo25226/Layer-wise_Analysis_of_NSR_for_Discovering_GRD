@@ -27,6 +27,67 @@ GPU_RUN5_SOURCE_RUN = ROOT / "results" / "runs" / "gpu_run5_20260823_ddd267b0"
 CHECKPOINT_PATH = ROOT / "assets" / "odeformer" / "weights" / "odeformer.pt"
 
 
+# v2.1 Gate B->C. Supervisor finding 2026-09-09: v2.1 specifies this gate but it
+# was not implemented here, leaving a preregistered gate dependent on operator
+# discipline. Made mechanical below, before any GPU work.
+PART_C_MIN_IN_SUPPORT = 30  # v2.1 Gate B->C power floor
+
+
+def gate_b_to_c(run_root: Path) -> dict:
+    """Decide whether Part C may run at all (v2.1 Gate B->C).
+
+    Two independent refusals:
+
+    1. Part C is **not** run if Part A confirmed a matcher-attributable gain.
+       A confirmed gain means E0 is live, and v2.1 gives replication priority
+       over the E2/E3 question -- running Part C would spend GPU budget on a
+       question the cycle has been redirected away from.
+    2. Part C requires at least ``PART_C_MIN_IN_SUPPORT`` in-support systems.
+       Below the frozen power floor the E2/E3 comparison is underpowered by
+       construction, so a result would be uninterpretable either way.
+
+    A missing upstream artifact is a refusal, never a pass: Part C must not run
+    on the assumption that an unwritten gate would have been satisfied.
+    """
+    reasons: list[str] = []
+    verdict = None
+    n_in_support = None
+
+    endpoints_path = run_root / "phase1" / "partA_endpoints.json"
+    if not endpoints_path.is_file():
+        reasons.append(f"Part A endpoints missing: {endpoints_path}")
+    else:
+        verdict = (json.loads(endpoints_path.read_text(encoding="utf-8")).get("primary") or {}).get("verdict")
+        if verdict == "matcher_attributable_gain_confirmed":
+            reasons.append(
+                "Part A verdict is matcher_attributable_gain_confirmed; v2.1 gives replication "
+                "priority over Part C"
+            )
+        elif verdict is None:
+            reasons.append("Part A verdict absent from partA_endpoints.json")
+
+    support_path = run_root / "phase2" / "partB_in_support_systems.json"
+    if not support_path.is_file():
+        reasons.append(f"Part B in-support census missing: {support_path}")
+    else:
+        n_in_support = json.loads(support_path.read_text(encoding="utf-8")).get("n_in_support")
+        if not isinstance(n_in_support, int):
+            reasons.append("Part B n_in_support absent or not an integer")
+        elif n_in_support < PART_C_MIN_IN_SUPPORT:
+            reasons.append(
+                f"n_in_support {n_in_support} < {PART_C_MIN_IN_SUPPORT} (v2.1 Gate B->C power floor)"
+            )
+
+    return {
+        "gate": "B->C",
+        "ok": not reasons,
+        "reasons": reasons,
+        "part_a_verdict": verdict,
+        "n_in_support": n_in_support,
+        "min_in_support_required": PART_C_MIN_IN_SUPPORT,
+    }
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="GPU_RUNclaude1 C0001 Phase 3 (Part C)")
     parser.add_argument("--run-id", default=None)
@@ -46,6 +107,18 @@ def main() -> int:
         c0001_config.write_manifest(out_dir, 3, "dry_run", note="dry-run: no GPU work, no data touched")
         print(f"Phase 3 dry-run: {out_dir}")
         return 0
+
+    # v2.1 Gate B->C, enforced before any GPU work. --smoke exercises the Part C
+    # code path itself and runs before Parts A/B exist, so the gate is enforced
+    # only on a real invocation -- the same convention as Phase 1's hard abort.
+    if not args.smoke:
+        gate = gate_b_to_c(run_root)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        (out_dir / "gate_b_to_c.json").write_text(json.dumps(gate, indent=2), encoding="utf-8")
+        if not gate["ok"]:
+            c0001_config.write_manifest(out_dir, 3, "skipped", go_conditions=gate)
+            print(f"Phase 3 skipped by Gate B->C: {gate['reasons']}")
+            return 0
 
     import numpy as np
     import torch

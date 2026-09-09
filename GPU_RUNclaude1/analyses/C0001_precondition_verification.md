@@ -48,3 +48,38 @@ Stage 8 の解析に入る前に discharge すること。
 | validation セル数 | 960（`validation_cell_count_ok = True`） |
 
 run id: `gpu_runclaude1_c0001_b731cdd`
+
+---
+
+## 追加所見（2026-09-09、Phase 1 実行中に発見）— Gate B->C がコードで強制されていなかった
+
+**重大度: MAJOR。修正済み。**
+
+v2.1 は Gate B->C として次の 2 条件を規定する。
+
+1. Part A が matcher-attributable gain を確認した場合、Part C は**実行しない**（replication を優先）
+2. Part C は in-support システムが **30 以上**であることを要する（凍結された検出力の下限）
+
+`scripts/phases/gpu_runclaude1_c0001_phase3_partc.py` を静的に確認したところ、`gain_confirmed`、
+`partA_endpoints`、`n_in_support` のいずれへの参照も存在せず、dry-run 判定の直後に torch と
+モデルの読み込みへ進んでいた。**事前登録されたゲートが運用者の規律に依存する状態**だった。
+
+Phase 3 は未起動であったため、実行前に機械的な強制へ変更した。
+
+- `gate_b_to_c(run_root)` を追加。`phase1/partA_endpoints.json` の `primary.verdict` と
+  `phase2/partB_in_support_systems.json` の `n_in_support` を読み、拒否理由を列挙して返す
+- GPU 作業の前に評価し、不合格なら `phase3/gate_b_to_c.json` と `status: skipped` の manifest を
+  書き出して `return 0`
+- **上流成果物の欠落は「合格」ではなく「拒否」**として扱う。書かれていないゲートが満たされていた
+  という仮定の上で Part C を走らせてはならない
+- `--smoke` では強制しない。Part C のコード経路自体を Parts A/B の存在前に検証するためで、
+  Phase 1 の hard abort と同じ規約である
+
+判定語彙は `src/gpu_runclaude1/ladder.py:45 ladder_verdict` より:
+`k == 0` → `no_gain_observed_bound_only`、`k <= C` → `weak_gain`、
+`k > C` → `matcher_attributable_gain_confirmed`。ゲートが拒否するのは 3 番目のみで、`weak_gain` は
+主張の修正であって方向転換ではないため Part C を実行する。
+
+`GPU_RUNclaude1/tests/test_gate_b_to_c.py` に 9 件のテストを追加（全通過）。境界値
+（`n_in_support` がちょうど 30 で合格、29 で拒否）、両上流成果物の欠落、`n_in_support` が
+整数でない場合を含む。
