@@ -379,6 +379,18 @@ Git 管理されている付随物: `graphs/gpu_run5_20260823_ddd267b0/`（59 M�
    CAS に基づく null を報告する前に、修正するか明示的に上限を設けなければならない。（C0001 Stage 3 の
    再現性監査で発見。）
 
+- **`partA_endpoints.json` の `verdict` フィールドは、v2.1 §7.5 item 3 の override を適用していない。**
+  `endpoints.py:142` は二方向感度分析を計算し `sensitivity_agrees` を書くが、`verdict` フィールドには
+  非敵対方向の ladder rung をそのまま書く。v2.1 は「二方向が異なる rung に落ちたら verdict は
+  `undecidable`」と事前に定めているため、`sensitivity_agrees == False` のとき成果物の `verdict` は
+  **契約上の記録すべき verdict と一致しない**。`manifest.json` の `go_conditions` にも感度の項目がない。
+  さらに `sensitivity_verdict_non_match_direction` と `sensitivity_verdict_match_direction` の
+  2 フィールドは `PrimaryEndpointResult` に存在するが **成果物に永続化されていない**ため、
+  どの rung に落ちたかを成果物だけからは復元できない（`cell_cache` からの再計算が必要だった）。
+  修正: 両方向の rung を永続化し、`sensitivity_agrees == False` のとき verdict を
+  `undecidable (two-sided sensitivity disagreement)` として書く。**凍結契約側は一切変更しない。**
+  （C0001 Stage 8 で発見。この欠陥は結果を変えない — 契約が優先し、supervisor が override を適用する。）
+
 ---
 
 ## 8b. サイクルの経験から採用した常設キャンペーン規則
@@ -467,35 +479,109 @@ branch は正しい。作業ツリーはクリーン。破壊的操作は不要�
 ## 再開ポイント（常に正確に保つ — `.claude/rules/12-session-continuity.md` を参照）
 
 - **サイクル**: `C0001`
-- **ステージ**: **Stage 7（本実験）実行中。** Stage 4 は `5a4d195` で完了、Stage 5 監査は
-  `CLEARED_FOR_FULL_RUN`（Gate 0 項目 3 充足）、Stage 6 smoke は `PROCEED_TO_FULL_RUN`（条件 3 件）。
+- **ステージ**: **Stage 8（解析）実行中。** Stage 7 の Phase 1（Part A）は完走。Phase 2（Part B）実行中。
 - **拘束力を持つ契約**: `GPU_RUNclaude1/plans/C0001_preregistration_v2.1.md`（および `.json`）。
   v1・v2 は失効。履歴として保存。
-- **実験実行**: smoke（`gpu_runclaude1_c0001_stage6smoke`）のみ完了。本実験は実行中。
-  封印成果物 7 件は C0001 では未読（`sealed_paths_read == 0`）。
-- **テストスイート**: 404 passed, 1 skipped
-- **実行中**: `lansr-experimentalist`。前提条件 2 件の検証（PC0-CAS の全 80 系統再検証、
-  全スコープ hard-abort が採点前に Phase 1 を停止させることの確認）→ 合格なら Phase 0-4 本実験。
-  run id は実行時コミットから導出。
-- **smoke が検出し修正済みの欠陥 2 件**: 必須フィールド `prior_information_disclosed` が失効した v2 を
-  参照していた（現在は v2.1 §0.1-§0.4）。マッチレコードに `candidate_index` がなく位置依存の突合に
-  なっていた（rule 03、`MatchResult` に明示キーを追加）。
-- **Gate B->C の注意**: Part A が `gain_confirmed` を返した場合、Part C（phase 3）は**実行しない**。
-  replication を優先する。
-- **未検証のまま本実験に入る点**: Part C の VRAM は 2 セルでのみ検証済み。実スケール
-  （約 60 系統 x 最大 12 セル）は未確認。非線形な増加の兆候はない。
+- **run id**: `gpu_runclaude1_c0001_b731cdd`、commit `8ff622defc227b4598e0094fc000b8227c4ffdad`
+
+### Phase 1（Part A）実現値 — 完走、`EXIT_CODE:0`、960/960 セル、セル失敗 0 件
+
+Gate A→B は 9 項目すべて通過。項目 (i) の凍結値を `cell_cache` から独立に再計算して一致を確認した。
+
+| 量 | 実現値 | 凍結された期待値 |
+|---|---|---|
+| 採点済み候補 | 47,987 | 47,987 |
+| 成分比較 | 101,963 | 101,963 |
+| system 水準 M0 一致 | 0 / 960 セル | 0 / 960 |
+| 成分水準 M0 一致 | 2,235 | 2,235（P0c） |
+| 家系別 M0 一致 | R04 1,736 / R07 330 / R08 169 | — |
+
+三つのマッチャを**入れ子のカスケードではなく三つの集合**として（v2.1 の要求どおり）:
+
+| 分解 | system 水準 | 成分水準 | ANY 還元後の成分 |
+|---|---|---|---|
+| M0 一致 | 0 | 2,235 | 13 / 170 |
+| M1 一致 | 0 | **0** | — |
+| M3 一致 | 0 | 2,235 | 13 / 170 |
+| M3 のみ（M0 は不一致） | 0 | 0 | **0** |
+| どちらも不一致 | 960 | 99,728 | 157 / 170 |
+
+- **主エンドポイント**: `n_h = 130`、`k_gains = 0`、`ladder_cutpoint = 3`、
+  ladder rung は `no_gain_observed_bound_only`
+- `wilson_95 = [0.0, 0.028701561634224194]`、cluster bootstrap は点推定 0.0 / CI `[0.0, 0.0]`
+  （10,000 resample、seed 20260909）。**退化しているため**、記録上の限界は
+  `family_level_wilson_8_cluster` に置換され `bound_of_record = [0.0, 0.3244075683414076]`
+- `could_not_evaluate_rate = 0.00011540976879576318`（78,000 超のトリプル中 9 件）
+- **二次**: `m3_level_h = 0.0`、`m3_level_l = 0.325`、`l_stratum_gain_rate = 0.0`、
+  `h_minus_l_difference = 0.0`、`m3_level_overall = 0.07647058823529412`
+- `m3_implementation_agreement = 1.0`（480 件照合、不一致 0）
+- 対照電池: PC0 170/170、**PC0-CAS 80/80**、PC1 80/80、PC2a 80/80、PC2b 0/60（凍結期待値どおり）、
+  PC2c 170/170、PC2d 170/170、PC3a 48/48、PC3b 60/60、
+  **PC4 gain 100/170（H 100、寄与家系 6、`gates_ok=True`）**、PC4b 60/60
+
+### 未解決の争点 — 主エンドポイントの verdict（Stage 8 で独立導出中）
+
+`partA_endpoints.json` の `verdict` フィールドは ladder rung `no_gain_observed_bound_only` を
+書いているが、v2.1 §7.5 item 3 と named contingency 1 は、二方向感度分析が異なる rung に落ちた場合の
+verdict を `undecidable` と**事前に**定めている。実現値は `sensitivity_agrees = false`:
+
+| 方向 | k | rung |
+|---|---|---|
+| 記録上の方向（could-not-evaluate を不一致と数える） | 0 | `no_gain_observed_bound_only` |
+| 敵対方向（could-not-evaluate を一致と数える） | 6 | `matcher_attributable_gain_confirmed` |
+
+判定を左右しているのは **9 件のトリプルのみ**で、すべて `SymbolicEquivalenceTimeout`。
+影響を受ける H 成分は 6 件（`R03_validation_d101_005` comp0、`R05_validation_d101_000` comp1、
+`R07_validation_d101_000` comp1、`R07_validation_d101_002` comp2、`R07_validation_d101_003` comp1、
+`R07_validation_d101_009` comp2）。凍結コードの敵対的再計数は**成分粒度**で、その成分に
+could-not-evaluate トリプルが 1 件でもあれば成分全体を gain=1 に反転させる（`endpoints.py:117-127`）。
+cutpoint が 3 しかないため、9 件のトリプルで rung が動く。
+
+**v2.1 は mid-cycle でのタイムアウト引き上げを明示的に禁じている**（named contingency 1:
+"No timeout value is raised mid-cycle — that would change the frozen instrument"）。
+したがって本サイクル内での解決手段はない。この争点は `lansr-results-analyst` と
+`lansr-statistical-reviewer` に**私の結論を伝えずに**独立導出させている（規則 R5 の理由により）。
+
+### PC0-CAS の検証を discharge（保留を解消）
+
+保留事項だった「in-process monkeypatch が実際に効いているか」を実測で立証した。
+`gpu_run4/formulas.py:13` は `from ... import SYMPY_MAX_NODES` で名前を取り込み、
+`formulas.py:434` はそれを module global として読むため、`controls.py:83` の属性代入は有効。
+実測: 既定 cap 40 では CAS 自己同一性が **28/80 系統**しか通らず、cap 200 では **80/80** 通る。
+52 系統で結果が変わったことが、パッチが有効であることの実証である。
+**PC0-CAS 80/80 は信頼して良い。**
+
+**規則 R1 に従った位置づけ（重要）。** 「既定 cap 40 で 52/80 系統が CAS 自己同一性を通らない」は
+**新しい発見ではない**。§8 の既知欠陥として Stage 3 の再現性監査が既に記録していた数値と一致する。
+したがってこれは監査値に対する **ポジティブコントロール**であり、そのようにラベル付けする。
+発見として報告してはならない。この一致自体が、監査値と本測定が同じものを測っていることの確認になる。
+
+なお影響範囲は M1 / GPU_RUN4 経路に限られる。M3 は
+`evaluation/equation_metrics.py:169 symbolic_recovery` の別経路であり、PC0 = 170/170 がそれを示す。
+
+- **テストスイート**: 413 passed, 1 skipped（Phase 1 実行前に測定）
+- **実行中**: Phase 2（Part B、background `bonmef27a`）、`lansr-results-analyst`、
+  `lansr-statistical-reviewer`
+- **Gate B→C の注意**: Part A が `gain_confirmed` を返した場合、Part C（phase 3）は**実行しない**。
+  replication を優先する。`gate_b_to_c()` が機械的に強制する。
+- **未検証のまま残る点**: Part C の VRAM は 2 セルでのみ検証済み。実スケール
+  （約 60 系統 x 最大 12 セル）は未確認。
 - **阻害要因**: なし。ハードストップ条件は非該当。
-- **git**: 未 push 0 件。PR #4 は OPEN / MERGEABLE、本文は日本語で最新。
-  routine な push と PR 更新は事前承認済み（`.claude/rules/14-push-and-pr.md`）。
+- **git**: PR #4 は OPEN。routine な push と PR 更新は事前承認済み
+  （`.claude/rules/14-push-and-pr.md`）。
 - **C0001 レポートに必ず含めること**: 規則 R5 の妥当性への脅威の開示。本サイクル内で supervisor の
   偽陰性が 3 件発生し（未検証の比較手法による）、かつ主エンドポイントは null 型であるため、
   supervisor の誤り方向と主仮説が同じ向きを指している。
 
 ### 次の行動
-1. 本実験完了後、Stage 8 解析（`lansr-results-analyst` + `lansr-statistical-reviewer`）。
-   実験者・解析者・独立 reviewer は別 subagent に分離する。
-2. Stage 9 独立敵対的査読（`lansr-independent-reviewer`）、Stage 10 replication gate、
+1. Phase 2（Part B）完了を待ち、Gate B→C を評価（`gate_b_to_c()`）。Part A が
+   `gain_confirmed` でない限り Part C の実行可否は `n_in_support >= 30` に依存する。
+2. Stage 8 の 2 subagent の結果を統合。verdict の独立導出が一致するか確認する。
+3. Stage 9 独立敵対的査読（`lansr-independent-reviewer`）、Stage 10 replication gate、
    Stage 11 `reports/C0001_report.md`（結果が負・null・無効でも必須。**日本語**）、
    Stage 12 manifest + SHA256、Stage 13 negative-result-recovery、Stage 14 state と
    hypothesis_tree の更新、その後 C0002 へ。
-3. 前提条件が不合格なら、報告された欠陥を修正して smoke から再実行する。ハードストップではない。
+4. C0002 の有力候補: 本サイクルで verdict を左右した 9 件の `SymbolicEquivalenceTimeout` を、
+   引き上げた cap で事前登録の上で解決する。比較は 9 件のみで計算費用は無視できる。
+   これは threshold を後から動かして結果を救済する行為ではなく、**新しい事前登録サイクル**である
+   （v2.1 named contingency 1 が指定する唯一の正規経路）。
