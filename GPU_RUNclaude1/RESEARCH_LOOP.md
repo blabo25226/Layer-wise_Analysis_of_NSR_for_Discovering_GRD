@@ -480,6 +480,37 @@ High priority does not itself stop the loop.
 
 ---
 
+## 7b. Session continuity — keeping the loop alive
+
+Claude Code is turn-based. Background subagent completions re-invoke the supervisor automatically, so
+the loop advances on its own while work is in flight. But when the chain drains and the supervisor
+finishes reporting, **nothing re-invokes it** and the turn ends, even mid-cycle. An instruction to
+"continue autonomously" governs scientific decisions, not the turn structure.
+
+To persist across that boundary, run:
+
+```
+/loop GPU_RUNclaude1の自律研究ループを継続。GPU_RUNclaude1/RESEARCH_LOOP.md のStage順に進め、
+GPU_RUNclaude1/research_state.md の現在位置から再開する。hard stop以外では停止しない。
+```
+
+Omit the interval so the supervisor self-paces via `ScheduleWakeup` — cycle stages differ in duration
+by orders of magnitude, so a fixed interval either wastes wakeups or delays the loop. Do not poll for
+background tasks; harness-tracked work notifies on completion. Stop with
+`ScheduleWakeup(stop: true)` or from `/tasks`.
+
+`/schedule` is not a substitute: it runs separate cloud sessions that do not inherit this session's
+frozen preregistration, retractions, or standing rules.
+
+**Consequence for state hygiene**: because a turn can end at any point, `research_state.md` must be
+resumable at any point — not only at cycle boundaries. Before ending a turn mid-cycle it must already
+record the current cycle and stage, the binding preregistration version, what is running or blocked,
+any correction not yet propagated, and the next concrete action.
+
+Full detail: `.claude/rules/12-session-continuity.md`.
+
+---
+
 ## 8. Research optimization objective
 
 Do not optimize solely for:

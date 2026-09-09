@@ -440,6 +440,41 @@ no crash loop.
 ## Human review queue
 See `human_review_queue.md` — currently empty.
 
-## Next action
-C0001 Stage 1 (hypothesis tree) and Stage 2 (literature) are running.
-Then Stage 3 preregistration, Stage 5 reproducibility audit, Stage 6 smoke, Stage 7 full run.
+## Resume point (keep accurate at all times — see `.claude/rules/12-session-continuity.md`)
+
+- **cycle**: `C0001`
+- **stage**: Stage 4 (implementation) finishing; Stage 5 audit already returned `CLEARED_FOR_FULL_RUN`
+- **binding contract**: `GPU_RUNclaude1/plans/C0001_preregistration_v2.1.md` (+ `.json`).
+  v1 and v2 are superseded and retained as historical record only. **Gate 0 item 3 is satisfied.**
+- **head commit**: see `git log -1`; state last updated at `cbedf3d`
+- **experiments run so far**: **none**. All 7 sealed artifacts unread.
+- **test suite**: 395 passed, 1 skipped (301 pre-campaign baseline + 94 new C0001 tests)
+- **running now**: `lansr-implementation-engineer` on the last two blockers
+  - **F3** Gate 0 item 11: the seeded agreement test between the two scoring paths, plus the in-pass
+    1-in-100 census. Gate requirement, so it blocks the full run. Instructed to scope down and record
+    the realized n rather than skip it.
+  - **F4** wire `score_cells_parallel` into phase 1's main loop, with serial-vs-parallel byte-identical
+    determinism, per-candidate failure isolation, and verified resume.
+- **complete**: F1 (PC2b component-level, 60 eligible / 0 matched, matches frozen expectation),
+  F2 (moot — rewrite was already sound), F5 (PC4b), F6 (static AST + runtime sealed-read tests),
+  F7 (VRAM cap via `set_per_process_memory_fraction`, smoke peak 0.452 GiB), F8 (shared
+  `gain_indicator`, `nsimplify` fallback)
+- **blocked on**: nothing external. No hard-stop condition active.
+- **corrections not yet propagated downstream**: none outstanding. Both supervisor retractions
+  (`C0001_RETRACTION_neg_finding.md`, and the second finding in
+  `C0001_pc2b_discrepancy_resolution.md`) are recorded, bannered and committed.
+- **must appear in the C0001 report**: the R5 threat-to-validity disclosure — three supervisor false
+  negatives occurred in this cycle from unvalidated comparison methods, and the primary endpoint is
+  null-shaped, so supervisor error direction and primary hypothesis point the same way.
+
+### Next action
+1. Await F3/F4 completion, then re-verify Gate 0 at run time (item 1 enumerates the working tree).
+2. Stage 6 smoke via `lansr-experimentalist` using the `run-and-monitor-experiment` skill.
+3. Stage 7 full run: control battery first (~0.5 core-h, hard-abort cheap), then Part A endpoint pass
+   (~8.73 core-h, 6 processes), Part B, then Part C (~2.0 GPU-h, <=5.5 GiB VRAM) only if Gate B->C
+   permits — note Part C is **not** run if Part A returns `gain_confirmed`, because replication takes
+   priority.
+4. Stage 8 analysis (`lansr-results-analyst` + `lansr-statistical-reviewer`), Stage 9 independent
+   adversarial review, Stage 10 replication gate, Stage 11 `reports/C0001_report.md` (mandatory
+   regardless of outcome), Stage 12 manifest + SHA256, Stage 13 negative-result recovery, Stage 14
+   state and hypothesis-tree update, then C0002.
