@@ -148,7 +148,40 @@ next-token target on 500 validation formulas. Rule 04 forbids averaging these in
 |---|---|---|
 | `results/runs/gpu_run5_20260823_ddd267b0/phase2/sealed_test.json` | main GRN test, 80 systems, SHA256 `881f784b14cafa2d8617679c573be8ed68f63dbab6d7fa9182e4f5b510464ce0` | **SPENT** — opened once 2026-09-01 (`open_count: 1`) |
 | `.../phase2/sealed_family_holdout_test.json` | 20 systems R07/R08, SHA256 `fa8fe375fd273e807e22d7d0def7c1d0c866ad006081d207359cb97d1bcbaf91` | **SPENT**, and a *subset* of the 80 — never count as independent evidence |
-| `.../phase4/sealed_official_test.json` | 500 official ODEFormer-generator formulas, artifact SHA256 `2860d829d9077d01258489fb68ed8dcd8a333d6a0e150b8e36b301f28bb1e070` | **UNSPENT** — generated, never evaluated (`official_test_outcomes_not_analyzed: true`). The only clean seal available. |
+| `.../phase4/sealed_official_test.json` | 500 official ODEFormer-generator formulas, artifact SHA256 `2860d829d9077d01258489fb68ed8dcd8a333d6a0e150b8e36b301f28bb1e070` | **GENERATED, NEVER EVALUATED** — see the correction below. Not "untouched". |
+
+**CORRECTION (C0001 Stage 5, 2026-09-09)** — my earlier characterization of the phase-4 seal as
+"UNSPENT — never evaluated — the only clean seal available" was imprecise and is withdrawn.
+Verified: `scripts/phases/gpu_run5_phase4.py:119` and `:152` compute `sha256_file()` over
+`sealed_official_test.json` alongside its non-sealed siblings — once for a cache-validity check and
+once to populate `official_corpus_meta.json:artifact_sha256`. So the digest `2860d829...` that I cited
+as evidence of the seal's cleanliness **was computed by the seal's own producing phase, outside any
+test-open ledger**. There is no ledger entry for it.
+
+The precise, defensible status is:
+- its **outcomes were never analyzed** (`test_generated_not_evaluated: true`, and Phase 4's Go asserts
+  `official_test_outcomes_not_analyzed: true` / `official_test_used_only_for_split_leakage_audit: true`);
+- its **bytes were read** by its producing phase to hash them, which GPU_RUN5's own Phase 8 treats as
+  the test-open event for the *other* seals;
+- whether that constitutes consumption is an **open campaign-level question**, not something I should
+  assert either way.
+Nothing in C0001 reads it regardless.
+
+**Seal inventory correction**: there are **7** sealed files under `results/`, not 3. The extra four
+belong to two abandoned/partial GPU_RUN5 runs (`gpu_run5_20260823_8cd0b6fa`,
+`gpu_run5_20260823_fec3a894`), each carrying its own `phase2/sealed_test.json` and
+`phase2/sealed_family_holdout_test.json`. Only `ddd267b0` is authoritative. Any allowlist or guard must
+enumerate all 7 from the filesystem and never rely on a hardcoded three-path list:
+
+```
+results/runs/gpu_run5_20260823_8cd0b6fa/phase2/sealed_family_holdout_test.json
+results/runs/gpu_run5_20260823_8cd0b6fa/phase2/sealed_test.json
+results/runs/gpu_run5_20260823_ddd267b0/phase2/sealed_family_holdout_test.json
+results/runs/gpu_run5_20260823_ddd267b0/phase2/sealed_test.json
+results/runs/gpu_run5_20260823_ddd267b0/phase4/sealed_official_test.json
+results/runs/gpu_run5_20260823_fec3a894/phase2/sealed_family_holdout_test.json
+results/runs/gpu_run5_20260823_fec3a894/phase2/sealed_test.json
+```
 | `results/runs/gpu_run4_phase0_01/phase4/corpus.json` test split | 16 formulas | spent (evaluated once in RUN4 phase 9) |
 | ODEBench 63 systems | `third_party/odeformer/odeformer/odebench/` | not sealed, but **forbidden** as adaptation / layer-selection / hyperparameter data. Post-adaptation ODEBench evaluation is a *forgetting* secondary outcome only. |
 
@@ -313,11 +346,12 @@ runtime dependency.
 
 None of these are hard stops. Items 1, 2 and 4 are safe to fix inside a cycle.
 
-6. **`pytest GPU_RUN5/tests` fails collection without `PYTHONPATH=.`** — 6 files raise
-   `ModuleNotFoundError: No module named 'scripts'`, including `test_gpu_run5_phase8.py`, which holds
-   the actual sealed-test firewall-ordering assertions. With `PYTHONPATH=.` all 124 collect and the 4
-   firewall tests pass. So the defect-1 fix needs `pythonpath = .` in `pytest.ini`, not just the extra
-   testpath. (Found in C0001 Stage 3 reproducibility audit.)
+6. ~~`pytest GPU_RUN5/tests` fails collection without `PYTHONPATH=.`~~ **NOT REPRODUCED, and now moot.**
+   The audit reported 6 files raising `ModuleNotFoundError: No module named 'scripts'`. This did not
+   reproduce: `GPU_RUN5/tests` collected 124 and passed 124 bare, because
+   `GPU_RUN5/tests/conftest.py` inserts `src/` on `sys.path`. It does not insert the repo root, which is
+   the real latent fragility, so `pythonpath = .` was added defensively in the defect-1 fix. Both are
+   now in `pytest.ini` and the default suite is 301 passed / 1 skipped.
 7. **`scripts/ops/run_manifest.py:28 tree_sha256` byte-reads every file under a `--data-path` via
    `rglob("*")`.** Pointing it at a GPU_RUN5 run directory would open all three sealed test artifacts,
    including the campaign's only **unspent** seal. GPU_RUN5's own phase 8 treats hashing sealed bytes as
@@ -347,6 +381,23 @@ it. Re-deriving an already-published number is a *positive control*, not a findi
 and labeled as such.
 Origin: `GPU_RUNclaude1/analyses/C0001_RETRACTION_neg_finding.md`. Two errors of exactly this shape
 occurred in C0001 Stage 1 (the `pow2` surface-token search and the prefix-vs-infix skeleton comparison).
+
+**R2 (adopted 2026-09-09, C0001, from the v2 audit's control-battery findings).**
+A control is not well-posed until the population it runs on has been *verified* to have the property
+the control assumes. Concretely: positive-control rewrites must be verified function-**preserving**,
+negative-control alterations verified function-**changing**, and every threshold expressed as a fraction
+of the **realized eligible set** rather than as an absolute count against an assumed population size.
+Freeze a minimum eligible-set size below which the control is `not_measurable` and non-gating.
+Origin: both V2-CRIT-1 (a gate at 76/80 against a population that measures 0) and V2-CRIT-2 (10 of 60
+negative-control cases were commutative no-ops where matching is correct) had exactly this shape.
+Corollary adopted with it: run the control battery **before** the expensive endpoint pass, so a
+hard-abort costs the battery rather than the whole budget.
+
+**R3 (adopted 2026-09-09, C0001).**
+Before asserting that a sealed or otherwise restricted artifact is untouched, verify how its recorded
+digest was produced. A hash present in a run's metadata may have been computed by the producing phase
+itself, outside any access ledger — in which case "never touched" is false even though "never evaluated"
+is true. Origin: the phase-4 seal correction in §4 above.
 
 
 ---
