@@ -453,37 +453,36 @@ branch は正しい。作業ツリーはクリーン。破壊的操作は不要�
 
 ## 再開ポイント（常に正確に保つ — `.claude/rules/12-session-continuity.md` を参照）
 
-- **cycle**: `C0001`
-- **stage**: **Stage 6（smoke）実行中。** Stage 4 は `5a4d195` で完了。Stage 5 の監査は
-  `CLEARED_FOR_FULL_RUN` を返し、Gate 0 の項目 3 は満たされている。
-- **拘束力のある契約**: `GPU_RUNclaude1/plans/C0001_preregistration_v2.1.md`（および `.json`）。
-  v1 と v2 は置き換えられたが、歴史的記録として保持する。
-- **これまでに実行した実験**: 現在進行中の smoke 経路以外はない。封印成果物 **7** 個すべて未読。
-- **テストスイート**: 404 passed, 1 skipped（キャンペーン前のベースライン 301 + C0001 の 103 テスト。
-  `pytest.ini` により既定スイートに含まれる）
-- **現在実行中**: `lansr-experimentalist` が Stage 6 smoke を実行中。run id は `gpu_runclaude1_c0001_stage6smoke`
-- **Stage 4 の結果**: F1-F8 のすべてが完了。F3 はコーパス全体で **一致ペア 1,178 件 / 不一致 0 件** を実現し、
-  v2.1 の目標 910 を上回り、Gate 0 のハードゲートとして組み込まれた。F4 の並列経路は、直列実行と
-  バイト単位で同一であることを検証済みで、二重計上なしに再開可能であり、セルごとの失敗分離と、
-  ワーカ内部で発火するタイムアウトを備える。
-- **ブロック要因**: なし。発動中のハードストップ条件はない。
-- **git remote**: `git push` は **不可能** — HTTPS リモートで資格情報ヘルパーもトークンもなく、
-  `gh` も未インストール。`5a4d195` 時点で未 push のコミットは 7 個。PR #4
-  （`20260909_researce_GPU_RUNclaude1` -> `main`）はオープンで、マージ可能かつクリーン、リモート head は
-  `7f507cc`、本文は空、コメント 0 件。リポジトリは公開なので、PR の読み取りは未認証 API で可能。
-  資格情報の設定はハードストップ項目であり、ユーザ自身が実施するもの。手順は提供済み。
-- **C0001 レポートに必ず記載すること**: R5 に基づく妥当性への脅威の開示 — 本サイクルでは未検証の比較手法から
-  supervisor の偽陰性が三件発生し、かつ主エンドポイントは null 型なので、supervisor の誤りの方向と
-  主仮説が同じ向きを指している。
+- **サイクル**: `C0001`
+- **ステージ**: **Stage 7（本実験）実行中。** Stage 4 は `5a4d195` で完了、Stage 5 監査は
+  `CLEARED_FOR_FULL_RUN`（Gate 0 項目 3 充足）、Stage 6 smoke は `PROCEED_TO_FULL_RUN`（条件 3 件）。
+- **拘束力を持つ契約**: `GPU_RUNclaude1/plans/C0001_preregistration_v2.1.md`（および `.json`）。
+  v1・v2 は失効。履歴として保存。
+- **実験実行**: smoke（`gpu_runclaude1_c0001_stage6smoke`）のみ完了。本実験は実行中。
+  封印成果物 7 件は C0001 では未読（`sealed_paths_read == 0`）。
+- **テストスイート**: 404 passed, 1 skipped
+- **実行中**: `lansr-experimentalist`。前提条件 2 件の検証（PC0-CAS の全 80 系統再検証、
+  全スコープ hard-abort が採点前に Phase 1 を停止させることの確認）→ 合格なら Phase 0-4 本実験。
+  run id は実行時コミットから導出。
+- **smoke が検出し修正済みの欠陥 2 件**: 必須フィールド `prior_information_disclosed` が失効した v2 を
+  参照していた（現在は v2.1 §0.1-§0.4）。マッチレコードに `candidate_index` がなく位置依存の突合に
+  なっていた（rule 03、`MatchResult` に明示キーを追加）。
+- **Gate B->C の注意**: Part A が `gain_confirmed` を返した場合、Part C（phase 3）は**実行しない**。
+  replication を優先する。
+- **未検証のまま本実験に入る点**: Part C の VRAM は 2 セルでのみ検証済み。実スケール
+  （約 60 系統 x 最大 12 セル）は未確認。非線形な増加の兆候はない。
+- **阻害要因**: なし。ハードストップ条件は非該当。
+- **git**: 未 push 0 件。PR #4 は OPEN / MERGEABLE、本文は日本語で最新。
+  routine な push と PR 更新は事前承認済み（`.claude/rules/14-push-and-pr.md`）。
+- **C0001 レポートに必ず含めること**: 規則 R5 の妥当性への脅威の開示。本サイクル内で supervisor の
+  偽陰性が 3 件発生し（未検証の比較手法による）、かつ主エンドポイントは null 型であるため、
+  supervisor の誤り方向と主仮説が同じ向きを指している。
 
 ### 次の行動
-1. smoke が `PROCEED_TO_FULL_RUN` なら、実行時に Gate 0 を再検証し（項目 1 は作業ツリーを列挙する）、
-   その後、実行開始時のコミットから導出した run id で Stage 7 の本実行を行う。
-2. Stage 7 の順序: 最初にコントロール群（約 0.5 コア時間なのでハードアボートが安価）、次に Part A の
-   エンドポイント計算（約 8.73 コア時間、ワーカ 6、実時間で約 1.5-2 時間、再開可能）、Part B、
-   その後 Part C（約 2.0 GPU 時間、VRAM は 5.5 GiB でハード上限）。Part C は Gate B->C が許可する場合に
-   **限り** 実行する。Part A が `gain_confirmed` を返した場合、追試が優先されるため Part C は実行 **しない**。
-3. Stage 8 分析（`lansr-results-analyst` + `lansr-statistical-reviewer`）、Stage 9 独立の敵対的レビュー、
-   Stage 10 追試ゲート、Stage 11 `reports/C0001_report.md`（結果にかかわらず必須）、
-   Stage 12 manifest + SHA256、Stage 13 負の結果からの回復、Stage 14 状態と仮説木の更新、その後 C0002。
-4. smoke が `BLOCKED` なら、報告された実装上の欠陥を修正し、smoke を再実行する。ハードストップではない。
+1. 本実験完了後、Stage 8 解析（`lansr-results-analyst` + `lansr-statistical-reviewer`）。
+   実験者・解析者・独立 reviewer は別 subagent に分離する。
+2. Stage 9 独立敵対的査読（`lansr-independent-reviewer`）、Stage 10 replication gate、
+   Stage 11 `reports/C0001_report.md`（結果が負・null・無効でも必須。**日本語**）、
+   Stage 12 manifest + SHA256、Stage 13 negative-result-recovery、Stage 14 state と
+   hypothesis_tree の更新、その後 C0002 へ。
+3. 前提条件が不合格なら、報告された欠陥を修正して smoke から再実行する。ハードストップではない。
