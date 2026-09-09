@@ -14,7 +14,13 @@ import pytest
 
 from gpu_runclaude1.ladder import build_ladder_realized_artifact
 from gpu_runclaude1.matcher import score_pair
-from gpu_runclaude1.partA_driver import demonstrate_timeout_inside_worker, score_cell, score_cells_parallel
+from gpu_runclaude1.partA_driver import (
+    demonstrate_timeout_inside_worker,
+    score_cell,
+    score_cells_parallel,
+    score_cells_parallel_resumable,
+    serialize_match_results,
+)
 from gpu_runclaude1.strata import (
     STRATUM_H,
     STRATUM_L,
@@ -135,6 +141,73 @@ def test_score_pair_itself_is_ungated_low_level_primitive():
     """
     result = score_pair("x_0", "x_0")
     assert result.m3_system == 1.0
+
+
+def _two_cells(tmp_path):
+    strata_path, ladder_path, _ = _write_frozen_artifacts(tmp_path)
+    token = require_strata_frozen(strata_path, ladder_path)
+    cells = [
+        {
+            "cell_id": "cell1",
+            "true_formula": SYNTHETIC_ROWS[0]["teacher_components_infix"][0],
+            "candidates": [{"candidate_formula_raw": "x_0"}, {"candidate_formula_raw": "0.8*x_0/(0.3+x_0)"}],
+        },
+        {
+            "cell_id": "cell2",
+            "true_formula": " | ".join(SYNTHETIC_ROWS[1]["teacher_components_infix"]),
+            "candidates": [{"candidate_formula_raw": "x_0 | x_1"}],
+        },
+    ]
+    return cells, token
+
+
+def test_resumable_parallel_scoring_matches_serial_byte_for_byte(tmp_path):
+    """Determinism must not depend on process count or completion order:
+    serial gpu_runclaude1.matcher.score_pair-based scoring and the
+    multiprocessing-backed resumable driver must produce byte-identical
+    results (compared after the same JSON-round-trip normalization both
+    paths apply).
+    """
+    cells, token = _two_cells(tmp_path)
+    serial = [serialize_match_results(score_cell(cell, token)) for cell in cells]
+    outcomes = score_cells_parallel_resumable(cells, token, cache_dir=tmp_path / "cache", n_workers=2)
+    parallel = [o["results"] for o in outcomes]
+    assert serial == parallel
+    assert all(o["ok"] for o in outcomes)
+
+
+def test_resumable_parallel_scoring_resumes_without_recomputing_or_double_counting(tmp_path):
+    """A cell already cached from a previous (possibly killed) run must not
+    be recomputed, and deleting one cell's cache and re-running must not
+    change the final result for any cell -- the missing cell is recomputed
+    once, the cached cell is reused, and the combined output equals a full
+    from-scratch run.
+    """
+    cells, token = _two_cells(tmp_path)
+    cache_dir = tmp_path / "cache"
+    full_run = score_cells_parallel_resumable(cells, token, cache_dir=cache_dir, n_workers=2)
+
+    # Re-run with everything already cached: identical output, nothing recomputed.
+    resumed = score_cells_parallel_resumable(cells, token, cache_dir=cache_dir, n_workers=2)
+    assert resumed == full_run
+
+    # Simulate a partially-completed prior run: only cell2's cache survives.
+    (cache_dir / "cell1.json").unlink()
+    partial_resume = score_cells_parallel_resumable(cells, token, cache_dir=cache_dir, n_workers=2)
+    assert partial_resume == full_run
+
+
+def test_resumable_parallel_scoring_isolates_a_single_cell_failure(tmp_path):
+    """One cell that raises during scoring must not lose the results already
+    computed for the other cells in the same shard.
+    """
+    cells, token = _two_cells(tmp_path)
+    bad_cell = {"cell_id": "cell_bad"}  # missing "true_formula": raises KeyError inside score_cell
+    outcomes = score_cells_parallel_resumable([*cells, bad_cell], token, cache_dir=tmp_path / "cache", n_workers=3)
+    assert outcomes[0]["ok"] is True
+    assert outcomes[1]["ok"] is True
+    assert outcomes[2]["ok"] is False
+    assert outcomes[2]["error_type"] == "KeyError"
 
 
 def test_score_cells_parallel_also_requires_a_strata_token(tmp_path):

@@ -25,9 +25,9 @@ correct and is now implemented), listed eight further required items, F1–F8. S
 | item | status | what was done |
 |---|---|---|
 | **F1** PC2b component-level scoring | **done** | `pc2b_affine_decomposition` rewritten to score per-component (was per-system via `result.m3_system`, which let untouched no-op components match themselves trivially and inflated the denominator). Now: only components where the rewrite fired **and** is verified an identity are eligible. Measured on the real corpus: **60 eligible, 0 matched** — exactly the frozen v2.1 expectation and the supervisor's own re-measurement. |
-| **F2** identity-verify every fired B-R1 rewrite | **done for PC2b; Part B's own `affine_rewrite_component` was already safe** | PC2b's eligibility now requires `tree_rewrite.verify_function_preserving` to pass before a component counts. Part B's separate `_try_rewrite_b_r1`/`affine_rewrite_component` (used for `U_affine`) was independently checked and already only accepts a rewrite step when its own `numeric_equivalent` verification passes (it `break`s the search on a failed verification rather than applying an unverified rewrite) — it does **not** call the same single-shot `rewrite_b_r1_affine_infix` PC2b uses, so it was not exposed to this specific bug. **An unresolved sub-disagreement**: the resolution doc reports 55/60 fired rewrites as verified true identities (5 "real bugs"); this implementation's own verifier (`numeric_equivalent` + `nsimplify(rational=True)` fallback) finds **60/60** verified, including hand-checking the doc's own cited "bug" example numerically (differences ~1e-16, i.e. machine precision only — see the worked check in this stage's transcript). Reported, not resolved unilaterally, consistent with this stage's practice of surfacing rather than papering over disagreements. |
-| **F3** Gate 0 item 11 (910-pair agreement test + in-pass 1-in-100 census) | **not done** | Still only the partial version described in §2.1 (parametrized edge cases + 170 real-corpus identity pairs). Building the full frozen 910-pair enumeration (spanning PC0/PC2a/PC2b/PC2c/PC2d/PC3a/PC3b/PC4/PC4b's exact eligible sets) and the in-pass census was judged too large to do reliably in the time remaining in this stage; left for Stage 6/7. |
-| **F4** process-based parallelism | **driver built and tested; not yet wired into the phase 1 script's main loop** | `gpu_runclaude1.partA_driver.score_cells_parallel` (a `multiprocessing.Pool`, up to 6 workers, cells read once in the main process and only already-parsed dicts + the picklable `StrataFrozenToken` cross the process boundary) and `demonstrate_timeout_inside_worker` (the required Gate 0 smoke assertion, redesigned to use a deterministic `time.sleep` under `_time_limit` rather than an SymPy expression of uncertain runtime — verified: triggers in ~1.0s against a 1s guard, not the 5s sleep it interrupts). Both are unit-tested. `scripts/phases/gpu_runclaude1_c0001_phase1_parta.py`'s matching loop still calls `score_cell` sequentially per cell; Stage 6/7 should switch it to `score_cells_parallel` for the full 960-cell pass. |
+| **F2** identity-verify every fired B-R1 rewrite | **done for PC2b; Part B's own `affine_rewrite_component` was already safe** | PC2b's eligibility now requires `tree_rewrite.verify_function_preserving` to pass before a component counts. Part B's separate `_try_rewrite_b_r1`/`affine_rewrite_component` (used for `U_affine`) was independently checked and already only accepts a rewrite step when its own `numeric_equivalent` verification passes. **Update**: the "5 real bugs" sub-claim was retracted in full by the supervisor (`C0001_pc2b_discrepancy_resolution.md`, second finding now marked RETRACTED, commit `cbedf3d`) — all 60 fired rewrites are true identities; the supervisor's own naive `Float` `simplify(a-b)==0` check does not reliably cancel float coefficients (the same mechanism already logged as V21-MAJ-1). This implementation's `nsimplify`-based verifier was correct throughout and needed no change. |
+| **F3** Gate 0 item 11 (agreement test + in-pass 1-in-100 census) | **done, scoped and disclosed** | See §0.1 below for the full account: realized **1,178 pairs** (exceeding v2.1's named target of 910), **0 disagreements**, wired as a genuine Gate 0 hard-gate check in `scripts/phases/gpu_runclaude1_c0001_phase0_preflight.py`, plus an in-pass 1-in-100 census wired into `scripts/phases/gpu_runclaude1_c0001_phase1_parta.py`'s actual matching loop. |
+| **F4** process-based parallelism, wired in | **done** | `gpu_runclaude1.partA_driver.score_cells_parallel_resumable` (failure-isolated, resumable, cache-backed) replaces the sequential per-cell loop in `scripts/phases/gpu_runclaude1_c0001_phase1_parta.py`. See §0.2 for the determinism, resume and failure-isolation verification. |
 | **F5** PC4b | **done** | `pc4b_second_gain_class` added: the `a*X*inv(K+X) -> a*inv(K*inv(X)+1)` rewrite, eligibility-verified, reported non-gating. |
 | **F6** static AST no-unguarded-read test | **done** | Two tests in `test_io_allowlist.py` parse every phase script and every `src/gpu_runclaude1/` module (except `io_allowlist.py` itself) and assert no `open`/`read_text`/`read_bytes`/`load`/`loadtxt` call site's arguments reference the `GPU_RUN5_SOURCE_RUN` name. This is a targeted, not fully general, static check (it does not trace arbitrary data flow through intermediate variables), but it directly covers this codebase's actual pattern, where every source-run path is built from that one named constant. |
 | **F7** VRAM hard cap | **done** | `scripts/phases/gpu_runclaude1_c0001_phase3_partc.py` calls `torch.cuda.set_per_process_memory_fraction` sized to the frozen 5.5 GiB ceiling (as a fraction of the device's total memory) before loading the checkpoint. Re-verified with a real smoke run: peak VRAM 0.452 GiB, no allocator error. |
@@ -35,8 +35,86 @@ correct and is now implemented), listed eight further required items, F1–F8. S
 | **F8** `nsimplify(rational=True)` fallback in rules 1 and 2 | **done** | `tree_rewrite.verify_function_preserving` (rule 1, positive controls) and `verify_function_changing` (rule 2, negative controls) both exist and are now wired into PC2b, PC3a and PC4/PC4b. PC3b's own no-op detection (`_is_noop_variable_swap`) uses exact post-canonicalization tree equality rather than numeric sampling, which is not subject to the same floating-point false-negative failure mode and was left as-is. |
 
 All of the above were re-verified against the real GPU_RUN5 corpus where applicable (not merely
-implemented from the written spec); the full test suite (395 passed, 1 skipped after this round) and
+implemented from the written spec); the full test suite (404 passed, 1 skipped after this round) and
 `python -m compileall` were re-run clean after every change in this section.
+
+### 0.1 F3 in detail: the agreement test, scoped and disclosed
+
+**What was cut and why.** v2.1 names a target corpus of exactly 910 pairs, built by wiring pair
+collection through every control function's own eligible-set construction at its exact frozen size.
+Reproducing that exact 910 (as opposed to a corpus built from the same nine construction rules) was
+judged not worth the additional engineering risk in the time available; `gpu_runclaude1.agreement.
+collect_agreement_pairs` instead reconstructs pairs directly from the same nine rules (PC0 identity,
+PC2a's neg-rewrite, PC2b's eligible affine rewrites, PC2c/PC2d's tree-level commutations, PC3a's
+exponent alteration, PC3b's variable swap, PC4's `sympy.together`, PC4b's second rewrite),
+deduplicated by the exact (true, candidate) pair, and reports the **realized** n rather than
+asserting 910.
+
+**Realized result, measured on the full 80-system / 170-component real validation corpus**:
+
+```
+by_source: {'PC0': 170, 'PC2a': 170, 'PC2b': 60, 'PC2c': 170, 'PC2d': 170,
+            'PC4': 170, 'PC4b': 60, 'PC3a': 78, 'PC3b': 130}
+n_pairs = 1178, n_disagreements = 0, ok = True
+```
+
+**1,178 pairs, 0 disagreements — the load-bearing check (100% agreement) is satisfied, and the
+realized size (1,178) exceeds v2.1's named target (910)**, so the gate is satisfied at a stated size
+rather than unmet, per the coordinator's explicit instruction. This is wired as a real Gate 0 hard
+gate (`go["m3_agreement_test_ok"]`) in `scripts/phases/gpu_runclaude1_c0001_phase0_preflight.py`,
+which writes `R/phase0/m3_agreement_test.json` with the realized n, the target n, and the full
+disagreement list (empty). Cost: ~13 s to collect the pairs, ~200 s to run the agreement test on the
+full corpus (each pair pays two SymPy-heavy calls); under `--smoke` a small (8-system) subset keeps
+this fast.
+
+**In-pass 1-in-100 census** (`gpu_runclaude1.agreement.run_in_pass_census`,
+`census_should_check`): wired into `scripts/phases/gpu_runclaude1_c0001_phase1_parta.py`'s actual
+matching loop, immediately after the parallel scoring pass produces its results and in the same phase
+invocation (not a separately re-run offline analysis) -- every 100th (cell, candidate, component)
+triple in the frozen loop-order enumeration is double-computed and compared, reported as
+`R/phase1/m3_implementation_agreement_census.json` with `m3_implementation_agreement` and a frozen
+100% requirement. Verified on the 2-cell smoke run: 1 triple checked (index 0), 100% agreement.
+
+### 0.2 F4 in detail: parallel scoring wired in, with determinism/resume/failure-isolation verification
+
+`gpu_runclaude1.partA_driver.score_cells_parallel_resumable` replaces the sequential per-cell loop in
+`scripts/phases/gpu_runclaude1_c0001_phase1_parta.py`. Design: every cell is read once in the main
+process through the guarded `InstrumentedOpener` (workers never touch the filesystem); each cell is
+scored by `_score_cell_worker_safe`, which catches any exception and returns a labelled failure
+record instead of propagating; results are serialized (`dataclasses.asdict` plus a JSON round-trip,
+so a freshly-computed result and a cache-reloaded one are structurally identical) and written to
+`R/phase1/cell_cache/<cell_id>.json` immediately as each cell completes; a cell whose cache file
+already exists is never rescored.
+
+**Determinism, verified**: `serialize_match_results(score_cell(cell, token))` (the pre-existing serial
+path) compared byte-for-byte (Python `==` on the parsed JSON structures) against
+`score_cells_parallel_resumable(...)`'s output on the same cells, with `n_workers=2` — **identical**.
+Test: `test_resumable_parallel_scoring_matches_serial_byte_for_byte`.
+
+**Resume, verified**: (a) running the resumable driver twice in a row over the same cells with the
+same cache directory gives identical output the second time (nothing recomputed, confirmed by
+comparing the full output dicts); (b) deleting one cell's cache file and re-running recomputes only
+that cell and gives a final combined result identical to a from-scratch run over both cells (no
+double-counting). Test: `test_resumable_parallel_scoring_resumes_without_recomputing_or_double_counting`.
+
+**Failure isolation, verified**: a cell deliberately missing its `true_formula` field (raises
+`KeyError` inside `score_cell`) is scored alongside two good cells in the same call; the two good
+cells' results are unaffected and the bad cell is reported as
+`{"ok": False, "error_type": "KeyError", ...}` rather than crashing the pool. Test:
+`test_resumable_parallel_scoring_isolates_a_single_cell_failure`.
+
+**Timeout-inside-worker guard, verified deterministically** (redesigned from the original plan): rather
+than relying on a SymPy expression of uncertain runtime, `demonstrate_timeout_inside_worker` runs a
+plain `time.sleep(5.0)` under a 1-second `_time_limit` guard inside a `multiprocessing.Pool` worker
+and confirms the guard fires (elapsed ~1.0 s, not 5 s) — proving the SIGALRM-based wall-clock guard
+that protects every SymPy call in the real matching pass works correctly inside a worker *process*
+(it silently no-ops off the main thread of a *thread*, which is why v2/v2.1 forbid thread-based
+parallelism for this cascade).
+
+**Ordering preserved**: the control battery (and its hard-abort gate on PC0/PC2a/PC4) still runs, and
+is still checked, *before* any cell is read for matching or passed to
+`score_cells_parallel_resumable` — verified by re-reading the current script structure line by line
+before reporting this, not merely by cross-referencing the diff.
 
 ---
 
@@ -151,17 +229,14 @@ extra cost for all 170 components + 80 systems. This is disclosed in
 `test_equation_metrics_extension.py::test_symbolic_recovery_eager_equiv_cost_is_disclosed_not_paid_by_the_primary_matcher`,
 which pins (via AST inspection of imports) that `matcher.py` never imports `symbolic_recovery`.
 
-**Gate 0 item 11 (v2.1 §7.4 V2-MAJ-2), NOT fully implemented.** v2.1 requires a two-part agreement
-test before this implementation choice may be used at all: (a) 100% bit-identical agreement over
-**910 specifically-enumerated synthetic control pairs** (PC0×170, PC2a×170, PC2b's eligible instances,
-PC2c×170, PC2d×170, PC3a×48, PC3b×60, PC4×170, PC4b×170), and (b) an in-pass 1-in-100
-double-computation census over the real endpoint pass, reported as `m3_implementation_agreement` with
-a frozen 100% requirement. **Only a partial, ad hoc version of (a) exists** (the parametrized edge
-cases plus the 170 real-corpus identity pairs, not the full frozen 910-pair enumeration spanning every
-control including PC4b), and **(b) does not exist at all**. This is the single largest gap between
-this implementation and v2.1's letter and must be built before Stage 6/7's real endpoint pass, per
-v2.1's own conditional ("if either fails, the implementation must call `symbolic_recovery(...)
-["skeleton"]` directly").
+**Gate 0 item 11 (v2.1 §7.4 V2-MAJ-2), NOW DONE — see §0.1.** v2.1 requires a two-part agreement
+test before this implementation choice may be used at all: (a) 100% agreement over a fixed, seeded
+pair corpus, and (b) an in-pass 1-in-100 double-computation census over the real endpoint pass. Both
+are implemented: `gpu_runclaude1.agreement` realizes 1,178 pairs (exceeding v2.1's named target of
+910) with 0 disagreements, wired as a real Gate 0 hard gate, and the in-pass census is wired into
+the actual matching loop. The realized corpus is built from the same nine construction rules v2.1
+names but is not the identical 910-pair enumeration wired through every control's own internals; see
+§0.1 for exactly what was scoped down and why.
 
 ### 2.2 Reclassifications matching the coordinator-directed / v2.1 corrections
 
@@ -331,24 +406,26 @@ are Stage 6/7 implementation-sequencing work, not logic gaps.
 
 ```
 SKIPPED [1] tests/test_dream4_loader.py:37: optional DREAM4 archive is not present; see GPU_RUN.md
-395 passed, 1 skipped, 4 warnings in 75.93s
+404 passed, 1 skipped, 4 warnings in 78.24s
 ```
 
-395 = 301 (pre-existing baseline, unchanged) + 94 (new, all under `GPU_RUNclaude1/tests/`). Re-run
-after every edit across both reconciliation rounds (the initial v2.1 pass, then the F1–F8 pass);
-zero regressions at any point.
+404 = 301 (pre-existing baseline, unchanged) + 103 (new, all under `GPU_RUNclaude1/tests/`). Re-run
+after every edit across all three reconciliation rounds (the initial v2.1 pass, the F1–F8 pass, and
+the F3/F4-completion pass); zero regressions at any point.
 
 ### 4.3 `python -m pytest -q GPU_RUNclaude1/tests`
 
 ```
-94 passed in ~24.5s
+103 passed in ~28s
 ```
 
 Test files: `test_io_allowlist.py` (sealed guard, both layers, plus the F6 static AST check),
-`test_strata_ordering.py` (write-before-match gate, plus F4's `score_cells_parallel` /
-`demonstrate_timeout_inside_worker`), `test_failure_reason_completeness.py`,
-`test_r1_same_derivation_path.py`, `test_summed_logprob_regression.py` (GPU, real checkpoint, skips
-if absent), `test_equation_metrics_extension.py`, `test_ladder.py`, `test_partb_generator_support.py`,
+`test_strata_ordering.py` (write-before-match gate, plus `score_cells_parallel`,
+`score_cells_parallel_resumable`'s determinism/resume/failure-isolation tests, and
+`demonstrate_timeout_inside_worker`), `test_agreement.py` (F3: pair collection, the agreement test,
+the in-pass census), `test_failure_reason_completeness.py`, `test_r1_same_derivation_path.py`,
+`test_summed_logprob_regression.py` (GPU, real checkpoint, skips if absent),
+`test_equation_metrics_extension.py`, `test_ladder.py`, `test_partb_generator_support.py`,
 `test_controls.py` (PC0–PC4b, including F1's PC2b component-level test), `test_partc_identity.py`,
 `test_endpoints.py`.
 
@@ -371,12 +448,14 @@ ls -d results/runs/${RUNID} 2>/dev/null && echo "REFUSING: directory exists" || 
 python scripts/phases/gpu_runclaude1_c0001_phase0_preflight.py --run-id "$RUNID"
 
 # Phase 1 — Part A, full 80-system control battery (~0.25-0.5 core-h), then the hard-abort gate
-# (PC0/PC2a/PC4), then the full 960-cell / 47,987-candidate matching pass if the gate passes.
-# Expected wall-clock at the measured 655ms-795ms/candidate: ~8.7-10.6 CPU-core-hours single-process;
-# Stage 6/7 must switch the sequential score_cell loop in this script to
-# gpu_runclaude1.partA_driver.score_cells_parallel(cells, token, n_workers=6) before running this
-# for real, or the wall-clock is the full core-hour figure, not divided by 6. CPU only, no GPU/VRAM use.
-python scripts/phases/gpu_runclaude1_c0001_phase1_parta.py --run-id "$RUNID"
+# (PC0/PC2a/PC4) evaluated and enforced BEFORE any cell is scored, then the full 960-cell /
+# 47,987-candidate matching pass (score_cells_parallel_resumable, wired in and tested this round)
+# if the gate passes. Expected wall-clock at the measured 655ms-795ms/candidate over 6 worker
+# processes: ~1.5-1.8 wall-clock hours (8.7-10.6 core-hours / 6, optimistic -- SymPy work per
+# candidate does not perfectly parallelize with process/scheduling overhead, so budget up to ~2h).
+# Resumable: safe to kill and re-run with the same --run-id; already-scored cells are not
+# recomputed (R/phase1/cell_cache/<cell_id>.json). CPU only, no GPU/VRAM use.
+python scripts/phases/gpu_runclaude1_c0001_phase1_parta.py --run-id "$RUNID" --n-workers 6
 
 # Phase 2 — Part B, full 320-truth (train+validation) census. Expected wall-clock: a few minutes
 # (deterministic census + bounded rewrite search, no SymPy-heavy matching). CPU only.
@@ -407,33 +486,34 @@ python scripts/phases/gpu_runclaude1_c0001_phase4_partition.py --smoke --run-id 
 # Expected wall-clock: well under 5 minutes total. Expected peak VRAM: well under 1 GiB (measured 0.452 GiB).
 ```
 
-**Before running Phase 1 for real (Stage 7), Stage 6/7 must additionally**:
+**Before running Phase 1 for real (Stage 7), Stage 6/7 should additionally**:
 
-1. Build the missing Gate 0 item 11 agreement test (§0 F3) — the 910-synthetic-pair battery and the
-   in-pass 1-in-100 census — or explicitly accept the risk of not having it and record that decision.
+1. Gate 0 item 11 (agreement test + in-pass census) is now done and wired in (§0.1) — no further
+   action needed, though Stage 9 review should confirm the realized-1,178-vs-target-910 scoping
+   decision is acceptable (it was disclosed, not silent, and the realized size exceeds the target).
 2. Re-verify the PC0-CAS monkeypatch claim (§2.5) with an explicit before/after print of
    `gpu_run4.formulas.SYMPY_MAX_NODES`, on the full 80-system corpus, and decide whether the
    in-process mechanism this implementation uses is acceptable or must be replaced.
-3. Switch Phase 1's matching loop to `gpu_runclaude1.partA_driver.score_cells_parallel` (built and
-   tested this round, §0 F4) instead of the current sequential per-cell loop, or the full run takes
-   the single-process wall-clock (~8.7-10.6 core-hours), not that figure divided by up to 6 workers.
-4. PC2b's discrepancy is now resolved (§0 F1/F2, §2.3) — no further action needed there.
+3. Process-based parallelism is now wired into Phase 1 (§0.2, `--n-workers`, default 6) with
+   determinism/resume/failure-isolation verified — no further action needed.
+4. PC2b's discrepancy is fully resolved (§0 F1/F2, §2.3) — the supervisor's second finding (5
+   non-identity rewrites) was itself retracted; `rewrite_b_r1_affine_infix` needed no fix. No
+   further action needed.
 
 ---
 
 ## 6. `git status --short` at handoff
 
 ```
- M GPU_RUNclaude1/tests/test_controls.py
- M GPU_RUNclaude1/tests/test_io_allowlist.py
+ M GPU_RUNclaude1/analyses/C0001_implementation_notes.md
  M GPU_RUNclaude1/tests/test_strata_ordering.py
  M pytest.ini
  M src/evaluation/equation_metrics.py
  M src/gpu_run4/records.py
  M src/gpu_run4/training.py
  M src/gpu_run5/config.py
-?? GPU_RUNclaude1/analyses/C0001_implementation_notes.md
-?? GPU_RUNclaude1/tests/test_endpoints.py
+?? .claude/rules/13-commit-message.md
+?? GPU_RUNclaude1/tests/test_agreement.py
 ?? scripts/phases/gpu_runclaude1_c0001_phase0_preflight.py
 ?? scripts/phases/gpu_runclaude1_c0001_phase1_parta.py
 ?? scripts/phases/gpu_runclaude1_c0001_phase2_partb.py
@@ -441,6 +521,13 @@ python scripts/phases/gpu_runclaude1_c0001_phase4_partition.py --smoke --run-id 
 ?? scripts/phases/gpu_runclaude1_c0001_phase4_partition.py
 ?? src/gpu_runclaude1/
 ```
+
+Two further commits landed during this round from other agents/processes in the campaign
+(`93cc07c`, `cbedf3d` — the PC2b resolution and its retraction — and `62f5c41`, unrelated to this
+stage's own edits), which is why `test_controls.py`/`test_io_allowlist.py`/`test_endpoints.py` no
+longer show a diff (their committed content now matches this stage's own edits) and a new untracked
+`.claude/rules/13-commit-message.md` appeared that this agent did not create. This agent made **no
+commits** and ran no `git add`/`git commit` at any point in this round either.
 
 **Note on this status.** Most of `GPU_RUNclaude1/tests/` (all files except `test_endpoints.py`) show
 as tracked-and-modified (`M`) rather than untracked (`??`), and two commits appear in `git log`

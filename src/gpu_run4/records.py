@@ -70,6 +70,23 @@ FAILURE_REASONS = (
     "MissingPhase0",
     "MissingCheckpoint",
     "CUDAUnavailable",
+    # GPU_RUNclaude1 C0001 (v2 §13 "FAILURE_REASONS extension"): the base
+    # enum above is kept intact; these are appended, never replacing an
+    # existing entry. "EncoderCacheMiss" from C0001 v1 is deliberately not
+    # added -- it could never fire for the reason v1 gave (AUDIT-MAJ-8).
+    "CanonicalizationError",
+    "RewriteVerificationFailure",
+    "AffineEncodingUnavailable",
+    "CandidateReencodingMismatch",
+    "NumericEquivalenceNonFinite",
+    "PositiveControlFailure",
+    "MatcherMonotonicityViolation",
+    "LengthMatchUnavailable",
+    "SkeletonParseFailure",
+    "SkeletonEvaluationFailure",
+    "SymbolicNodeCapExceeded",
+    "ComponentCountMismatch",
+    "CellIdentityMismatch",
 )
 
 
