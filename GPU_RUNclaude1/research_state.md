@@ -443,38 +443,37 @@ See `human_review_queue.md` — currently empty.
 ## Resume point (keep accurate at all times — see `.claude/rules/12-session-continuity.md`)
 
 - **cycle**: `C0001`
-- **stage**: Stage 4 (implementation) finishing; Stage 5 audit already returned `CLEARED_FOR_FULL_RUN`
+- **stage**: **Stage 6 (smoke) running.** Stage 4 complete at `5a4d195`; Stage 5 audit returned
+  `CLEARED_FOR_FULL_RUN` with Gate 0 item 3 satisfied.
 - **binding contract**: `GPU_RUNclaude1/plans/C0001_preregistration_v2.1.md` (+ `.json`).
-  v1 and v2 are superseded and retained as historical record only. **Gate 0 item 3 is satisfied.**
-- **head commit**: see `git log -1`; state last updated at `cbedf3d`
-- **experiments run so far**: **none**. All 7 sealed artifacts unread.
-- **test suite**: 395 passed, 1 skipped (301 pre-campaign baseline + 94 new C0001 tests)
-- **running now**: `lansr-implementation-engineer` on the last two blockers
-  - **F3** Gate 0 item 11: the seeded agreement test between the two scoring paths, plus the in-pass
-    1-in-100 census. Gate requirement, so it blocks the full run. Instructed to scope down and record
-    the realized n rather than skip it.
-  - **F4** wire `score_cells_parallel` into phase 1's main loop, with serial-vs-parallel byte-identical
-    determinism, per-candidate failure isolation, and verified resume.
-- **complete**: F1 (PC2b component-level, 60 eligible / 0 matched, matches frozen expectation),
-  F2 (moot — rewrite was already sound), F5 (PC4b), F6 (static AST + runtime sealed-read tests),
-  F7 (VRAM cap via `set_per_process_memory_fraction`, smoke peak 0.452 GiB), F8 (shared
-  `gain_indicator`, `nsimplify` fallback)
-- **blocked on**: nothing external. No hard-stop condition active.
-- **corrections not yet propagated downstream**: none outstanding. Both supervisor retractions
-  (`C0001_RETRACTION_neg_finding.md`, and the second finding in
-  `C0001_pc2b_discrepancy_resolution.md`) are recorded, bannered and committed.
+  v1 and v2 superseded, retained as historical record.
+- **experiments run so far**: none beyond the smoke path now in flight. All **7** sealed artifacts unread.
+- **test suite**: 404 passed, 1 skipped (301 pre-campaign baseline + 103 C0001 tests, now in the
+  default suite via `pytest.ini`)
+- **running now**: `lansr-experimentalist` on Stage 6 smoke, run id `gpu_runclaude1_c0001_stage6smoke`
+- **Stage 4 outcome**: all of F1-F8 complete. F3 realized **1,178 agreement pairs / 0 disagreements**
+  on the full corpus, exceeding v2.1's 910 target, wired as a Gate 0 hard gate. F4 parallel path
+  verified byte-identical to serial, resumable without double-counting, with per-cell failure
+  isolation and a timeout that fires inside the worker.
+- **blocked on**: nothing. No hard-stop condition active.
+- **git remote**: `git push` is **not possible** — HTTPS remote with no credential helper and no
+  token; `gh` is not installed. 7 commits unpushed as of `5a4d195`. PR #4
+  (`20260909_researce_GPU_RUNclaude1` -> `main`) is open, mergeable clean, remote head `7f507cc`,
+  body empty, 0 comments. Repo is public, so PR reading works via the unauthenticated API.
+  Credential setup is a hard-stop item and is the user's to perform; procedure was supplied.
 - **must appear in the C0001 report**: the R5 threat-to-validity disclosure — three supervisor false
   negatives occurred in this cycle from unvalidated comparison methods, and the primary endpoint is
   null-shaped, so supervisor error direction and primary hypothesis point the same way.
 
 ### Next action
-1. Await F3/F4 completion, then re-verify Gate 0 at run time (item 1 enumerates the working tree).
-2. Stage 6 smoke via `lansr-experimentalist` using the `run-and-monitor-experiment` skill.
-3. Stage 7 full run: control battery first (~0.5 core-h, hard-abort cheap), then Part A endpoint pass
-   (~8.73 core-h, 6 processes), Part B, then Part C (~2.0 GPU-h, <=5.5 GiB VRAM) only if Gate B->C
-   permits — note Part C is **not** run if Part A returns `gain_confirmed`, because replication takes
-   priority.
-4. Stage 8 analysis (`lansr-results-analyst` + `lansr-statistical-reviewer`), Stage 9 independent
+1. On smoke `PROCEED_TO_FULL_RUN`: re-verify Gate 0 at run time (item 1 enumerates the working tree),
+   then Stage 7 full run under a run id derived from the commit at run start.
+2. Stage 7 order: control battery first (~0.5 core-h so a hard abort is cheap), then Part A endpoint
+   pass (~8.73 core-h, 6 workers, ~1.5-2 h wall clock, resumable), Part B, then Part C
+   (~2.0 GPU-h, VRAM hard-capped at 5.5 GiB) **only if** Gate B->C permits. Part C is **not** run if
+   Part A returns `gain_confirmed`, because replication takes priority.
+3. Stage 8 analysis (`lansr-results-analyst` + `lansr-statistical-reviewer`), Stage 9 independent
    adversarial review, Stage 10 replication gate, Stage 11 `reports/C0001_report.md` (mandatory
    regardless of outcome), Stage 12 manifest + SHA256, Stage 13 negative-result recovery, Stage 14
    state and hypothesis-tree update, then C0002.
+4. On smoke `BLOCKED`: fix the reported implementation defect, re-run smoke. Not a hard stop.
