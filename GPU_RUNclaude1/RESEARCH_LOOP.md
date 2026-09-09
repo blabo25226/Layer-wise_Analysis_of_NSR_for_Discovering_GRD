@@ -482,6 +482,20 @@ High priority does not itself stop the loop.
 
 ---
 
+## 7a. Document language
+
+Human-facing research outputs are written in **Japanese**; machine- and agent-facing contracts stay in
+English. Japanese: `research_state.md`, `human_review_queue.md`, `syntheses/*.md`, `reports/*.md`, PR
+bodies and comments, and any other write-up whose purpose is for a human to read and act on
+scientifically. English: git commit messages, code, and the frozen `plans/*_preregistration*` contracts
+that subagents reference by field name.
+
+Numbers, statistics, confidence intervals, hashes, run IDs, paths, field names and identifiers are
+reproduced **verbatim** in any translation. Retractions are never dropped. Full rule:
+`.claude/rules/15-document-language.md`.
+
+---
+
 ## 7b. Session continuity — keeping the loop alive
 
 Claude Code is turn-based. Background subagent completions re-invoke the supervisor automatically, so
