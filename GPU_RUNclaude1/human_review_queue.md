@@ -1,73 +1,73 @@
-# Human Review Queue
+# 人間レビュー待ちキュー
 
-The autonomous loop does not wait on this queue unless a hard stop is triggered.
+自律ループは、ハードストップが発動しない限りこのキューを待たない。
 
-## High priority
+## 優先度: 高
 
-### HRQ-0001 — Released ODEFormer checkpoint assigns exactly zero generation probability to 12 of 18 operators
-- raised: 2026-09-09, C0001 Stage 1 (supervisor-verified)
-- evidence: `GPU_RUNclaude1/analyses/C0001_stage1_preobservation.md` (addendum)
-- The generator config persisted inside `assets/odeformer/weights/odeformer.pt` (`env.params`) is
-  `operators_to_use = 'sin:1,inv:1,pow2:1,id:3,add:3,mul:1'`. Realized sampling probabilities are
-  exactly **0.0** for `abs, sqrt, log, exp, arcsin, cos, arccos, tan, arctan, pow3, sub, div`,
-  while those tokens *are* present in the 10,293-word decoder vocabulary.
-- `reload_data = '/data/rcp/odeformer/experiments/datagen_final/datagen_use_sympy_True'` indicates this
-  is the authors' own pretraining datagen configuration, not a local parser default. The same object
-  reports `n_enc_layers/n_dec_layers = 4/12`, independently corroborating GPU_RUN4's architecture finding.
-- Why it may matter beyond this campaign: it means "the model can express X" cannot be inferred from
-  vocabulary membership for this checkpoint, and that `div`/`sub`/`exp`/`log` — all common in biochemical
-  dynamics — were never sampled during data generation. This is a concrete, checkable property of a widely
-  used public checkpoint and is adjacent to, but distinct from, the already-documented 4+12 vs 4+16
-  architecture discrepancy.
-- status: awaiting primary-source (paper / official repo / training logs) confirmation in C0001 Stage 2
-  before any external claim. Loop is NOT blocked.
+### HRQ-0001 — 公開 ODEFormer チェックポイントは 18 個の演算子のうち 12 個に生成確率ちょうどゼロを割り当てている
+- 起票: 2026-09-09、C0001 Stage 1（supervisor が検証）
+- 証拠: `GPU_RUNclaude1/analyses/C0001_stage1_preobservation.md`（addendum）
+- `assets/odeformer/weights/odeformer.pt` の内部に保存された生成器設定（`env.params`）は
+  `operators_to_use = 'sin:1,inv:1,pow2:1,id:3,add:3,mul:1'` である。実現されるサンプリング確率は
+  `abs, sqrt, log, exp, arcsin, cos, arccos, tan, arctan, pow3, sub, div` について正確に **0.0** であり、
+  一方でこれらのトークンは 10,293 語のデコーダ語彙には *存在する*。
+- `reload_data = '/data/rcp/odeformer/experiments/datagen_final/datagen_use_sympy_True'` は、これが
+  ローカルのパーサ既定値ではなく著者自身の事前学習用データ生成設定であることを示す。同じオブジェクトは
+  `n_enc_layers/n_dec_layers = 4/12` を報告しており、GPU_RUN4 のアーキテクチャに関する発見を独立に裏づける。
+- 本キャンペーンを越えて重要になり得る理由: このチェックポイントについては「モデルが X を表現できる」を
+  語彙に含まれることから推論できない、ということを意味する。また `div`/`sub`/`exp`/`log` — いずれも
+  生化学的ダイナミクスで一般的な演算子 — がデータ生成中に一度もサンプルされていない。これは広く使われて
+  いる公開チェックポイントの具体的で検証可能な性質であり、すでに文書化済みの 4+12 対 4+16 の
+  アーキテクチャ不一致に隣接しつつも別個の事実である。
+- 状態: 外部への主張を行う前に、C0001 Stage 2 で一次情報源（論文 / 公式リポジトリ / 学習ログ）による
+  確認を待っている。ループは停止していない。
 
-### HRQ-0002 — All 560 synthetic GRN ground truths are expressible, yet truth-in-beam is 0/960
-- raised: 2026-09-09, C0001 Stage 1
-- evidence: `GPU_RUNclaude1/analyses/C0001_stage1_preobservation.md`
-- 320 train+validation systems verified `teacher_valid: True` by the supervisor; Stage 1 extended this to
-  560/560 including sealed and family-holdout splits, with exact round-trip. GRN truths use only
-  in-support operators. Yet GPU_RUN5 measured
-  `true_exponent_aware_skeleton_in_beam_rate = 0.0` over 960 cells / 47,987 candidates.
-- This is a clean dissociation: neither expressibility nor operator support explains the GRN generation
-  failure at the system level.
-- **CORRECTION 2026-09-09**: an earlier version of this entry also claimed the component-level rate was
-  biased to zero by the matcher. **That claim is retracted** — see
-  `GPU_RUNclaude1/analyses/C0001_RETRACTION_neg_finding.md`. GPU_RUN5 had already measured and stored
-  the component-level rate as 107/2040 = 0.0525 in `phase3/beam_groups.json`; the supervisor's "0/2040"
-  baseline was an artifact of comparing prefix-derived truths against infix-derived candidates. The
-  expressibility half of this entry (560/560 encodable) is unaffected and stands.
-- status: informational; the surviving system-level dissociation motivates C0001. Loop is NOT blocked.
+### HRQ-0002 — 合成 GRN の真値 560 件はすべて表現可能だが、truth-in-beam は 0/960 である
+- 起票: 2026-09-09、C0001 Stage 1
+- 証拠: `GPU_RUNclaude1/analyses/C0001_stage1_preobservation.md`
+- 学習+検証の 320 システムについて supervisor が `teacher_valid: True` を検証済み。Stage 1 でこれを
+  sealed（封印）および family-holdout の分割を含む 560/560 まで拡張し、完全な往復（round-trip）を確認した。
+  GRN の真値はサポート内の演算子のみを使う。それにもかかわらず GPU_RUN5 は 960 セル / 47,987 候補にわたって
+  `true_exponent_aware_skeleton_in_beam_rate = 0.0` を測定した。
+- これは明快な解離である。表現可能性も演算子サポートも、システムレベルでの GRN 生成失敗を説明しない。
+- **訂正 2026-09-09**: 本エントリの以前の版では、成分レベルの比率もマッチャーによってゼロへ偏らせられて
+  いたと主張していた。**その主張は撤回された** — `GPU_RUNclaude1/analyses/C0001_RETRACTION_neg_finding.md`
+  を参照。GPU_RUN5 は成分レベルの比率を 107/2040 = 0.0525 としてすでに測定し `phase3/beam_groups.json` に
+  保存していた。supervisor の「0/2040」というベースラインは、prefix 由来の真値を infix 由来の候補と
+  比較したことによる人工物だった。本エントリの表現可能性の側（560/560 が符号化可能）はこの影響を受けず、
+  そのまま有効である。
+- 状態: 情報提供。生き残ったシステムレベルの解離が C0001 の動機となっている。ループは停止していない。
 
-## Normal priority
+## 優先度: 通常
 
-### HRQ-0003 — `pytest.ini` silently skips 124 tests including the test-firewall suite
-- raised: 2026-09-09, C0001 Stage 0
-- `testpaths = tests GPU_RUN1/tests GPU_RUN2/tests GPU_RUN3/tests GPU_RUN4/tests` collects 178 tests.
-  `GPU_RUN5/tests` collects a further **124** on its own — including `test_gpu_run5_firewall.py`, which
-  covers the sealed-test firewall. A bare `pytest` run therefore skips the newest and most
-  leakage-sensitive coverage. One-line fix, proposed inside C0001.
+### HRQ-0003 — `pytest.ini` がテストファイアウォールのスイートを含む 124 件のテストを黙って飛ばしている
+- 起票: 2026-09-09、C0001 Stage 0
+- `testpaths = tests GPU_RUN1/tests GPU_RUN2/tests GPU_RUN3/tests GPU_RUN4/tests` は 178 件のテストを収集する。
+  `GPU_RUN5/tests` はそれ自体でさらに **124** 件を収集し、その中には封印テストのファイアウォールを
+  カバーする `test_gpu_run5_firewall.py` が含まれる。したがって素の `pytest` 実行は、最も新しく、
+  最もリーク感度の高いカバレッジを飛ばしている。一行で直る。C0001 内で修正を提案した。
 
-### HRQ-0004 — `assets/nd2/weights/checkpoint.pth` has no recorded SHA256
-- raised: 2026-09-09, C0001 Stage 0. ODEFormer and NeSymReS checkpoints both have pinned hashes; ND2 does not.
+### HRQ-0004 — `assets/nd2/weights/checkpoint.pth` に SHA256 の記録がない
+- 起票: 2026-09-09、C0001 Stage 0。ODEFormer と NeSymReS のチェックポイントはどちらもハッシュが
+  固定記録されているが、ND2 にはない。
 
-### HRQ-0005 — Stale documentation links and a stuck manifest
-- raised: 2026-09-09, C0001 Stage 0
-- `GPU_RUN5/README.md` and `GPU_RUN5_summary_report.md` §9.1 link six report filenames that do not exist.
-- `results/runs/gpu_run4_phase0_01/manifest.json` status is stuck at `running`, commit `0641fa7`.
-- Both are human-led-track artifacts. Per rule 00 the autonomous track must not rewrite GPU_RUN1-5
-  history, so these are reported rather than edited.
+### HRQ-0005 — 古くなった文書リンクと、状態が固まったままの manifest
+- 起票: 2026-09-09、C0001 Stage 0
+- `GPU_RUN5/README.md` と `GPU_RUN5_summary_report.md` §9.1 が、存在しない六個のレポートファイル名へ
+  リンクしている。
+- `results/runs/gpu_run4_phase0_01/manifest.json` の status が `running` のまま固まっている。commit `0641fa7`。
+- どちらも人間主導トラックの成果物である。ルール 00 により自律トラックは GPU_RUN1-5 の履歴を書き換えては
+  ならないため、編集せず報告する。
 
-### HRQ-0006 — Supervisor retraction: the `neg`-canonicalization finding was an analysis artifact
-- raised: 2026-09-09, C0001 Stage 3, found by the reproducibility auditor and verified by the supervisor
-- evidence: `GPU_RUNclaude1/analyses/C0001_RETRACTION_neg_finding.md`
-- Logged here for visibility because the retracted claim reached a commit message (`bfbf727`) and
-  briefly reframed the cycle's design. Two compounding supervisor errors: comparing string
-  representations without checking they shared a derivation path, and not grepping the source run's
-  own artifacts for the quantity being "discovered".
-- A standing campaign rule was added to `research_state.md` §8 as a result.
-- status: self-reported, corrected before any experiment ran. No result was published on it. Loop is
-  NOT blocked.
+### HRQ-0006 — supervisor による撤回: `neg` 正規化の発見は分析の人工物だった
+- 起票: 2026-09-09、C0001 Stage 3。再現性監査者が発見し、supervisor が検証した。
+- 証拠: `GPU_RUNclaude1/analyses/C0001_RETRACTION_neg_finding.md`
+- 撤回された主張がコミットメッセージ (`bfbf727`) に到達し、一時的にサイクルの設計を組み替えたため、
+  可視性のためここに記録する。supervisor の誤りが二つ重なっていた。文字列表現同士が同じ導出経路から
+  来ているかを確認せずに比較したこと、そして「発見」しようとしている量を元 run 自身の成果物に対して
+  grep しなかったことである。
+- 結果として `research_state.md` §8b に常設のキャンペーン規則を追加した。
+- 状態: 自己申告であり、実験が走る前に訂正済み。この件で公表した結果はない。ループは停止していない。
 
-## Reviewed
-None.
+## レビュー済み
+なし。

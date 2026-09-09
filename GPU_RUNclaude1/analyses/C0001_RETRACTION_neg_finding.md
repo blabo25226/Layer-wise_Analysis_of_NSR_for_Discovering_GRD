@@ -1,52 +1,54 @@
-# RETRACTION — the C0001 `neg`-canonicalization "finding" was an artifact of my own analysis
+# 撤回 — C0001 の `neg` 正規化「発見」は私自身の分析が生んだ人工物だった
 
-**Issued**: 2026-09-09, by the supervisor, during C0001 Stage 3 review.
-**Severity**: material. The retracted claim appeared in a commit message (`bfbf727`), in
-`human_review_queue.md` (HRQ-0002), in `C0001_stage1_preobservation.md`, and in
-`C0001_exploratory_neg_canonicalization.md`, and it was used to reframe C0001 around explanation E0.
-**Found by**: `lansr-reproducibility-auditor` (CRIT-1, CRIT-2), independently verified by the supervisor.
+**発行**: 2026-09-09、supervisor により、C0001 Stage 3 レビュー中。
+**重大度**: material（実質的）。撤回する主張は、コミットメッセージ (`bfbf727`)、
+`human_review_queue.md` (HRQ-0002)、`C0001_stage1_preobservation.md`、
+`C0001_exploratory_neg_canonicalization.md` に現れ、C0001 を説明 E0 中心に再構成する根拠に使われた。
+**発見者**: `lansr-reproducibility-auditor` (CRIT-1, CRIT-2)、supervisor が独立に検証。
 
 ---
 
-## What I claimed
+## 私が主張したこと
+
+以下は撤回対象の主張の原文（verbatim）である。
 
 > "All 960 truth skeletons contain a `neg` node versus 3.2% of candidates. Folding that asymmetry
 > leaves the system-level truth-in-beam rate at 0/960 but raises the component-level rate from
 > **0/2040 to 107/2040**, so GPU_RUN5's component floor effect was matcher-induced."
 
-and, more specifically:
+より具体的には、次のように述べた。
 
 > "107 of 2040 components (5.25%) are structural matches that the frozen string matcher scored as
 > complete misses."
 
-## Why it is wrong
+## なぜ誤りなのか
 
-**1. The 0/2040 baseline was an artifact of mixing two representations.**
+**1. 0/2040 というベースラインは、二つの表現形式を混ぜたことによる人工物だった。**
 
-`phase3/cells/*.json -> true_structure.exponent_aware_skeleton` is derived from **`true_prefix`**.
-The candidate skeletons are derived from **infix** formula strings. Verified over all 960 validation cells:
+`phase3/cells/*.json -> true_structure.exponent_aware_skeleton` は **`true_prefix`**（前置記法）から
+導出される。一方、候補側の骨格は **infix**（中置記法）の数式文字列から導出される。
+検証用 960 セルすべてで確認した結果:
 
-| stored truth skeleton reproduced from | match |
+| 保存された真値の骨格を再現した元 | 一致 |
 |---|---|
 | `true_prefix` | **960 / 960** |
-| `true_formula` (infix) | **0 / 960** |
+| `true_formula`（infix） | **0 / 960** |
 
-Example (R01), same system, two representations:
+例 (R01)、同一システムの二つの表現:
 
 ```
 from true_prefix : add,add,CONST,mul,mul,CONST,inv,add,CONST,x_0,x_0,neg,mul,CONST,x_0
 from true_formula: add,add,CONST,mul,CONST,x_0,mul,mul,CONST,inv,add,CONST,x_0,x_0
 ```
 
-The prefix-derived form contains `neg`; the infix-derived form does not. I compared the
-**prefix-derived truth** against **infix-derived candidates**. That comparison cannot match, for
-reasons that have nothing to do with the model or the matcher. My "raw 0/2040" measured my own
-representation mismatch.
+prefix 由来の形には `neg` が含まれるが、infix 由来の形には含まれない。私は
+**prefix 由来の真値** を **infix 由来の候補** と比較していた。この比較は、モデルにもマッチャーにも
+無関係な理由で一致し得ない。私の「生の 0/2040」が測っていたのは、私自身の表現形式の不一致である。
 
-**2. The 107/2040 figure is not new — it is GPU_RUN5's already-published value.**
+**2. 107/2040 という数値は新しくない — GPU_RUN5 がすでに公表していた値である。**
 
-`results/runs/gpu_run5_20260823_ddd267b0/phase3/beam_groups.json` field
-`component_true_exponent_aware_skeleton_in_beam` contains, over all 960 groups:
+`results/runs/gpu_run5_20260823_ddd267b0/phase3/beam_groups.json` のフィールド
+`component_true_exponent_aware_skeleton_in_beam` は、960 グループ全体で次を保持している:
 
 ```
 component_true_exponent_aware_skeleton_in_beam : 107/2040 = 0.0525
@@ -55,58 +57,55 @@ by family: R01 0/120, R02 0/120, R03 0/240, R04 56/240, R05 0/240,
            R06 0/360, R07 17/360, R08 34/360
 ```
 
-GPU_RUN5 already measured and stored both numbers. My `neg`-folding coincidentally transformed the
-prefix form toward the infix form and thereby **re-derived the published value**. I mistook a
-re-derivation for a discovery.
+GPU_RUN5 は両方の数値をすでに測定し保存していた。私の `neg` 畳み込みは、偶然にも prefix 形を
+infix 形の側へ変換し、その結果 **公表済みの値を再導出** したにすぎない。私は再導出を発見と
+取り違えた。
 
-## What is retracted
+## 何を撤回するか
 
-- **RETRACTED**: that the frozen matcher scored 107 real component matches as misses.
-  GPU_RUN5's matcher compared infix to infix correctly and recorded all 107.
-- **RETRACTED**: that GPU_RUN5's component-level measurement was "biased to exactly zero by the
-  matcher". It was never zero. The zero was mine.
-- **RETRACTED**: that "GPU_RUN5's `component_exact_loss = 0.0` floor effect was matcher-induced."
-  This additionally conflated two distinct quantities — *in-beam component coverage* (107/2040) and
-  *exact recovery of the selected candidate* under causal intervention (`component_exact_loss`).
-  They are different estimands and my inference moved between them illegitimately. Whether that
-  causal-intervention floor is genuine remains **open and untested**.
-- **CONSEQUENCE**: explanation **E0 (evaluator/measurement artifact) loses its component-level
-  empirical support.** It is not refuted — no one has yet run a canonicalizing CAS matcher — but the
-  evidence I offered for it does not exist.
+- **撤回**: 凍結された文字列マッチャーが、実在する 107 件の成分一致を「不一致」と採点していたという主張。
+  GPU_RUN5 のマッチャーは infix 同士を正しく比較し、107 件すべてを記録していた。
+- **撤回**: GPU_RUN5 の成分レベルの測定が「マッチャーによって正確にゼロへ偏らせられていた」という主張。
+  ゼロだったことは一度もない。ゼロは私のものだった。
+- **撤回**: 「GPU_RUN5 の `component_exact_loss = 0.0` という床効果はマッチャー由来である」という主張。
+  これはさらに二つの別個の量を混同していた。すなわち *ビーム内の成分カバレッジ*（107/2040）と、
+  因果介入下での *選択された候補の完全一致による回復*（`component_exact_loss`）である。
+  両者は異なる推定対象（estimand）であり、私の推論は両者の間を不当に行き来していた。
+  この因果介入下の床効果が本物かどうかは **未解決・未検証** のままである。
+- **帰結**: 説明 **E0（評価器・測定の人工物という説明）は、成分レベルの経験的裏づけを失う。**
+  これは反証されたわけではない — 正規化を行う CAS マッチャーはまだ誰も走らせていない — が、
+  私がその根拠として提示した証拠は存在しない。
 
-## What survives, and is unaffected
+## 生き残るもの、影響を受けないもの
 
-- **The `neg` representational asymmetry itself is real** as a fact about the two encodings:
-  the GRN generator writes decay as an explicit `-1 * k * x` while ODEFormer must use signed
-  constants, because `sub` and `div` both have exactly zero generation probability in this
-  checkpoint. This remains a correct and relevant observation about the model's expressive route.
-  It is simply **not** a defect in GPU_RUN5's measurement.
-- **The zero-probability operator finding stands** (HRQ-0001): 12 of 18 operators at exactly 0.0
-  sampling probability under the checkpoint's own persisted generator. Verified directly from
-  `env.generator`, independent of any skeleton comparison.
-- **The encodability finding stands** (HRQ-0002 first half): 320/320 (Stage 1: 560/560) GRN truths
-  round-trip through the tokenizer. Verified from the stored `teacher_valid` field.
-- **The Hill-4 correction stands**: nested `pow,pow,x_i,2,2` in 39/170 components, 24/80 systems,
-  so E1' (generator-support exclusion) is live. Verified on parsed structure.
-- **The system-level claim stands**: truth-in-beam is 0/960, as GPU_RUN5 published.
+- **`neg` の表現上の非対称性そのものは実在する**。これは二つの符号化についての事実である。
+  GRN の生成器は減衰項を明示的に `-1 * k * x` と書くが、ODEFormer は符号付き定数を使うしかない。
+  なぜなら `sub` と `div` はこのチェックポイントで生成確率が正確にゼロだからである。
+  これはモデルの表現経路についての正しく関連する観察であり続ける。
+  ただし GPU_RUN5 の測定における欠陥では **ない**。
+- **生成確率ゼロの演算子に関する発見は有効なまま**（HRQ-0001）: チェックポイント自身が保持する
+  生成器設定のもとで、18 個の演算子のうち 12 個がサンプリング確率ちょうど 0.0 である。
+  `env.generator` から直接検証しており、骨格比較には依存しない。
+- **符号化可能性に関する発見は有効なまま**（HRQ-0002 の前半）: GRN の真値 320/320
+  （Stage 1 では 560/560）がトークナイザを往復できる。保存済みの `teacher_valid` フィールドから検証。
+- **Hill-4 の訂正は有効なまま**: 入れ子の `pow,pow,x_i,2,2` が 39/170 成分、24/80 システムに存在する。
+  したがって E1'（生成器サポートによる除外）は生きた説明である。構文解析済み構造上で検証。
+- **システムレベルの主張は有効なまま**: truth-in-beam は 0/960 であり、GPU_RUN5 の公表どおりである。
 
-## Root cause, and the standing rule it produces
+## 根本原因と、そこから生まれる常設規則
 
-Two errors compounded, both mine:
+二つの誤りが重なった。いずれも私のものである:
 
-1. I compared derived string representations without first verifying they were produced by the same
-   derivation path. The earlier Hill-4 error had exactly the same shape — searching a canonicalized
-   string for a surface token.
-2. I did not check whether the quantity I was "discovering" was already stored in the source run's
-   own artifacts. `beam_groups.json` had the answer the whole time, one field away from the file I
-   was reading.
+1. 導出された文字列表現を、同じ導出経路で作られたかを先に確認せずに比較した。先の Hill-4 の誤りも
+   まったく同じ形をしていた — 正規化済み文字列の中を表層トークンで検索する、というものである。
+2. 自分が「発見」しようとしている量が、元となった run の成果物にすでに保存されていないかを確認しなかった。
+   `beam_groups.json` は最初から答えを持っており、私が読んでいたファイルからフィールド一つ隣にあった。
 
-**Standing rule for this campaign, effective now:**
+**本キャンペーンの常設規則（即時発効）:**
 
-> Before reporting any re-measurement of a prior run as new, (a) verify that both sides of any
-> comparison come from the same derivation path, and (b) grep the source run's stored artifacts for
-> the quantity itself. Re-deriving a published number is a *positive control*, not a finding — and it
-> should be run and labeled as such.
+> 先行 run の再測定を新しい結果として報告する前に、(a) 比較の両側が同じ導出経路から来ていることを
+> 検証し、(b) その量そのものを元 run の保存済み成果物に対して grep すること。公表済みの数値の
+> 再導出は *ポジティブコントロール* であって発見ではない — その位置づけを明示して実行し、
+> そのようにラベル付けすべきである。
 
-This rule is added to `research_state.md` §8 and should be applied by the implementation and analysis
-stages of every subsequent cycle.
+この規則は `research_state.md` §8b に追加され、以降すべてのサイクルの実装段階と分析段階で適用される。
