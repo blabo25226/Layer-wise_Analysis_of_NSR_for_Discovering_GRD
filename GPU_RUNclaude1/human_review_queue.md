@@ -97,6 +97,14 @@ supervisor の判断ではハードストップ条件（`RESEARCH_LOOP.md` §6�
 > Your organization has disabled Claude subscription access for Claude Code ·
 > Use an Anthropic API key instead, or ask your admin to enable access
 
+**2026-09-10 追記（利用者確認）**: アカウントがチームシートであること自体は
+**利用者による意図的な変更**であり、伝達漏れだった。恒常的な前提として扱う。
+**ただし本 HRQ が問うているのはそこではない** — 「組織が Claude Code の
+サブスクリプション利用を無効化していること」が意図的な設定なのか、
+それとも team 移行の副作用なのかが未確認である。前者なら本 HRQ は
+「仕様として受け入れ、API キー課金か subagent 非依存の運用に切り替える」判断に、
+後者なら「管理者に有効化を依頼する」判断になる。**この切り分けが人間側への問いである。**
+
 **測定した状態**（詳細は `research_state.md` §5b）:
 
 | 項目 | 値 |
