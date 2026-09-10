@@ -589,6 +589,27 @@ cutpoint が 3 しかないため、9 件のトリプルで rung が動く。
   凍結上限 2.0% では 130 成分すべてが反転する。§7.5 item 2 の
   「(0, 2.0%] なら感度分析付きで報告」分岐は**実際上到達不能**（統計レビュアー MAJOR-3）。
 
+### 主エンドポイントは再現しない（負荷依存。C0001 の一次的知見）
+
+保存された run は `SymbolicEquivalenceTimeout` を **9 件**記録したが、同じ 9 トリプルを
+アイドルマシンで直列に再採点すると **9 件中 7 件は一度もタイムアウトしない**
+（5 反復、`SYMPY_OP_TIMEOUT_SEC = 10.0` は不変）。反復あたりの件数は **[1, 0, 1, 0, 1]**。
+5 反復のうち 3 回が `undecidable`、2 回が `no_gain_observed_bound_only` に落ちた。
+**どの反復も `matcher_attributable_gain_confirmed` には届かなかった。**
+
+機構: v2.1 が定めるプロセス並列 6 ワーカーによる CPU 競合で比較あたりの実時間が膨らみ、
+10.0 秒の `SIGALRM` ガードが発火した。凍結設計の 4 要素
+（6 ワーカー並列・実時間ガード・`cne_rate > 0` を感度分析の起動条件・cutpoint 3）が
+組み合わさると**マシンの負荷が verdict を決める**。
+
+**C0001 の verdict of record は `undecidable` のまま**（それが run of record）。
+併記の開示としてこの再現性の失敗を報告する。再採点は凍結計器の**外**にあるため探索的であり、
+エンドポイントの差し替え根拠にはしない。タイムアウトは引き上げない。
+詳細: `analyses/C0001_endpoint_irreproducibility.md`
+
+影響が及ばない範囲: M0 の厳密再現（決定論的）、M0/M3 の集合恒等性（9 件はすべて `m0_any = 0`）、
+Part B の 9/170（CAS 非依存の解析的センサス）、PC4 gain 100/170（決定論的書き換え）。
+
 ### PC0-CAS の検証を discharge（保留を解消）
 
 保留事項だった「in-process monkeypatch が実際に効いているか」を実測で立証した。
@@ -607,8 +628,11 @@ cutpoint が 3 しかないため、9 件のトリプルで rung が動く。
 `evaluation/equation_metrics.py:169 symbolic_recovery` の別経路であり、PC0 = 170/170 がそれを示す。
 
 - **テストスイート**: 413 passed, 1 skipped（Phase 1 実行前に測定）
-- **実行中**: Phase 2（Part B、background `bonmef27a`）、`lansr-results-analyst`、
-  `lansr-statistical-reviewer`
+- **テストスイート**: 467 passed, 1 skipped（54 テスト追加後、supervisor が独立に確認）
+- **実行中**: Stage 9 独立敵対的査読（第一次試行は 403 `oauth_org_not_allowed` のインフラ障害で
+  落ちたため再投入済み）、タイムアウトの負荷依存の因果検証
+- **Stage 7 は完了**: Phase 1（Part A）完走、Phase 2（Part B）完走、
+  Phase 3（Part C）は **Gate B→C 違反下で実行**され `INADMISSIBLE` として保存（規則 R7 / HRQ-0007）
 - **Gate B→C の注意**: Part A が `gain_confirmed` を返した場合、Part C（phase 3）は**実行しない**。
   replication を優先する。`gate_b_to_c()` が機械的に強制する。
 - **未検証のまま残る点**: Part C の VRAM は 2 セルでのみ検証済み。実スケール
