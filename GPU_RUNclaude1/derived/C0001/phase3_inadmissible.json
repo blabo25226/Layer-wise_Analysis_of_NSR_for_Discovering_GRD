@@ -1,0 +1,67 @@
+{
+  "derived_post_hoc": true,
+  "produced_by_run": false,
+  "derivation_date": "2026-09-11",
+  "derived_by": "Stage 12 archival agent (lansr-artifact-curator role), not the C0001 experiment run",
+  "purpose": "Machine-legible inadmissibility marker for results/runs/gpu_runclaude1_c0001_b731cdd/phase3/, addressing independent-review finding MAJOR-R2 without editing the preserved phase3 run artifacts themselves.",
+  "reason_this_file_exists_here_and_not_in_phase3": "The Stage 12 archival task requires that gate_b_to_c.json, manifest.json and the other phase3 artifacts be preserved exactly as the gate-violating run produced them, as the historical record of the violation. This file supplies the machine-legible flag those artifacts lack, alongside them but outside results/runs/.",
+  "run_id": "gpu_runclaude1_c0001_b731cdd",
+  "run_commit": "8ff622defc227b4598e0094fc000b8227c4ffdad",
+  "branch": "20260909_researce_GPU_RUNclaude1",
+  "affected_paths": [
+    "results/runs/gpu_runclaude1_c0001_b731cdd/phase3/gate_b_to_c.json",
+    "results/runs/gpu_runclaude1_c0001_b731cdd/phase3/manifest.json",
+    "results/runs/gpu_runclaude1_c0001_b731cdd/phase3/partC_cell_records.jsonl",
+    "results/runs/gpu_runclaude1_c0001_b731cdd/phase3/partC_instrument_test.json",
+    "results/runs/gpu_runclaude1_c0001_b731cdd/phase3/gpu_telemetry.jsonl"
+  ],
+  "gate_violated": "Gate B->C, GPU_RUNclaude1/plans/C0001_preregistration_v2.1.md:1767",
+  "gate_text_item_i": "Proceed to Part C only if (i) Part A is not `undecidable`. If Part A lands on `matcher_attributable_gain_confirmed`, Part C is not run in C0001.",
+  "part_a_verdict_of_record": "undecidable",
+  "part_a_verdict_of_record_source": "GPU_RUNclaude1/plans/C0001_preregistration_v2.1.md section 7.5 item 3 (two-sided sensitivity disagreement); phase1/partA_endpoints.json:primary.verdict itself still reads \"no_gain_observed_bound_only\" because endpoints.py never branches to `undecidable` on sensitivity_agrees == false -- this is the second, compounding defect documented in the deviation note.",
+  "why_gate_passed_anyway": [
+    "gate_b_to_c() in scripts/phases/gpu_runclaude1_c0001_phase3_partc.py implemented only the second sentence of item (i) (the matcher_attributable_gain_confirmed branch) and omitted the first sentence (Part A must not be undecidable) entirely.",
+    "gate_b_to_c() also omitted the second half of item (ii) (Part A component gains == 0 requirement).",
+    "Even a correct implementation of item (i) would still have passed, because the field it would have read, phase1/partA_endpoints.json:primary.verdict, itself never writes `undecidable` -- endpoints.py:compute_primary_endpoint assigns the non-adversarial ladder rung and never branches on sensitivity_agrees."
+  ],
+  "recorded_gate_output": {
+    "path": "results/runs/gpu_runclaude1_c0001_b731cdd/phase3/gate_b_to_c.json",
+    "ok": true,
+    "reasons": [],
+    "part_a_verdict": "no_gain_observed_bound_only",
+    "note": "This recorded value is INCORRECT as a gate decision; Part A's verdict of record is `undecidable`, and the gate should have refused to run Part C. The file itself is preserved unmodified as evidence of the violation."
+  },
+  "recorded_phase3_manifest_status": {
+    "path": "results/runs/gpu_runclaude1_c0001_b731cdd/phase3/manifest.json",
+    "status": "complete",
+    "go_conditions_all_true": true,
+    "note": "No inadmissibility field exists in this artifact. It is preserved unmodified; this derived file is the machine-legible correction."
+  },
+  "inadmissibility_declaration": {
+    "inadmissible": true,
+    "scope": "ALL phase3 (Part C) artifacts of run gpu_runclaude1_c0001_b731cdd",
+    "may_be_used_for": [
+      "audit of the gate-violation incident",
+      "confirming no sealed test path was read (sealed_paths_read: [] verified)",
+      "confirming no E2/E3 scientific claim was derived (C2-P decision endpoint was never computed: lp_sel/lp_best were never scored, stahlberg_byrne_indicator was never called)"
+    ],
+    "may_not_be_used_for": [
+      "any E2 (model-error) or E3 (search-error) attribution claim",
+      "any C0001 cycle conclusion or verdict"
+    ]
+  },
+  "damage_assessment_summary": {
+    "gpu_time_spent": "~1 minute (negligible against the 4.0h per-cycle ceiling)",
+    "peak_vram_gib": 0.45363426208496094,
+    "sealed_test_paths_read": [],
+    "scientific_claims_derived_from_phase3": "none",
+    "invalidated_conclusions": "none (nothing was concluded from phase3 in the first place)"
+  },
+  "remediation_recorded_in": "GPU_RUNclaude1/analyses/C0001_DEVIATION_gate_b_to_c_violation.md",
+  "independent_review_finding_addressed": "MAJOR-R2, GPU_RUNclaude1/reviews/C0001_independent_review.md:778-785",
+  "corrective_action_for_future_cycles": [
+    "Fix gate_b_to_c() to implement item (i) and (ii) in full, quoting contract text verbatim with line-numbered comments.",
+    "Fix endpoints.py:compute_primary_endpoint to write verdict = 'undecidable (two-sided sensitivity disagreement)' when sensitivity_agrees == false, and persist both ladder rungs.",
+    "Part C is not re-run in C0001. Any re-run of Part C for this cell corpus requires a new run id under a corrected gate."
+  ]
+}
