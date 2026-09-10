@@ -288,6 +288,27 @@ VRAM しかない。すべてのサイクルはこの枠に収まるか、CPU �
 正しくは「一度だけ 403 が発生し、再投入で復旧した。原因は未確定（`unverified`）」である。
 Remote Control 不通と `SendUserFile` 撤回が同じ原因に由来するかも `unverified`。
 
+### 2026-09-11 08:00 頃、セッション利用上限に到達
+
+Stage 12（`lansr-artifact-curator`、sonnet）と Stage 13/14（`lansr-hypothesis-scientist`、opus）が
+同時に次のエラーで異常終了した:
+
+> HTTP 429 `rate_limit` — You've hit your session limit · resets 4:30am (Asia/Tokyo)
+> （request id `req_011Cev3SEQBoGkhLHmgwrUT1` / `req_011Cev3hwNh7xPXmKa3eH3CH`）
+
+**先の 403 `oauth_org_not_allowed` とは別物**である。こちらは利用量の上限で、
+リセットは翌 04:30 JST（検知時点で約 19 時間 42 分後）。
+
+**両エージェントの成果物は失われていない。** どちらもファイル書き込み後・コミット前に落ちており、
+supervisor が作業ツリーから救出して `c2c48fb` でコミットした（規則 05: 他者の未コミット作業を
+破壊しない）。救出物は `hypotheses/C0002_design_brief.md`（12 節・618 行、完成）と
+`derived/C0001/` の JSON 3 件（いずれも `derived_post_hoc: true` / `produced_by_run: false` の
+標識付き、相互整合チェック合格）。
+
+Stage 12 の残り（manifest + SHA256）は **supervisor が本セッションで実施**した。
+成果物の curation は利用者が指定した分離要件（実験者・解析者・独立 reviewer）の対象外の
+機械作業であるため、単独実施が許される。
+
 ### 研究ループへの含意
 
 - **`organizationRole: user` のため、本ユーザー自身では組織設定を変更できない。**
@@ -572,289 +593,58 @@ branch は正しい。作業ツリーはクリーン。破壊的操作は不要�
 
 ## 再開ポイント（常に正確に保つ — `.claude/rules/12-session-continuity.md` を参照）
 
-- **サイクル**: `C0001`
-- **ステージ**: **Stage 8（解析）実行中。** Stage 7 の Phase 1（Part A）は完走。Phase 2（Part B）実行中。
-- **拘束力を持つ契約**: `GPU_RUNclaude1/plans/C0001_preregistration_v2.1.md`（および `.json`）。
-  v1・v2 は失効。履歴として保存。
-- **run id**: `gpu_runclaude1_c0001_b731cdd`、commit `8ff622defc227b4598e0094fc000b8227c4ffdad`
+- **サイクル**: `C0001` — **Stage 0〜14 すべて完了。サイクルとして閉じた。**
+- **verdict of record**: **`undecidable`**（v2.1 §7.5 item 3、二方向感度分析が異なる rung）
+- **処分**: `REPLICATE` 実施済み → instrument fact に限り `ACCEPT_AS_PRELIMINARY`。
+  `INVALIDATE` にも `ACCEPT_AS_NEGATIVE` にも該当しない
+- **run id**: `gpu_runclaude1_c0001_b731cdd`、run commit `8ff622defc227b4598e0094fc000b8227c4ffdad`
 
-### Phase 1（Part A）実現値 — 完走、`EXIT_CODE:0`、960/960 セル、セル失敗 0 件
+### C0001 の成果物（すべてコミット済み・push 済み）
 
-Gate A→B は 9 項目すべて通過。項目 (i) の凍結値を `cell_cache` から独立に再計算して一致を確認した。
-
-| 量 | 実現値 | 凍結された期待値 |
-|---|---|---|
-| 採点済み候補 | 47,987 | 47,987 |
-| 成分比較 | 101,963 | 101,963 |
-| system 水準 M0 一致 | 0 / 960 セル | 0 / 960 |
-| 成分水準 M0 一致 | 2,235 | 2,235（P0c） |
-| 家系別 M0 一致 | R04 1,736 / R07 330 / R08 169 | — |
-
-三つのマッチャを**入れ子のカスケードではなく三つの集合**として（v2.1 の要求どおり）:
-
-| 分解 | system 水準 | 成分水準 | ANY 還元後の成分 |
-|---|---|---|---|
-| M0 一致 | 0 | 2,235 | 13 / 170 |
-| M1 一致 | 0 | **0** | — |
-| M3 一致 | 0 | 2,235 | 13 / 170 |
-| M3 のみ（M0 は不一致） | 0 | 0 | **0** |
-| どちらも不一致 | 960 | 99,728 | 157 / 170 |
-
-- **主エンドポイント**: `n_h = 130`、`k_gains = 0`、`ladder_cutpoint = 3`、
-  ladder rung は `no_gain_observed_bound_only`
-- `wilson_95 = [0.0, 0.028701561634224194]`、cluster bootstrap は点推定 0.0 / CI `[0.0, 0.0]`
-  （10,000 resample、seed 20260909）。**退化しているため**、記録上の限界は
-  `family_level_wilson_8_cluster` に置換され `bound_of_record = [0.0, 0.3244075683414076]`
-- `could_not_evaluate_rate = 0.00011540976879576318`（78,000 超のトリプル中 9 件）
-- **二次**: `m3_level_h = 0.0`、`m3_level_l = 0.325`、`l_stratum_gain_rate = 0.0`、
-  `h_minus_l_difference = 0.0`、`m3_level_overall = 0.07647058823529412`
-- `m3_implementation_agreement = 1.0`（480 件照合、不一致 0）
-- 対照電池: PC0 170/170、**PC0-CAS 80/80**、PC1 80/80、PC2a 80/80、PC2b 0/60（凍結期待値どおり）、
-  PC2c 170/170、PC2d 170/170、PC3a 48/48、PC3b 60/60、
-  **PC4 gain 100/170（H 100、寄与家系 6、`gates_ok=True`）**、PC4b 60/60
-
-### 主エンドポイントの verdict = `undecidable`（独立3者一致で確定）
-
-`partA_endpoints.json` の `verdict` フィールドは ladder rung `no_gain_observed_bound_only` を
-書いているが、v2.1 §7.5 item 3 と named contingency 1 は、二方向感度分析が異なる rung に落ちた場合の
-verdict を `undecidable` と**事前に**定めている。実現値は `sensitivity_agrees = false`:
-
-| 方向 | k | rung |
-|---|---|---|
-| 記録上の方向（could-not-evaluate を不一致と数える） | 0 | `no_gain_observed_bound_only` |
-| 敵対方向（could-not-evaluate を一致と数える） | 6 | `matcher_attributable_gain_confirmed` |
-
-判定を左右しているのは **9 件のトリプルのみ**で、すべて `SymbolicEquivalenceTimeout`。
-影響を受ける H 成分は 6 件（`R03_validation_d101_005` comp0、`R05_validation_d101_000` comp1、
-`R07_validation_d101_000` comp1、`R07_validation_d101_002` comp2、`R07_validation_d101_003` comp1、
-`R07_validation_d101_009` comp2）。凍結コードの敵対的再計数は**成分粒度**で、その成分に
-could-not-evaluate トリプルが 1 件でもあれば成分全体を gain=1 に反転させる（`endpoints.py:117-127`）。
-cutpoint が 3 しかないため、9 件のトリプルで rung が動く。
-
-**v2.1 は mid-cycle でのタイムアウト引き上げを明示的に禁じている**（named contingency 1:
-"No timeout value is raised mid-cycle — that would change the frozen instrument"）。
-本サイクル内での解決手段はない。
-
-**独立導出は3者一致**（supervisor、`lansr-results-analyst`、`lansr-statistical-reviewer`。
-後二者には supervisor の結論を伝えていない）。解析者は v2.1 の `undecidable` 条件 13 件を
-列挙して 1 件ずつ照合し、成立するのはこの 1 件だけであることを確認した。
-
-**したがって仮説 H-C0001-P は supported でも unsupported でも refuted でもない。**
-`K = 0` は生の観測として `undecidable` のラベル付きで報告してよいが、
-**E0 の賛否いずれにも引用してはならず**、§9.5 item 1 の `K = 0` 文（`supported` verdict の
-報告形式）は発行できない。
-
-補足所見:
-- 9 件のタイムアウトを 2 点数値プローブにかけると全件で差が非ゼロ（|d| 0.4485–20.52）。
-  実質的には `proved_different` である。**しかし凍結された計器は `could_not_evaluate` と言った。**
-  verdict はデータの曖昧さではなく契約の機械的規則によって動いている。
-  なお 9 件はすべて `SIGALRM` による実時間タイムアウト（`SYMPY_OP_TIMEOUT_SEC = 10.0`）なので、
-  **この verdict は非決定的**である（統計レビュアー MAJOR-4）。
-- §7.5 item 3 の基準は cutpoint 3 に対して尺度が合っていない。101,963 トリプル中 9 件（0.0088%）が
-  成分あたり 600 トリプルの ANY レバーで 130 成分中 6 件（4.6%）に増幅される。
-  凍結上限 2.0% では 130 成分すべてが反転する。§7.5 item 2 の
-  「(0, 2.0%] なら感度分析付きで報告」分岐は**実際上到達不能**（統計レビュアー MAJOR-3）。
-
-### `could_not_evaluate` の計上は非決定的（機構は SymPy キャッシュ状態。C0001 の一次的知見）
-
-保存された run は `SymbolicEquivalenceTimeout` を **9 トリプル / 6 成分**記録した。
-同じ 9 トリプルを再採点した結果（`SYMPY_OP_TIMEOUT_SEC = 10.0` は不変）:
-
-| 条件 | トリプル数 | 反転成分数 | verdict |
-|---|---|---|---|
-| 温キャッシュ（1 プロセス反復。**交絡あり**） | [1,0,1,0,1] | 平均 1.5 | 14/17 が `undecidable` |
-| **冷キャッシュ（毎反復新プロセス）** | **[4,5,2,4,3,0]** | **[2,4,1,3,2,0]** | **5/6 が `undecidable`** |
-| 記録された run | 9 | 6 | `undecidable` |
-
-**verdict `undecidable` は頑健**（冷キャッシュ 5/6）。1 成分でも反転すれば `weak_gain` と
-`no_gain_observed_bound_only` は別 rung なので食い違う。冷キャッシュ反復 2 は `k_adv = 4` に達し
-**記録 run と同じ rung（敵対方向 `matcher_attributable_gain_confirmed`）を再現した**。
-記録値 6/6 は分布の高い側だが外れ値ではない。
-
-機構の検証結果:
-
-| 候補機構 | 検証 | 結論 |
-|---|---|---|
-| CPU 競合（6 ワーカー並列） | 競合 0 vs 6、各 6 反復 | **棄却**（平均 1.5 → 1.67） |
-| SymPy キャッシュ状態 | 温 vs 冷 | **支持**（成分 1.5 → 2.0、トリプル 0.6 → 3.0） |
-| メモリ圧・47,987 候補分のキャッシュ充填 | 未測定 | `unverified` |
-
-**C0001 の verdict of record は `undecidable`。** タイムアウトは引き上げない。
-再採点は凍結計器の外にあり、かつ 1 プロセス 9 ペアは 6 ワーカー 47,987 候補の忠実な再現でないため
-**探索的（exploratory）**であり、エンドポイントの差し替え根拠にしない。
-C0002 では `could_not_evaluate` を実時間ではなく決定論的な予算（ノード数・演算回数）で
-定義し直すことを主要な設計変更として提案する。
-詳細: `analyses/C0001_endpoint_irreproducibility.md`
-
-**本調査中に supervisor が自ら撤回した主張 2 件**（規則 R1・R5 と同じ失敗様式。レポートに開示する）:
-1. 「原因は 6 ワーカーの CPU 競合」 — 因果検証が支持せず撤回
-2. 「再採点では一度も最上位 rung に届かない」 — 温キャッシュ由来の誤り。冷キャッシュで再現し撤回
-
-影響が及ばない範囲: M0 の厳密再現（決定論的）、M0/M3 の集合恒等性（9 件はすべて `m0_any = 0`）、
-Part B の 9/170（CAS 非依存の解析的センサス）、PC4 gain 100/170（決定論的書き換え）。
-
-### 機会センサス — Stage 10 replication で**定量が無効化**（結論の向きは維持）
-
-統計レビュアーが CRITICAL-2 で「一度も測られていない」と指摘した量
-（**M3 が M0 と異なる機会が実際に何回あったのか**）を、独立査読者が測定した。
-
-| スクリーン | 通過した H トリプル | 通過した H 成分 |
-|---|---|---|
-| M3 が一致しうるための必要条件（変数を含む分母。書き換え不変） | 5,851 / 77,983（92.50% が構造的に不可能） | **88 / 130** |
-| 演算子多重集合の一致（M0/M1 の必要条件。realized 2,235 件すべてが充足、偽陰性 0） | **187 / 77,983（0.24%）** | **9 / 130** |
-
-**実効標本数は `n_eff ∈ [9, 88]` であり、報告されている 130 ではない。**
-Wilson(0, 9) = `[0, 0.299]`、p = 0.0525 における検定力は **0.385**（報告値 0.999 に対して）。
-
-**121 / 130 の H 成分には、構造的に比較可能な候補が 1 つも存在しなかった。
-そのうち 112 は生成器の演算子サポートの内側にある。**
-
-これはサイクル中で最も情報量の多い事実であり、**どの成果物にも記録されていなかった**。
-含意: M3 が M0 に何も追加しないのは、**追加する対象がほぼ存在しなかった**からである。
-そして 121 件のうち 112 件がサポート内にあるため、これは E1'（生成器サポート外）ではない。
-モデルが構造的に比較可能なものを**そもそも提案しなかった**という E2 / E3 の領域である。
-
-**Stage 10 replication で独立再現するまで確定としない。** supervisor は本日 5 件の主張を撤回して
-いるため、自ら再実装して確認するより独立再現に付す方が信頼できる（規則 R1）。
-
-#### Stage 10 replication の結果（`replications/C0001_opportunity_census_replication.md`）
-
-**査読の数値はすべて厳密に再現した** — 5,851/77,983、88/130、187/77,983、9/130、
-`Wilson(0,130)` 0.028702、`Wilson(0,88)` 0.041827、`Wilson(0,9)` 0.299145、
-検定力 0.99910 / 0.99131 / 0.38452。加えて **101,963 件の保存済み M3 値を新規プロセスで
-全件再計算し、不一致 0**。PC4 も厳密再現（eligible 170/170、M0 40/170、M3 140/170、
-gain 100、gain_H 100、gain_L 0、6 家系）。
-
-> ##### 撤回: 演算子多重集合スクリーンによる定量（2026-09-11、Stage 10 replication）
->
-> **`n_eff = 9`、`Wilson(0,9)`、検定力 0.38452、「121/130 に機会なし」「うち 112 がサポート内」は
-> すべて無効。** 根拠となる演算子多重集合スクリーンは **M0 の必要条件であって M3 の必要条件ではなく**、
-> H 層で唯一の非循環な陽性例である **PC4 の gain 100 件を 100/100 すべて棄却する**。
->
-> スクリーンの妥当性検証（「realized 2,235 件で偽陰性 0」）は**構成上循環している** — 2,235 件は
-> すべて M0 = 1 であり、スクリーンは M0 必要条件なので偽陰性 0 は定理であって証拠ではない。
-> 凍結コード上の反例も提示された:
-> `symbolic_recovery("1.0 * (x_0 + x_1)", "2.0 * x_0 + 3.0 * x_1")["skeleton"] == 1.0` かつ M0 = 0.0。
->
-> **正しい定量: `n_eff ≤ 88`、検証された下限は存在しない。**
-> 88 は**上限**なので、これを代入して「許容域を除外した」と論じることはできない。
-> **したがって結論（サイクル結論に進めない）はより健全な理由で維持される。**
-
-**MAJOR-2 — 「121」は同じ大きさの別集合 2 つの混同だった。**
-サポート内の H 成分が 121、スクリーンの機会なし成分が 121 で、別物である。
-検証済みスクリーンによる正しい E1' 帰属は **機会なし 42 成分、うちサポート外はわずか 4**。
-クラス解像度では 130 中 9。**いずれにせよ残余は E2 / E3** であり、査読の向きとは一致する。
-
-**CRITICAL-2（新規）— M0 ≡ M3 の機構が判明した。**
-実現語彙上、89,349 件の成分文字列は **879 個**の定数畳み込み骨格クラスに collapse する。
-凍結 M3 関係はその 879 から **877 クラス**しか作らず、統合された 2 件はいずれも
-**候補↔候補の符号変異**である。すなわち **M3 の定数畳み込み機構は、真の式と候補の対に対して
-一度も仕事をしていない。** M0 対 M3 の対比は、ほぼ等価な 2 つの構文正規化に退化していた。
-
-**MAJOR-4 — CRITICAL-R1 が数値付きで再現。** 同一入力・同一 10.0 秒上限で
-**101,963 件中 14 件**の `match_outcome_m3` ラベルが双方向に揺れた（8 件は確実）。
-`A2-S6 could_not_evaluate_rate` は**再現しない**（9 対 7、共通 1 件）。
-**ただし M3 の値そのものは 101,963 件すべてで一致したため `K = 0` は影響を受けない。**
-
-**査読の懸念 2 件が解消。** `Expr.equals` が `None` を返す穴は、実現した 2,191 クラス対
-（101,963 比較全体を被覆）の網羅探索で **`equals_NONE` = 0**、厳密にゼロと確定
-（査読の [0, 0.0026] を締めた）。ガードは load-bearing で、**ガードなしの `.equals` 探索は完了しない**。
-9 件の `could_not_evaluate` は **9/9 が数値的に真の非一致と確認**。
-「未決トリプル 1 件で verdict が反転する」は**起こりえない**。
-
-**その他の確認事項**: `component_count_match` は H 全 77,983 比較で True（M3 は毎回実際に呼ばれた）。
-`(stratum, M0, M1, M3)` の同時分布は 3 セルのみ — `(H,0,0,0)` 77,983 / `(L,0,0,0)` 21,745 /
-`(L,1,0,1)` 2,235。**M1 は 101,963 件中 0 件一致。gain は L 層でも恒等的に 0。**
-凍結 H/L 層は書き換え不変な定義と完全一致（130/40）。
-**規則 R1 の罠は実在し定量された** — 保存済み `true_structure.exponent_aware_skeleton`（prefix 由来）を
-使うと多重集合スクリーンは 187 から **0** に落ち、80/80 系統で食い違う。
-**Hill-4 の綴りは infix 経路で `pow,x_0,4`、prefix 経路で `pow,pow,x_0,2,2`** — 導出経路によって
-異なる。これは supervisor の第一の撤回（偽の Hill-4 不在）の機構を精緻化するものである。
-
-**サイクルの正味の内容は、マッチャではなく候補生成器についてである。**
-PC4 は、正しい形が存在すれば指標が 100 回発火することを示した。ビームはそれを提案しなかった。
-
-### supervisor の訂正 2 件（Stage 9 査読の指摘による）
-
-**訂正 1: 「49 件が top-1 に届かない = selection failure」は誤り。**
-Stage 8 で成分オラクル 107/2040 対 選択済み 58/2040 の差を「ビーム内に在るのに top-1 に
-届かない選択の失敗」と報告した。**これは誤りである。** 保存された候補集合は
-`beam_type = "sampling"` であり、`model_wrapper.py:107-113` でスコア順に並べ替えるのは
-`"search"` 分岐のみ。したがって `candidate_index == 0` は**選択の結果ではなく単なる標本順**である。
-選択の失敗を測ったことにはならない（独立査読 MAJOR-R5）。
-
-**訂正 2: 「独立 3 者一致」を裏付けとして提示したのは不適切。**
-supervisor・解析者・統計レビュアーの 3 者が `undecidable` に到達したことを補強証拠として
-利用者に報告したが、3 者は**同一の入力と同一の 2 行の契約参照を共有**しており、
-独立な確認になっていない（独立査読 §12）。
-真に独立なのは `cell_cache/` からの `K` / `K_adv` の再計算であり、こちらは厳密に一致した。
-今後「N 者一致」を裏付けとして提示しない。
-
-### Stage 9 独立査読の新規 CRITICAL
-
-| id | 内容 |
+| Stage | 成果物 |
 |---|---|
-| **CRITICAL-R1** | **凍結契約が自らの verdict を決定できない。** 実時間エンドポイント + 実行環境の未固定 + 「非ゼロなら発動」トリガ + 3 段 ladder の組み合わせ。`k_adv ∈ {1,2,3}` は既に `weak_gain` で `k = 0` と別 rung なので、**枢軸は 9 対 3 ではなく 1 対 0**。H 成分 1 件のタイムアウトで `undecidable` が決まる |
-| **CRITICAL-R2** | **130 分析単位のうち 121 で試行が実現していない。** すべての区間と検定力が n = 130 を仮定している |
-| **CRITICAL-R3** | **`lp_sel` を `candidate_index == 0` で取ると search error を測れない**（`beam_type = "sampling"`）。`sb_sel` は `search_error_system_rate` を 1 に膨らませ **E3 を捏造する**。C0001 は未汚染だが **C0002 でこれを凍結してはならない** — `lp_best` / `sb_best` を使うか `"search"` で再デコードする |
+| 3 | `plans/C0001_preregistration_v2.1.md` / `.json`（拘束力を持つ凍結契約） |
+| 7 | `results/runs/gpu_runclaude1_c0001_b731cdd/phase{0,1,2,3}/`（phase3 は `INADMISSIBLE`） |
+| 8 | `analyses/C0001_partA_stage8_analysis.md`、`reviews/C0001_partA_statistical_review.md` |
+| 9 | `reviews/C0001_independent_review.md`（1,039 行） |
+| 10 | `replications/C0001_opportunity_census_replication.md` |
+| 11 | **`reports/C0001_report.md`**（686 行、日本語、17 節。査読の 7 条件を supervisor が個別に検証済み） |
+| 12 | `manifests/C0001_manifest.json` / `.sha256`（44 件・23,709,144 B、全チェックサム照合済み）、`derived/C0001/`（事後導出 3 件、標識付き） |
+| 13 | `hypotheses/C0002_design_brief.md`（12 節・618 行） |
+| 14 | `hypothesis_tree.md` の「Cycle C0001 outcome」節 |
 
-**枢軸の訂正**: CRITICAL-R1 により、統計レビュアーの MAJOR-3（「食い違いには 4 成分が必要」）は
-**誤り**。結論の向きは正しいが、実際の閾値は 1 成分であり、指摘は論じられていたより**強い**。
+### C0001 の結論（一行ずつ）
 
-### Stage 10 replication gate: **発動（ブロッキング）**
+- **E0**: `UNDECIDABLE`。**棄却されていない。** `k_gains = 0` は `undecidable` のラベル付きの
+  生の観測であり、E0 の賛否いずれにも引用できない（規則 01 item 8）
+- **E1**: `REFUTED`（F2、560/560 round-trip。C0001 以前から）
+- **E1'**: **主要因としては棄却**。9/170 成分、S1 の機会なし 42 成分中わずか 4
+- **E2**（prior mass）: **`ACTIVE`、主戦場に昇格**。実現候補骨格 846 クラスに H 真値 33 クラスは 1 件も無い
+- **E3**（search error）: `ACTIVE` だが **GRN では現状測定不能**（CRITICAL-R3）
+- **負の結果は存在しない** — 130 単位の多くで試行が成立していない（`n_eff ≤ 88`、検証された下限なし）
+- **正味の内容はマッチャではなく候補生成器について**。PC4 は正しい形があれば指標が 100/170 発火することを示した
 
-独立査読の勧告: **REPLICATE（ブロッキング）** → その後 instrument fact に限り
-`ACCEPT_AS_PRELIMINARY`。
+### 次の行動 — C0002。**ただし現在ブロック中**
 
-- `INVALIDATE` には該当しない — リークなし、除外なし（47,987/47,987 valid、セル失敗 0）、
-  事後の threshold 変更なし、決定論的部分は厳密に再現
-- **`ACCEPT_AS_NEGATIVE` にも該当しない — 130 単位中 121 で測定が成立していないため、
-  そもそも負の結果が存在しない**
-- **C0001 はサイクルレポートに進んでよい（かつ進まねばならない）が、サイクル結論には進めない**
+**ブロッカー**: セッション利用上限（429、リセット 04:30 JST）。C0002 の Stage 2（文献）と
+Stage 3（事前登録）は、利用者が指定した分離要件により
+`lansr-research-methodologist` / `lansr-statistical-reviewer` / `lansr-reproducibility-auditor` /
+`lansr-literature-researcher` を**別 subagent**として要する。上限リセットまで開始できない。
+**supervisor が単独で事前登録を書いて「レビュー済み」と記載することは決してしない。**
 
-### PC0-CAS の検証を discharge（保留を解消）
+リセット後の手順:
+1. `hypotheses/C0002_design_brief.md` を出発点に Stage 1（仮説）を確定。同ブリーフの
+   §4 に問い別の順位、§5 に必須の計器変更 2 件、§6 に常設設計要件がある
+2. **凍結前に必ず解決すべき 2 件**（ブリーフ §5）:
+   - `could_not_evaluate` を実時間ではなく**決定論的予算**（ノード数・演算回数）で再定義する。
+     これは C0001 の結果の救済ではなく**計器を再現可能にする**変更である
+   - **CRITICAL-R3**: `beam_type = "sampling"` のため `candidate_index == 0` では search error を
+     測れず **E3 を捏造する**。`lp_best` / `sb_best` を使うか `"search"` で再デコードする
+3. **新しい常設設計要件**: 実現分母が事前に不明なエンドポイントは、**機会センサスを
+   ゲート前提条件として事前登録**する（事後に計算しない）
+4. Stage 3 事前登録 → Stage 4 以降は通常のループ
 
-保留事項だった「in-process monkeypatch が実際に効いているか」を実測で立証した。
-`gpu_run4/formulas.py:13` は `from ... import SYMPY_MAX_NODES` で名前を取り込み、
-`formulas.py:434` はそれを module global として読むため、`controls.py:83` の属性代入は有効。
-実測: 既定 cap 40 では CAS 自己同一性が **28/80 系統**しか通らず、cap 200 では **80/80** 通る。
-52 系統で結果が変わったことが、パッチが有効であることの実証である。
-**PC0-CAS 80/80 は信頼して良い。**
-
-**規則 R1 に従った位置づけ（重要）。** 「既定 cap 40 で 52/80 系統が CAS 自己同一性を通らない」は
-**新しい発見ではない**。§8 の既知欠陥として Stage 3 の再現性監査が既に記録していた数値と一致する。
-したがってこれは監査値に対する **ポジティブコントロール**であり、そのようにラベル付けする。
-発見として報告してはならない。この一致自体が、監査値と本測定が同じものを測っていることの確認になる。
-
-なお影響範囲は M1 / GPU_RUN4 経路に限られる。M3 は
-`evaluation/equation_metrics.py:169 symbolic_recovery` の別経路であり、PC0 = 170/170 がそれを示す。
-
-- **テストスイート**: 413 passed, 1 skipped（Phase 1 実行前に測定）
-- **テストスイート**: 467 passed, 1 skipped（54 テスト追加後、supervisor が独立に確認）
-- **実行中**: Stage 9 独立敵対的査読（第一次試行は 403 `oauth_org_not_allowed` のインフラ障害で
-  落ちたため再投入済み）、タイムアウトの負荷依存の因果検証
-- **Stage 7 は完了**: Phase 1（Part A）完走、Phase 2（Part B）完走、
-  Phase 3（Part C）は **Gate B→C 違反下で実行**され `INADMISSIBLE` として保存（規則 R7 / HRQ-0007）
-- **Gate B→C の注意**: Part A が `gain_confirmed` を返した場合、Part C（phase 3）は**実行しない**。
-  replication を優先する。`gate_b_to_c()` が機械的に強制する。
-- **未検証のまま残る点**: Part C の VRAM は 2 セルでのみ検証済み。実スケール
-  （約 60 系統 x 最大 12 セル）は未確認。
-- **阻害要因**: なし。ハードストップ条件は非該当。
-- **git**: PR #4 は OPEN。routine な push と PR 更新は事前承認済み
-  （`.claude/rules/14-push-and-pr.md`）。
-- **C0001 レポートに必ず含めること**: 規則 R5 の妥当性への脅威の開示。本サイクル内で supervisor の
-  偽陰性が 3 件発生し（未検証の比較手法による）、かつ主エンドポイントは null 型であるため、
-  supervisor の誤り方向と主仮説が同じ向きを指している。
-
-### 次の行動
-1. Phase 2（Part B）完了を待ち、Gate B→C を評価（`gate_b_to_c()`）。Part A が
-   `gain_confirmed` でない限り Part C の実行可否は `n_in_support >= 30` に依存する。
-2. Stage 8 の 2 subagent の結果を統合。verdict の独立導出が一致するか確認する。
-3. Stage 9 独立敵対的査読（`lansr-independent-reviewer`）、Stage 10 replication gate、
-   Stage 11 `reports/C0001_report.md`（結果が負・null・無効でも必須。**日本語**）、
-   Stage 12 manifest + SHA256、Stage 13 negative-result-recovery、Stage 14 state と
-   hypothesis_tree の更新、その後 C0002 へ。
-4. C0002 の有力候補: 本サイクルで verdict を左右した 9 件の `SymbolicEquivalenceTimeout` を、
-   引き上げた cap で事前登録の上で解決する。比較は 9 件のみで計算費用は無視できる。
-   これは threshold を後から動かして結果を救済する行為ではなく、**新しい事前登録サイクル**である
-   （v2.1 named contingency 1 が指定する唯一の正規経路）。
+- **テストスイート**: 467 passed, 1 skipped
+- **git**: `d24b033` まで push 済み。作業ツリーはクリーン
+- **ハードストップ**: 非該当。ただし 429 が長期化し subagent を投入できない状態が続く場合、
+  分離要件を満たせないため規則 09 の「credential/access change」に該当する
