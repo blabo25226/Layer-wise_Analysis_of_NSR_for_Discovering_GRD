@@ -86,3 +86,40 @@
 人間側に確認いただきたい点: 本件を DEVIATION として報告し C0001 を継続する判断が妥当か。
 supervisor の判断ではハードストップ条件（`RESEARCH_LOOP.md` §6）に該当しない。
 詳細: `analyses/C0001_DEVIATION_gate_b_to_c_violation.md`
+
+## HRQ-0008: 組織設定により Claude Code のサブスクリプション利用が無効化されている（管理者操作が必要）
+
+**2026-09-10。非ブロッキングだが、再発すれば規則 09 のハードストップに該当する。**
+
+`lansr-independent-reviewer` の第一次試行が HTTP 403 `oauth_org_not_allowed` で異常終了した
+（request id `req_011CeshpLHg1Yo8WEb1Krvdn`、送信モデル `claude-opus-5`）:
+
+> Your organization has disabled Claude subscription access for Claude Code ·
+> Use an Anthropic API key instead, or ask your admin to enable access
+
+**測定した状態**（詳細は `research_state.md` §5b）:
+
+| 項目 | 値 |
+|---|---|
+| 組織 | Nakamura Lab（`claude_team`） |
+| シート | `team_labs_standard` |
+| 本ユーザーの権限 | `organizationRole: user`、`workspaceRole: None` |
+| `ANTHROPIC_API_KEY` | 未設定 |
+
+**重要な限定**: この 403 は再現していない。再投入した同一種別の subagent は 18 分以上稼働した。
+「subagent が使えない状態」ではない。Remote Control は未接続、`SendUserFile` はセッション途中で
+利用不可になったが、これらが同一原因かは `unverified`。
+
+### 人間側にお願いしたいこと
+
+1. **Nakamura Lab の管理者に、Claude 管理コンソールで Claude Code のサブスクリプション利用を
+   有効化するよう依頼する。** `organizationRole: user` のため利用者自身では変更できない。
+2. あるいは `ANTHROPIC_API_KEY` を使うか。ただし課金が組織サブスクリプションから API 従量課金に
+   変わる。**本日 1 日の subagent 消費は約 68 万トークン**。費用判断は人間の決定事項とし、
+   supervisor は独断で設定しない。
+
+### supervisor が守る約束
+
+403 が再発して subagent を投入できなくなった場合、**実験者・解析者・独立 reviewer の分離要件が
+満たせなくなるため、ループを停止して確認を求める。**
+supervisor が単独で査読を兼ねて「独立査読を実施した」と記載することは決してしない。

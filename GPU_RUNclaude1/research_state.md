@@ -235,6 +235,63 @@ VRAM しかない。すべてのサイクルはこの枠に収まるか、CPU �
 
 ---
 
+## 5b. 実行基盤の制約（2026-09-10 に測定。プランとアカウント種別に起因）
+
+キャンペーンの前提に関わるため記録する。**計算資源ではなくアカウント権限の制約である。**
+
+### アカウントとプランの実態
+
+| 項目 | 値 | 取得元 |
+|---|---|---|
+| アカウント | `d244006a@yokohama-cu.ac.jp` | `~/.claude.json:oauthAccount.emailAddress` |
+| 組織 | **Nakamura Lab** | `organizationName` |
+| 組織種別 | `claude_team` | `organizationType` |
+| シート | **`team_labs_standard`** | `seatTier` |
+| 課金 | `stripe_subscription` | `billingType` |
+| 本ユーザーの権限 | **`organizationRole: user`**、`workspaceRole: None` | 同上 |
+| レート上限 tier | `default_raven`（組織・ユーザーとも） | `organizationRateLimitTier` / `userRateLimitTier` |
+| 追加利用 | `hasExtraUsageEnabled: False` | 同上 |
+| `ANTHROPIC_API_KEY` | **未設定**（環境変数に存在しない） | `env` |
+
+**`.claude/rules/10-model-and-agent-routing.md` は「Claude Max プランで走る想定」と書いていたが、
+これは誤りだった。** 実態は組織のチームシートである。同ファイルの当該記述は 2026-09-10 に訂正した。
+品質優先ルーティング（独立査読・統計レビュー等に Opus 層を使う方針）自体は維持するが、
+その根拠は「Max プランだから」ではなく「これらの判断は誤ると撤回コストが高いから」である。
+
+### 観測された機能制約
+
+| 機能 | 状態 | 根拠 |
+|---|---|---|
+| **subagent（Agent tool）** | **動作している** | 本日 4 件投入、3 件正常完了（消費 196,400 / 154,915 / 327,131 トークン）、1 件が下記 403 で異常終了、その再投入は 18 分以上継続実行中 |
+| **Remote Control** | **接続されていない** | `ListAgents` に Remote Control セッションもクラウドセッションも 0 件（列挙される 7 件はすべて本機のローカル interactive セッション） |
+| **`SendUserFile`**（別デバイスへのファイル送付） | **セッション途中で利用不可になった** | 利用可能ツール一覧から撤回された旨のシステム通知 |
+
+### 発生した障害
+
+`lansr-independent-reviewer` の第一次試行が次のエラーで異常終了した（request id `req_011CeshpLHg1Yo8WEb1Krvdn`、
+送信モデル `claude-opus-5`）:
+
+> `oauth_org_not_allowed`（HTTP 403）— Your organization has disabled Claude subscription access
+> for Claude Code · Use an Anthropic API key instead, or ask your admin to enable access
+
+**重要な限定**: この 403 は**再現していない**。同一の subagent 種別・同一モデルでの再投入は成功し、
+18 分以上稼働した。したがって現時点で「subagent が使えない」は**誤り**であり、
+正しくは「一度だけ 403 が発生し、再投入で復旧した。原因は未確定（`unverified`）」である。
+Remote Control 不通と `SendUserFile` 撤回が同じ原因に由来するかも `unverified`。
+
+### 研究ループへの含意
+
+- **`organizationRole: user` のため、本ユーザー自身では組織設定を変更できない。**
+  有効化には Nakamura Lab の管理者による操作が必要（→ `human_review_queue.md` HRQ-0008）。
+- 403 が再発して subagent が投入できなくなった場合、**利用者が要求した
+  「実験者・解析者・独立 reviewer を別 subagent に分離する」要件が満たせなくなる。**
+  これは規則 09 のハードストップ「credential/access change」に該当するため、
+  その時点でループを停止して人間に確認する。
+  **supervisor が単独で査読を兼ね、「独立査読を実施した」と記載することは決してしない。**
+- `ANTHROPIC_API_KEY` を設定すれば組織 OAuth 経路を迂回できるが、課金が組織サブスクリプションから
+  API 従量課金に変わる。本日 1 日の subagent 消費が約 68 万トークンであることを踏まえ、
+  **費用判断は人間の決定事項**とする。supervisor は独断で設定しない。
+
 ## 6. 再利用可能な成果物（存在を検証済み。GPU をほぼ使わないサイクルを可能にする）
 
 `results/runs/gpu_run5_20260823_ddd267b0/` 配下（合計 15 G）:
