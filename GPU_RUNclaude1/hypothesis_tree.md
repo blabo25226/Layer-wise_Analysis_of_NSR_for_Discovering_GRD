@@ -389,3 +389,67 @@ reachability), with **H0002** (operator-support attribution) executed as a near-
 companion in the same cycle. Runner-up **H0007** (token-role decomposition of the P5
 CE-vs-formula divergence) is queued for C0002. Rationale, full field records, and the ranked
 table are in `GPU_RUNclaude1/hypotheses/C0001_candidates.md`.
+
+---
+
+## Cycle C0001 outcome (Stage 14, 2026-09-11)
+
+Verdict of record: **`UNDECIDABLE`** — v2.1 §7.5 item 3, the two-sided sensitivity analysis landed
+the two directions on different rungs. Full reasoning: `GPU_RUNclaude1/reports/C0001_report.md`.
+Recovery design: `GPU_RUNclaude1/hypotheses/C0002_design_brief.md`.
+
+**There is no negative result to record.** On most of the 130 nominal analysis units the trial did
+not take place: under the validated screen S1 the realized denominator is `n_eff ≤ 88` of 130, with
+**no validated lower bound**. Do not read `k_gains = 0` as evidence of absence anywhere in this tree
+(rule 01 item 8).
+
+### Status of the four competing explanations
+
+| node | status after C0001 | the number it rests on |
+|---|---|---|
+| **E0** — evaluator artifact | **`UNDECIDABLE`**, *not* refuted | `k_gains = 0 / n_h = 130` carries the `undecidable` label and may not be cited for or against E0. What C0001 did establish is that the test had little power: `n_eff ≤ 88`, and the frozen M3 relation makes only **877** equivalence classes from the **879** realized skeleton classes, both merges being candidate↔candidate sign variants — M3's constant-collapsing machinery never acted on a truth↔candidate pair |
+| **E1** — expressibility | **`REFUTED`** (unchanged, F2) | 560/560 round-trip |
+| **E1'** — generator-support exclusion | **`REFUTED as the principal explanation`**; survives as a minor contributor | Part B: 9/80 systems and 9/170 components out of support, scoped to rewrites B-R1..B-R4, concentrated in R07 (6/10) and R08 (3/10). Of S1's 42 no-opportunity components only **4** are out of support |
+| **E2** — prior mass | **`ACTIVE`, promoted to principal** | The realized candidate vocabulary contains **846** skeleton classes and **not one** of the 33 H truth skeleton classes. Candidates are polynomial-dominated (`c*x_0 + c*x_1` 23,931; `c*x_1 + c*x_2` 10,758; `c*x_0 + c*x_2` 8,171) |
+| **E3** — search error | **`ACTIVE`, but currently unmeasurable on GRN** | Truth-in-beam is `0.0` across 960 cells / 47,987 candidates, so no selection rule could recover it. Worse, the instrument is invalid — see CRITICAL-R3 below |
+
+**The cycle's net content is about the candidate generator, not the matcher.** PC4 shows the gain
+indicator fires **100/170** (all 100 in H, 6 of 8 families) through the identical code path when the
+right rewritten form is present as a candidate. The indicator works; the beams never proposed the
+form.
+
+### Instrument findings that gate C0002
+
+- **CRITICAL-R3 — the selection endpoint is invalid as specified.** `lp_sel` at
+  `candidate_index == 0` cannot measure search error: `beam_type = "sampling"`, and only the
+  `"search"` branch of `model_wrapper.py:107-113` sorts by score. Using it would inflate
+  `search_error_system_rate` toward 1 and **manufacture E3**. C0002 must use `lp_best`/`sb_best` or
+  re-decode under `"search"`. Related contract defect: v2.1 §8.3 cites `gpu_run5_selection.py:11` as
+  "the frozen selection rule", but that function is a cross-run model-selection scorer, not a
+  per-cell selector.
+  - Consequence for this tree: **H-B (selection bottleneck) is not measurable on GRN in C0002** —
+    the oracle is 0, so there is nothing for a selection rule to recover. The earlier reading
+    "oracle 107 vs selected 58 ⇒ 49 selection losses" is **withdrawn** (MAJOR-R5).
+- **`could_not_evaluate` is not reproducible.** 14 of 101,963 `match_outcome_m3` labels flip in both
+  directions on identical inputs at the identical frozen 10.0 s `SIGALRM` limit; the rate does not
+  reproduce (9 vs 7, one in common). The M3 *value* agreed on all 101,963, so `k_gains = 0` is not
+  at stake. CPU contention was tested and **rejected** as the mechanism; SymPy cache state is
+  supported; memory pressure is `unverified`. C0002 must redefine `could_not_evaluate` on a
+  **deterministic budget** (node or operation count). This makes the instrument reproducible; it is
+  **not** a threshold change to rescue a C0001 result.
+- **Standing design requirement, new:** any endpoint whose realized denominator is not known in
+  advance must have an **opportunity census preregistered as a gating precondition**, not computed
+  afterwards. C0001 spent its whole budget on an endpoint whose realized `n` was at most 88 of a
+  nominal 130.
+
+### Nodes whose status changed
+
+- **H-F1** (within-support prior mass is the binding constraint) — promoted; this is E2 and is now
+  the principal branch.
+- **H-F2** (out-of-support operators explain generation failure) — demoted; 9/170 components only.
+- **H-B*** (selection) — **`DEFERRED` for GRN**, instrument invalid and oracle empty. Live only on
+  ODEBench, which this campaign does not prioritize next.
+- **H-G1/H-G2/H-G3** (evaluator adequacy) — reinforced by the 879 → 877 collapse and the label
+  instability; folded into the C0002 instrument changes rather than run as separate hypotheses.
+- **H-D**, **H-E** — unchanged by C0001; H-E1 (P6, IC diversity, ΔNRMSE −0.20278, paired 95% CI
+  [−0.32323, −0.08233]) remains SUPPORTED and is the basis of the queued identifiability test.

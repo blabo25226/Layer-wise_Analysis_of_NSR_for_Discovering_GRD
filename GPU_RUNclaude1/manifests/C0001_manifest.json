@@ -1,0 +1,347 @@
+{
+  "campaign": "GPU_RUNclaude1",
+  "cycle": "C0001",
+  "run_id": "gpu_runclaude1_c0001_b731cdd",
+  "run_commit": "8ff622defc227b4598e0094fc000b8227c4ffdad",
+  "archive_branch": "20260909_researce_GPU_RUNclaude1",
+  "archive_commit": "c2c48fb9a3d6392e772f9d7de0f32bb81dc26d51",
+  "archived_at_utc": "2026-09-10T23:49:02.452454+00:00",
+  "archived_by": "supervisor (Stage 12 run in the main session; the curator subagent was killed by a session rate limit)",
+  "verdict_of_record": "undecidable (two-sided sensitivity disagreement, v2.1 7.5 item 3)",
+  "replication_disposition": "REPLICATE performed; ACCEPT_AS_PRELIMINARY for instrument facts only",
+  "sealed_access": {
+    "sealed_paths_read": 0,
+    "note": "no sealed path hashed or opened; GPU_RUN5 source hashes taken from the frozen contract's record"
+  },
+  "gpu_run5_source_of_record": {
+    "phase2/validation.json": "f4644d1d4c30f8a3d6f0cafc8f321fb2c07e72979d8e4c42d28862376abb8f64",
+    "note": "SHA256 quoted from C0001_preregistration_v2.1.md, not recomputed here"
+  },
+  "section_12_1_mandated_artifacts": {
+    "phase1/partA_records.jsonl": "absent",
+    "phase1/partA_component_summary.json": "absent_in_run; reconstructed post-hoc at GPU_RUNclaude1/derived/C0001/partA_component_summary.derived.json",
+    "phase1/partA_system_summary.json": "absent_in_run; reconstructed post-hoc at GPU_RUNclaude1/derived/C0001/partA_system_summary.derived.json",
+    "phase1/partA_failures.jsonl": "absent; NOT reconstructable -- the run did not retain per-triple expressions with both derivation paths",
+    "phase1/m0_hits_stratification.json": "absent",
+    "phase1/matcher_monotonicity.json": "present",
+    "phase1/partA_controls.json": "present",
+    "phase1/partA_endpoints.json": "present (verdict field defective: does not apply the v2.1 7.5 item 3 override)",
+    "phase1/partA_ladder_realized.json": "present",
+    "phase0/m3_implementation_agreement.json": "present under a different name: phase0/m3_agreement_test.json (content matches)",
+    "phase0/sealed_inventory.json": "absent",
+    "<run root>/manifest.json": "absent; this file supersedes it for archival purposes"
+  },
+  "n_mandated_absent": 7,
+  "artifacts": [
+    {
+      "path": "results/runs/gpu_runclaude1_c0001_b731cdd/phase0/checkpoint_audit.json",
+      "status": "present",
+      "what": "phase0 run artifact",
+      "size_bytes": 252,
+      "sha256": "e7fd8c8fd37697d246f935fcdcc92baff8eba80eae120855cf012c436450fb20"
+    },
+    {
+      "path": "results/runs/gpu_runclaude1_c0001_b731cdd/phase0/environment_audit.json",
+      "status": "present",
+      "what": "phase0 run artifact",
+      "size_bytes": 1048,
+      "sha256": "c83a33f852e9969bb0df3b3c8887b62d6ef35a6ff4b175c37e94c6c1821335d4"
+    },
+    {
+      "path": "results/runs/gpu_runclaude1_c0001_b731cdd/phase0/firewall_test.json",
+      "status": "present",
+      "what": "phase0 run artifact",
+      "size_bytes": 1218,
+      "sha256": "c322a87776b1405257b0cd2f09c1fee77ceba842568f5ab312332db12aef7a0d"
+    },
+    {
+      "path": "results/runs/gpu_runclaude1_c0001_b731cdd/phase0/input_fingerprints.json",
+      "status": "present",
+      "what": "phase0 run artifact",
+      "size_bytes": 396,
+      "sha256": "362afcd2c4b70922191b57691c1147c25f4fee32da0d9a0e92dab79e385c5c29"
+    },
+    {
+      "path": "results/runs/gpu_runclaude1_c0001_b731cdd/phase0/m3_agreement_test.json",
+      "status": "present",
+      "what": "phase0 run artifact",
+      "size_bytes": 599,
+      "sha256": "8b3fdd93c5f415acb2497c9e4287e2612a6d4eb62986dd9400d443f0bbd557f3"
+    },
+    {
+      "path": "results/runs/gpu_runclaude1_c0001_b731cdd/phase0/manifest.json",
+      "status": "present",
+      "what": "phase0 run artifact",
+      "size_bytes": 605,
+      "sha256": "f357860793bb734907be1ac16355cc49c1b4794ec4b8a97b4567df07d1181a43"
+    },
+    {
+      "path": "results/runs/gpu_runclaude1_c0001_b731cdd/phase0/partA_cost_calibration.json",
+      "status": "present",
+      "what": "phase0 run artifact",
+      "size_bytes": 609,
+      "sha256": "f6e24cfd9dd114ad5965238e23abc348233864c08b66010849007b199e806d67"
+    },
+    {
+      "path": "results/runs/gpu_runclaude1_c0001_b731cdd/phase1/component_strata.json",
+      "status": "present",
+      "what": "phase1 run artifact",
+      "size_bytes": 27075,
+      "sha256": "74da9f538a9b5113c87a88b92b3e28522ad72371782e4506657339169142da18"
+    },
+    {
+      "path": "results/runs/gpu_runclaude1_c0001_b731cdd/phase1/m0_reproduction.json",
+      "status": "present",
+      "what": "phase1 run artifact",
+      "size_bytes": 154148,
+      "sha256": "e1c0eeb23cc87bc630981ce8aea49385bec98204a4404758483a96994ca23b0f"
+    },
+    {
+      "path": "results/runs/gpu_runclaude1_c0001_b731cdd/phase1/m3_implementation_agreement_census.json",
+      "status": "present",
+      "what": "phase1 run artifact",
+      "size_bytes": 128,
+      "sha256": "c8505e0306e27296ad75298a897cbbb235dcb4806563a220eba61281468bdb2d"
+    },
+    {
+      "path": "results/runs/gpu_runclaude1_c0001_b731cdd/phase1/manifest.json",
+      "status": "present",
+      "what": "phase1 run artifact",
+      "size_bytes": 629,
+      "sha256": "92d3a13b1fd27a136e3f4e4e2fe9367727a90d2dbd60a1ac21e4b3d23011fc91"
+    },
+    {
+      "path": "results/runs/gpu_runclaude1_c0001_b731cdd/phase1/matcher_monotonicity.json",
+      "status": "present",
+      "what": "phase1 run artifact",
+      "size_bytes": 7596,
+      "sha256": "f5a1af87e9820d1add8a7afd8828291a832709a222162ac1b35b3a88c17d6869"
+    },
+    {
+      "path": "results/runs/gpu_runclaude1_c0001_b731cdd/phase1/partA_cell_failures.json",
+      "status": "present",
+      "what": "phase1 run artifact",
+      "size_bytes": 2,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "path": "results/runs/gpu_runclaude1_c0001_b731cdd/phase1/partA_controls.json",
+      "status": "present",
+      "what": "phase1 run artifact",
+      "size_bytes": 3334,
+      "sha256": "a1c9c3a194a18e1dd15d4d1f4089ff937ae4ac5900085f2f4d7fc2db3de670ec"
+    },
+    {
+      "path": "results/runs/gpu_runclaude1_c0001_b731cdd/phase1/partA_endpoints.json",
+      "status": "present",
+      "what": "phase1 run artifact",
+      "size_bytes": 1145,
+      "sha256": "96145e746cea65a794db0d6a231c32436a62f33222f441be9cffe1ed703d1667"
+    },
+    {
+      "path": "results/runs/gpu_runclaude1_c0001_b731cdd/phase1/partA_ladder_realized.json",
+      "status": "present",
+      "what": "phase1 run artifact",
+      "size_bytes": 2974,
+      "sha256": "3f0c54ccc45cabb8044d6f9c5fa99db11e9d101fbc8bb43b468a4d5703f65f7a"
+    },
+    {
+      "path": "results/runs/gpu_runclaude1_c0001_b731cdd/phase2/manifest.json",
+      "status": "present",
+      "what": "phase2 run artifact",
+      "size_bytes": 287,
+      "sha256": "c36dd913235d02db9b1adfaf45e07dcb0dbda54df693aa3c24dbe81cb45ca7dc"
+    },
+    {
+      "path": "results/runs/gpu_runclaude1_c0001_b731cdd/phase2/partB_component_records.jsonl",
+      "status": "present",
+      "what": "phase2 run artifact",
+      "size_bytes": 219577,
+      "sha256": "fabb073f3b3845434f8c9d3509f9a5d75ca4d80319c2d2b4c4b38b23dea60f1e"
+    },
+    {
+      "path": "results/runs/gpu_runclaude1_c0001_b731cdd/phase2/partB_endpoints.json",
+      "status": "present",
+      "what": "phase2 run artifact",
+      "size_bytes": 702,
+      "sha256": "2976c543ee77fea1491b24585b8916902181496b06b4a8a9f2c6e59cbd86031e"
+    },
+    {
+      "path": "results/runs/gpu_runclaude1_c0001_b731cdd/phase2/partB_in_support_systems.json",
+      "status": "present",
+      "what": "phase2 run artifact",
+      "size_bytes": 2247,
+      "sha256": "a8a82d4b98e3974304092ecde7d0bb069a35bef5c75d2abe22b287c8242dfd33"
+    },
+    {
+      "path": "results/runs/gpu_runclaude1_c0001_b731cdd/phase3/INADMISSIBLE.md",
+      "status": "present",
+      "what": "phase3 run artifact",
+      "size_bytes": 723,
+      "sha256": "ac2b38a2eac5c7ee185da4c76944112f3be146ebb9e8c8892cde5da9eb23f3ef"
+    },
+    {
+      "path": "results/runs/gpu_runclaude1_c0001_b731cdd/phase3/gate_b_to_c.json",
+      "status": "present",
+      "what": "phase3 run artifact",
+      "size_bytes": 157,
+      "sha256": "269242c48030c58ca6ce60021cb9e102c1e83d88253acfb3767b36326350b6af"
+    },
+    {
+      "path": "results/runs/gpu_runclaude1_c0001_b731cdd/phase3/gpu_telemetry.jsonl",
+      "status": "present",
+      "what": "phase3 run artifact",
+      "size_bytes": 57,
+      "sha256": "115e309d8007418d79cee776bf05dfdcf9a6cb8b6b438419f7b0f934cb09031b"
+    },
+    {
+      "path": "results/runs/gpu_runclaude1_c0001_b731cdd/phase3/manifest.json",
+      "status": "present",
+      "what": "phase3 run artifact",
+      "size_bytes": 430,
+      "sha256": "6516edd9d14f9d0d257ddfdab45d80bcfb0266f9ad75f172b40ea71bacdfb23c"
+    },
+    {
+      "path": "results/runs/gpu_runclaude1_c0001_b731cdd/phase3/partC_cell_records.jsonl",
+      "status": "present",
+      "what": "phase3 run artifact",
+      "size_bytes": 218464,
+      "sha256": "5368c790167bd78229269da73380eace66169dc64add22d27c08ddec7e5f7077"
+    },
+    {
+      "path": "results/runs/gpu_runclaude1_c0001_b731cdd/phase3/partC_instrument_test.json",
+      "status": "present",
+      "what": "phase3 run artifact",
+      "size_bytes": 205107,
+      "sha256": "5c53ab753b7307dacb6353aa75e3cecad75d3433b5050e7490ddf95f2ea51bbc"
+    },
+    {
+      "path": "results/runs/gpu_runclaude1_c0001_b731cdd/phase1/cell_cache",
+      "status": "present",
+      "what": "phase1 per-cell match cache",
+      "n_files": 960,
+      "size_bytes": 21910933,
+      "sha256_tree_digest": "e46a28efd3037210b53d48d44d595e98a3959e8f7a44491f819002ad96a28641",
+      "note": "tree digest over (relative path, file sha256) pairs, order-independent"
+    },
+    {
+      "path": "GPU_RUNclaude1/plans/C0001_preregistration_v2.1.md",
+      "status": "present",
+      "what": "BINDING frozen contract",
+      "size_bytes": 223987,
+      "sha256": "6ce1d16cb925eaafbde55cb0785fcdbac03349660a932ff80343c3fe85c34969"
+    },
+    {
+      "path": "GPU_RUNclaude1/plans/C0001_preregistration_v2.1.json",
+      "status": "present",
+      "what": "BINDING frozen contract (machine form)",
+      "size_bytes": 185149,
+      "sha256": "9b765bf9f6c21e1d3fb7d098bbdb2db5f021a61b73fd687d17a48066ed69c5c7"
+    },
+    {
+      "path": "GPU_RUNclaude1/reports/C0001_report.md",
+      "status": "present",
+      "what": "Stage 11 mandatory cycle report",
+      "size_bytes": 49795,
+      "sha256": "cf48385ee7def1af3f334ec46d9add704be279cf747f2756272d21ecc73631dd"
+    },
+    {
+      "path": "GPU_RUNclaude1/reviews/C0001_independent_review.md",
+      "status": "present",
+      "what": "Stage 9 independent adversarial review",
+      "size_bytes": 79053,
+      "sha256": "50497876b318f5e5fbb691edaa68902d71d9c8e5631d8b180496bcb035d9ccca"
+    },
+    {
+      "path": "GPU_RUNclaude1/reviews/C0001_partA_statistical_review.md",
+      "status": "present",
+      "what": "Stage 8 statistical review",
+      "size_bytes": 65401,
+      "sha256": "bb0a62fb8d0646e82160fde12c5af1059b12945106ed6b945703e0d2dc83aac9"
+    },
+    {
+      "path": "GPU_RUNclaude1/analyses/C0001_partA_stage8_analysis.md",
+      "status": "present",
+      "what": "Stage 8 primary analysis",
+      "size_bytes": 50243,
+      "sha256": "88be3aea4f94afab7633c8626b5739c46c46d111875ceff8f1aa96c2bbe204de"
+    },
+    {
+      "path": "GPU_RUNclaude1/analyses/C0001_endpoint_irreproducibility.md",
+      "status": "present",
+      "what": "endpoint reproducibility (exploratory)",
+      "size_bytes": 11748,
+      "sha256": "6225dc5d1ec1e272ef79e41995bb23703ae7cd572783ebf87317ad62dff70df6"
+    },
+    {
+      "path": "GPU_RUNclaude1/analyses/C0001_DEVIATION_gate_b_to_c_violation.md",
+      "status": "present",
+      "what": "Gate B->C deviation record",
+      "size_bytes": 5004,
+      "sha256": "9c9c2686742131042cbc00011495eae83830e303a45cf72db6f521ab80ea3b61"
+    },
+    {
+      "path": "GPU_RUNclaude1/analyses/C0001_RETRACTION_neg_finding.md",
+      "status": "present",
+      "what": "retraction record",
+      "size_bytes": 7588,
+      "sha256": "fffaaeb6aab6fa2fca1a844d5dde6d3f1d3df48a3ed64b1402f48c28fe3b2dc6"
+    },
+    {
+      "path": "GPU_RUNclaude1/analyses/C0001_pc2b_discrepancy_resolution.md",
+      "status": "present",
+      "what": "PC2b resolution + retraction",
+      "size_bytes": 8744,
+      "sha256": "e5502901b425317d8412dec51e6cba9fd3d3d7bab6701fd03496f8f1a1779a89"
+    },
+    {
+      "path": "GPU_RUNclaude1/analyses/C0001_precondition_verification.md",
+      "status": "present",
+      "what": "precondition discharge + kill incident",
+      "size_bytes": 9140,
+      "sha256": "e80a03c6c1cc8a30183fbb7d68b9dd24fc4028952a43bd5126b26a5d8fe18e14"
+    },
+    {
+      "path": "GPU_RUNclaude1/replications/C0001_opportunity_census_replication.md",
+      "status": "present",
+      "what": "Stage 10 replication",
+      "size_bytes": 45566,
+      "sha256": "179819f4cedf00dcb1109ea5a6012b59a1171c0aa856bcac5348914ace336cfc"
+    },
+    {
+      "path": "GPU_RUNclaude1/hypotheses/C0002_design_brief.md",
+      "status": "present",
+      "what": "Stage 13 recovery design brief",
+      "size_bytes": 56381,
+      "sha256": "1851d0054af97eaa5c0ef15c3483637e81a8a00f6783802459b4d50f860b2fee"
+    },
+    {
+      "path": "GPU_RUNclaude1/derived/C0001/partA_component_summary.derived.json",
+      "status": "present",
+      "what": "DERIVED POST-HOC, not a run output",
+      "size_bytes": 43014,
+      "sha256": "266f429bf17b7b48f0054456107c0460c27bec295ec8111550bf2ab1c852d974"
+    },
+    {
+      "path": "GPU_RUNclaude1/derived/C0001/partA_system_summary.derived.json",
+      "status": "present",
+      "what": "DERIVED POST-HOC, not a run output",
+      "size_bytes": 29834,
+      "sha256": "5dccb83d286c610edba95d4dd0aaeca41f2e01ae3b02c686a8aaea6862727cf5"
+    },
+    {
+      "path": "GPU_RUNclaude1/derived/C0001/phase3_inadmissible.json",
+      "status": "present",
+      "what": "DERIVED POST-HOC machine-legible inadmissibility marker",
+      "size_bytes": 5193,
+      "sha256": "0c10ac457b2895d3ac9588a770709e3fbd6f2f331c33a9f87b55879dd6cedca8"
+    },
+    {
+      "path": "GPU_RUNclaude1/research_state.md",
+      "status": "present",
+      "what": "durable campaign state",
+      "size_bytes": 72862,
+      "sha256": "e819eabee50d0e39625957ce3d1f80f2d7dd4faf241fe4b49ff164a6e719ff08"
+    }
+  ]
+}
