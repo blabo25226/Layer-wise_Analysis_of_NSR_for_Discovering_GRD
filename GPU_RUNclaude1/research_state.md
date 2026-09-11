@@ -624,27 +624,62 @@ branch は正しい。作業ツリーはクリーン。破壊的操作は不要�
 - **負の結果は存在しない** — 130 単位の多くで試行が成立していない（`n_eff ≤ 88`、検証された下限なし）
 - **正味の内容はマッチャではなく候補生成器について**。PC4 は正しい形があれば指標が 100/170 発火することを示した
 
-### 次の行動 — C0002。**ただし現在ブロック中**
+### C0002 の進行状況（2026-09-11）
 
-**ブロッカー**: セッション利用上限（429、リセット 04:30 JST）。C0002 の Stage 2（文献）と
-Stage 3（事前登録）は、利用者が指定した分離要件により
-`lansr-research-methodologist` / `lansr-statistical-reviewer` / `lansr-reproducibility-auditor` /
-`lansr-literature-researcher` を**別 subagent**として要する。上限リセットまで開始できない。
-**supervisor が単独で事前登録を書いて「レビュー済み」と記載することは決してしない。**
+| Stage | 状態 | 成果物 |
+|---|---|---|
+| 0 状態再構成 | 完了 | 本ファイル |
+| 1 仮説選択 | 完了 | `hypotheses/C0002_selection.md`（主 `H0001-R`、随伴 `H0010`） |
+| 2 文献・novelty | 完了 | `literature/C0002_literature.md`（989 行） |
+| 3 事前登録 | **起草中**（`lansr-research-methodologist`） | `plans/C0002_preregistration_v1.md` / `.json` |
 
-リセット後の手順:
-1. `hypotheses/C0002_design_brief.md` を出発点に Stage 1（仮説）を確定。同ブリーフの
-   §4 に問い別の順位、§5 に必須の計器変更 2 件、§6 に常設設計要件がある
-2. **凍結前に必ず解決すべき 2 件**（ブリーフ §5）:
-   - `could_not_evaluate` を実時間ではなく**決定論的予算**（ノード数・演算回数）で再定義する。
-     これは C0001 の結果の救済ではなく**計器を再現可能にする**変更である
-   - **CRITICAL-R3**: `beam_type = "sampling"` のため `candidate_index == 0` では search error を
-     測れず **E3 を捏造する**。`lp_best` / `sb_best` を使うか `"search"` で再デコードする
-3. **新しい常設設計要件**: 実現分母が事前に不明なエンドポイントは、**機会センサスを
-   ゲート前提条件として事前登録**する（事後に計算しない）
-4. Stage 3 事前登録 → Stage 4 以降は通常のループ
+### Stage 2 が確定させた設計上の制約
+
+**アーム A は一次文献で正当化される。** `lp_best`（保存済み T = 0.1 標本集合の最大）は
+Stahlberg & Byrne の γ そのものである。γ 不等式（§2, p. 3357）は**返された集合**に対する
+`arg max`（Alg. 1 line 12）であり、集合がどう埋められたかには言及しない。
+標本集合はこれを満たすが、**任意の 1 要素（`candidate_index == 0`）は満たさない** — これが
+CRITICAL-R3 の正体である。
+
+**ただし D19-1331 は探索誤差率を DFS による厳密な大域 argmax に対して定義している**
+（footnote 5, p. 3358）。したがって同論文を「返された集合に対する参照ベースの率」の根拠として
+引用してはならない。`sb_best` は**推定値ではなく検定済みの下界**である
+（同論文の Beam-100 でも探索誤差 53.62% が残る）。
+
+**本サイクル最大の妥当性への脅威**: **3 つの独立な機構がいずれも E2 の方向に偏らせる。**
+E2 はキャンペーンが選好する答えである。
+(a) T = 0.1 の上側裾標本は `lp_gt > lp_best` を成立しにくくする
+(b) 総対数確率は系列長バイアスを持ち（D19-1331 自身の中心的知見）、Hill 真値は語彙を支配する
+多項式候補よりトークン長が大きい
+(c) 単一符号化の `lp_gt` は真値の確率の下界である
+→ **50 候補中の `lp_gt` の percentile と長さ統制した併走指標を併記しなければ、E2 の結論は擁護できない。**
+なお `beam_type = "sampling"` と `beam_temperature = 0.1` は GPU_RUN5 の選択ではなく
+**ODEFormer 自身の既定値**であり、この但し書きは退けにくい。
+
+その他: `H0006`（符号化正規化監査）は随伴ではなく**ハード前提条件**。
+`use_two_hot = False`（released checkpoint）のため定数は softmax を通り `lp_gt` と `lp_best` は
+比較可能 — 未同定だった危険が 1 件除去された。
+`phase3/` に候補ごとのモデルスコアは**存在しない**ため `candidate_index == 0` は事後整列でも救えない。
+**novelty: `H0001-R` は `adjacent` であり novel ではない**（ND2 SI §3.2 / Supp. Fig. 6d が
+学習済み SR モデル下での teacher-forced 真値確率を既に計算している）。
+
+### ラベル揺れの第三の機構を同定（supervisor が pinned 版で検証）
+
+Stage 2 が発見し、supervisor が **sympy 1.13.1** で確認した:
+`sympy/core/random.py` のモジュール水準 `rng = _random.Random()` は OS エントロピーで初期化され
+（無シード）、`Expr.equals` がその `_random(` を呼ぶ。
+**これは実時間 `SIGALRM` ともキャッシュ状態とも独立な第三の機構**であり、
+C0001 の 101,963 件中 14 件のラベル揺れを説明しうる。
+`sympy.core.random.seed(k)` をワーカーごとに設定すれば閉じられる。C0002 で事前登録する。
+これにより `analyses/C0001_endpoint_irreproducibility.md` の「機構は未解明」は
+**候補機構が 3 件に増え、うち 1 件は安価に検定可能**という状態に更新された。
+
+### 次の行動
+
+1. Stage 3 事前登録の起草完了を待つ
+2. **`lansr-statistical-reviewer` と `lansr-reproducibility-auditor` に独立レビューさせる**。
+   supervisor は単独で事前登録を凍結しない
+3. レビュー指摘を反映して凍結 → Stage 4 実装 → Stage 5 監査 → Stage 6 smoke → Stage 7 本実験
 
 - **テストスイート**: 467 passed, 1 skipped
-- **git**: `d24b033` まで push 済み。作業ツリーはクリーン
-- **ハードストップ**: 非該当。ただし 429 が長期化し subagent を投入できない状態が続く場合、
-  分離要件を満たせないため規則 09 の「credential/access change」に該当する
+- **ハードストップ**: 非該当
