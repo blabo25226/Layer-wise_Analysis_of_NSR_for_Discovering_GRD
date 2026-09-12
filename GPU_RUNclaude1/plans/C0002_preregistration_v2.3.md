@@ -4,7 +4,7 @@
 |---|---|
 | cycle | `C0002` |
 | stage | 3 (design, revision 2.3) |
-| status | **`DRAFT_PENDING_SUPERVISOR_CHECK`** — this document freezes nothing. It becomes binding only when the supervisor has checked that the delta review's seven findings are discharged and marks it `FROZEN`. |
+| status | **`FROZEN`** — 2026-09-12, by the supervisor, at commit `78c487ce349fa2e91c0d4ce149a256518ff958c7`. BINDING. The delta review's seven findings are discharged; no threshold was moved in any revision; v1, v2, v2.1 and v2.2 are retained unedited as historical record. See `plans/C0002_freeze_decision.md` for what was checked and the one condition attached. |
 | supersedes | `plans/C0002_preregistration_v2.2.md` + `.json`, status `DRAFT_PENDING_SUPERVISOR_CHECK`, which superseded v2.1, v2 and v1 |
 | v1 / v2 / v2.1 / v2.2 disposition | **v1, v2, v2.1 and v2.2 are retained unedited as the historical record.** None is amended, annotated or deleted. v1 is the document the two reviewers reviewed; v2 is the document on which the supervisor's three decisions were taken; v2.1 is the document the supervisor verified and partially sent back; **v2.2 is the document the delta review reviewed.** |
 | author role | `lansr-research-methodologist` (drafting only). The author of v1, v2, v2.1 and v2.2 is the author of v2.3; **every reviewer was independent of the author and of each other.** |
