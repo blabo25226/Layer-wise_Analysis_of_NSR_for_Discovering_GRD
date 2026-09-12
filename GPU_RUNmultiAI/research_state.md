@@ -31,20 +31,38 @@ tracks:
     stage: PREREGISTRATION_REVIEW
 
 active_tasks:
-  - task_id: C0001-INFRA-T002
+  - task_id: C0001-INFRA-T002-GEMINI-SMOKE
     track: infrastructure
-    role: repo-operator
-    worker: Cursor Agent
+    role: research-scout
+    worker: Gemini / Antigravity
     branch: ai/C0001/repo-operator/capacity-routing
     worktree: /tmp/lansr-multiai-C0001-capacity-routing
-    write_scope: [canonical routing rules and roles, thin provider adapters, C0001 routing inventory/smoke, state/task board, MANIFEST.sha256]
+    write_scope: [prompt-supplied evidence packet from repo_evidence_inventory.md]
     status: planned
     started_at: null
-    expected_outputs: [repo_evidence_inventory.md, capacity_routing_cursor_smoke.md, durable canonical routing changes]
-    acceptance_test: Cursor inventory covers at least ten substantive files with provenance; routing and manifest checks pass.
+    expected_outputs: [classified evidence packet with evidence/inference/speculation separation]
+    acceptance_test: Gemini returns categories, deduplicated findings, unresolved questions, routing risks.
     retry_count: 0
-    fallback: Claude Sonnet for specialized edits, Codex PI only for integration conflict
+    fallback: Codex subagent with prompt-supplied inventory
+  - task_id: C0001-INFRA-T002-CLAUDE-SMOKE
+    track: infrastructure
+    role: scientific-critic
+    worker: Claude Opus
+    branch: ai/C0001/repo-operator/capacity-routing
+    worktree: /tmp/lansr-multiai-C0001-capacity-routing
+    write_scope: [compressed-packet audit note]
+    status: planned
+    started_at: null
+    expected_outputs: [scientific-quality audit of routing policy from compressed packet]
+    acceptance_test: Claude checks only necessary primary files; confirms guards preserved.
+    retry_count: 0
+    fallback: Codex PI direct audit
 completed_tasks:
+  - task_id: C0001-INFRA-T002
+    worker: Cursor Agent
+    status: completed
+    source_branch: ai/C0001/repo-operator/capacity-routing
+    result: capacity-aware routing canonical changes, evidence inventory, Cursor smoke; Gemini/Claude smoke pending
   - task_id: C0001-INFRA-T001
     worker: Cursor Agent
     status: integrated_and_pushed
@@ -96,17 +114,19 @@ open_findings:
   - Eight pre-existing GPU_RUN5 worktree records are prunable; they are unrelated to C0000 and were left untouched.
   - Gemini headless filesystem access soft-denies read_file/ListDir and can exit 0 without producing an artifact.
   - Claude critic raised a possible rescaling/exact-skeleton non-invariance; an exploratory algebraically equivalent formula check reproduced a false negative, but the actual pipeline round-trip remains untested.
+  - Direct `.ai/workers/cursor.sh --write` launch rejected by cached policy in pre-reload Codex session; bash wrapper fallback used for C0001-INFRA-T002.
 
 retries:
   C0000-T003: 1
   C0001-T003: 1
 
 next_action: >
-  Run C0001-INFRA-T002 in its isolated Cursor worktree, feed its evidence inventory to Gemini and then Claude for the
-  routing smoke, integrate and push the accepted policy, then revise the C0001 metric-identifiability preregistration
-  from its independent REVISE_ANALYSIS review. Do not inspect GPU_RUN5 sealed-test raw artifacts.
+  Run C0001-INFRA-T002-GEMINI-SMOKE with prompt-supplied repo_evidence_inventory.md, then
+  C0001-INFRA-T002-CLAUDE-SMOKE on the compressed packet. Integrate accepted routing policy and push.
+  Then revise the C0001 metric-identifiability preregistration from its independent REVISE_ANALYSIS review.
+  Do not inspect GPU_RUN5 sealed-test raw artifacts.
 
-last_checkpoint_utc: 2026-09-12T14:36:05Z
+last_checkpoint_utc: 2026-09-12T14:50:00Z
 ```
 
 ## Notes

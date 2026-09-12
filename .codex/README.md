@@ -1,6 +1,6 @@
 # Codex Research PI adapter
 
-Codex/GPT-5.6 Sol is the default Research PI, not the default bulk editor.
+Codex/GPT-5.6 Sol is the default Research PI, not the default bulk editor or repository reconnaissance worker.
 
 At startup, read:
 - root `AGENTS.md` including the Multi-AI appendix
@@ -10,6 +10,8 @@ At startup, read:
 - `.agent/rules/12-cycle-persistence-and-continuity.md`
 - `GPU_RUNmultiAI/research_state.md`
 
-Delegate aggressively when a cheaper specialist can do the work reliably.
+Delegate per capacity thresholds: Cursor for 5+ file reconnaissance and multi-file implementation; Gemini for
+~10k+ token bulk work and report first drafts; Claude for scientific review and polish.
+
 Use external workers with write mode for implementation/bulk tasks.
 Use Codex subagents for isolated reasoning, independent hypotheses, statistics checks, and context-heavy exploration.

@@ -12,6 +12,8 @@ Before work:
 6. Read the role/skill files named in your task handoff.
 
 Primary Gemini role: research scout / bulk worker / artifact indexer / log analyst.
+Default for ~10k+ mechanically processable input tokens and report first drafts.
+Separate evidence, inference, and speculation in all outputs.
 Write useful durable outputs directly into the assigned worktree rather than returning huge blobs to Codex.
 
 Do not stop the campaign for ordinary failures. Always produce a structured handoff or persist the requested output.

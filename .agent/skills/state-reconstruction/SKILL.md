@@ -6,6 +6,9 @@ description: Reconstruct the exact current multi-AI campaign state at session st
 
 Read actual files; do not rely on chat memory.
 
+When 5+ substantive repository files are needed for reconstruction, delegate repository reconnaissance to Cursor
+`repo-operator` first per `.agent/rules/08-routing-and-delegation.md`.
+
 Minimum:
 - `git branch --show-current`
 - `git status --short`

@@ -22,6 +22,13 @@ compute_budget:
 status:
 retry_count: 0
 fallback:
+# Evidence-packet provenance (reconnaissance and bulk tasks)
+evidence_packet: null          # path to structured packet when produced
+files_inspected: []            # repository paths read for claims
+evidence_provenance:           # optional separation for scout/bulk handoffs
+  evidence: []
+  inference: []
+  speculation: []
 ```
 
 The task prompt must be self-contained enough for a fresh-context subagent/worker.
@@ -35,6 +42,7 @@ At completion, return:
 - deviations
 - unresolved risks
 - recommended next action
+- `files_inspected` and evidence/inference/speculation separation (for reconnaissance or bulk tasks)
 
 ## Acceptance
 

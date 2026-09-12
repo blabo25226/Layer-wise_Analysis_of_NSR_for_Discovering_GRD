@@ -17,10 +17,25 @@ Keep infrastructure and scientific work separate in state, reviews, and integrat
 Infrastructure PASS/FAIL does not support or falsify a scientific hypothesis.
 Do not mix infrastructure conclusions into scientific reports or preregistrations.
 
+## Capacity-aware routing (C0001 onward)
+
+Apply `.agent/rules/08-routing-and-delegation.md` at every stage. Summary:
+
+| Trigger | Default worker |
+|---|---|
+| 5+ substantive repository files | Cursor `repo-operator` |
+| ~10k+ mechanically processable tokens | Gemini scout/bulk-worker |
+| Multi-file implementation | Cursor `repo-operator` |
+| Report first draft | Gemini → Claude polish → PI final claims |
+
+Capacity pressure may reroute routine work but **never** removes preregistration, final scientific review,
+primary-artifact verification, leakage protection, or replication gates.
+
 ## Stage 0 — Reconstruct state
 
 Research PI:
 - read repository state and `research_state.md`
+- delegate repository reconnaissance (5+ files) to Cursor `repo-operator`
 - inspect active branches/worktrees/tasks
 - repair stale bookkeeping and reclassify stale `running` tasks
 - record `observed_commit`, `base_commit`, and verified `remote_commit`
@@ -28,32 +43,35 @@ Research PI:
 
 ## Stage 1 — Competing hypotheses
 
-Use PI subagents plus, when useful, Gemini breadth and Claude Opus critique.
+Cursor `repo-operator` performs repository reconnaissance when needed.
+PI subagents synthesize; Gemini provides breadth when useful; Claude Opus critiques.
 Update `hypothesis_tree.md`.
 Select one cycle hypothesis by information gain / cost.
 
 ## Stage 2 — Literature / repository evidence
 
-Gemini Scout performs broad evidence collection.
+Gemini Scout performs broad evidence collection (~10k+ token corpora).
+Cursor reconnaissance for repository structure when 5+ substantive files are involved.
 A higher-reliability critic checks high-impact literature/novelty claims.
-Persist evidence.
+Persist evidence with provenance; separate evidence/inference/speculation.
 
 ## Stage 3 — Preregistration
 
 Claude Sonnet or Research Engineer may draft.
 Claude Opus / statistical reviewer attacks the design.
 Research PI freezes the binding version before final-test access.
+**Never demote for capacity.**
 
 ## Stage 4 — Work decomposition and isolation
 
-Create bounded task handoffs.
+Create bounded task handoffs with evidence-packet provenance fields when useful.
 Write-capable concurrent tasks use independent branches/worktrees.
 Record write scopes and active tasks in state.
 
 ## Stage 5 — Implementation
 
 Default:
-- Cursor Composer: heavy repo implementation
+- Cursor Composer: repository reconnaissance and heavy multi-file implementation
 - Claude Sonnet: scientific engineering / secondary implementation
 - Luna: small fixes/tests
 - Gemini: bulk generated indexes/derived mechanical artifacts
@@ -65,6 +83,7 @@ Run tests and commit task branches.
 Independent reproducibility review.
 Verify leakage protection, checkpoint identity, outputs, resume behavior, GPU/storage, manifest and compute ceiling.
 Run a smoke experiment.
+**Never demote for capacity.**
 
 ## Stage 7 — Full frozen experiment
 
@@ -74,7 +93,7 @@ Do not tune on final-test observations.
 
 ## Stage 8 — Analysis
 
-Use bulk workers for extraction and aggregation support.
+Use bulk workers for extraction and aggregation support (~10k+ token artifacts).
 Primary analyst interprets raw artifacts using the frozen endpoint.
 Separate numerical, symbolic, validity, generalization, compute and layer evidence.
 
@@ -82,13 +101,16 @@ Separate numerical, symbolic, validity, generalization, compute and layer eviden
 
 Claude Opus is preferred.
 Reviewer attempts to falsify the conclusion from primary artifacts.
+**Never demote for capacity.**
 
 ## Stage 10 — Replication gate
 
 Replicate fragile/surprising/high-impact claims when required.
+**Never demote for capacity.**
 
 ## Stage 11 — Report and archive
 
+Gemini produces report first draft; Claude Sonnet reviews/polishes; PI owns final claims.
 Create cycle report, manifest/checksums, review record and reproduction commands.
 Negative/invalidated cycles still get a report.
 
