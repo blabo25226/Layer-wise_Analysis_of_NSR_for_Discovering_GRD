@@ -103,6 +103,8 @@ Separate numerical, symbolic, validity, generalization, compute and layer eviden
 
 Claude Opus is preferred.
 Reviewer attempts to falsify the conclusion from primary artifacts.
+Record `implementer_identity` and `independent_reviewer_identity` in the handoff/state contract; assert the
+independent reviewer differs from the implementation author unless a documented hard-stop exception is approved.
 **Never demote for capacity.**
 
 ## Stage 10 — Replication gate

@@ -64,12 +64,12 @@ completed_tasks:
     implementer_identity: Cursor Agent
     independent_reviewer_identity: Claude Opus (scientific-critic)
     reviewer_diff_assertion: true
-    result: REVISE; artifact capacity_routing_claude_review.md; H1-H7 fixes applied in follow-up commit
+    result: PASS; artifacts capacity_routing_claude_review.md and capacity_routing_claude_closure.md; H1-H7 closed
   - task_id: C0001-INFRA-T002
     worker: Cursor Agent
     status: completed
     source_branch: ai/C0001/repo-operator/capacity-routing
-    result: capacity-aware routing canonical changes, evidence inventory, Cursor smoke; Gemini/Claude smoke completed; PI integration pending
+    result: capacity-aware routing canonical changes, evidence inventory, Cursor smoke; Gemini PASS_WITH_LIMITATIONS and Claude PASS closure; ready for PI integration
   - task_id: C0001-INFRA-T001
     worker: Cursor Agent
     status: integrated_and_pushed
@@ -128,12 +128,12 @@ retries:
   C0001-T003: 1
 
 next_action: >
-  PI integrates C0001-INFRA-T002 review fixes (H1-H7) from capacity-routing task branch, verifies MANIFEST,
-  non-force pushes to remote research branch, and confirms remote_commit. Then revise the C0001
-  metric-identifiability preregistration from its independent REVISE_ANALYSIS review.
+  PI integrates accepted C0001-INFRA-T002 capacity-routing policy from task branch (Gemini PASS_WITH_LIMITATIONS,
+  Claude PASS closure), verifies MANIFEST, non-force pushes to remote research branch, and confirms remote_commit.
+  Then revise the C0001 metric-identifiability preregistration from its independent REVISE_ANALYSIS review.
   Do not inspect GPU_RUN5 sealed-test raw artifacts.
 
-last_checkpoint_utc: 2026-09-12T14:55:00Z
+last_checkpoint_utc: 2026-09-12T14:58:00Z
 ```
 
 ## Notes

@@ -6,7 +6,7 @@
 | scientific-critic | Claude Opus 5 | adversarial scientific review | GPT-5.6 Sol |
 | final-auditor | Claude Opus 5 | cycle promotion audit | GPT-5.6 Sol |
 | research-engineer | Claude Sonnet 5 | scientific implementation/design concretization | Cursor Composer 2.5 |
-| repo-operator | Cursor Composer 2.5 | repository reconnaissance, multi-file editing, refactor, tests, Git | Claude Sonnet 5 |
+| repo-operator | Cursor Composer 2.5 | repository reconnaissance, multi-file editing, refactor, tests, Git | Claude Sonnet 5 (implementation-only; not routine broad reconnaissance) |
 | fast-worker | GPT-5.6 Luna | small code/edit/search/test work | Gemini 3.8 Flash |
 | research-scout | Gemini 3.8 Flash | broad search, corpus/log scan, evidence packets | Cursor Composer 2.5 → Luna |
 | bulk-worker | Gemini 3.8 Flash | repetitive extraction/transformation/indexing, report first drafts | Cursor Composer 2.5 → Luna |

@@ -101,4 +101,3 @@ guards. No quantitative efficiency gain is established because no baseline conte
 
 H1 and H2 block acceptance. H3 and H4 must also close before the routing gate is operational/auditable. H5-H7 are
 required consistency and scientific-integrity fixes. The scientific C0001 track does not need rollback.
-

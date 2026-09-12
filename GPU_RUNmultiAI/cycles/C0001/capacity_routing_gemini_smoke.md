@@ -62,4 +62,3 @@ claimed by this smoke.
   paths instead.
 - LIMITATION: filesystem E2E remains unverified, so prompt-supplied mode stays mandatory for Gemini repository work.
 - LIMITATION: exit code 0 was not used alone; acceptance also required structured content and path provenance.
-
