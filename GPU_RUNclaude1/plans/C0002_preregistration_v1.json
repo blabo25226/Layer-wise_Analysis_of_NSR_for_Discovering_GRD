@@ -1,0 +1,600 @@
+{
+  "cycle": "C0002",
+  "preregistration_version": "v1",
+  "stage": 3,
+  "status": "DRAFT_PENDING_REVIEW",
+  "status_note": "This document freezes nothing. It becomes binding only after lansr-statistical-reviewer and lansr-reproducibility-auditor have reviewed it independently and a successor version is marked FROZEN by the supervisor. It must not be described as reviewed.",
+  "author_role": "lansr-research-methodologist (drafting only)",
+  "branch": "20260909_researce_GPU_RUNclaude1",
+  "head_at_authoring": "6d3f373ac01bf322cd26fde6534119b02a747564",
+  "date_authored": "2026-09-11",
+  "language_rule": ".claude/rules/15-document-language.md — frozen contracts stay English",
+  "source_run_pinned": "results/runs/gpu_run5_20260823_ddd267b0",
+  "prior_cycle_artifacts": {
+    "path": "results/runs/gpu_runclaude1_c0001_b731cdd",
+    "access": "read-only",
+    "phase3_status": "INADMISSIBLE (Gate B->C violation); decision endpoint C2-P never computed"
+  },
+  "edits_no_c0001_artifact": true,
+  "sealed_test_consumed": "NONE",
+  "training_performed": "NONE",
+  "adaptation_performed": "NONE",
+  "layer_estimands_measured": "NONE",
+
+  "prior_information_disclosed": {
+    "rule": "rule 01 item 9",
+    "published_comparators_not_findings": {
+      "n_stored_candidates": 47987,
+      "n_candidates_valid": 47987,
+      "n_cells": 960,
+      "n_systems": 80,
+      "truth_in_beam": "0/960",
+      "unique_skeletons_per_beam_mean": 9.28,
+      "n_in_support_systems": 71,
+      "part_b_out_of_support_components": "9/170",
+      "part_a_k_gains": 0,
+      "c0001_prose_class_counts": {
+        "component_strings": 89349,
+        "constant_folded_classes": 879,
+        "m3_classes": 877,
+        "realized_candidate_classes": 846,
+        "class_pairs": 2191,
+        "component_comparisons": 101963,
+        "archival_status": "PROSE ONLY plus a session-scoped scratchpad; not checksummed in manifests/C0001_manifest.json"
+      },
+      "hill4_candidate_skeleton_classes_infix_path": 11,
+      "hill4_comparisons": 308,
+      "hill4_with_denominator": 0,
+      "s1_phi_denom_h_triples_passing": "5824/77983",
+      "s1_phi_denom_h_components_passing": "88/130",
+      "equals_none_over_realized_class_pairs": 0,
+      "could_not_evaluate_label_flips": "14/101963",
+      "m3_value_agreement": "101963/101963 — k_gains=0 is not at stake in any instrument change"
+    },
+    "major_r3_lp_gt_already_observed": {
+      "artifact": "results/runs/gpu_runclaude1_c0001_b731cdd/phase3/partC_cell_records.jsonl",
+      "n_rows": 960,
+      "keys": ["cell_id", "excluded", "cell_input_payload_sha256", "gt_logprob_sum", "gt_token_length"],
+      "gt_logprob_sum_min": -846.0560302734375,
+      "gt_logprob_sum_max": -115.8770751953125,
+      "gt_logprob_sum_median": -297.5801086425781,
+      "comparison_partner_computed": false,
+      "binding_consequence": "every E2/E3 endpoint is paired or comparison-based; no absolute threshold on lp_gt bears any decision"
+    },
+    "self_reported_leakage": {
+      "severity": "self-declared MAJOR",
+      "what": "the drafting agent computed and printed lp_gt, lp_best and sb_best on 8 cells during a GPU throughput measurement, under scoring context C_raw",
+      "date": "2026-09-11",
+      "seed": 999,
+      "deviates_from": "the discipline v2.1 §11.1 imposed on itself",
+      "cells": [
+        {"cell_id": "R07_validation_d101_006_b2_n0_r0", "lp_gt": -423.94, "lp_best": -62.14, "sb_best": 0, "gt_token_length": 69},
+        {"cell_id": "R06_validation_d101_007_b2_n0p05_r0p5", "lp_gt": -435.31, "lp_best": -85.64, "sb_best": 0, "gt_token_length": 63},
+        {"cell_id": "R01_validation_d101_006_b2_n0_r0p5", "lp_gt": -164.92, "lp_best": -23.96, "sb_best": 0, "gt_token_length": 26},
+        {"cell_id": "R08_validation_d101_006_b1_n0_r0p5", "lp_gt": -257.78, "lp_best": -50.94, "sb_best": 0, "gt_token_length": 52},
+        {"cell_id": "R08_validation_d101_004_b1_n0_r0p5", "lp_gt": -308.66, "lp_best": -62.35, "sb_best": 0, "gt_token_length": 54},
+        {"cell_id": "R05_validation_d101_008_b1_n0_r0p5", "lp_gt": -550.89, "lp_best": -40.44, "sb_best": 0, "gt_token_length": 60},
+        {"cell_id": "R05_validation_d101_008_b2_n0p05_r0p5", "lp_gt": -548.05, "lp_best": -44.66, "sb_best": 0, "gt_token_length": 60},
+        {"cell_id": "R05_validation_d101_005_b1_n0p05_r0", "lp_gt": -516.80, "lp_best": -48.11, "sb_best": 0, "gt_token_length": 60}
+      ],
+      "secondary_exposure": "lp_best observed on a disjoint 10-cell sample (seed 4242) while verifying PC-GREEDY; lp_gt was NOT computed there, so the discriminating quantity was not observed on those cells",
+      "containment": [
+        "no threshold in this contract was chosen after or in light of these values",
+        "the primary decision rule, the 0.5 system cutpoint, E3_system/E2_system and the clustered attribution rule are inherited verbatim from plans/C0001_preregistration_v2.1.md §8.3, frozen 2026-09-09, two days before the observation",
+        "the primary scoring context is C_gen; both exposures are under C_raw, which is demoted to a robustness arm",
+        "the 8 cells are NOT excluded — excluding them would be a post-hoc outcome-dependent exclusion (rule 01 item 3)",
+        "the observed direction is E2, the campaign's preferred answer, which makes the §8.5 bias-audit battery the scientific content of the cycle rather than a courtesy"
+      ]
+    },
+    "deliberately_not_looked_at": [
+      "any lp_best, sb_best, me_best or lp_gt under context C_gen",
+      "the class-level counts of P_den, P_pow4, P_joint over the 846 realized candidate classes",
+      "the length-matched companion indicator on any cell",
+      "any sealed artifact"
+    ]
+  },
+
+  "instrument_facts_established_while_drafting": {
+    "F-a": {"claim": "sympy 1.13.1 has a module-level unseeded RNG that Expr.equals reaches", "evidence": "sympy/core/random.py:28-29 rng=_random.Random(); seed() at :44 reseeds rng and _assumptions_rng; sympy/core/expr.py:699 def equals, :760 ndiff=diff._random(); is_constant :527 reaches _random at :654,:663,:669,:673", "verified_in_pinned_version": true},
+    "F-b": {"claim": "citation corrections", "detail": "bool(a.equals(b)) is at src/evaluation/equation_metrics.py:65 inside _timed_equals, NOT :216-222 (that is the call site inside skeleton_equivalence_with_reason at :197). symbolic_recovery is at :226, NOT :169."},
+    "F-c": {"claim": "_time_limit runs UNGUARDED off the main thread, when seconds<=0, or without SIGALRM", "evidence": "src/evaluation/equation_metrics.py:35-41"},
+    "F-d": {"claim": "use_two_hot=False in the released checkpoint, so lp_gt and lp_best are commensurable sums of categorical log-probabilities", "evidence": "literature/C0002_literature.md §Q2.6; envs/environment.py:79-83"},
+    "F-e": {"claim": "no per-candidate model score exists anywhere in phase3/", "evidence": "literature/C0002_literature.md §Q2.5"},
+    "F-f": {"claim": "candidate_index == 0 is NOT sample order; it is the highest-input-R2 candidate", "evidence": "SymbolicTransformerRegressor.fit calls sort_candidates(metric='r2') at sklearn_wrapper.py:172, implementation :205-228 with descending=True; verified empirically, input_r2 non-increasing in candidate_index on 35/40 randomly sampled cells under a mean scalarization, the 5 exceptions all multi-dimensional", "affects": "the stated basis of the retracted MAJOR-R5 reading; this contract does NOT reinstate it and the disposition belongs to the supervisor"},
+    "F-g": {"claim": "the generation conditioning is not the scoring conditioning", "evidence": "generation used Scaler(time_range=[1,10], feature_scale=1) at sklearn_wrapper.py:118-127 plus a permutation from np.random.seed(candidate_seed) at :133-136, single bag (max_input_points=10000, <=150 points); teacher_forced_summed_logprob conditions on raw, unrescaled, unpermuted points (src/gpu_run4/training.py:51)"},
+    "F-h": {"claim": "the decoder's emitted token sequence is unrecoverable from stored artifacts", "reason": "candidate_formula_raw is the simplify_tree'd image of the emitted tree under Scaler.rescale_function; simplify_tree is not invertible", "consequence": "every lp_best in this cycle is the score of a RE-SPELLING; lp_best <= L* is unaffected so both certificates survive, but lp_best is not the decoder's own score for its own output"}
+  },
+
+  "primary_hypothesis": {
+    "id": "H0001-R",
+    "type": "directional_confirmatory_with_two_sided_certificates",
+    "statement": "For a GRN cell, the teacher-forced summed log-probability of the ground truth is BELOW the maximum such score over the model's own realized candidate set: the failure is prior mass (E2), not search (E3).",
+    "falsifier": "lp_gt(c) > lp_best(c) on at least half the usable cells of at least half the in-support systems, with the family-clustered 95% lower bound of P1 above 0.5",
+    "never_measured_before": "C0001 Part C ran under a Gate B->C violation; C2-P was never computed; that phase3/ is INADMISSIBLE. This is a first measurement, not a rerun.",
+    "certificate_basis": {
+      "source": "Stahlberg & Byrne, EMNLP-IJCNLP 2019, pp. 3356-3362, DOI 10.18653/v1/D19-1331, §2 p.3357 gamma <= log P(y_hat|x); Alg.1 line 12 is an argmax over the returned set",
+      "branch_G_gt_B": "L* >= G > B: the returned set does not contain the global best — a search error is CERTIFIED for that cell",
+      "branch_G_lt_B": "L* >= B > G: the truth is NOT the model's argmax — CERTIFIED (INFERENCE: contrapositive of the SOURCE bound)",
+      "sampling_admissible": true,
+      "arbitrary_member_not_admissible": true
+    }
+  },
+
+  "companion_hypothesis": {
+    "id": "H0010",
+    "statement": "Among realized candidate skeleton classes the JOINT predicate (cancelled denominator containing a variable AND a numerator containing a variable the denominator does not) is absent or near-absent, while its marginal constituents are realized.",
+    "falsifier": "n_class_joint >= 6",
+    "compute": "CPU only, exhaustive classification, not a sample"
+  },
+
+  "novelty_labels": {
+    "binding": "no C0002 candidate may be described as novel, in any artifact, at any stage",
+    "teacher_forced_scoring_as_search_error_indicator": "known",
+    "H0001-R_as_application": "adjacent",
+    "H0010": "adjacent",
+    "H0006": "known problem / adjacent audit",
+    "deterministic_budget_for_equivalence": "adjacent mechanism, methodological only",
+    "must_credit": {"H0001-R": "ND2 SI §3.2 / Supp. Fig. 6d, DOI 10.1038/s43588-025-00893-8", "H0010": "Sato & Sato Def. 5.1 (arXiv 2505.22081); NeSymReS §4.4"},
+    "forbidden_claim": "'first to measure the model's own probability mass on the ground truth in symbolic regression' is FALSE"
+  },
+
+  "out_of_scope_and_forbidden": [
+    "Arm B (beam_type='search' re-decode) — see arm_scope_decision",
+    "any selection endpoint on GRN; 'selected' is not measurable this cycle",
+    "any sealed artifact",
+    "any training or adaptation",
+    "reinstating the retracted MAJOR-R5 reading",
+    "citing k_gains=0 for or against E0",
+    "citing D19-1331 for a reference-based search-error rate"
+  ],
+
+  "arm_scope_decision": {
+    "arm_A": {"in_scope": true, "candidate_set": "the stored T=0.1 sampled set, 42593 in-support candidates", "indicator": "sb_best = 1[lp_gt > lp_best]", "status_of_indicator": "a CERTIFIED LOWER BOUND on the search-error rate, not an estimate"},
+    "arm_B": {"in_scope": false, "deferred_to": "C0003, conditional on this cycle's outcome", "not_a_substitute_for_arm_A": true},
+    "justification": [
+      "the literature gate makes Arm A defensible on its own: lp_best over the stored sampled set IS gamma (literature/C0002_literature.md §Q1.3, §Q2.3)",
+      "Arm B's realized denominator is unknown by construction, so it would need its own opportunity census funded ahead of its own endpoint — the exact failure mode C0002 was selected to avoid",
+      "Arm B's compute is unmeasured; Arm A's is measured at 0.233 GPU-h for a full 960-cell pass",
+      "the specific question Arm B would answer (how loose is lp_best as a bound on L*) is answered in scope at near-zero cost by BA1 and PC-GREEDY (2/10 measured)",
+      "mixing two decode configurations in one cycle would make any disagreement uninterpretable"
+    ],
+    "what_is_given_up": "C0002 cannot report a search-error rate against what a search procedure returns, and cannot bound how much of sb_best=0 is attributable to the sampling temperature rather than the model's prior"
+  },
+
+  "statistical_unit_hierarchy": {
+    "analysis_element_of_primary": "system (71 in-support GRN systems)",
+    "resampling_cluster": "family (8: R01-R08)",
+    "cells_are_never_a_unit": true,
+    "candidates_are_never_a_unit": true,
+    "aggregation_order": "within-system mean over usable cells -> system indicator -> corpus rate",
+    "dimension_family_confounded": true
+  },
+
+  "realized_denominators": {
+    "known_by_construction": true,
+    "in_support_systems": 71,
+    "in_support_cells": 852,
+    "in_support_candidates": 42593,
+    "in_support_candidates_valid": 42593,
+    "candidates_per_cell": {"50": 846, "49": 5, "48": 1},
+    "in_support_systems_per_family": {"R01": 10, "R02": 10, "R03": 10, "R04": 10, "R05": 10, "R06": 10, "R07": 4, "R08": 7},
+    "full_corpus": {"cells": 960, "candidates": 47987},
+    "opportunity_census_required_for": ["H0010"],
+    "opportunity_census_gate": "Gate 2 — computed BEFORE the H0010 endpoint, never after"
+  },
+
+  "splits_and_firewall": {
+    "measurement_set": "results/runs/gpu_run5_20260823_ddd267b0/phase2/validation.json (80 systems, 71 in support)",
+    "calibration_set": "phase2/train.json (240 systems) — cost calibration and control construction only, never an endpoint",
+    "final_test_opened": false,
+    "model_selection_performed": false,
+    "hyperparameter_search_performed": false,
+    "sealed_files_enumerated_from_filesystem": true,
+    "expected_sealed_file_count": 7,
+    "firewall_mechanisms": ["src/gpu_run5/config.py load_sealed_test raises PermissionError for phase<8", "src/gpu_runclaude1/io_allowlist.py install_sealed_audit_hook() and sealed_open_guard() installed in every entry point", "phase0/sealed_inventory.json with empty intersection against the read allowlist", "sealed_paths_read == [] asserted at every phase boundary"]
+  },
+
+  "model_and_budgets": {
+    "checkpoint": "assets/odeformer/weights/odeformer.pt",
+    "checkpoint_sha256": "56754040be5aa92ed4767fc43ee2008faa293f87c12b643e66c7df3e1623a5e8",
+    "checkpoint_size_bytes": 464822385,
+    "package": "third_party/odeformer via gpu_run4_runtime.install_odeformer_path; GitHubSourceCode/ is reference-only",
+    "precision": "fp32 throughout; never fp16, never bf16, never CPU for a scored sequence",
+    "device": "GPU 0 (RTX 2070) with torch.cuda.set_per_process_memory_fraction(5.5/8.0, device=0)",
+    "stored_candidate_decode_config": {"beam_type": "sampling", "beam_temperature": 0.1, "beam_size": 50, "rescale": true, "max_generated_output_len": 200},
+    "seeds": {
+      "GLOBAL_SEED": 20260911,
+      "SYMPY_RNG_SEED": 20260911,
+      "CLUSTER_BOOTSTRAP_SEED": 20260911,
+      "CLUSTER_BOOTSTRAP_RESAMPLES": 10000,
+      "ENCODING_VERIFICATION_SEED": 20260911,
+      "CONTROL_CELL_SEED": 20260911,
+      "FINGERPRINT_SEED": 77771,
+      "FINGERPRINT_DPS": 40,
+      "FINGERPRINT_POINTS": 10
+    },
+    "N_WORKERS": 6,
+    "N_WORKERS_is_a_value_not_a_cap": true,
+    "workers_are_processes_never_threads": true,
+    "CAS_NODE_BUDGET": 400,
+    "training_budget": "zero — no optimizer is constructed",
+    "new_decoding_budget": "zero, except PC-GREEDY capped at 40 cells"
+  },
+
+  "instrument_changes": {
+    "shared_preamble": "Every change makes the instrument measurable or reproducible. NONE alters any C0001 conclusion. k_gains=0 is not at stake because the M3 value agreed on all 101963 comparisons.",
+    "change_1_reference_set": {
+      "what_was_broken": "v2.1 §8.3 defined the decision endpoint on lp_sel citing gpu_run5_selection.py:11 as 'the frozen selection rule'",
+      "citation_corrected": {
+        "wrong_object": "src/evaluation/gpu_run5_selection.py:11 formula_selection_key(records, validation_ce) — a cross-run model-selection key grouping by (system_id, seed); it never indexes a candidate",
+        "name_collision": "a DIFFERENT function of the same name and different arity exists at src/gpu_run5/evaluation.py; always cite the module path, never the bare name",
+        "real_per_cell_selector": "src/gpu_run5/evaluation.py:107 select_candidate(candidates, rule, *, penalty, complexity_lambda); its 'official_reconstruction' branch returns 0 unconditionally at :111-112"
+      },
+      "what_this_contract_uses": "lp_best, the MAXIMUM over usable candidates — Stahlberg & Byrne's gamma verbatim",
+      "lp_sel_appears_as_an_endpoint": false,
+      "makes_measurable": "without it sb_sel would measure 'is the truth more probable than an arbitrary T=0.1 draw', which for a peaked decoder is nearly always true and would FABRICATE E3",
+      "changes_in_c0001": "nothing; lp_sel has no value on record"
+    },
+    "change_2_deterministic_cas_budget": {
+      "scoping": "NO C0002 endpoint depends on a CAS equivalence decision; H0010 uses cancel/together/fraction with no simplify, no equals, no equivalence test. Carried as a repository-level instrument repair, not a gate on a C0002 endpoint.",
+      "measures": [
+        "sympy.count_ops admission bound CAS_NODE_BUDGET=400; exceeding it yields the label budget_exceeded_by_input_size, a function of the input alone",
+        "the 10.0s SIGALRM guard is retained as a crash-safety net only; its firing is recorded under the SEPARATE label wall_clock_guard_fired, which is counted and MUST be 0 for the run to be admissible",
+        "sympy.core.random.seed(SYMPY_RNG_SEED) called in every worker process at worker start before any SymPy call",
+        "Expr.equals raw three-valued return recorded as equals_raw in {True,False,None}; bool(...) never applied",
+        "N_WORKERS=6 as a declared value; workers are processes",
+        "never call .equals outside the guard"
+      ],
+      "hypothesis_not_finding": "that the unseeded RNG caused any of the 14 C0001 flips is a HYPOTHESIS; C0002 does not test it",
+      "declared_shortfall": "see unimplementable_as_stated item 1"
+    },
+    "change_3_scoring_conditioning": {
+      "what_was_broken": "F-g; direction of the resulting bias was UNKNOWN, which is worse than a known direction",
+      "response": "two declared scoring contexts, the matched one primary; the bias is measured (BA4), not merely disclosed",
+      "changes_in_c0001": "nothing; C0001's only scored quantity was lp_gt under C_raw, which survives as this contract's robustness arm"
+    }
+  },
+
+  "scoring_contexts": {
+    "C_gen": {
+      "role": "PRIMARY",
+      "encoder_input": "Scaler(time_range=[1,10], feature_scale=1).fit_transform(times, observed_trajectory), then np.random.seed(cell['candidate_seed']); perm = np.random.permutation(n); applied to both arrays; single bag (<=150 points, max_input_points=10000)",
+      "unit_system": "scaled",
+      "forward_map": "f_s,d(x_s) = (scale[d]/a_t) * f_o,d(x_j -> x_s,j/scale[j]); if t appears additionally t -> (t - b_t)/a_t; (a_t,b_t,scale) = scaler.get_params()",
+      "map_is_the_exact_inverse_of": "Scaler.rescale_function (utils_wrapper.py:54-80)",
+      "verified": {"forward_map_and_inverse_recover_original": "300/300 candidates, 6 cells (seed 12345), dims 1/2/3, both corruption settings, rtol 1e-8", "tokenizable_in_scaled_units": "300/300"},
+      "why_primary": ["only here is the candidate set the set the decoder produced under that conditioning, so only here does sb_best=1 read as a search error of the decode that actually happened", "both leakage exposures (§0.2, §0.3) are under C_raw, so the primary quantity has never been observed"]
+    },
+    "C_raw": {
+      "role": "ROBUSTNESS ARM (BA4)",
+      "encoder_input": "raw times / observed_trajectory, unscaled, unpermuted, single bag",
+      "unit_system": "original",
+      "identical_to": "src/gpu_run4/training.py:51 teacher_forced_summed_logprob, what C0001 used for lp_gt"
+    },
+    "contexts_never_mixed_inside_an_indicator": true
+  },
+
+  "h0006_encoding_gate": {
+    "role": "HARD PRECONDITION, not a companion",
+    "reason": "a single-encoding lp_gt is a LOWER BOUND on the truth's probability, biasing the read toward E2 a third time (literature/C0002_literature.md §Q2.4 item 4)",
+    "enumeration": {
+      "e1": "stored tree_encoded from phase2/validation.json (prefix-derived)",
+      "e2": "infix_to_model_tokens(env, teacher_infix) — src/gpu_runclaude1/partc_reencoding.py:85",
+      "e3_to_eK": "commutation orbit of e2's tree under add/mul operand swaps, cap 8, enumeration order INHERITED VERBATIM from v2.1 §8.2 step 5 (pre-order index, binary-counter order, t=0 unswapped)"
+    },
+    "verification": "decode with env.equation_encoder.decode, then numeric equality against teacher_infix at ENCODING_VERIFICATION_SEED=20260911, 8 points per component from [0.2,2.5], rtol 1e-3; failures dropped and logged as EncodingVerificationFailure",
+    "lp_gt_definition": "logsumexp over the verified members of E(s), evaluated in the cell's context",
+    "descriptive_companions": ["lp_gt_single (e1 only)", "lp_gt_max"],
+    "thresholds": [
+      {"id": "3a", "condition": "every in-support system has >=1 verified encoding", "threshold": "71/71", "verified_achievable": "71/71 measured at rtol 1e-3; e1 was additionally scored for all 960 cells in C0001 with no failure"},
+      {"id": "3b", "condition": "systems with >=2 verified and DISTINCT encodings", "threshold": ">=64 of 71 (90%)", "verified_achievable": "71/71 measured; token lengths differ (25 vs 24, 27 vs 30, 29 vs 30)"},
+      {"id": "3c", "condition": "EncodingVerificationFailure rate over enumerated members", "threshold": "<=20%", "verified_achievable": "e1 and e2 both 100%; only orbit members are untested and a failing member is dropped without affecting 3a or 3b"}
+    ],
+    "on_3b_failure": "the logsumexp arm is not_measurable, lp_gt falls back to e1 alone, and every E2 statement is qualified single_encoding_lower_bound — a downgrade, not an abort",
+    "negative_branch_is_informative": "if the enumeration is exhausted and Delta_enc stays small while truth-in-beam stays 0, then 0/960 hardens as a property of the model rather than of the spelling"
+  },
+
+  "primary_endpoints": {
+    "P1": {"name": "certified_search_error_system_rate", "definition": "sum_s E3_system(s) / 71", "context": "C_gen", "type": "PRIMARY", "interval_of_record": "family-clustered 95% bootstrap over 8 families"},
+    "P2": {"name": "certified_non_argmax_system_rate", "definition": "sum_s E2_system(s) / 71", "context": "C_gen", "type": "CO-PRIMARY", "interval_of_record": "family-clustered 95% bootstrap"},
+    "per_cell": {
+      "lp_gt": "logsumexp over the verified admissible encoding set",
+      "lp_best": "max over usable candidates — an ORACLE quantity (rule 03), never presented as achieved selection performance",
+      "usable": "valid:true AND re-encoding round trip exact AND token conversion succeeds",
+      "sb_best": "1[lp_gt > lp_best] — certified search error for the cell",
+      "me_best": "1[lp_gt < lp_best] — certified 'truth is not the argmax' for the cell",
+      "tie": "1[lp_gt == lp_best] — counted, reported, excluded from both"
+    },
+    "aggregation_inherited_verbatim_from_v2_1_8_3_frozen_20260909": {
+      "sb_rate(s)": "mean of sb_best(c) over the system's usable cells",
+      "E3_system(s)": "1[sb_rate(s) >= 0.5]",
+      "E2_system(s)": "1[sb_rate(s) == 0]"
+    },
+    "secondary": {
+      "S1": {"what": "P1 and P2 recomputed in C_raw", "type": "robustness (BA4)"},
+      "S2": {"what": "mean sb_rate across systems; cell-level sb_best and me_best rates with denominators", "type": "descriptive"},
+      "S3": {"what": "paired lp_gt - lp_best per system in nats, SUMMED, plus the per-token version", "type": "descriptive", "note": "the per-token version may not bear a decision"},
+      "S4": {"what": "Delta_enc distribution and encoding_flip_rate", "type": "BA3, gating wording"},
+      "S5": {"what": "per-position GT-token-rank profile by token class", "type": "descriptive"},
+      "S6": {"what": "argmax_agreement_best distribution", "type": "BA1, gating wording"},
+      "S7": {"what": "sb_best_len and length_matched_partner_available_rate", "type": "BA2, gating wording"},
+      "S8": {"what": "rank_pct_sum, below_all_indicator, candidate-score IQR and the GT gap in IQR units", "type": "descriptive", "frozen_note": "the 50 were drawn at T=0.1 and are an extreme upper-tail sample; a low rank does not establish model error and no E2/E3 attribution may cite these"},
+      "S9": {"what": "instrument audit panel including wall_clock_guard_fired", "type": "descriptive, gates reporting"},
+      "S10": {"what": "GT token length vs lp_gt and vs sb_best", "type": "EXPLORATORY"}
+    }
+  },
+
+  "bias_audit_battery": {
+    "rationale": "three mechanisms bias the read toward E2, the campaign's preferred answer; F-g adds a fourth of unknown direction. An E2 attribution that does not clear this battery is reported as E2_direction_observed_but_confounded, which is NOT a supported E2.",
+    "BA1": {"mechanism": "T=0.1 upper-tail sampling makes lp_best a tight bound on L*, so G>B is hard to trip; beam_type='sampling' and beam_temperature=0.1 are the CHECKPOINT'S OWN stored defaults", "measurement": "S6 argmax_agreement_best", "consequence": "median >= 0.95 => the attribution is reported as E2_conditional_on_near_greedy_reference in every artifact"},
+    "BA2": {"mechanism": "summed log-probability is length-confounded — D19-1331's own central finding — and Hill truths are token-longer than the polynomial candidates that dominate the realized vocabulary", "measurement": "sb_best_len(c) = 1[lp_gt(c) > max over usable candidates with |len - len_gt| <= round(0.20 * len_gt)]", "consequence": "partner-available rate < 0.5 => length_control_not_measurable, reported; where partners exist, direction disagreement on >20% of those cells => E2_direction_observed_but_confounded", "forbidden": "length normalization breaks the monotonicity that makes gamma admissible (D19-1331 §2); no normalized variant may replace the raw certificate"},
+    "BA3": {"mechanism": "a single-encoding lp_gt is a lower bound on the truth's probability", "measurement": "S4 Delta_enc, encoding_flip_rate", "consequence": "encoding_flip_rate > 0.05 => the single-encoding read is invalid and only the logsumexp read is reportable"},
+    "BA4": {"mechanism": "the generation conditioning is not the scoring conditioning (F-g); direction unknown", "measurement": "S1 — P1 and P2 recomputed in C_raw", "consequence": "context disagreement on the attribution => verdict conditioning_sensitive and NOTHING is attributed"}
+  },
+
+  "declared_limitation_no_design_can_remove": {
+    "fact": "F-h — the decoder's emitted token sequence is unrecoverable, so lp_best in either context is the score of a RE-SPELLING",
+    "what_survives": "lp_best <= L* holds for the maximum over any set of complete sequences, so both certificates survive",
+    "what_does_not": "any claim that lp_best equals the model score the decoder assigned to its own output",
+    "record_field": "lp_best_is_respelling: true"
+  },
+
+  "frozen_reporting_sentences": {
+    "permitted": [
+      "sb_best is a CERTIFIED LOWER BOUND on the search-error rate under the preregistered scoring context. It is not an estimate of it. D19-1331's own Beam-100 still shows 53.62% search errors against the exact global argmax, so an approximation built on a returned set systematically UNDERCOUNTS search errors.",
+      "me_best = 1 certifies that the truth is NOT the model's argmax under this conditioning."
+    ],
+    "forbidden": [
+      "any sentence of the form 'the search-error rate is X' citing D19-1331; the paper defines search errors against the exact global argmax from DFS (footnote 5, p. 3358) and never performs a reference-versus-returned comparison under any decoding procedure",
+      "'the truth has negligible probability mass under the model' — the G<B branch bounds NOTHING about mass; rule 01 item 8",
+      "any claim that more search WOULD find the truth on the strength of G>B; D19-1331's central result is that the exact global best can be degenerate (51.8% empty translations, BLEU 2.1)"
+    ]
+  },
+
+  "h0010": {
+    "predicates": {
+      "derivation": "computed on realized candidate COMPONENT expressions, derived from the infix path on BOTH sides (rule R1); never by searching a normalized string for a surface token",
+      "setup": "X = {x_0..x_5}; num, den = sympy.fraction(sympy.cancel(sympy.together(e)))",
+      "P_den": "den.free_symbols & X != empty",
+      "P_pow4": "there exists a subexpression Pow(b,n) of e with b.free_symbols & X != empty and n an Integer with |n| >= 4 (derivation-path invariant: SymPy normalizes (x**2)**2 -> x**4, so pow2-nesting and pow(.,4) both match)",
+      "P_joint": "P_den AND ((num.free_symbols & X) \\ (den.free_symbols & X)) != empty",
+      "class_key": "str(constants_to_placeholder(_normalize_expr_str(expr))) — the C0001 replication's own key, reimplemented in repository code"
+    },
+    "gate_2_class_census": {
+      "runs_before_the_endpoint": true,
+      "source": "results/runs/gpu_run5_20260823_ddd267b0/phase3/all_candidates.json (181594403 bytes), end to end, reimplemented in repository code",
+      "expected_values": {"component_strings": 89349, "constant_folded_classes": 879, "realized_candidate_classes": 846, "stored_candidates": 47987},
+      "pass_condition": "the census completes and writes phase1/h0010_class_census.json with its counts and a SHA256",
+      "reproducing_the_prose_values_is_NOT_a_pass_condition": "if they do not reproduce, the discrepancy is reported, the C0001 prose numbers are marked unreproduced, and the endpoint proceeds on the REALIZED counts — exhaustive either way, so the denominator remains known by construction"
+    },
+    "endpoints": {
+      "H1": {"name": "n_class_den", "prediction": "> 0", "role": "precondition"},
+      "H2": {"name": "n_class_pow4", "prediction": ">= 10"},
+      "H3": {"name": "n_class_joint", "prediction": "<= 5", "is_the_falsifiable_quantity": true},
+      "H4": {"name": "multiplicity-weighted counts over the component strings", "type": "descriptive"},
+      "H5": {"name": "2x2 table of P_den x P_pow4 at class level", "type": "descriptive"}
+    },
+    "decision_rule": {
+      "supported": "n_class_den > 0 AND n_class_pow4 >= 10 AND n_class_joint <= 5 — the marginals are generated, the joint is not; the repair is structured decoding",
+      "refuted_joint_direction": "n_class_joint >= 6 — the joint IS generated; the hole is elsewhere and C0003 goes to the cheaper support/vocabulary side",
+      "refuted_marginal_direction": "n_class_den == 0 OR n_class_pow4 < 10 — the absence is already at the marginal level; also the cheap branch"
+    },
+    "threshold_achievability": {
+      "n_class_pow4_ge_10": "VERIFIED — C0001 published 11 candidate skeleton classes containing nested pow2 on the infix path (308 comparisons)",
+      "n_class_den_gt_0": "VERIFIED — S1 phi_denom is an equality-invariant screen requiring a variable in the cancelled denominator on BOTH sides, and it passes 5824/77983 H triples",
+      "n_class_joint_le_5": "this is the PREDICTION, not a gate; what needs proof is that the instrument CAN return P_joint=True, proved on 4 of 12 frozen synthetic cases"
+    },
+    "exploratory_companion_H0011": {"what": "covariate structure of the 42 no-opportunity H components", "label": "EXPLORATORY, in every artifact", "bears_no_decision": true}
+  },
+
+  "controls": {
+    "principle": "C0001's near-fatal defect (MAJOR-R6) was that no control could produce a non-zero value of the primary indicator, making a zero result indistinguishable from a broken instrument. Rule R2 requires the population a control runs on to be VERIFIED to have the property the control assumes; its corollary requires controls to run BEFORE the expensive endpoint.",
+    "control_cell_set": {"n": 40, "drawn_from": "the 852 in-support cells", "seed": 20260911, "stratification": ">=3 cells per family", "frozen_to": "phase0/control_cells.json before any endpoint is computed"},
+    "PC-HOLDOUT": {"construction": "highest-scoring usable candidate as pseudo-truth vs the rest", "expected": 1.0, "threshold": ">=0.95 of control cells return 1", "achievable": "by construction (arithmetic on a strict maximum); tied maxima counted and excluded from the denominator"},
+    "PC-GREEDY": {
+      "construction": "decoder.generate(..., sample_temperature=None, max_len=200, seed=0) from the cell's cached encoder state (the greedy pass ModelWrapper itself always runs, model_wrapper.py:74-80), tokens via env.equation_id2word, scored by the same teacher_forced_summed_logprob_batch; indicator 1[lp_greedy > lp_best]",
+      "threshold": ">= 2 of the 40 control cells return 1",
+      "verified_achievable": {"measured": "2/10 on a disjoint probe (seed 4242, C_raw)", "margins_nats": [-14.89, -6.25, -9.56, -28.06, 32.29, 8.35, -18.22, -45.21, -21.43, -3.65], "expected_count_on_40": 8},
+      "on_failure": "H0001-R is undecidable (indicator not demonstrated) and the 852-cell pass DOES NOT RUN — a hard abort evaluated in Gate 4, before the expensive pass",
+      "why_it_matters": "this is the control C0001 did not have"
+    },
+    "NC-HOLDOUT": {"construction": "lowest-scoring usable candidate as pseudo-truth vs the rest", "expected": 0.0, "threshold": "<=0.05 return 1", "achievable": "by construction"},
+    "NC-CONDITION": {"construction": "score the truth against an encoder pass built from a DIFFERENT cell's trajectory", "expected": "lp_gt moves", "threshold": ">=0.95 of control cells show |Delta| > 1 nat", "verified_achievable": "C0001's stored 960 gt_logprob_sum values differ between bundles of one system (-159.50254821777344 / -160.61439514160156 / -158.15951538085938 on R01_validation_d101_000)"},
+    "NC-SHUFFLE-TOKENS": {"construction": "score a random permutation of the GT token list", "expected": "scores below the GT encoding", "threshold": ">=0.95", "not_separately_verified": true, "on_failure": "downgrades S5 only; gates nothing"},
+    "PC_NC_H0010": {
+      "threshold": "12/12",
+      "verified_achievable": "12/12 measured under sympy 1.13.1 with the frozen predicate definitions",
+      "cases": [
+        {"expr": "x_0/(1.0+x_0)", "expected": [true, false, false]},
+        {"expr": "x_1/(1.0+x_0**2)", "expected": [true, false, true]},
+        {"expr": "x_0**4/(1.0+x_0**4)", "expected": [true, true, false]},
+        {"expr": "x_1*x_0**4/(1.0+x_0**4)", "expected": [true, true, true]},
+        {"expr": "(x_0**2)**2/(1.0+(x_0**2)**2)", "expected": [true, true, false], "role": "Hill-4 spelled as nested pow2 — the R1 trap"},
+        {"expr": "x_0**4 + x_1", "expected": [false, true, false]},
+        {"expr": "1.0*x_0 + 2.0*x_1", "expected": [false, false, false]},
+        {"expr": "1.0/(2.0+3.0)", "expected": [false, false, false]},
+        {"expr": "x_0*x_1/(1.0+x_2**2)", "expected": [true, false, true]},
+        {"expr": "x_0/(x_0)", "expected": [false, false, false]},
+        {"expr": "(x_0+x_1)/(x_0+x_1)", "expected": [false, false, false]},
+        {"expr": "x_0**3/(1.0+x_0**3)", "expected": [true, false, false]}
+      ],
+      "demonstrates": "4 of the 12 produce P_joint=True — the instrument can return the effect H0010 claims is absent"
+    },
+    "NC1_regression_identity": {"condition": "sum_logprob / n_scored_tokens == -teacher_forcing_loss(...) to 1e-5 on >=5 fixed examples", "verified_achievable": "C0001 phase3/partC_instrument_test.json records identity_error in 7.3e-08 .. 8.1e-07 on 960 cells"}
+  },
+
+  "gates": {
+    "implementation_rule_R7": "each gate is implemented by quoting the contract text VERBATIM in a comment beside the check, clause by clause, never from a summary; a gate that reads a derived field must also assert that the code producing that field matches this contract",
+    "gate_0_preflight": ["branch == 20260909_researce_GPU_RUNclaude1 and git status clean or every entry explained in the manifest", "python -m pytest -q green including new C0002 tests; GPU_RUN5/tests --collect-only with zero collection errors", "checkpoint SHA256 matches", "phase0/sealed_inventory.json with >=7 entries enumerated from the filesystem, empty intersection with the read allowlist, sealed_paths_read == []", "GPU 0 idle temp < 70C, free VRAM >= 4.0 GiB, disk free >= 40 GiB", "run directory does not already exist", "sympy.__version__ == 1.13.1, sympy.core.random.seed callable, worker-start assertion that SYMPY_RNG_SEED was applied in each of the 6 workers", "phase0/control_cells.json written before any scoring"],
+    "gate_1_cell_identity": {"checks": "cell_input_payload_sha256 computed; system_id/bundle_index/noise_sigma/subsample_rho parsed from the record equal those in cell_id; candidate_set_hash and cache_identity match; 10 distinct payloads per system", "verified_satisfiable": "80/80 systems, 0 violations, in C0001", "on_failure": "CellIdentityMismatch, cell excluded, counted, reported"},
+    "gate_2_h0010_census": "see h0010.gate_2_class_census",
+    "gate_3_h0006": "see h0006_encoding_gate.thresholds",
+    "gate_4_controls": {
+      "runs_on": "40 control cells BEFORE the 852-cell pass — a failure costs minutes, not hours (rule R2 corollary)",
+      "conditions": [
+        {"id": "PC-GREEDY", "threshold": ">=2 of 40", "achievable_evidence": "2/10 measured, margins up to +32.29 nats", "on_failure": "HARD ABORT of the primary"},
+        {"id": "PC-HOLDOUT", "threshold": ">=0.95", "achievable_evidence": "arithmetic on a strict maximum"},
+        {"id": "NC-HOLDOUT", "threshold": "<=0.05", "achievable_evidence": "arithmetic"},
+        {"id": "NC-CONDITION", "threshold": ">=0.95 with |Delta| > 1 nat", "achievable_evidence": "C0001's stored 960 gt_logprob_sum differ across bundles of one system by > 1 nat"},
+        {"id": "PC/NC-H0010", "threshold": "12/12", "achievable_evidence": "12/12 measured"},
+        {"id": "regression identity", "threshold": "< 1e-5 on >=5 examples", "achievable_evidence": "7.3e-08 .. 8.1e-07 measured on 960 cells"},
+        {"id": "C_gen reconstruction", "threshold": ">=0.98 of control-cell candidates recover the original to 1e-8 relative", "achievable_evidence": "300/300 measured"},
+        {"id": "re-encoding round trip", "threshold": ">=0.90 per control cell", "achievable_evidence": "300/300 measured"}
+      ]
+    },
+    "gate_5_smoke": {"condition": "a reduced run on 24 cells completes end to end, writes a manifest, equation records and failure records, demonstrates resume, and projects the full pass at <= 2.0 GPU-h and <= 12 CPU core-h", "on_exceeding": "invoke a reduced design BEFORE starting, never midway"},
+    "gate_6_report": {"conditions": ["regression identity passes", "re-encoding audit within tolerances", "every scored cell passed Gate 1", "Gate 3 passed", "wall_clock_guard_fired == 0", "BA4 computed"], "otherwise": "H0001-R is undecidable"},
+    "aborts": {"gpu_h": 4.0, "cpu_core_h": 24, "new_disk_gib": 15, "peak_vram_gib": 5.5, "vram_enforced_as_allocator_cap": true, "gpu_temp_c_sustained_60s": 85, "crash_loop_rule": "3 consecutive identical fatal failures with no new diagnostic information => stop and reassess (rule 06)", "vram_fallback_chain": ["batch size 1", "the reduced 24-cell design", "GPU 1 (GTX 1060 3GB, forward-only, batch 1)"], "fallback_changes_which_cells_never_the_numerics": true}
+  },
+
+  "statistical_plan": {
+    "estimators": {
+      "P1_P2": {"estimator": "plain proportion over 71 systems", "interval_of_record": "family-clustered percentile bootstrap over 8 families, seed 20260911, 10000 resamples", "also_reported": "Wilson, explicitly labelled as ignoring clustering"},
+      "paired_nat_differences": "mean of system means, family-clustered bootstrap",
+      "h0010_counts": {"interval": "NONE", "interval_interpretation": "deterministic_census_no_sampling_variability"},
+      "control_rates": "Wilson, descriptive"
+    },
+    "degenerate_bootstrap_rule": "if all 8 clusters give the identical value the percentile bootstrap returns a zero-width interval, which is NOT reported as precision; the interval of record becomes the Wilson interval computed on the 8 clusters and the artifact carries bootstrap_degenerate: true",
+    "multiplicity": {"confirmatory_family": ["P1", "P2"], "correction": "Holm at family-wise alpha 0.05", "h0010_family": "separate, deterministic, no correction", "everything_else": "descriptive or exploratory, bears no decision, never promoted after the fact"},
+    "non_significance_is_not_equivalence": {
+      "rule": "rule 01 item 8",
+      "binding_sentences": [
+        "a P1 whose interval includes 0 does NOT establish that search errors are absent; it establishes that under this conditioning and this candidate set the certificate did not fire",
+        "a P2 near 1 does NOT establish that the truth has negligible probability mass; it establishes that the truth is not the argmax",
+        "NO equivalence test is preregistered and none may be run post hoc; an equivalence claim would require its own preregistered margin, which this contract does not set because no defensible margin on a log-probability difference is available",
+        "any zero or near-zero count is reported with its denominator and its Wilson bound, never as 'no effect'"
+      ]
+    },
+    "operating_characteristics_disclosed_before_the_run": "with 71 systems in 8 clusters the effective information for a proportion is closer to 8 than 71; a family-clustered 95% interval on a mid-range proportion will be roughly 0.3-0.5 wide, so neither_E2_nor_E3_predominant is a plausible corpus-level outcome BY CONSTRUCTION. The deliverable is primarily the per-system partition, which is well defined regardless of interval width."
+  },
+
+  "verdict_criteria": {
+    "E3_predominant": "family-clustered 95% LOWER bound of P1 > 0.5",
+    "E2_predominant": "family-clustered 95% UPPER bound of P1 < 0.5 AND clustered LOWER bound of P2 > 0.5 AND the bias-audit battery is clear",
+    "E2_direction_observed_but_confounded": "the E2 arithmetic holds but BA2 fails its disagreement bar or BA4 shows context disagreement — NOT a supported E2",
+    "conditioning_sensitive": "C_gen and C_raw disagree on the attribution; NOTHING is attributed",
+    "neither_E2_nor_E3_predominant": "otherwise — a real, reportable result, explicitly distinct from undecidable",
+    "undecidable": "reserved for INSTRUMENT FAILURE: PC-GREEDY fails; or Gate 6 fails; or wall_clock_guard_fired > 0; or >10% of cells are unreliable_reencoding",
+    "h0010": "supported / refuted_in_the_joint_direction / refuted_in_the_marginal_direction per the decision rule; undecidable if Gate 2 does not complete or the predicate battery fails 12/12",
+    "every_branch_informative": "if E2 is supported, no realistic budget increase surfaces the truth and H0003 closes permanently; if E2 is rejected, H0003 fires ON EVIDENCE for the first time; if H0010 is refuted either way, C0003's repair is located on the cheaper side. A cycle report is written regardless (rules/08)."
+  },
+
+  "compute": {
+    "ceilings": {"gpu_h": 4.0, "cpu_core_h": 24, "peak_vram_gib": 5.5, "new_disk_gib": 15},
+    "measured_basis": {
+      "hardware": "RTX 2070, fp32, batch of 51 sequences against one cached encoder pass, compute_ranks=True",
+      "cells": 8, "sequences": 408, "gpu_seconds": 7.0, "cpu_prep_seconds": 2.1, "peak_vram_gib": 0.458,
+      "projection_960_cells_one_context_gpu_h": 0.233,
+      "tokenize_reencode_audit_scale_seconds_per_candidate": 0.07
+    },
+    "projection": {
+      "primary_pass_852_cells_x2_contexts_gpu_h": 0.42,
+      "h0006_orbit_members_gpu_h": 0.07,
+      "pc_greedy_40_cells_gpu_h": 0.03,
+      "smoke_24_cells_x2_gpu_h": 0.02,
+      "reencoding_tokenization_cpu_core_h": 1.7,
+      "h0010_census_cpu_core_h": "<= 8 (the only unmeasured component; bounded by CAS_NODE_BUDGET and the Gate-5 12 core-h bar)",
+      "controls_audits_records": {"gpu_h": 0.01, "cpu_core_h": 2},
+      "total_gpu_h": 0.55, "total_cpu_core_h": 12, "total_new_disk_gib": 1,
+      "peak_vram_gib_projected": 1.0,
+      "margin": {"gpu": "~7x", "cpu": "~2x", "disk": "~15x", "vram": "~5x"}
+    },
+    "gpu0_shared_with_desktop": {"held_mib_at_measurement": 559, "idle_temp_c": 41}
+  },
+
+  "failure_policy_and_exclusions": {
+    "principle": "every excluded row is retained with its reason (rule 03, rule 01 items 4-5); nothing is deleted; NO outcome-dependent exclusion is permitted and no cell may be excluded after its indicator is known",
+    "rules": [
+      {"rule": "candidate valid:false", "expected": 0, "basis": "42593/42593 valid, verified", "disposition": "excluded from lp_best, retained with failure_reason"},
+      {"rule": "CandidateReencodingMismatch", "expected": "~0", "basis": "300/300 exact in the probe", "disposition": "excluded from the comparison distribution, counted"},
+      {"rule": "cell unreliable_reencoding (>10% mismatch)", "expected": "~0", "disposition": "excluded from P1/P2, reported; >10% of cells => undecidable"},
+      {"rule": "CellIdentityMismatch", "expected": 0, "basis": "10-distinct-payload check verified 80/80 in C0001", "disposition": "cell excluded, counted"},
+      {"rule": "EncodingVerificationFailure", "expected": "orbit members only; e1/e2 verified 71/71", "disposition": "member dropped, counted; <=20% or Gate 3c fails"},
+      {"rule": "tie(c)", "expected": "~0", "disposition": "counted, excluded from both sb_best and me_best, reported"},
+      {"rule": "budget_exceeded_by_input_size", "expected": "unknown", "disposition": "counted, reported, never silently rated"},
+      {"rule": "wall_clock_guard_fired", "expected": 0, "disposition": "non-zero => affected endpoint undecidable"},
+      {"rule": "equals_NONE", "expected": 0, "basis": "realized 2191 pairs", "disposition": "recorded as equals_raw: null, never coerced"}
+    ],
+    "the_8_leaked_cells_are_not_excluded": true
+  },
+
+  "artifact_contract": {
+    "run_id_rule": "gpu_runclaude1_c0002_<short7> from the freezing commit; if the directory exists append _v2; never overwrite (rule 05)",
+    "expected_artifacts": [
+      "phase0/{manifest,sealed_inventory,control_cells,preflight}.json",
+      "phase1/{h0010_class_census,h0010_endpoints,h0010_control_battery}.json",
+      "phase2/{h0006_encoding_sets,h0006_gate}.json",
+      "phase3/{controls_gate4,smoke_projection}.json",
+      "phase4/{partI_cell_records.jsonl,partI_candidate_records.jsonl,partI_endpoints,partI_bias_audit,partI_instrument_audit}.json",
+      "manifest.json", "gpu_telemetry.jsonl"
+    ],
+    "provenance": "scripts/ops/run_manifest.py records git commit and branch, pip freeze, GPU and driver, checkpoint SHA256, and a recursive data-tree fingerprint",
+    "large_artifacts": "need not be committed; hashes and paths preserved (rule 05)"
+  },
+
+  "record_schema_rule_03": {
+    "required_fields": ["candidate_formula_raw", "candidate_formula_canonical", "candidate_formula_skeleton", "candidate_exponent_aware_skeleton", "true_formula", "true_prefix", "tree_encoded", "variable_to_gene", "trajectory_metrics", "canonical_exact", "skeleton_exact", "exponent_aware_skeleton_exact", "component_exponent_aware_skeleton_exact", "ted_raw", "ted_skeleton", "normalized_ted", "normalized_variable_aware_ted", "variable_aware_ted_definition", "complexity", "valid", "failure_reason"],
+    "three_way_distinction_at_endpoint_name_level": {
+      "generation_coverage": "generation_coverage_scope: 'cell'",
+      "oracle": "lp_best and every endpoint built on it are ORACLE quantities over the generated set",
+      "selected": {"measurable_on_grn_this_cycle": false, "record_field": "selected_candidate_measurable: false", "reason": "no per-candidate decoder score is stored (F-e); candidate_index==0 is the highest-input-R2 candidate (F-f), not a decoder argmax", "no_endpoint_name_contains_selected": true}
+    },
+    "c0002_additional_fields": ["scoring_context in {C_gen, C_raw}", "lp_best_is_respelling: true", "encoding_set_size", "encoding_verification_failures", "equals_raw", "cas_outcome", "prior_information_disclosed: 'C0002_preregistration_v1.md §0'"]
+  },
+
+  "rule_04_layer_contract": {
+    "layer_estimands_measured": "NONE",
+    "no_probe_no_cka_no_gradient_no_ablation_no_iole_no_selective_ft": true,
+    "no_layer_ranking_produced": true,
+    "no_averaging_of_layer_questions": true,
+    "H0007_untouched_and_not_ranked_against_generation_side_endpoints": true
+  },
+
+  "what_cannot_change": {
+    "trigger": "no final test is accessed this cycle, so the binding instant is the computation of the first primary indicator of the frozen run",
+    "frozen_at_that_instant": ["the primary hypothesis and its falsifier", "the primary endpoint and its decision rule", "the 0.5 system cutpoint", "the scoring contexts and which is primary", "the admissible-encoding enumeration and its cap", "the control battery and every control threshold", "the exclusion rules", "all seeds", "the cluster definition", "the multiplicity plan", "the H0010 predicates and the n_class_joint >= 6 falsifier", "the compute ceiling"],
+    "absolutely_forbidden": "raising a threshold to rescue a result (rule 01 item 3)"
+  },
+
+  "deviation_policy": {
+    "mechanism": "a dated DEVIATION-nn block appended to a successor version, naming what changed, why, who decided, and what it invalidates",
+    "reduced_designs": {
+      "RD1": "single context (C_gen only); BA4 reported not_measurable and the E2 wording correspondingly qualified",
+      "RD2": "the 24-system fixed GRN validation panel instead of 71 systems; P1/P2 reported exploratory and attributing nothing",
+      "RD3": "H0010 census restricted to the realized classes without multiplicity weighting (H4 dropped)"
+    },
+    "named_contingency": "if the C_gen reconstruction fails Gate 4, C_raw becomes primary AND every E3 statement is downgraded to 'the truth outscores all 50 candidates under a conditioning the search did not see', which is not a search-error claim"
+  },
+
+  "replication_gate": {
+    "fires_on": ["an E2 or E3 corpus attribution", "H0010 supported", "any result an independent reviewer marks fragile", "any result resting on a single seed or a single context"],
+    "minimum_change_at_least_one_independent_factor": ["a fresh process and artifact path", "a different CONTROL_CELL_SEED", "the other scoring context", "an independent re-derivation of lp_best from a separately written scorer"],
+    "recorded_separately_under": "GPU_RUNclaude1/replications/",
+    "outcomes": ["replicated", "directionally replicated", "failed replication", "inconclusive"],
+    "an_attribution_may_not_invalidate_a_gpu_run5_result_on_its_own": true
+  },
+
+  "required_reviews_before_the_full_experiment": {
+    "performed": "NONE — this document must not be described as reviewed",
+    "lansr-statistical-reviewer": ["units and the paired structure", "the 8-cluster bootstrap and its degenerate case", "the Holm family of two", "the equivalence prohibition", "the disclosed operating characteristics", "the §0.3 self-reported leakage and whether the inherited-threshold defence is adequate"],
+    "lansr-reproducibility-auditor": ["the sealed-path firewall and the 7-file enumeration", "seed plumbing, especially sympy.core.random.seed in every worker", "checkpoint identity", "hidden fallbacks", "the C_gen reconstruction", "gate implementations against R7", "artifact provenance"],
+    "lansr-independent-reviewer": "reviews the completed cycle separately (rule 07) and must be distinct from implementation and primary analysis"
+  },
+
+  "unimplementable_as_stated": [
+    {"item": "could_not_evaluate on a deterministic node/operation budget", "finding": "a genuine operation-count or iteration budget INSIDE a SymPy call does not exist and cannot be added without patching SymPy; egg's runners have it, SymPy has no analogue", "what_is_implemented_instead": "a count_ops ADMISSION bound plus a seeded RNG plus three-valued recording, with the wall clock demoted to a crash-safety net whose firing is a separate counted label that must be 0", "weaker_because": "it makes admission deterministic, not termination", "egg_is_cited_as": "the precedent for the PROPERTY (an outcome that is a function of the inputs alone), not as an available mechanism"},
+    {"item": "Schwartz-Zippel numerical certificate as a declared arbitration procedure", "finding": "not adopted; the bound is stated for polynomials over a field and the GRN skeletons are rational functions with variable denominators; the clearing-of-denominators and pole-avoidance argument is not established in any primary source (literature §Q7 item 6)"},
+    {"item": "realized denominators known by construction for BOTH hypotheses", "finding": "true for H0001-R (verified 71/852/42593); NOT true as stated for H0010 — the 846/89349/879 counts are prose plus a session-scoped scratchpad, not an archived artifact", "response": "Gate 2 converts this into a gating census computed before the endpoint"},
+    {"item": "candidate_index == 0 is sample order", "finding": "FALSE (F-f); it is the highest-input-R2 candidate", "effect_on_the_conclusion": "the conclusion that it cannot serve as lp_sel is unchanged and strengthened, but the stated reason in the design brief and the independent review is wrong; the disposition of MAJOR-R5 in the light of it belongs to the supervisor"},
+    {"item": "score the candidates the model produced", "finding": "impossible from the stored artifacts (F-g, F-h); every lp_best here is the score of a re-spelling", "not_identified_in_any_gating_input": true, "status": "the largest single validity limitation of the cycle"},
+    {"item": "three mechanisms bias the read toward E2", "finding": "there are FOUR; the conditioning mismatch (F-g) is a fourth and, unlike the other three, its direction is unknown", "response": "BA4 measures it"}
+  ],
+
+  "primary_sources": [
+    {"id": "D19-1331", "cite": "Stahlberg & Byrne, On NMT Search Errors and Model Errors: Cat Got Your Tongue?, EMNLP-IJCNLP 2019, pp. 3356-3362", "doi": "10.18653/v1/D19-1331", "url": "https://aclanthology.org/D19-1331/"},
+    {"id": "ND2", "cite": "Yu, Ding, Li, Discovering network dynamics with neural symbolic regression, Nature Computational Science 6:156-168", "doi": "10.1038/s43588-025-00893-8", "repo": "https://github.com/tsinghua-fib-lab/ND2"},
+    {"id": "egg", "cite": "Willsey et al., egg: Fast and Extensible Equality Saturation, PACMPL 5(POPL), Article 23", "doi": "10.1145/3434304", "arxiv": "https://arxiv.org/abs/2004.03082"},
+    {"id": "SatoSato", "cite": "Can Test-time Computation Mitigate Reproduction Bias in Neural Symbolic Regression?", "arxiv": "2505.22081"},
+    {"id": "ODEFormer", "cite": "source.md line 43"}
+  ]
+}

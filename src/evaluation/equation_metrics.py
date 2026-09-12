@@ -150,20 +150,77 @@ def _normalize_expr_str(expr: str) -> str:
     return s
 
 
-def to_skeleton(expr: str) -> Optional[Expr]:
-    """Parse expression and replace numeric constants with symbol c (best-effort)."""
+def _to_skeleton_with_reason(expr: str) -> Tuple[Optional[Expr], Optional[str]]:
+    """Shared implementation behind :func:`to_skeleton`.
+
+    Returns ``(skeleton, failure_reason)``. ``failure_reason`` is ``None`` on
+    success; ``"SymbolicEquivalenceTimeout"`` if the attempt that ultimately
+    failed hit the SymPy wall-clock guard (``_timed_simplify`` raising
+    ``_SymTimeout``); ``"SkeletonParseFailure"`` otherwise (both the primary
+    ``constants_to_placeholder`` attempt and the regex-fallback attempt
+    raised something else, e.g. a genuine parse error).
+
+    This is an additive refactor for GPU_RUNclaude1 C0001 (v2 §7.5), which
+    requires the exact failure surface at this line to carry an explicit
+    reason. It changes no observable return value of :func:`to_skeleton` for
+    any input: every branch that previously fell through to ``except
+    Exception`` (whether the exception was a timeout or anything else) still
+    falls through the same way here; only the *reason* is now recorded
+    alongside the identical ``None`` result on total failure.
+    """
+    timed_out = False
     try:
         from data.nesymres_tokenize import constants_to_placeholder
 
         sk = constants_to_placeholder(_normalize_expr_str(expr))
-        return _timed_simplify(sympify(sk))
+        return _timed_simplify(sympify(sk)), None
+    except _SymTimeout:
+        timed_out = True
     except Exception:
-        try:
-            cleaned = re.sub(r"\d+\.?\d*(?:[eE][+-]?\d+)?", "c", _normalize_expr_str(expr))
-            cleaned = re.sub(r"c+", "c", cleaned)
-            return _timed_simplify(sympify(cleaned))
-        except Exception:
-            return None
+        pass
+    try:
+        cleaned = re.sub(r"\d+\.?\d*(?:[eE][+-]?\d+)?", "c", _normalize_expr_str(expr))
+        cleaned = re.sub(r"c+", "c", cleaned)
+        return _timed_simplify(sympify(cleaned)), None
+    except _SymTimeout:
+        timed_out = True
+    except Exception:
+        pass
+    return None, ("SymbolicEquivalenceTimeout" if timed_out else "SkeletonParseFailure")
+
+
+def to_skeleton(expr: str) -> Optional[Expr]:
+    """Parse expression and replace numeric constants with symbol c (best-effort)."""
+    return _to_skeleton_with_reason(expr)[0]
+
+
+def skeleton_equivalence_with_reason(true_expr: str, predicted_expr: str) -> Tuple[float, Optional[str]]:
+    """The M3 component check (``symbolic_recovery(...)["skeleton"]``) with an
+    explicit, non-silent failure reason (GPU_RUNclaude1 C0001, v2 §7.5).
+
+    Returns ``(skeleton, failure_reason)`` where ``failure_reason`` is one of
+    ``"SkeletonParseFailure"``, ``"SymbolicEquivalenceTimeout"``,
+    ``"SkeletonEvaluationFailure"``, or ``None`` (a proved match or a proved
+    non-match -- both are decided outcomes, not failures). This is additive:
+    :func:`symbolic_recovery` calls it internally and its own ``"skeleton"``
+    value is unchanged for every input.
+    """
+    pred = (predicted_expr or "").strip()
+    true = (true_expr or "").strip()
+    sk_true, reason_true = _to_skeleton_with_reason(true)
+    sk_pred, reason_pred = _to_skeleton_with_reason(pred)
+    if sk_true is None or sk_pred is None:
+        return 0.0, (reason_true or reason_pred)
+    try:
+        if _timed_simplify(sk_true - sk_pred) == 0:
+            return 1.0, None
+        if _timed_equals(sk_true, sk_pred):
+            return 1.0, None
+        return 0.0, None
+    except _SymTimeout:
+        return 0.0, "SymbolicEquivalenceTimeout"
+    except Exception:
+        return 0.0, "SkeletonEvaluationFailure"
 
 
 def symbolic_recovery(
@@ -181,16 +238,7 @@ def symbolic_recovery(
     true = (true_expr or "").strip()
     exact = 1.0 if pred and pred == true else 0.0
 
-    sk_true = to_skeleton(true)
-    sk_pred = to_skeleton(pred)
-    skeleton = 0.0
-    if sk_true is not None and sk_pred is not None:
-        try:
-            skeleton = 1.0 if _timed_simplify(sk_true - sk_pred) == 0 else 0.0
-            if skeleton == 0.0 and _timed_equals(sk_true, sk_pred):
-                skeleton = 1.0
-        except Exception:
-            skeleton = 0.0
+    skeleton, _skeleton_failure_reason = skeleton_equivalence_with_reason(true, pred)
 
     equiv = 0.0
     if true and pred:

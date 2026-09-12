@@ -54,7 +54,20 @@ def budget(config: dict[str, Any], smoke: bool) -> dict[str, Any]:
 
 
 def require_artifact(root: Path, relative: str) -> Path:
+    """Resolve a required previous-phase artifact.
+
+    Hardened for GPU_RUNclaude1 C0001 (v2 §2.4 item 7): any relative path
+    whose final component looks like a sealed test artifact is refused here,
+    at the accessor level, rather than trusting every caller to avoid it.
+    ``load_sealed_test`` remains the sanctioned, phase-gated reader of a
+    sealed artifact; this function is not it.
+    """
     path = root / relative
+    if path.name.lower().startswith("sealed"):
+        raise PermissionError(
+            f"require_artifact refuses a sealed-looking path: {path}. "
+            "Use load_sealed_test (phase-gated) if this read is genuinely authorized."
+        )
     if not path.is_file():
         raise FileNotFoundError(f"required previous-phase artifact missing: {path}")
     return path

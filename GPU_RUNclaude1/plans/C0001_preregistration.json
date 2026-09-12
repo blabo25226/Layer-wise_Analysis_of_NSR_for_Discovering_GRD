@@ -1,0 +1,605 @@
+{
+  "schema_version": "gpu_runclaude1_preregistration_v1",
+  "cycle": "C0001",
+  "stage": 3,
+  "title": "Four-way decomposition of the ODEFormer Hill-type GRN generation failure (E0 evaluator artifact / E1' generator-support exclusion / E2 model error / E3 search error)",
+  "branch": "20260909_researce_GPU_RUNclaude1",
+  "commit_at_freeze": "94a571b6944e4ebb383ea112a2c9032e3dd6b68e",
+  "date_frozen": "2026-09-09",
+  "status": "FROZEN",
+  "markdown_twin": "GPU_RUNclaude1/plans/C0001_preregistration.md",
+  "sealed_test_consumed": null,
+  "layer_estimands_measured": [],
+
+  "prior_information_disclosed": [
+    {"id": "P1", "quantity": "GRN truth teacher_valid (encodability)", "value": "240/240 train, 80/80 validation", "source": "GPU_RUNclaude1/analyses/C0001_stage1_preobservation.md", "consequence": "E1 raw expressibility REFUTED; not re-tested, cited only"},
+    {"id": "P2", "quantity": "zero-probability operators under checkpoint generator config", "value": ["abs","sqrt","log","exp","arcsin","cos","arccos","tan","arctan","pow3","sub","div"], "source": "C0001_stage1_preobservation.md addendum; third_party/odeformer/odeformer/envs/generators.py:369-373", "consequence": "fixed constraint, not an endpoint"},
+    {"id": "P3", "quantity": "GT teacher token length (validation)", "value": {"min": 19, "median": 47.0, "mean": 45.7, "max": 80}, "source": "Stage 1", "consequence": "drives Part C length-normalization policy"},
+    {"id": "P4", "quantity": "neg node in truth exponent-aware skeletons vs candidates", "value": {"truth": "960/960 = 1.000", "candidates": "1541/47987 = 0.032"}, "source": "GPU_RUNclaude1/analyses/C0001_exploratory_neg_canonicalization.md", "label": "EXPLORATORY", "consequence": "becomes positive control PC2a"},
+    {"id": "P5", "quantity": "neg-normalized FULL-SYSTEM truth-in-beam", "value": "0/960 = 0.0000; 0/120 in each family R01-R08", "source": "same", "label": "EXPLORATORY", "consequence": "system-level rate under a crude normalization already known; Part A primary uses a strictly more permissive CAS cascade whose system-level value is UNOBSERVED"},
+    {"id": "P6", "quantity": "neg-normalized PER-COMPONENT truth-in-beam", "value": "107/2040 = 0.0525", "source": "same", "label": "EXPLORATORY", "consequence": "component-level endpoint preregistered as ESTIMATION ONLY, no hypothesis test, no discovery framing"},
+    {"id": "P7", "quantity": "train non-identity unary count per truth component", "value": {"histogram": {"0": 120, "1": 120, "2": 70, "3": 120, "5": 60, "6": 10, "10": 10}, "components_over_budget": "80/510 = 0.1569", "systems_over_budget": "60/240 = 0.2500"}, "source": "this preregistration, Stage 3 read of phase2/train.json", "consequence": "Part B has a non-degenerate effect; calibrates expected size"},
+    {"id": "P8", "quantity": "nested pow2,pow2 (realized Hill exponent 4)", "value": {"train_components": "130/510", "validation_components": "39/170"}, "source": "this preregistration, Stage 3", "consequence": "CORRECTS coordinator Finding 2; E1' is LIVE"},
+    {"id": "P9", "quantity": "stored candidate fields in phase3/all_candidates.json", "value": {"present": ["candidate_formula_raw","candidate_formula_canonical","candidate_exponent_aware_skeleton","canonical_exact","skeleton_exact","exponent_aware_skeleton_exact","complexity","ted_raw","ted_skeleton","normalized_ted","trajectory_metrics","valid","failure_reason","structure"], "absent": ["symbolic_equivalent", "any log-probability or score field"]}, "source": "this preregistration, Stage 3", "consequence": "GPU_RUN5 never computed CAS equivalence (src/gpu_run5/evaluation.py:40 uses skip_cas=True); Part C must re-encode and re-score all candidates"},
+    {"id": "P10", "quantity": "candidate-set completeness", "value": {"cells_with_50": 951, "cells_with_49": 6, "cells_with_48": 2, "cells_with_47": 1, "total": 47987, "shortfall": 13}, "source": "this preregistration, Stage 3", "consequence": "denominators use usable candidates present, never a hardcoded 50"},
+    {"id": "P11", "quantity": "CAS matcher throughput", "value": {"ms_per_candidate": 129, "sample": 60, "over_1s": 0, "projected_single_core_hours_for_47987": 1.72, "calibration_corpus": "results/runs/gpu_run4_phase0_01/phase2/all_candidates.json (ODEBench, NOT endpoint data)"}, "source": "this preregistration, Stage 3", "consequence": "makes the Part A CPU ceiling credible"}
+  ],
+
+  "correction_of_record": {
+    "target": "coordinator Stage-3 message, Finding 2",
+    "claim_corrected": "validation truths realize Hill exponents 1 and 2 only, not 4; E1' possibly inapplicable",
+    "verdict": "REFUTED",
+    "reason": "the corpus prefix token is pow2, which the canonicalizer rewrites to pow(X,2); exponent 4 is spelled pow2(pow2(x)) -> pow(pow(x,2),2), tokens pow,pow,x_i,2,2, and never produces a literal 4. A search for pow2 or pow,4 in the canonical skeleton therefore cannot detect it.",
+    "evidence": {"validation_components_with_nested_pow2": "39/170", "train_components_with_nested_pow2": "130/510", "train_examples": ["R01 U_mult=5: 0.1621 + 2.1 * ((x_0)**2)**2 * 1/(1.731 + ((x_0)**2)**2) + -1 * 0.4956 * x_0", "R07 U_mult=6: 1.786 * (x_0)**2 * 1/(2.028 + (x_0)**2) * 1 * (x_1)**2 * 1/(0.2277 + (x_1)**2) + -1 * 0.2693 * x_2", "R08 U_mult=5: 1.077 * ((x_0 * x_1)**2)**2 * 1/(1.743 + ((x_0*x_1)**2)**2) + -1 * 0.264 * x_2"]},
+    "new_mechanism_identified": "multi-term components exceed max_unary_ops_per_dim=3 even at exponent 2 (U_mult>=6), and the affine rewrite B-R1 does NOT rescue them (affine expansion of a product of two Hill terms yields >=6 unaries). Preregistered as endpoint B-S4."
+  },
+
+  "primary_hypothesis": {
+    "id": "H-C0001-P",
+    "statement": "GPU_RUN5's true_exponent_aware_skeleton_in_beam_rate = 0.0 for Hill-type GRN systems is NOT an evaluator artifact at the whole-system level: under a canonicalizing CAS-equivalence matcher applied to the stored 47,987 GRN validation candidates, the per-system semantic-equivalence-in-beam rate over the 80 validation systems has a Wilson 95% upper bound < 0.05.",
+    "shape": "null-shaped",
+    "falsifier": ">= 4 of 80 systems with a semantically equivalent full-system candidate in beam"
+  },
+
+  "competing_explanations": [
+    {"id": "E0", "name": "measurement/evaluator artifact", "status_entering": "LIVE; partially confirmed at component level (P6), refuted at system level under crude normalization (P5)", "decided_by": "Part A"},
+    {"id": "E1", "name": "raw expressibility", "status_entering": "REFUTED (P1: 320/320 encode and round-trip)", "decided_by": "cited, not measured"},
+    {"id": "E1prime", "name": "generator-support exclusion (max_unary_ops_per_dim = 3)", "status_entering": "LIVE (P7/P8)", "decided_by": "Part B"},
+    {"id": "E2", "name": "prior mass / model error", "status_entering": "LIVE", "decided_by": "Part C"},
+    {"id": "E3", "name": "search error", "status_entering": "LIVE", "decided_by": "Part C"}
+  ],
+  "explanations_not_mutually_exclusive": true,
+  "reported_as": "partition of the 80 systems into E0 / E1prime / E2 / E3 / unattributed buckets, with overlaps shown; no single-cause claim permitted",
+
+  "out_of_scope": [
+    "beam-size or temperature sweep as any endpoint (answered by ODEFormer ICLR 2024 Appendix G and CTC_NSR beam-150)",
+    "novelty claim for teacher-forced GT scoring (adjacent; precedent Stahlberg & Byrne EMNLP-IJCNLP 2019 pp.3356-3362 DOI 10.18653/v1/D19-1331)",
+    "biological causality language (rule 01 item 7)",
+    "equation discovery claims from R2/NMSE (rule 03)",
+    "any layer-importance claim (rule 04)"
+  ],
+
+  "statistical_unit": {
+    "unit": "parameterized GRN system",
+    "n": 80,
+    "families": ["R01","R02","R03","R04","R05","R06","R07","R08"],
+    "systems_per_family": 10,
+    "cells_per_system": 12,
+    "cell_grid": {"noise_sigma": [0.0, 0.05], "subsample_rho": [0.0, 0.5], "bundle_index": [0, 1, 2]},
+    "cell_is_not_the_unit_reason": "cells within a system share the same ground truth; treating them as independent inflates n by 12x",
+    "aggregation_order": "within-system first, then across systems",
+    "per_system_reductions": {
+      "ANY": {"definition": "system indicator = 1 if any of its 12 cells has a hit", "role": "PRIMARY", "estimand": "generation coverage"},
+      "MEAN": {"definition": "mean of the 12 cell indicators", "role": "secondary", "estimand": "robustness"}
+    },
+    "family_is_not_an_inference_unit": true,
+    "family_rates": "descriptive only, n=10 each, underpowered by construction, no confirmatory claim"
+  },
+
+  "datasets": [
+    {"role": "calibration_design", "path": "results/runs/gpu_run5_20260823_ddd267b0/phase2/train.json", "n_systems": 240, "may_contribute_to_endpoints": false},
+    {"role": "measurement", "path": "results/runs/gpu_run5_20260823_ddd267b0/phase2/validation.json", "n_systems": 80, "sha256_of_record": "f4644d1d4c30f8a3d6f0cafc8f321fb2c07e72979d8e4c42d28862376abb8f64"},
+    {"role": "measurement", "path": "results/runs/gpu_run5_20260823_ddd267b0/phase3/all_candidates.json", "n_candidates": 47987, "n_cells": 960, "split": "validation"},
+    {"role": "measurement", "path": "results/runs/gpu_run5_20260823_ddd267b0/phase3/cells/", "n_files": 960},
+    {"role": "timing_calibration_and_replication", "path": "results/runs/gpu_run4_phase0_01/phase2/all_candidates.json", "n_candidates": 12632, "n_systems": 63},
+    {"role": "exploratory_partD", "path": "results/runs/gpu_run5_20260823_ddd267b0/phase1/candidates_annotated.json", "n_candidates": 12600}
+  ],
+
+  "test_firewall": {
+    "c0001_consumes_no_seal": true,
+    "artifacts": [
+      {"path": "results/runs/gpu_run5_20260823_ddd267b0/phase2/sealed_test.json", "status": "SPENT", "opened": "2026-09-01", "open_count": 1, "sha256": "881f784b14cafa2d8617679c573be8ed68f63dbab6d7fa9182e4f5b510464ce0", "c0001_access": "MUST NOT READ AT ALL"},
+      {"path": "results/runs/gpu_run5_20260823_ddd267b0/phase2/sealed_family_holdout_test.json", "status": "SPENT_AND_SUBSET_OF_MAIN", "sha256": "fa8fe375fd273e807e22d7d0def7c1d0c866ad006081d207359cb97d1bcbaf91", "c0001_access": "MUST NOT READ AT ALL"},
+      {"path": "results/runs/gpu_run5_20260823_ddd267b0/phase4/sealed_official_test.json", "status": "UNSPENT_ONLY_CLEAN_SEAL", "sha256": "2860d829d9077d01258489fb68ed8dcd8a333d6a0e150b8e36b301f28bb1e070", "c0001_access": "MUST NOT TOUCH; preserved for a future cycle"},
+      {"path": "third_party/odeformer/odeformer/odebench/", "status": "not_sealed_but_forbidden_as_adaptation_or_selection_data", "c0001_access": "read-only calibration and replication only"}
+    ],
+    "enforcement_mechanism": "src/gpu_run5/config.py:63 load_sealed_test raises PermissionError('test firewall: phase {phase} cannot read {path}') when phase < 8; every C0001 phase runs with phase in {0,1,2,3,4}",
+    "enforcement_requirements": [
+      "every read of a path matching sealed* must route through load_sealed_test; a direct open()/read_json() on such a path is a CRITICAL audit finding",
+      "Stage 5 must grep the C0001 diff for 'sealed' and confirm zero direct reads",
+      "Stage 6 must run pytest GPU_RUN5/tests/test_gpu_run5_firewall.py green before any endpoint computation (pytest.ini omits GPU_RUN5/tests, known defect 1)",
+      "every phase manifest records sealed_paths_read: [] and the SHA256 of each input actually opened"
+    ]
+  },
+
+  "what_cannot_change_after_final_test_access": {
+    "note": "C0001 accesses no final test; the analogous irreversible moment is the first computation of the Part A primary endpoint on the 80 validation systems",
+    "immutable_after_that_moment": [
+      "primary hypothesis",
+      "primary endpoint and its matcher level (M3)",
+      "M0-M3 cascade definitions and tolerances",
+      "statistical unit and aggregation order",
+      "the ANY primary reduction",
+      "the null-credibility ladder",
+      "the positive/negative control battery and its pass thresholds",
+      "Go/No-Go gates",
+      "supported/unsupported/undecidable criteria",
+      "exclusion and failure policy",
+      "seeds",
+      "checkpoint SHA256",
+      "compute ceiling",
+      "run ID"
+    ],
+    "any_change_forces": "a new cycle ID, not an amendment"
+  },
+
+  "model_and_budgets": {
+    "checkpoint": {"path": "assets/odeformer/weights/odeformer.pt", "sha256": "56754040be5aa92ed4767fc43ee2008faa293f87c12b643e66c7df3e1623a5e8", "bytes": 464822385},
+    "architecture_of_record": "released 4 encoder (dim 256) + 12 decoder (dim 512), 16 heads, 60646773 params; NOT the paper's 4+16/dim512/~86M",
+    "training_budget": {"parameter_updates": 0, "optimizers_constructed": 0},
+    "hyperparameter_search_space": {},
+    "new_decoding_budget": {"beam_searches": 0, "sampling_runs": 0},
+    "stored_candidate_decode_config_fixed_context": {"beam_size": 50, "beam_type": "sampling", "beam_temperature": 0.1, "max_generated_output_len": 200, "rescale": true, "failure_penalty": 10.0},
+    "operator_constraints_of_record": {
+      "operators_to_use": "sin:1,inv:1,pow2:1,id:3,add:3,mul:1",
+      "min_unary_ops_per_dim": 0,
+      "max_unary_ops_per_dim": 3,
+      "min_binary_ops_per_dim": 1,
+      "max_binary_ops_per_dim": 5,
+      "max_unary_depth": 7,
+      "max_int": 10,
+      "float_precision": 3,
+      "max_dimension": 6,
+      "operators_to_not_repeat": "",
+      "zero_probability_operators": ["abs","sqrt","log","exp","arcsin","cos","arccos","tan","arctan","pow3","sub","div"]
+    },
+    "seeds": {"numeric_equivalent_seed": 0, "global_seed": 20260909, "parts_A_B_deterministic": true, "part_C_deterministic_forward_only": true, "replication_changes": {"numeric_equivalent_seed": 1, "safe_domain_points": "independent set"}},
+    "dtype": "fp32",
+    "devices": {"partA": "cpu", "partB": "cpu", "partC": "cuda:0", "partD": "cpu"},
+    "libraries": {"python": "3.10.20", "env": "lansr310", "torch": "2.5.1+cu124", "sympy": "1.13.1", "numpy": "2.2.6", "zss": "1.2.0"}
+  },
+
+  "comparators": [
+    {"id": "C-M0", "description": "frozen string matcher, system level", "value": 0.0, "n_cells": 960, "code": "scripts/phases/gpu_run5_phase3.py:442", "role": "the claim under test; must be reproduced EXACTLY by C0001's M0 arm"},
+    {"id": "C-M0c", "description": "frozen string matcher, component level", "value": "0/2040", "role": "comparator for the component-level secondary"},
+    {"id": "C-NEG", "description": "crude neg-folded matcher (EXPLORATORY)", "value": {"system": "0/960", "component": "107/2040 = 0.0525"}, "role": "lower bound the CAS cascade must not fall below"},
+    {"id": "C-ODEB", "description": "ODEBench string matcher truth-in-beam", "value": {"rate": 0.0159, "count": "4/252", "ci95": [0.0062, 0.0401]}, "role": "non-zero corpus-level positive control for the replication cascade"},
+    {"id": "C-BUDGET", "description": "generator's own per-dimension unary budget", "value": 3, "role": "Part B reference"},
+    {"id": "C-SAMPLED", "description": "empirical log-prob distribution of the 50 candidates the model actually sampled per cell", "value": "to be measured in Part C", "role": "Part C reference distribution; the model is compared against itself"}
+  ],
+
+  "fair_comparison_budget": [
+    "Part A compares four matchers on the IDENTICAL 47,987 candidates and 80 truths; only the equivalence criterion varies",
+    "Part B compares two encodings of the SAME truth against the SAME budget of 3, with an identical 200-rewrite cap for both",
+    "Part C compares the ground truth against the model's OWN 50 samples, conditioned on the identical input trajectory (verified by input_trajectory_checksum), through the identical forward path with the same cached encoder output, in the same process",
+    "CAS timeout (10.0 s) and SYMPY_MAX_NODES apply identically to M2 and M3, to truths and candidates, and to controls and real data",
+    "Part C candidate log-probs are computed, never inherited from a differently normalized stored score (no stored score exists, P9)"
+  ],
+
+  "parts": [
+    {"id": "A", "question": "E0 - is the 0.0 a string-matcher artifact?", "instrument": "canonicalizing + CAS-equivalence cascade over stored candidates", "compute": "cpu_only", "gate": "Gate 0 -> A"},
+    {"id": "B", "question": "E1' - is the truth outside the generator's sampling support?", "instrument": "analytic unary-budget census over stored truths", "compute": "cpu_only", "gate": "Gate A -> B"},
+    {"id": "C", "question": "E2 vs E3 - model error or search error?", "instrument": "teacher-forced GT log-probability vs the model's own sampled distribution", "compute": "gpu_forward_passes_only", "gate": "Gate B -> C"},
+    {"id": "D", "question": "exploratory: denominator arity of the 14.76% ODEBench variable-denominator candidates", "instrument": "denominator-arity classification", "compute": "cpu_only", "gate": null, "label": "EXPLORATORY"}
+  ],
+
+  "primary_endpoint": {
+    "id": "A-P",
+    "name": "system_semantic_equivalence_in_beam_rate_M3_ANY",
+    "definition": "(number of the 80 GRN validation systems for which at least one of the <=50 candidates in at least one of the system's 12 cells is a full-system semantic match to that system's ground truth under matcher level M3) / 80",
+    "matcher_level": "M3",
+    "reduction": "ANY",
+    "n": 80,
+    "interval": "Wilson score 95% (plain, no continuity correction), alpha = 0.05",
+    "alpha": 0.05,
+    "multiplicity_adjustment": "none (single primary)",
+    "rationale_M3": "E0 alleges the string matcher MISSES structurally correct candidates; the adversarially correct choice is the most permissive structural criterion, because it makes the null maximally easy to falsify",
+    "rationale_ANY": "rule 03 requires generation coverage to be distinguished from selection; ANY is the coverage estimand"
+  },
+
+  "matcher_cascade": [
+    {"level": "M0", "definition": "frozen exponent-aware STRING skeleton equality", "implementation": "src/evaluation/gpu_run5_structure.py:206 classify_formula -> exponent_aware_skeleton string equality, as in src/gpu_run5/evaluation.py:84"},
+    {"level": "M1", "definition": "canonical prefix exact", "implementation": "src/gpu_run4/formulas.py:479 compare_formulas(...)['canonical_exact']"},
+    {"level": "M2", "definition": "CAS symbolic equivalence, CONSTANTS INCLUDED", "implementation": "compare_formulas(..., skip_cas=False)['symbolic_equivalent']; internally timeout-guarded simplify(T_i - C_i), then T_i.equals(C_i), then src/gpu_run4/formulas.py:361 numeric_equivalent(n_points=32, seed=0, rtol=1e-5, atol=1e-6)"},
+    {"level": "M3", "definition": "CAS equivalence at MATCHED CONSTANTS (structural)", "implementation": "src/evaluation/equation_metrics.py:169 symbolic_recovery(...)['skeleton'] plus :68 _approximately_equivalent(rtol=1e-6) plus :153 to_skeleton"}
+  ],
+  "matcher_timeouts_unchanged": {"SYMPY_OP_TIMEOUT_SEC": 10.0, "guards": ["src/evaluation/equation_metrics.py:56 _timed_simplify", "src/evaluation/equation_metrics.py:62 _timed_equals", "src/gpu_run4/formulas.py:437 SYMPY_EQUIV_TIMEOUT_SEC with SYMPY_MAX_NODES cap"]},
+  "match_rollup": "component_match(i, level) -> system_match(candidate, level) = component_count_match AND all_i component_match(i, level) -> cell_hit(level) = OR over usable candidates -> system_hit_ANY(level) = OR over the 12 cells",
+  "index_alignment": "component i of the truth is compared ONLY to component i of the candidate; a dimension mismatch is an automatic non-match with failure_reason 'ParseError'",
+
+  "monotonicity_self_check": {
+    "expected": "M0 <= M1 <= M2 <= M3 as sets of matching (cell, candidate, component) triples",
+    "thresholds": [
+      {"violation_fraction_max": 0.001, "action": "recorded as a known CAS edge case (to_skeleton constant collapsing can legitimately break M2 subset M3); reported, not blocking"},
+      {"violation_fraction_range": [0.001, 0.01], "action": "MAJOR finding; must be diagnosed before the primary is reported"},
+      {"violation_fraction_min": 0.01, "action": "CRITICAL; cascade defective; Part A verdict undecidable (instrument failure); no null may be claimed"}
+    ]
+  },
+
+  "control_battery": {
+    "mandatory": true,
+    "note": "synthetic candidates injected per system; they do NOT enter the endpoint; tagged positive_control_tag and stored separately",
+    "controls": [
+      {"id": "PC1", "type": "positive_identity", "construction": "inject the truth itself (its teacher_components_infix) as a candidate", "measured": "sensitivity of M1, M2, M3", "pass_threshold": "80/80 for ALL of M1, M2, M3", "on_failure": "matcher broken -> ABORT Part A"},
+      {"id": "PC2a", "type": "positive_neg_asymmetry", "construction": "rewrite every -1 * k * x_i to (-k) * x_i (the exact artifact P4 identified, in the model's own spelling)", "measured": "sensitivity of M2, M3", "pass_threshold": ">= 76/80 (95%) for M3", "on_failure": "the matcher cannot detect the artifact E0 alleges -> Part A verdict undecidable, NOT null"},
+      {"id": "PC2b", "type": "positive_affine_decomposition", "construction": "rewrite a * A^n * inv(K + A^n) -> a - a*K*inv(K + A^n), SymPy-verified", "measured": "sensitivity of M2, M3", "pass_threshold": ">= 76/80 for M3"},
+      {"id": "PC2c", "type": "positive_add_commutation", "construction": "permute every add operand pair", "measured": "sensitivity of M1, M2, M3", "pass_threshold": ">= 76/80 for M3"},
+      {"id": "PC2d", "type": "positive_mul_commutation", "construction": "permute every mul operand pair", "measured": "sensitivity of M1, M2, M3", "pass_threshold": ">= 76/80 for M3"},
+      {"id": "PC3a", "type": "NEGATIVE_specificity", "construction": "truth with one realized Hill exponent altered (4->2 or 2->1)", "measured": "specificity of M2, M3", "pass_threshold": ">= 78/80 scored NON-match", "rationale": "protects against a matcher so permissive it manufactures a false positive; NOT in the original brief, added here"},
+      {"id": "PC3b", "type": "NEGATIVE_specificity", "construction": "truth with two variable indices swapped in one component (dimension >= 2 systems only)", "n": 60, "measured": "specificity of M2, M3", "pass_threshold": ">= 58/60 scored NON-match"}
+    ]
+  },
+
+  "secondary_endpoints": [
+    {"id": "A-S1", "part": "A", "endpoint": "system_semantic_equivalence_in_beam_rate_M2_ANY (constants included)", "inference": "secondary_holm", "family": "S1", "interval": "Wilson 95%"},
+    {"id": "A-S2", "part": "A", "endpoint": "per-system MEAN hit fraction over the 12 cells, M3", "inference": "secondary_holm", "family": "S1", "interval": "student_t_ci", "dof": 79},
+    {"id": "A-S3", "part": "A", "endpoint": "component-level semantic-equivalence-in-beam rate, M3 (per-system fraction of components ever matched, then across 80 systems)", "inference": "ESTIMATION_ONLY", "family": null, "interval": "student_t_ci", "dof": 79, "no_hypothesis_test": true, "no_discovery_framing": true, "prior_information_disclosed": "C0001_exploratory_neg_canonicalization.md:107/2040=0.0525"},
+    {"id": "A-S4", "part": "A", "endpoint": "per-family system-level M3 rate (8 families, n=10 each)", "inference": "secondary_holm", "family": "S1", "interval": "Wilson 95%", "note": "underpowered by construction; no confirmatory claim"},
+    {"id": "A-S5", "part": "A", "endpoint": "cascade increment table |M0| |M1| |M2| |M3| at candidate and system level", "inference": "descriptive"},
+    {"id": "A-S6", "part": "A", "endpoint": "oracle candidate per cell per level vs selected candidate under each frozen selection rule (src/evaluation/gpu_run5_selection.py:11)", "inference": "descriptive", "note": "rule 03: generation coverage vs oracle vs selected"},
+    {"id": "A-S7", "part": "A", "endpoint": "matcher failure accounting: cas_timeout, ParseError, SymbolicEquivalenceTimeout rates, numeric_equivalence_finite_points distribution", "inference": "descriptive"},
+    {"id": "A-S8", "part": "A", "endpoint": "PREREGISTERED CONSEQUENCE FOR A LATER CYCLE: if A-S3 > 0 then GPU_RUN5's component_exact_loss = 0.0 across all 16 layers was NOT at the floor and its causal-intervention analysis may have discarded usable signal", "inference": "none", "tested_in_C0001": false, "routed_to": "GPU_RUNclaude1/hypothesis_tree.md as a C0002+ candidate"},
+    {"id": "B-S1", "part": "B", "endpoint": "validation system-level out_of_support_rate (>=1 component with U_min > 3)", "inference": "secondary_holm", "family": "S2", "interval": "Wilson 95%", "interval_interpretation": "generator_sampling_not_measurement_error"},
+    {"id": "B-S2", "part": "B", "endpoint": "validation component-level out_of_support_rate (of 170 components)", "inference": "secondary_holm", "family": "S2", "interval": "Wilson 95%", "interval_interpretation": "generator_sampling_not_measurement_error"},
+    {"id": "B-S3", "part": "B", "endpoint": "realized-exponent histogram (train and validation) reconciled against configs/gpu_run5/base.yaml:28 hill_exponents: [1,2,4]", "inference": "descriptive"},
+    {"id": "B-S4", "part": "B", "endpoint": "mechanism decomposition of out-of-support components: multiplicative Hill-4 single-term (U_mult=5, rescued by B-R1 to 3) vs MULTI-TERM components (U_mult>=6, NOT rescued)", "inference": "descriptive", "note": "new mechanism identified at Stage 3"},
+    {"id": "B-S5", "part": "B", "endpoint": "per-family out_of_support rate", "inference": "descriptive", "note": "underpowered"},
+    {"id": "B-S6", "part": "B", "endpoint": "zero-probability-operator usage by truths (expected 0/320)", "inference": "descriptive"},
+    {"id": "C-S1", "part": "C", "endpoint": "per-system mean rank_pct_sum (GT-mult)", "inference": "secondary_holm", "family": "S3", "interval": "student_t_ci", "dof": "n_in_support - 1"},
+    {"id": "C-S2", "part": "C", "endpoint": "per-system mean rank_pct_per_token", "inference": "secondary_holm", "family": "S3", "interval": "student_t_ci"},
+    {"id": "C-S3", "part": "C", "endpoint": "per-system mean rank_pct_length_matched", "inference": "secondary_holm", "family": "S3", "interval": "student_t_ci"},
+    {"id": "C-S4", "part": "C", "endpoint": "below_all_indicator system-level rate (system = 1 if ALL its cells have below_all = 1)", "inference": "secondary_holm", "family": "S3", "interval": "Wilson 95%"},
+    {"id": "C-S5", "part": "C", "endpoint": "paired difference logP(GT-affine) - logP(GT-mult) per system, summed and per-token", "inference": "secondary_holm", "family": "S3", "interval": "paired student_t_ci", "dof": "n_in_support - 1"},
+    {"id": "C-S6", "part": "C", "endpoint": "GT per-token log-prob minus selected-candidate per-token log-prob (nats/token)", "inference": "secondary_holm", "family": "S3", "interval": "paired student_t_ci"},
+    {"id": "C-S7", "part": "C", "endpoint": "re-encoding audit: mismatch rate, unreliable_reencoding cell rate, AffineEncodingUnavailable rate, LengthMatchUnavailable rate", "inference": "descriptive", "gates": "Gate C -> report"},
+    {"id": "C-S8", "part": "C", "endpoint": "GT token length vs rank_pct_sum regression", "inference": "exploratory"},
+    {"id": "D-E1", "part": "D", "endpoint": "fraction of the 14.76% ODEBench variable-denominator candidates that are inv(affine_in_one_variable) i.e. inv(a*x+b), vs inv(polynomial degree>=2), vs inv(multivariate), vs other", "inference": "exploratory", "may_be_cited_as_a_finding": false}
+  ],
+
+  "expected_direction_and_defect_protocol": {
+    "frozen_expectation": {"A-S3": ">= 0.0525", "primary": ">= 0, most likely 0 given P5"},
+    "defect_trigger": "A-S3 < 0.0525 - 0.005 (the CAS cascade finds FEWER component matches than the crude neg folder)",
+    "classification_of_trigger": "MATCHER DEFECT, NOT A RESULT",
+    "protocol": [
+      "halt reporting of Part A endpoints",
+      "recover from raw records the triples the crude folder matched and the cascade did not; store at phase1/matcher_regression_cases.json",
+      "diagnose (most likely cause: to_skeleton constant collapsing, or numeric_equivalent safe-domain rejection)",
+      "fix only the defect; re-run Part A WHOLE; record a DEVIATION-nn block",
+      "if the defect cannot be isolated within the compute ceiling: Part A verdict undecidable and NO null may be claimed"
+    ]
+  },
+
+  "part_B": {
+    "scope": "320 train + validation truths, per component, from the stored teacher_components_prefix",
+    "quantities": ["realized_hill_exponents (detected as NESTING DEPTH of pow2 over a variable-containing subtree: depth 1 -> exponent 2, depth 2 -> exponent 4)", "U_mult (non-identity unary node count in the stored canonical multiplicative form)", "U_affine (minimum over the preregistered rewrite set)", "U_min = min(U_mult, U_affine)", "in_support = (U_min <= 3)", "uses_only_in_support_operators", "binary_ops_per_dim vs max 5", "unary_depth vs max 7"],
+    "implementation_warning": "a literal pow,4 token is NOT how exponent 4 is spelled in this corpus; an implementation searching for it is wrong by construction",
+    "rewrite_set": [
+      {"id": "B-R1", "rule": "A^n * inv(K + A^n) -> 1 - K * inv(K + A^n) for any subtree A, integer n >= 1", "name": "activation to affine-decomposed repression"},
+      {"id": "B-R2", "rule": "fold any pure-constant subtree to a single constant leaf"},
+      {"id": "B-R3", "rule": "distribute mul over add ONLY when it strictly lowers the non-identity unary count"},
+      {"id": "B-R4", "rule": "neg(X) <-> mul(-1, X)"}
+    ],
+    "rewrite_cap_per_component": 200,
+    "rewrite_verification": "numeric_equivalent(n_points=32, seed=0); a failing rewrite is DISCARDED and logged as RewriteVerificationFailure",
+    "preregistered_limitation": "U_affine is a minimum over a BOUNDED rewrite set, hence an UPPER bound on the true minimal unary count; an out_of_support claim is explicitly one-sided ('out of support under the preregistered rewrite set'), never 'out of support'",
+    "B_R1_does_not_rescue_multi_term": "the affine expansion of a product of two Hill terms yields four terms with >= 6 unaries, so U_min for such components stays > 3",
+    "statistical_honesty": "Part B per-system values are deterministic functions of a fixed corpus with no measurement noise; the Wilson interval describes sampling variability of the R01-R08 GENERATOR, not count uncertainty. Every artifact carries interval_interpretation: 'generator_sampling_not_measurement_error'",
+    "preregistered_possibility_of_inapplicability": "if B-S1 = 0, E1' is refuted for this corpus and that is itself a reportable result; calibration (P7: 25.0% of train systems exceed budget) makes an observed 0 unlikely and would additionally trigger a train/validation consistency check as a possible implementation defect"
+  },
+
+  "part_C": {
+    "restriction": "run ONLY on the in-support subset (systems all of whose components have U_min <= 3)",
+    "restriction_rationale": "running Part C on out-of-support systems would conflate E1' with E2; the original proposal did not restrict it",
+    "expected_n_in_support": "approximately 60 of 80 from train calibration",
+    "power_floor": {"n_in_support_min": 30, "if_below": "Part C downgraded to exploratory for insufficient power; cannot support an E2 or E3 verdict"},
+    "procedure": [
+      "load the cell's INPUT trajectory from phase3/cells/<cell_id>.json:observations['input'] and verify input_trajectory_checksum (mismatch -> EncoderCacheMiss, cell excluded and reported)",
+      "build the embedder point bag exactly as src/gpu_run4/training.py:16 _point_bag; run embedder + encoder('fwd', causal=False) ONCE and cache src_enc for all sequences in the cell (compute saving AND fairness guarantee)",
+      "score with decoder('fwd', causal=True, src_enc=..., src_len=...) then decoder('predict', tensor=..., pred_mask=..., y=..., get_scores=True), gathering log-softmax at the pred_mask positions",
+      "sequences scored: GT-mult (stored tree_encoded), GT-affine (Part B rewrite re-encoded via env.equation_encoder.encode; failure -> AffineEncodingUnavailable), and each of the <=50 stored candidates re-encoded from candidate_formula_raw"
+    ],
+    "instrument_change": {
+      "existing": "src/gpu_run4/training.py:23 teacher_forcing_loss returns MEAN CE via get_scores=False",
+      "required": "ADD a NEW function returning (sum_logprob, n_scored_tokens, per_token_logprobs) from get_scores=True; do NOT modify the existing function, which other phases depend on",
+      "regression_test": "assert sum_logprob / n_scored_tokens == -teacher_forcing_loss(...) to within 1e-5 on >= 5 fixed examples, proving the new path agrees with the audited one",
+      "artifact": "phase3/partC_instrument_test.json"
+    },
+    "reencoding_audit": {
+      "rationale": "no log-prob was ever stored (P9), so candidates must be re-encoded; this is the single largest threat to Part C",
+      "procedure": "encode(parse(raw)) -> decode -> canonicalize, compare to the stored candidate_formula_canonical",
+      "exact_match": "candidate_reencoding_roundtrip_exact = True, candidate usable",
+      "mismatch": "candidate_reencoding_mismatch = True, failure_reason = CandidateReencodingMismatch; EXCLUDED from the comparison distribution but COUNTED AND REPORTED",
+      "cell_threshold": {"mismatch_fraction_max": 0.10, "on_exceed": "cell flagged unreliable_reencoding, excluded from the Part C primary, reported separately"},
+      "part_threshold": {"unreliable_cell_fraction_max": 0.10, "on_exceed": "Part C verdict is UNDECIDABLE"}
+    },
+    "length_normalization_policy": {
+      "problem": "GT sequences are long (P3: median 47, max 80 tokens) and candidates differ in length; unnormalized summed log-probability is monotonically penalized by length, which BIASES the diagnosis toward E2 (model error)",
+      "handling": "triple-reported quantity with a CONJUNCTIVE decision rule, not silent normalization",
+      "quantities": [
+        {"name": "rank_pct_sum", "definition": "(# usable candidates with LOWER summed log-prob than GT-mult) / (# usable candidates); 0 = GT worse than every candidate the model sampled"},
+        {"name": "rank_pct_per_token", "definition": "same, on length-normalized (per-token mean) log-prob"},
+        {"name": "rank_pct_length_matched", "definition": "same, on summed log-prob, restricted to candidates whose token length is within +/-20% of the GT token length; if fewer than 5 such candidates exist the cell is LengthMatchUnavailable and excluded from THIS SECONDARY ONLY, never from the primary"},
+        {"name": "below_all_indicator", "definition": "1[rank_pct_sum == 0]"}
+      ]
+    },
+    "conjunctive_decision_rule": {
+      "E2_model_error_supported_iff": "C-S1, C-S2 and C-S3 upper 95% bounds all < 0.05, AND C-S4 >= 0.80 with Wilson lower bound > 0.70",
+      "E3_search_error_supported_iff": "C-S1, C-S2 and C-S3 lower 95% bounds all >= 0.25, WHILE the Part A primary is approximately 0",
+      "on_disagreement": "any disagreement among C-S1/C-S2/C-S3 in direction -> Part C verdict UNDECIDABLE, with the disagreement reported; this prevents choosing whichever normalization gives the tidier story"
+    }
+  },
+
+  "statistical_plan": {
+    "estimators": [
+      {"endpoint_class": "system-level proportions (primary, A-S1, A-S4, B-S1, B-S2, C-S4)", "estimator": "Bernoulli proportion over the 80 (or n_in_support) system-level indicators", "interval": "Wilson score, alpha = 0.05", "dof": null},
+      {"endpoint_class": "per-system means (A-S2, A-S3, C-S1..C-S3)", "estimator": "mean of per-system means", "interval": "src/gpu_run4/aggregation.py:22 student_t_ci, alpha = 0.05", "dof": "n - 1 (= 79 for n = 80)"},
+      {"endpoint_class": "paired differences (C-S5, C-S6)", "estimator": "mean of per-system paired differences", "interval": "paired Student-t via student_t_ci on the differences", "dof": "n - 1"},
+      {"endpoint_class": "control sensitivity/specificity", "estimator": "proportion over 80 (or 60 for PC3b)", "interval": "Wilson score", "dof": null}
+    ],
+    "invalid_test_warning": {
+      "issue": "the natural 'M3 rate minus M0 rate' comparison is DEGENERATE: M0 is 0 for all 80 systems by C-M0, so the per-system paired difference equals the M3 indicator exactly and its sampling distribution is Bernoulli, not t",
+      "resolution": "the M3-vs-M0 comparison is reported as the Wilson interval on the M3 indicator with the note that M0 == 0; NO t-test is run on it. A t-test IS valid for A-S2 and the Part C paired differences, which are genuinely continuous"
+    },
+    "null_credibility_conditions": [
+      {"id": "N1", "condition": "PC1 sensitivity = 80/80 for M1, M2 and M3"},
+      {"id": "N2", "condition": "PC2a sensitivity >= 76/80 for M3 (the matcher can detect the neg artifact E0 alleges)"},
+      {"id": "N3", "condition": "PC2b, PC2c, PC2d each >= 76/80 for M3"},
+      {"id": "N4", "condition": "PC3a specificity >= 78/80 and PC3b >= 58/60 for M2 and M3 (the matcher is not over-permissive)"},
+      {"id": "N5", "condition": "matcher failure fraction (cas_timeout + ParseError + SymbolicEquivalenceTimeout) < 2% of all scored triples, and cascade monotonicity violations <= 0.1%"},
+      {"id": "N6", "condition": "the component-level rate A-S3 > 0, demonstrating that the cascade CAN find partial matches on this very data (uses the disclosed 5.25% as a SANITY FLOOR, not as a discovery)"}
+    ],
+    "on_null_condition_failure": "Part A verdict is UNDECIDABLE (instrument failure) and NO null may be reported",
+    "outcome_ladder": [
+      {"hits_of_80": "0", "wilson_ci95": [0.0000, 0.0462], "verdict": "null_credible", "meaning": "H-C0001-P SUPPORTED; GPU_RUN5's system-level claim survives"},
+      {"hits_of_80": "1-3", "wilson_ci95_upto": [0.0026, 0.1055], "verdict": "weak_positive", "meaning": "H-C0001-P UNSUPPORTED; prior claim requires partial revision; replication gate triggered"},
+      {"hits_of_80": ">=4", "wilson_ci95_lower_gt": 0.013, "verdict": "evaluator_artifact_confirmed", "meaning": "H-C0001-P REFUTED; GPU_RUN5's headline interpretation INVALIDATED; replication gate mandatory"}
+    ],
+    "power_limitation_stated_plainly": "At n = 80 the 0.05 threshold in H-C0001-P is attainable ONLY by observing exactly zero hits: 1/80 already gives a Wilson upper bound of approximately 0.0675. The design cannot certify '<= 5%' in the presence of even one hit. This is why the ladder is graded rather than binary, and it means the primary is NOT a well-powered test of small positive rates; it is a test of whether the rate is essentially zero.",
+    "multiplicity": {
+      "primary_endpoints": 1,
+      "primary_alpha": 0.05,
+      "primary_adjustment": "none",
+      "secondary_families": [
+        {"family": "S1", "part": "A", "members": ["A-S1", "A-S2", "A-S4"], "adjustment": "Holm-Bonferroni within family at alpha = 0.05"},
+        {"family": "S2", "part": "B", "members": ["B-S1", "B-S2"], "adjustment": "Holm-Bonferroni within family at alpha = 0.05"},
+        {"family": "S3", "part": "C", "members": ["C-S1", "C-S2", "C-S3", "C-S4", "C-S5", "C-S6"], "adjustment": "Holm-Bonferroni within family at alpha = 0.05"}
+      ],
+      "not_in_any_family_no_inference_drawn": ["A-S3", "A-S5", "A-S6", "A-S7", "A-S8", "B-S3", "B-S4", "B-S5", "B-S6", "C-S7", "C-S8", "D-E1", "all control-battery rates"],
+      "reporting_requirement": "both adjusted and unadjusted intervals reported; every non-family artifact carries inference: 'descriptive' or 'exploratory'"
+    },
+    "non_significance_is_not_equivalence": {
+      "rule": "rule 01 item 8",
+      "frozen_wording_constraints": [
+        "a Part A observation of 0/80 licenses ONLY 'the system-level semantic-equivalence-in-beam rate is bounded above by 0.046 with 95% confidence'. It does NOT license 'the rate is zero', 'the matcher makes no difference', 'M0 and M3 are equivalent', or 'the two matchers agree'",
+        "any Part C interval containing 0 licenses ONLY 'this design did not detect a difference of the preregistered size'. It does NOT license 'GT-affine and GT-mult are equally probable' or 'the GT is as likely as the sampled candidates'",
+        "a Part B rate of 0 licenses ONLY 'no validation system was out of support under the preregistered rewrite set'. It does NOT license 'the truth is in the generator's support'",
+        "any equivalence claim requires a preregistered equivalence margin and a two-one-sided-test procedure. NONE is preregistered in C0001. THEREFORE NO EQUIVALENCE CLAIM MAY BE MADE IN C0001 AT ALL. Stage 9 must enforce this."
+      ]
+    }
+  },
+
+  "gates": {
+    "gate_0_pre_run": [
+      "git branch --show-current == 20260909_researce_GPU_RUNclaude1; git status --short clean or fully explained in the manifest",
+      "pytest GPU_RUN5/tests/test_gpu_run5_firewall.py green (invoked explicitly; pytest.ini omits that path)",
+      "Stage 5 reproducibility audit reports ZERO CRITICAL findings; grep -rn sealed over the C0001 diff shows no direct sealed read",
+      "checkpoint SHA256 == 56754040be5aa92ed4767fc43ee2008faa293f87c12b643e66c7df3e1623a5e8",
+      "input SHA256s recorded for phase2/train.json, phase2/validation.json, phase3/all_candidates.json, and each phase3/cells/*.json read",
+      "GPU 0 idle temperature < 70 C; free VRAM >= 6.0 GiB; disk free >= 40 GiB",
+      "Stage 6 smoke on the 24-system panel phase4/fixed_grn_validation_panel.json completes, writes a manifest, equation records, failure records, and demonstrates resume",
+      "new run directory does not already exist"
+    ],
+    "gate_A_to_B": {
+      "conditions": [
+        "the M0 arm REPRODUCES C-M0 EXACTLY (system-level 0.0 over 960 cells and 0/2040 component level)",
+        "N1-N5 pass",
+        "the matcher-defect protocol was not triggered, or was triggered and resolved"
+      ],
+      "on_control_failure": "Part B MAY still proceed (independent instrument, no shared matcher), but Part A is reported undecidable and Part C is NOT run"
+    },
+    "gate_B_to_C": {
+      "conditions": [
+        "the Part A primary is on the null_credible or weak_positive rung. If Part A lands on evaluator_artifact_confirmed, Part C is NOT RUN in C0001: the premise has changed and the correct next move is the replication of Part A, not a diagnosis of a failure that may not exist",
+        "Part B identifies n_in_support >= 30 validation systems that are fully in support AND have Part A hit = 0"
+      ],
+      "on_underpower": "if n_in_support < 30, Part C runs but is reported EXPLORATORY (underpowered) and cannot support an E2 or E3 verdict"
+    },
+    "gate_C_to_report": "Part C endpoints are reported only if C-S7 shows the re-encoding audit within tolerance; otherwise Part C is undecidable"
+  },
+
+  "abort_and_crash_loop": {
+    "resource_aborts": [
+      "cumulative GPU 0 time > 4.0 h, or CPU > 24 core-hours, or new disk > 15 GiB -> abort the running part, preserve partial artifacts, report what completed",
+      "peak VRAM on GPU 0 > 5.5 GiB at any sample -> abort immediately (GPU shared with the user's live desktop; ~888 MiB already held by gnome-shell/Xwayland)",
+      "GPU 0 temperature > 85 C sustained 60 s -> pause, cool, resume once"
+    ],
+    "vram_fallback_chain": ["reduce Part C batch size to 1", "reduced Part C design (bundle_index == 0 only, 4 cells/system)", "move Part C to GPU 1 (GTX 1060 3 GB, forward-only) with batch 1"],
+    "crash_loop_rule": "3 consecutive identical fatal failures with no new diagnostic information -> STOP AND REASSESS (rule 06). Do not re-run. Record the three tracebacks and their identical signature in the cycle report, classify the bottleneck via negative-result-recovery, and end the cycle. A failed hypothesis does not justify more compute.",
+    "projected_throughput_abort": "if the Stage-6 smoke projects Part A > 8 core-hours or Part C > 2.0 GPU-hours, invoke the preregistered reduced designs BEFORE starting, not midway"
+  },
+
+  "verdict_criteria": {
+    "primary_hypothesis": {
+      "supported": "N1-N6 all pass; M0 reproduces C-M0; Part A primary = 0/80 (Wilson upper 0.0462 < 0.05)",
+      "unsupported": "N1-N6 all pass; M0 reproduces C-M0; Part A primary >= 1/80",
+      "undecidable": "any of N1-N6 fails; OR M0 fails to reproduce C-M0; OR cascade monotonicity violation > 1%; OR matcher failure fraction >= 2%; OR the defect protocol could not be resolved within the ceiling; OR the run aborted before the primary was computed"
+    },
+    "mechanism_attribution": {
+      "reported_as": "a partition of the 80 systems, never as a single winner",
+      "buckets": [
+        {"mechanism": "E0", "attributed_when": "the system has a Part A M3 hit that M0 scored as a miss"},
+        {"mechanism": "E1prime", "attributed_when": "Part A hit = 0 AND >= 1 component has U_min > 3 (out of support under the preregistered rewrite set)"},
+        {"mechanism": "E2", "attributed_when": "Part A hit = 0, fully in support, and Part C's conjunctive E2 rule holds for it (all three normalizations agree, below_all = 1 in every cell)"},
+        {"mechanism": "E3", "attributed_when": "Part A hit = 0, fully in support, and Part C's conjunctive E3 rule holds for it"},
+        {"mechanism": "unattributed", "attributed_when": "none of the above, or Part C undecidable for it"}
+      ],
+      "requirement": "the report must state the counts in all five buckets; overlaps are possible and must be shown, not resolved by fiat; no single-number 'the cause is X' claim is permitted"
+    }
+  },
+
+  "compute_ceiling": {
+    "gpu0": {"device": "NVIDIA GeForce RTX 2070", "usable_vram_gib": 6.5, "shared_with_live_desktop": true, "ceiling_gpu_hours": 4.0, "allocation": {"partC": 2.0, "stage6_smoke": 0.3, "reserve": 1.7}},
+    "peak_vram_gib": {"ceiling": 5.5, "partC_target": 3.0, "note": "fp32, 60.6M params ~250 MB weights, cached src_enc per cell, batch <= 8, seq <= 200"},
+    "cpu_core_hours": {"ceiling": 24, "allocation": {"partA": 8, "partB": 2, "partC_host": 2, "partD": 0.5, "slack": 11.5}, "partA_justification": "P11 projects ~1.72 single-core hours; 4.7x margin for GRN's larger 3-component trees and the control battery"},
+    "new_disk_gib": {"ceiling": 15, "expected": "3-6"},
+    "gpu1": {"device": "NVIDIA GeForce GTX 1060 3GB", "role": "forward-only fallback under the VRAM fallback chain"},
+    "ceiling_increase_requested": false,
+    "note": "a ceiling increase would be a HARD STOP requiring human approval (rule 06); this design is sized to avoid one"
+  },
+
+  "run_id": {
+    "rule": "gpu_runclaude1_c0001_<short7> where <short7> is the first 7 characters of the git commit at run start",
+    "value_at_freeze": "gpu_runclaude1_c0001_94a571b",
+    "collision_policy": "if the directory already exists, append _v2, _v3, ...; NEVER overwrite any of the 28 existing results/runs/* directories (rule 05)",
+    "collision_verified_at_freeze": "no existing directory begins with gpu_runclaude1",
+    "forbidden": ["git reset --hard", "force push", "overwriting prior results/runs/ or GPU_RUN reports"]
+  },
+
+  "expected_artifacts": [
+    {"path": "results/runs/gpu_runclaude1_c0001_<short7>/manifest.json", "content": "run manifest: branch, commit, pip freeze, GPU + driver, checkpoint SHA256, input data-tree fingerprints, per-phase status"},
+    {"path": ".../phase0/environment_audit.json", "content": "env, GPU/temp/VRAM, disk, library versions"},
+    {"path": ".../phase0/checkpoint_audit.json", "content": "checkpoint SHA256 + size + persisted generator config"},
+    {"path": ".../phase0/firewall_test.json", "content": "test_gpu_run5_firewall.py result; sealed_paths_read: []"},
+    {"path": ".../phase0/input_fingerprints.json", "content": "SHA256 of every input file opened"},
+    {"path": ".../phase1/partA_records.jsonl", "content": "one record per (cell, candidate, component); extended 30+ field schema"},
+    {"path": ".../phase1/partA_cell_summary.json", "content": "per-cell hits at M0/M1/M2/M3, oracle and selected candidate indices per level"},
+    {"path": ".../phase1/partA_system_summary.json", "content": "per-system ANY and MEAN indicators at each level"},
+    {"path": ".../phase1/partA_endpoints.json", "content": "primary + A-S1..A-S7 with Wilson / Student-t intervals, Holm-adjusted where applicable"},
+    {"path": ".../phase1/partA_controls.json", "content": "PC1, PC2a-d, PC3a-b sensitivity/specificity vs thresholds; N1-N6 pass/fail"},
+    {"path": ".../phase1/partA_failures.jsonl", "content": "every timeout, parse error, non-finite, monotonicity violation, with both expressions"},
+    {"path": ".../phase1/matcher_monotonicity.json", "content": "cascade set-inclusion audit"},
+    {"path": ".../phase1/matcher_regression_cases.json", "content": "written ONLY if the defect protocol fires"},
+    {"path": ".../phase2/partB_component_records.jsonl", "content": "per truth component: realized exponents, U_mult, U_affine, U_min, in_support, budget checks"},
+    {"path": ".../phase2/partB_rewrites.jsonl", "content": "every attempted rewrite with its numeric-verification outcome"},
+    {"path": ".../phase2/partB_endpoints.json", "content": "B-S1..B-S6 with interval_interpretation field"},
+    {"path": ".../phase2/partB_in_support_systems.json", "content": "Part C eligibility list and n_in_support"},
+    {"path": ".../phase3/partC_cell_records.jsonl", "content": "per (cell, sequence): token length, summed and per-token log-prob, encoding tag, round-trip audit result"},
+    {"path": ".../phase3/partC_reencoding_audit.json", "content": "mismatch rates, unreliable_reencoding cells, AffineEncodingUnavailable cells"},
+    {"path": ".../phase3/partC_endpoints.json", "content": "C-S1..C-S8 with intervals; conjunctive E2/E3 rule outcome"},
+    {"path": ".../phase3/partC_instrument_test.json", "content": "the sum/n == -mean_CE regression test vs teacher_forcing_loss"},
+    {"path": ".../phase3/gpu_telemetry.jsonl", "content": "VRAM/temperature samples (<= 10 s interval)"},
+    {"path": ".../phase4/partD_denominator_arity.json", "content": "Part D, tagged exploratory"},
+    {"path": ".../phase4/mechanism_partition.json", "content": "the five-bucket E0/E1'/E2/E3/unattributed partition"},
+    {"path": ".../phase4/compute_accounting.json", "content": "GPU-hours, CPU-core-hours, disk, vs ceiling"},
+    {"path": "GPU_RUNclaude1/analyses/C0001_analysis.md", "content": "Stage 8 analysis"},
+    {"path": "GPU_RUNclaude1/reviews/C0001_statistical_review.md", "content": "Stage 8 statistical review"},
+    {"path": "GPU_RUNclaude1/reviews/C0001_independent_review.md", "content": "Stage 9 adversarial review"},
+    {"path": "GPU_RUNclaude1/reviews/C0001_reproducibility_audit.md", "content": "Stage 5 audit"},
+    {"path": "GPU_RUNclaude1/reports/C0001_report.md", "content": "Stage 11 cycle report (MANDATORY even if null / undecidable / aborted)"},
+    {"path": "GPU_RUNclaude1/manifests/C0001_artifact_manifest.json", "content": "Stage 12 manifest"},
+    {"path": "GPU_RUNclaude1/manifests/C0001_checksums.sha256", "content": "Stage 12 checksums"},
+    {"path": "GPU_RUNclaude1/plans/C0001_preregistration.md", "content": "this preregistration"},
+    {"path": "GPU_RUNclaude1/plans/C0001_preregistration.json", "content": "machine-readable twin"}
+  ],
+  "large_artifact_policy": "partA_records.jsonl expected ~0.5-2 GiB; large artifacts are NOT committed, their paths and SHA256s are preserved in the manifest (rule 05)",
+
+  "record_schema": {
+    "base": "src/gpu_run4/records.py:7 GPU_RUN4_REQUIRED_FIELDS (30 fields), EXTENDED never replaced, constructed via :76 make_formula_record(**extra)",
+    "campaign_value": "GPU_RUNclaude1_C0001",
+    "added_fields": {
+      "partA_matcher": ["matcher_level", "m0_string_exponent_aware_skeleton_exact", "m1_canonical_exact", "m2_cas_symbolic_equivalent", "m3_skeleton_cas_equivalent", "m3_numeric_equivalent_at_matched_constants", "component_m3_skeleton_cas_equivalent", "cas_timeout", "cas_wall_time_sec", "numeric_equivalence_finite_points", "matcher_failure_reason", "monotonicity_violation"],
+      "rule03_completeness": ["true_components_infix", "candidate_components_infix", "variable_to_gene", "variable_precision", "variable_recall", "variable_f1", "unnecessary_variables", "near_singularity", "extrapolation_valid", "extrapolation_extreme", "has_division", "has_tan"],
+      "generation_vs_selection": ["generation_coverage_scope", "oracle_candidate_index_by_level", "selected_candidate_index_by_rule", "candidate_return_shortfall"],
+      "controls": ["positive_control_tag", "control_expected_outcome"],
+      "partB": ["u_mult", "u_affine", "u_min", "in_support", "realized_hill_exponents", "unary_depth", "binary_ops_per_dim", "uses_only_in_support_operators", "rewrite_verification_outcome", "out_of_support_mechanism"],
+      "partC": ["gt_encoding", "gt_logprob_sum", "gt_logprob_per_token", "gt_token_length", "candidate_logprob_sum", "candidate_logprob_per_token", "candidate_token_length", "rank_pct_sum", "rank_pct_per_token", "rank_pct_length_matched", "below_all_indicator", "candidate_reencoding_roundtrip_exact", "candidate_reencoding_mismatch", "cell_reliability_flag", "n_usable_candidates"],
+      "integrity": ["prior_information_disclosed", "inference", "interval_interpretation"]
+    },
+    "enum_values": {
+      "matcher_level": ["M0", "M1", "M2", "M3"],
+      "generation_coverage_scope": ["cell", "system"],
+      "positive_control_tag": ["none", "PC1", "PC2a", "PC2b", "PC2c", "PC2d", "PC3a", "PC3b"],
+      "out_of_support_mechanism": ["multiplicative_hill4", "multi_term_component", "other", "none"],
+      "gt_encoding": ["mult", "affine"],
+      "inference": ["primary", "secondary_holm", "descriptive", "exploratory"]
+    },
+    "failure_reasons_extension": {
+      "existing_kept_intact": "the 22-entry enum at src/gpu_run4/records.py:47",
+      "appended": ["CanonicalizationError", "RewriteVerificationFailure", "AffineEncodingUnavailable", "CandidateReencodingMismatch", "NumericEquivalenceNonFinite", "PositiveControlFailure", "MatcherMonotonicityViolation", "LengthMatchUnavailable", "EncoderCacheMiss"]
+    }
+  },
+
+  "failure_and_exclusion_policy": {
+    "principle": "nothing is silently dropped; every invalid, failed, timed-out or unparseable equation is written to the records with its failure_reason and counted in the denominator of its own diagnostic rate (rule 01 items 4 and 5)",
+    "invalid_candidates": "a candidate with valid == false is scored as a non-match with failure_reason preserved and is NEVER dropped from any denominator",
+    "denominators": "usable candidates present in the cell (47/48/49/50 per P10), never a hardcoded 50; the 13 missing candidates are recorded as candidate_return_shortfall",
+    "permitted_exclusions_all_counted_and_reported": [
+      {"exclusion": "candidates failing the Part C re-encoding round trip", "scope": "Part C comparison distribution only"},
+      {"exclusion": "cells with LengthMatchUnavailable", "scope": "C-S3 only"},
+      {"exclusion": "cells flagged unreliable_reencoding", "scope": "Part C primary only"}
+    ],
+    "no_exclusion_from_part_A_primary": true,
+    "numerical_fit_is_not_recovery": "reconstruction_r2, generalization_r2 and NRMSE fields are carried as covariates and may be cross-tabulated against match status, but no match claim may be made from them (rule 01 item 6)"
+  },
+
+  "deviation_policy": {
+    "general_rule": "preserve original artifacts, append a dated DEVIATION-nn block, and either mark the affected endpoint exploratory or open a new preregistered cycle. Never edit frozen text; never change a threshold to rescue a result (rule 01 item 3)",
+    "named_contingencies": [
+      {"id": "D1", "contingency": "matcher times out on some fraction", "policy": "< 2% of triples -> proceed, report as A-S7 (inside the N5 budget). 2-10% -> report the primary with timed-out triples counted as NON-matches (conservative against a spuriously large null) AND a clearly labeled sensitivity analysis counting them as matches; if the two disagree on the ladder rung the verdict is undecidable. > 10% -> undecidable. DO NOT raise SYMPY_OP_TIMEOUT_SEC (that would change the frozen instrument mid-cycle)"},
+      {"id": "D2", "contingency": "all_candidates.json lacks a needed field", "verified_present_at_freeze": ["candidate_formula_raw", "candidate_formula_canonical", "candidate_exponent_aware_skeleton", "true_formula", "true_prefix", "valid", "failure_reason", "complexity", "ted fields", "trajectory_metrics"], "verified_absent_at_freeze": ["symbolic_equivalent", "any log-prob/score"], "policy": "recover from phase3/cells/<cell_id>.json (which stores the full per-cell record including observations); if still absent the dependent endpoint is dropped, marked not_measurable_from_stored_artifacts, and reported as such. The PRIMARY depends only on candidate_formula_raw and teacher_components_infix, both verified present, so no field absence can void the primary"},
+      {"id": "D3", "contingency": "the affine-decomposed encoding cannot be constructed automatically", "policy": "per component log AffineEncodingUnavailable and fall back to GT-mult only. C-S5 is dropped if > 20% of in-support systems lack an affine encoding. Part B's U_affine falls back to U_mult for those components, making U_min = U_mult, the CONSERVATIVE direction (it over-reports out-of-support) and the report must say so. MANUAL hand-construction of affine encodings is FORBIDDEN: it would make the rewrite set unreproducible and investigator-dependent"},
+      {"id": "D4", "contingency": "Part A projected over 8 core-hours", "policy": "preregistered reduced design chosen before running: stratified subsample of 4 of the 12 cells per system (bundle_index == 0, all 4 corruptions), giving 320 cells / ~16,000 candidates. The primary endpoint DEFINITION is unchanged; only the number of cells contributing to the ANY reduction shrinks. This WEAKENS the primary (fewer chances to find a hit), so a null under the reduced design must be reported with the reduced coverage stated explicitly"},
+      {"id": "D5", "contingency": "Part C projected over 2.0 GPU-hours", "policy": "same reduced cell design (bundle_index == 0), then batch 1, then GPU 1"},
+      {"id": "D6", "contingency": "M0 fails to reproduce C-M0 = 0.0", "policy": "harness defect, not a finding. Halt, diagnose, and if unresolved the ENTIRE cycle is undecidable: no C0001 endpoint may be reported, because the comparator of record could not be reproduced"}
+    ]
+  },
+
+  "replication_gate": {
+    "rule": "rule 07 / replication-gate skill",
+    "triggers": [
+      "the Part A primary lands on the weak_positive or evaluator_artifact_confirmed rung (a revision or invalidation of a prior published campaign claim)",
+      "the independent reviewer marks any Part A result fragile",
+      "Part C returns an E2 or E3 verdict (a new mechanism claim on a single split and a single checkpoint)"
+    ],
+    "minimum_design_factors_changed": [
+      {"factor": "corpus", "c0001": "GPU_RUN5 GRN validation, 80 systems, Hill-type", "replication": "GPU_RUN4 ODEBench, results/runs/gpu_run4_phase0_01/phase2/all_candidates.json, 12,632 candidates, 63 physics/biology systems"},
+      {"factor": "numeric-equivalence seed / points", "c0001": "seed = 0, 32 uniform points on [0.2, 1.8]", "replication": "seed = 1 and an independent safe-domain point set"},
+      {"factor": "process / path", "c0001": "this run", "replication": "fresh process, clean checkout at a recorded commit, independent run ID results/runs/gpu_runclaude1_c0001r_<short7>/"},
+      {"factor": "agent", "c0001": "implementation + primary analysis", "replication": "executed by lansr-replication-specialist, distinct from implementer and primary analyst"}
+    ],
+    "built_in_corpus_positive_control": "the frozen string matcher already reports 4/252 = 1.59% [0.0062, 0.0401] truth-in-beam on ODEBench (C-ODEB), so the cascade must reproduce a non-zero baseline and must return M3 >= M0 there. A cascade returning 0 on ODEBench is broken, independently of anything it says about GRN",
+    "outcome_classes": ["replicated", "directionally_replicated", "failed_replication", "inconclusive"],
+    "recorded_separately_at": "GPU_RUNclaude1/reports/C0001_replication.md",
+    "never_merged_into_primary": true,
+    "critical_finding_blocks_supported_conclusion": true
+  },
+
+  "layer_analysis_contract": {
+    "rule": "rule 04",
+    "estimands_measured": [],
+    "probe_readout": false,
+    "cka_similarity": false,
+    "gradient": false,
+    "ablation_intervention": false,
+    "iole_single_layer_ft": false,
+    "selective_ft": false,
+    "averaging_into_one_ranking": false,
+    "layer_adjacent_item": "A-S8 is a STATEMENT of a testable consequence for a later cycle, not a measurement; C0001 does not test it and must not imply that it has"
+  },
+
+  "required_reviews_before_full_experiment": [
+    {"review": "methodology", "agent": "lansr-research-methodologist", "must_confirm": ["the four explanations are mutually discriminating as operationalized", "Part C's restriction to the in-support subset is correct", "the ANY vs MEAN reductions answer the stated questions", "the Finding-2 correction is sound"]},
+    {"review": "statistical", "agent": "lansr-statistical-reviewer", "must_confirm": ["statistical unit and aggregation order", "Wilson vs Student-t choices and dof", "the degenerate-paired-test warning", "Holm families", "the power limitation at n = 80", "the non-equivalence constraints", "that A-S3 carries no test"]},
+    {"review": "reproducibility", "agent": "lansr-reproducibility-auditor", "must_confirm": ["test isolation and the firewall (grep for sealed)", "split order", "no hidden fallback", "checkpoint identity", "artifact destinations and non-overwrite", "resume behavior", "failure/equation logging completeness", "that teacher_forcing_loss is EXTENDED, not modified"]},
+    {"review": "independent_adversarial", "agent": "lansr-independent-reviewer", "stage": 9, "special_instruction": "check specifically that no artifact, table, figure or sentence presents the component-level rate (A-S3) as a discovery, and raise any such framing as MAJOR"}
+  ],
+
+  "literature_constraints_honored": [
+    {"constraint": "ODEFormer (ICLR 2024) declines to measure symbolic recovery and reports only R2 > 0.9", "honored_by": "C0001 endpoints are structural match rates, unary counts and log-probabilities; trajectory fit is a covariate only"},
+    {"constraint": "ODEFormer Appendix G: increasing beam size improves reconstruction but not generalization; CTC_NSR: beam 150 provided no additional information", "honored_by": "no beam or temperature sweep is preregistered as any endpoint"},
+    {"constraint": "teacher-forced GT scoring is adjacent, precedented by Stahlberg & Byrne EMNLP-IJCNLP 2019 pp.3356-3362, DOI 10.18653/v1/D19-1331, https://aclanthology.org/D19-1331/", "honored_by": "cited as adjacent; no novelty claim for the instrument"},
+    {"constraint": "no biological-causality language on synthetic Hill-type data", "honored_by": "explicitly out of scope"},
+    {"constraint": "any exact/skeleton-recovery metric must state which algebraic form counts as a match and report both literal and canonical scoring", "honored_by": "the M0-M3 cascade reports all four levels separately"},
+    {"constraint": "any generation-side intervention must report the support-budget count for its target skeletons", "honored_by": "Part B"},
+    {"constraint": "the ODEBench variable-denominator arity question is worth folding in cheaply", "honored_by": "Part D, EXPLORATORY"}
+  ],
+
+  "changes_made_to_the_coordinator_proposal": [
+    {"id": "CH1", "change": "REFUTED coordinator Finding 2: exponent 4 IS realized in this corpus (39/170 validation, 130/510 train components), spelled pow2(pow2(x)) -> pow(pow(x,2),2), never as a literal pow,4 token", "reason": "the search that produced Finding 2 looked for pow2 or pow,4 in the CANONICAL skeleton, where pow2 is rewritten to pow(X,2); E1' is LIVE, not inapplicable"},
+    {"id": "CH2", "change": "identified a SECOND, previously unnamed E1' mechanism: multi-term components exceed the per-dimension unary budget even at exponent 2 (U_mult >= 6), and the affine rewrite does NOT rescue them", "reason": "the original brief attributed E1' solely to multiplicative Hill-4; train inspection shows counts of 5, 6 and 10, and R07's product-of-two-Hill-2 form is not rescuable. Preregistered as B-S4"},
+    {"id": "CH3", "change": "restricted Part C to the Part B in-support subset, with an n >= 30 power floor", "reason": "the original proposal ran Part C on all 80 systems, which conflates E1' with E2; scoring an out-of-support truth's log-probability cannot distinguish 'the model gives it no mass' from 'the generator never sampled that form'"},
+    {"id": "CH4", "change": "added negative/specificity controls PC3a (wrong exponent) and PC3b (permuted variable)", "reason": "the brief required only positive controls; a null-shaped primary is equally destroyed by an OVER-permissive matcher, and only a specificity control detects that"},
+    {"id": "CH5", "change": "made Part C's length handling a CONJUNCTIVE triple-report (summed, per-token, length-matched) with mandatory agreement, rather than choosing one normalization", "reason": "GT sequences are longer than candidates (P3), so unnormalized log-prob is biased toward the E2 verdict; a single normalization would let the analyst pick the tidier story"},
+    {"id": "CH6", "change": "added the mandatory re-encoding round-trip audit with 10%/10% tolerances and an undecidable verdict", "reason": "Stage-3 inspection established that NO log-probability was ever stored (P9), so all candidate scores must be recomputed from re-encoded strings; without the audit, Part C could silently compare the GT against sequences the model never actually emitted"},
+    {"id": "CH7", "change": "made the primary system-level and the component-level ESTIMATION-ONLY, with the disclosed 5.25% repurposed as null-credibility condition N6 (a sanity floor)", "reason": "coordinator constraint (b): the component-level figure has been seen, so it cannot be a blind discovery test; using it as a floor extracts value from it without claiming it"},
+    {"id": "CH8", "change": "replaced the single 0.05 null threshold with a graded three-rung outcome ladder and stated the n = 80 power limitation plainly", "reason": "at n = 80 a Wilson upper bound < 0.05 is attainable ONLY at exactly zero hits (1/80 gives 0.0675); a binary threshold would have forced threshold-shopping at 1-3 hits"},
+    {"id": "CH9", "change": "flagged the M3-vs-M0 paired Student-t as an INVALID test and replaced it with a Wilson interval on the M3 indicator", "reason": "M0 == 0 for all 80 systems, so the paired difference is degenerate Bernoulli, not continuous; the brief asked for paired Student-t on differences generally"},
+    {"id": "CH10", "change": "added Gate B->C condition that Part C is NOT RUN if Part A lands on evaluator_artifact_confirmed", "reason": "if E0 is confirmed the premise of the model-vs-search question has changed; the correct next move is replication of Part A, not diagnosis of a failure that may not exist"},
+    {"id": "CH11", "change": "specified that the new summed-log-prob function must be ADDED alongside teacher_forcing_loss, never modify it, with a regression test asserting sum/n == -mean_CE", "reason": "other GPU_RUN5 phases depend on the audited mean-CE function; modifying it would silently change prior code paths"},
+    {"id": "CH12", "change": "added Part D as EXPLORATORY only, with an explicit prohibition on citing it as a C0001 finding", "reason": "the brief offered it as a secondary endpoint 'if cheap'; it is on a different corpus (ODEBench) with no preregistered hypothesis, so it cannot carry inference"},
+    {"id": "CH13", "change": "added the matcher-defect protocol with a preregistered expected direction (A-S3 >= 0.0525)", "reason": "coordinator constraint (c): an unexpectedly LOWER CAS number than the crude token folder must be flagged as a defect, not reported as a result"},
+    {"id": "CH14", "change": "recorded that no train candidate set exists (all 47,987 stored candidates are validation), so the matcher cannot be timing-calibrated on train candidates; calibration uses ODEBench instead", "reason": "an honest statement of a design limitation, found at Stage 3 rather than discovered mid-run"}
+  ],
+
+  "signoff": {"role": "lansr-research-methodologist", "cycle": "C0001", "branch": "20260909_researce_GPU_RUNclaude1", "commit": "94a571b", "date": "2026-09-09"}
+}

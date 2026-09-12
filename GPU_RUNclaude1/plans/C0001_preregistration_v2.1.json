@@ -1,0 +1,2437 @@
+{
+ "cycle": "C0001",
+ "preregistration_version": "v2.1",
+ "supersedes": {
+  "v1": {
+   "file": "GPU_RUNclaude1/plans/C0001_preregistration.md",
+   "json": "GPU_RUNclaude1/plans/C0001_preregistration.json",
+   "status": "SUPERSEDED, retained unmodified as the historical record"
+  },
+  "v2": {
+   "file": "GPU_RUNclaude1/plans/C0001_preregistration_v2.md",
+   "json": "GPU_RUNclaude1/plans/C0001_preregistration_v2.json",
+   "status": "SUPERSEDED, retained unmodified as the historical record",
+   "reasons": [
+    "A fresh Stage-5 reproducibility audit of v2 (GPU_RUNclaude1/reviews/C0001_v2_reproducibility_audit.md) returned 3 CRITICAL, 7 MAJOR, 10 MINOR, verdict AMEND_BEFORE_RUN; v2's own Gate 0 item 3 (zero CRITICAL on a fresh v2 audit) is NOT SATISFIED, which blocks the run under v2 and under rule 07.",
+    "All 3 CRITICALs were confined to the control battery: two thresholds were unachievable by construction (PC2b, PC3b) and no control could produce a non-zero value of the primary's own gain indicator (PC2a is fully absorbed by M0), leaving the primary uninterpretable at its predicted value.",
+    "Single root cause: to_skeleton collapses every numeric constant to the same symbol c, which (a) makes M3 unable to prove affine decomposition, (b) makes M3 invariant to symmetric variable permutation, (c) makes M3 not a superset of M0; and the AUDIT-CRIT-2 infix fix simultaneously made M0 a canonicalizing tree matcher, not a string matcher.",
+    "Amendment is legal: v2 permits amendment without a new cycle ID until Stage 4 begins; Stage 4 has not begun, no endpoint has been computed, no seal has been read."
+   ]
+  },
+  "this_document_is": "a complete standalone contract; no diff against v1 or v2 is required to execute C0001"
+ },
+ "amendment_record_v2_to_v2_1": {
+  "object_of_response": "GPU_RUNclaude1/reviews/C0001_v2_reproducibility_audit.md (841 lines; 3 CRITICAL, 7 MAJOR, 10 MINOR, 16 verified positives; verdict AMEND_BEFORE_RUN; Gate 0 item 3 NOT SATISFIED)",
+  "what_the_audit_confirmed_and_v2_1_does_not_touch": [
+   "All 8 prior CRITICALs (AUDIT-CRIT-1..4, STAT-C1..C4) re-verified as fixed BY DESIGN, none by wording.",
+   "The primary endpoint judged sound and an improvement on v1's; it is carried over unchanged.",
+   "Unchanged: primary endpoint definition, H/L stratum definitions, three-level unit hierarchy, aggregation order, ANY reduction, ladder cutpoints, the 7.6 reproduction gate, Part B, Part C's discriminator, the compute ceiling."
+  ],
+  "root_cause": {
+   "code": "src/evaluation/equation_metrics.py to_skeleton (:153-166, and _to_skeleton_with_reason) maps EVERY distinct numeric constant to the SAME symbol c (:162-163)",
+   "consequence_1_M0_is_not_a_string_matcher": "With infix on both sides (the AUDIT-CRIT-2 fix), parse_system folds -1*0.3968*x_0 into -0.3968*x_0 before M0's exponent-aware skeleton is formed. M0 is a canonical-prefix, constant-collapsed, exponent-aware TREE matcher. Every 'string matcher' phrase in v1/v2 is corrected and every claim depending on it is re-derived.",
+   "consequence_2_M3_cannot_prove_affine_decomposition": "a*A/(K+A) = a - a*K/(K+A) is not an identity once a, K and a*K are all the symbol c; leaving a*K unfolded gives a byte-identical skeleton.",
+   "consequence_3_M3_is_not_a_superset_of_M0": "Under sympy.apart the audit measured M0 3/20 vs M3 0/20. Set inclusion M0 subset M1 subset M3 is FALSE as a mathematical statement and is removed from every argument."
+  },
+  "critical_resolutions": [
+   {
+    "finding": "V2-CRIT-1",
+    "defect": "PC2b's gating threshold M3 >= 76/80 is unachievable by construction. Measured 0/28 components, 0/80 systems (audit); reproduced here as 0 matches on every numerically-verified eligible instance. Gate A->B (iii) would fail deterministically, burning the full CPU budget to report undecidable.",
+    "supersedes": "v2:709 PC2b threshold; v2:1152 Gate A->B (iii) inclusion of PC2b; JSON PC2b.gating=true",
+    "resolution": "PC2b retained with gating=false, reclassified from 'sensitivity of M3' to m3_affine_decomposition_limitation, descriptive, frozen expected value 0 matches on every eligible instance; removed from Gate A->B. Its instrument-capability role passes to PC4; its mechanism role is declared UNFILLABLE and becomes the frozen scope restriction of section 1.3 M-ii. A non-zero value is a harness-difference DEVIATION, not a finding about E0."
+   },
+   {
+    "finding": "V2-CRIT-2",
+    "defect": "PC3b's gating threshold >= 58/60 NON-match is failed by a faithful implementation: measured 50/60, all 10 failures R08 where the swapped pair occurs only inside the commutative product x_0*x_1 so the swap is a no-op and M3 is CORRECT to match. No eligibility filter (v2 applied exactly this amendment to PC3a as MIN-9 and omitted it here). Satisfaction also depended on an unspecified implementation choice.",
+    "supersedes": "v2:712 PC3b threshold; v2:1153; the unspecified swap rule",
+    "resolution": "The swap rule is frozen deterministically (first eligible (component index, variable pair) in lexicographic order) and an eligibility filter is added: a swap is eligible only if verified to CHANGE the function. Threshold restated as >= 95% of the realized eligible set, the same form PC3a already used. Measured under the frozen rule: eligible 60/60, NON-match 60/60. Under the audit's fixed-choice rule: eligible 50, NON-match 50/50, 10 ineligible no-ops all R08."
+   },
+   {
+    "finding": "V2-CRIT-3",
+    "defect": "No positive control exists for the gain indicator. M0 scores 170/170 on PC2a, so v2:575's 'which M0 cannot match' is FALSE and E0's flagship disclosed mechanism (P4) is already absorbed by M0. EVERY control in v2 yields gain = 0, so a primary of K = 0 would be indistinguishable from an instrument that cannot produce a gain at all - the exact failure v2:210-212 says the battery exists to exclude. The primary endpoint was uninterpretable at its predicted value.",
+    "supersedes": "v2:575; v2:694-720 (the whole battery); v2:210-212; v2:1152 PC2a hard threshold; the section 7.3 L-stratum prediction and its stated basis",
+    "resolution": [
+     "(a) PC4 added: a gain-indicator positive control. Each truth component rewritten by sympy.together, injected as a synthetic candidate, scored THROUGH THE SAME formula_metrics / symbolic_recovery / gain code path as the real measurement. Reproduced independently: eligible 170/170, M0 40/170, M3 140/170, gain 100/170 of which 100 in stratum H and 0 in stratum L, from 6 of 8 families. HARD-ABORT gate.",
+     "(b) PC2a reclassified from sensitivity control to harness-identity verification, short_circuited=true with an empty non-short-circuited subset, gating only on reproducing both known values (M0 170/170 AND M3 170/170).",
+     "(c) v2:575 withdrawn: M0 DOES match the P4 rewrite, 170/170.",
+     "(d) The L-stratum gain prediction re-derived from '> 0' to '0', because its only stated basis was the now-false claim that M0 cannot match the P4 rewrite. The re-derivation is recorded, not silently dropped."
+    ]
+   }
+  ],
+  "major_resolutions": {
+   "V2-MAJ-1": "v2 asserts 3x (v2:409, :620-623, :1478) that _approximately_equivalent and the :205 fallback do not run. They ALWAYS do: the return dict at equation_metrics.py:207-212 is eager, so reading ['skeleton'] still executes the whole equiv block at :195-205 including a 10 s _timed_simplify at :200 on the un-skeletonized expressions. All three sentences corrected; the :200 timeout added to the 7.5 failure-surface list; citations corrected :72-73 -> :84-85 and :38-45 -> :36-42; cost model corrected (the block IS inside the measured 655 ms/candidate, so no upward correction is needed). What survives: skeleton is finalized at :187-193 strictly before the block, data flow is one-directional, the grid is non-random - so the pinning and the determinism conclusion stand.",
+   "V2-MAJ-2_and_V2-MAJ-7": "The implementation calls skeleton_equivalence_with_reason, not the pinned symbolic_recovery(...)['skeleton'], with no equivalence test, and to_skeleton/symbolic_recovery were refactored, not extended - before Gate 0 item 3 returned. Resolution: symbolic_recovery(...)['skeleton'] remains the definition of record; the substitute is permitted only under (a) 100% bit-identical agreement over the 910 synthetic control pairs (Gate 0 item 11) and (b) an in-pass 1-in-100 double-computation census reported as m3_implementation_agreement with a frozen 100% requirement. Section 17's 'extended, not modified' discipline is extended to equation_metrics.py. Gate 0 item 1 requires the tree committed or fully explained in the manifest.",
+   "V2-MAJ-3": "The designated interval of record (two-stage bootstrap percentile) is exactly [0,0] at the predicted K = 0, so section 9.5 item 1's mandated sentence would report an evidential upper bound of 0.0000, licensing what rule 01 item 8 forbids. Resolution: at K = 0 the bound of record is interval (c), the 8-cluster family-level Wilson 0/8 -> [0, 0.3244]; section 9.5 item 1 now has two verbatim variants and the K = 0 variant states that no percentile interval is reportable and that the POWER STATEMENT is the substantive content; a frozen prohibition forbids reporting a bootstrap percentile upper bound of 0 anywhere in this cycle.",
+   "V2-MAJ-4": "The effect size of record (0.0525, a per-(component,cell) rate over 2040 = 170x12) was used against an ANY-over-12 endpoint, the cross-reduction comparison v2:281-284 explicitly forbids. Resolution: the quantity of record is M0's ANY-over-12 reduced component rate, admissible range [0.053, 0.629] (STAT-M1, not identified by the published data); 0.0525 is used explicitly and ONLY as the arithmetic lower bound of that range, the 12-cell coincidence is named, and the power table is computed at the lower bound because that is conservative for a power statement.",
+   "V2-MAJ-5": "The firewall rationale invokes GPU_RUN5's 'hashing = the test-open event' doctrine, but gpu_run5_phase4.py:118-119,151-152 already hashed sealed_official_test.json pre-ledger and its digest 2860d829... is the very hash v2 records for the 'unspent clean seal'. Also 7 sealed files exist, not 3. Resolution: the sealed inventory is enumerated at run time from the ledger plus a name-only filesystem census, never hardcoded; v2.1 adopts the STRONG doctrine for C0001's own conduct and records that the campaign's history contains a weak-doctrine event C0001 did not cause; the phase-4 seal's status is restated precisely (section 2.4a) and the phrase 'UNSPENT - never touched' is withdrawn.",
+   "V2-MAJ-6": "sealed_paths_read is not a computed guarantee: the instrumented opener is a sanctioned WRAPPER, not an interception, so any direct open / json.load(open(...)) / np.load / pandas.read_* is invisible to it. Resolution: a sys.addaudithook installed for the whole duration of Parts A/B/C that RAISES on any open whose resolved path matches sealed* or lies under a GPU_RUN5/GPU_RUN4 run root without being allowlisted; a requirement that the guarded opener be the SOLE path by which candidate/truth files are opened in C0001 modules; a test that a direct open() on a sealed path from inside src/gpu_runclaude1/ raises; and an AST test forbidding un-guarded file-read call sites. The 'records every path C0001 opens' claim is downgraded to what the hook guarantees.",
+   "monotonicity_not_guaranteed": "M0 3/20 vs M3 0/20 under apart. Every text assuming M3 superset-of M0 is removed; section 9.4's multiplicity argument is re-derived WITHOUT inclusion (the primary is a single conjunction indicator, so exactly one test is performed); the monotonicity audit is demoted to a reported, non-gating diagnostic with a proof that violations cannot affect the primary (gain requires m0_any = 0, so any component with m0_any = 1 contributes 0 by definition); v2's >1% CRITICAL tripwire is REMOVED as a second deterministic-burn hazard and the <=0.1% prediction is withdrawn; code is forbidden from assuming inclusion.",
+   "V2-MIN-2_stale_claim_dropped": "pytest.ini already carries pythonpath = . and GPU_RUN5/tests; 124 tests collect clean with zero errors; the default suite is 301 passed / 1 skipped. v2's ModuleNotFoundError claim is withdrawn as stale."
+  },
+  "minor_resolutions": {
+   "V2-MIN-1": "commit_at_freeze closed by rule, not by a value.",
+   "V2-MIN-3": "Gate 0 item 2's '(4 tests)' corrected to 6 and restated as 'all selected tests green' rather than an exact count.",
+   "V2-MIN-4": "test_gpu_run5_phase8.py:542's ordering assertion recorded as a LEXICAL first-occurrence check on source text, not a runtime ordering check; the C0001-specific firewall test is the real protection.",
+   "V2-MIN-5": "LANSR_SYMPY_MAX_NODES=200 for PC0-CAS must be set in the environment BEFORE interpreter start, in a dedicated subprocess, asserting formulas.SYMPY_MAX_NODES == 200 on entry; ted.py:15 reads it at import and formulas.py:13 binds it by value, so in-process monkeypatching would silently re-measure 28/80.",
+   "V2-MIN-6": "Bootstrap generator named: numpy.random.default_rng(20260909), ONE stream, draw order families then systems within family, 10,000 resamples, percentile method.",
+   "V2-MIN-7": "Commutation-orbit enumeration order defined: commutable binary nodes indexed in pre-order; orbit enumerated in binary-counter order over that index, t = 0..7, t = 0 the stored encoding.",
+   "V2-MIN-8": "R/phase0/partA_cost_calibration.json restricted to per-family aggregates (mean/median/p95) and failure-label counts; per-candidate timings FORBIDDEN, because wall time is a side channel on the match indicator (a proved match exits at :189, a non-match additionally runs _timed_equals at :190) and the sample is drawn from the primary's own candidates.",
+   "V2-MIN-9": "ComponentCountMismatch classified ONCE: a decided non-match (proved_different) at every level, EXCLUDED from the could_not_evaluate_rate numerator, because a component count is an observed fact and not a failed evaluation. Empirically inert: diagonal for all 47,987 candidates, 0 of the 2,235 stored component hits under a count mismatch.",
+   "V2-MIN-10": "Hard VRAM cap added: torch.cuda.set_per_process_memory_fraction(5.5/8.0, device=0) before the first allocation, so the ceiling is an allocator cap and not only a <=10 s tripwire.",
+   "audit_5_4": "The StrataFrozenToken write-before-match capability gate is FROZEN in this document (section 7.2 step 4), not left incidental to one implementation.",
+   "audit_2_2": "A2-S1's predicted L-stratum contrast is structurally suppressed if the 107 sit in L; recorded in section 7.8 alongside the re-derived prediction of 0.",
+   "audit_5_3": "Section 18.1 records that cutting M2 leaves E0's affine-decomposition mechanism with NO instrument.",
+   "audit_filename": "Section 12.1 names the audit by its actual path C0001_v2_reproducibility_audit.md, plus C0001_v2.1_reproducibility_audit.md for the narrow re-audit.",
+   "audit_item_12": "|H| = 130, |L| = 40 and the full family/dimension breakdown recorded in section 0.3 as disclosed prior information, and section 7.3's stratification prediction downgraded from blind to partly derivable."
+  },
+  "declined": [
+   {
+    "declined": "Re-deriving PC2b's threshold from a train-split measurement (the audit's option (b))",
+    "reason": "The obstruction is ALGEBRAIC, not sample-dependent: constant collapsing destroys the affine identity in every split. A train-split measurement would return 0 there too and would spend compute to re-derive a structural fact."
+   },
+   {
+    "declined": "Cutting PC2b entirely",
+    "reason": "~28 comparisons (~20 s) and informative on failure: a non-zero value proves the harness differs from two independent measurements of the same construction."
+   },
+   {
+    "declined": "Reinstating M2 to give the affine mechanism an instrument",
+    "reason": "Rule 06: ~66 CPU-core-hours against a 24 core-hour ceiling, for a secondary. The consequence is stated as a scope restriction (section 1.3 M-ii) rather than bought with a ceiling breach. Routed to hypothesis_tree.md."
+   },
+   {
+    "declined": "Treating PC4's rewrite class as an E0 mechanism",
+    "reason": "PC4 is instrument-capability validation on synthetic candidates. It does not show that any real beam candidate carries such a rewrite; conflating the two would be the rule-03 error the campaign guards against."
+   },
+   {
+    "declined": "Editing research_state.md section 8 to add the phase-4 pre-ledger-hashing defect (the audit's amendment item 9)",
+    "reason": "Out of scope for this amendment, which is scoped to C0001_preregistration_v2.1.md/.json only. Recorded in section 2.4a and listed in section 20 as a required follow-up."
+   },
+   {
+    "declined": "Any change to the primary endpoint, strata, aggregation order, ladder cutpoints, seeds, ceiling, or Part B/Part C design",
+    "reason": "The audit judged them sound. Rule 01 item 3."
+   }
+  ]
+ },
+ "stage": 3,
+ "branch": "20260909_researce_GPU_RUNclaude1",
+ "commit_at_freeze": {
+  "rule": "the commit that introduces GPU_RUNclaude1/plans/C0001_preregistration_v2.1.md, recorded in R/manifest.json at run start via `git log --oneline --diff-filter=A -- <this file>`",
+  "head_at_write_time": "authoring began at 7f507cc; a concurrent commit landed the v2 audit during authoring, so HEAD at write completion is 7c7d96a. Both recorded because the v2 audit was performed at 7f507cc.",
+  "finding": "V2-MIN-1 / AUDIT-MIN-1: v2 recorded de894b4 but was introduced by 7f507cc; v1 recorded 94a571b but was introduced by 7cfc0ff. The error class is closed by rule, not by a value."
+ },
+ "v1_commit_provenance_correction": {
+  "v1_recorded": "94a571b",
+  "actual_introducing_commit": "7cfc0ff",
+  "v2_recorded": "de894b4",
+  "v2_actual_introducing_commit": "7f507cc",
+  "finding": "AUDIT-MIN-1, V2-MIN-1"
+ },
+ "source_run_commit_pinned": "ddd267b07a0646140c948c1f4a92ee83e320c772",
+ "date_frozen": "2026-09-09",
+ "status": "FROZEN",
+ "campaign": "GPU_RUNclaude1",
+ "run_id": {
+  "rule": "gpu_runclaude1_c0001_<short7>, <short7> re-derived from the commit at run start",
+  "collision_rule": "if the directory exists append _v2, _v3, ...; never overwrite any of the 27 existing results/runs/* directories (rule 05)"
+ },
+ "sealed_test_consumed": "NONE",
+ "layer_estimands_measured": "NONE",
+ "training_performed": "NONE",
+ "adaptation_performed": "NONE",
+ "v1_endpoint_dispositions": [
+  {
+   "v1_id": "PRIMARY system_semantic_equivalence_in_beam_rate_M3_ANY",
+   "disposition": "DEMOTED_TO_DESCRIPTIVE",
+   "v2_id": "A2-S3",
+   "forced_by": [
+    "STAT-C1",
+    "STAT-C2",
+    "STAT-M12",
+    "RETRACT",
+    "AUDIT-MIN-10"
+   ]
+  },
+  {
+   "v1_id": "A-S1 system-level M2 rate",
+   "disposition": "CUT",
+   "v2_id": null,
+   "forced_by": [
+    "AUDIT-CRIT-3",
+    "AUDIT-MAJ-4",
+    "rule-06"
+   ]
+  },
+  {
+   "v1_id": "A-S2 per-system MEAN M3",
+   "disposition": "RETAINED_RELABELLED_DESCRIPTIVE",
+   "v2_id": "A2-S4",
+   "forced_by": [
+    "STAT-M4"
+   ]
+  },
+  {
+   "v1_id": "A-S3 component-level rate, estimation only",
+   "disposition": "REPLACED_BY_PRIMARY_AND_A2-S2",
+   "v2_id": "primary + A2-S2",
+   "forced_by": [
+    "RETRACT",
+    "STAT-C1",
+    "STAT-M1",
+    "STAT-M2",
+    "STAT-M3"
+   ]
+  },
+  {
+   "v1_id": "A-S4 per-family rates",
+   "disposition": "RETAINED_DESCRIPTIVE",
+   "v2_id": "A2-S4",
+   "forced_by": [
+    "STAT-m7"
+   ]
+  },
+  {
+   "v1_id": "A-S5 cascade increment table",
+   "disposition": "RETAINED_DESCRIPTIVE_M2_COLUMN_REMOVED",
+   "v2_id": "A2-S5",
+   "forced_by": [
+    "AUDIT-CRIT-3"
+   ]
+  },
+  {
+   "v1_id": "A-S6 oracle vs selected",
+   "disposition": "RETAINED_UNCHANGED",
+   "v2_id": "A2-S5",
+   "forced_by": []
+  },
+  {
+   "v1_id": "A-S7 matcher failure accounting",
+   "disposition": "PROMOTED_TO_REPORTED_ENDPOINT_WITH_FROZEN_MAX",
+   "v2_id": "A2-S6",
+   "forced_by": [
+    "AUDIT-CRIT-3",
+    "AUDIT-MAJ-6"
+   ]
+  },
+  {
+   "v1_id": "A-S8 layer consequence statement",
+   "disposition": "RETAINED_AS_STATEMENT_REGROUNDED",
+   "v2_id": "A2-S7",
+   "forced_by": [
+    "RETRACT",
+    "rule-04"
+   ]
+  },
+  {
+   "v1_id": "N6 null-credibility condition A-S3 > 0",
+   "disposition": "DROPPED",
+   "v2_id": null,
+   "forced_by": [
+    "RETRACT",
+    "STAT-M1"
+   ]
+  },
+  {
+   "v1_id": "matcher-defect trigger A-S3 >= 0.0525",
+   "disposition": "DROPPED_REPLACED_BY_EXACT_REPRODUCTION_GATE",
+   "v2_id": "section 7.6",
+   "forced_by": [
+    "RETRACT",
+    "AUDIT-CRIT-1",
+    "STAT-M1",
+    "R1"
+   ]
+  },
+  {
+   "v1_id": "comparator C-M0c = 0/2040",
+   "disposition": "CORRECTED_TO_107_OF_2040",
+   "v2_id": "C-M0c",
+   "forced_by": [
+    "AUDIT-CRIT-1"
+   ]
+  },
+  {
+   "v1_id": "comparator C-NEG",
+   "disposition": "DROPPED",
+   "v2_id": null,
+   "forced_by": [
+    "RETRACT",
+    "AUDIT-CRIT-2",
+    "R1"
+   ]
+  },
+  {
+   "v1_id": "PC1 identity control (gating)",
+   "disposition": "REPLACED_BY_PC0_PC1_RETAINED_NON_GATING",
+   "v2_id": "PC0",
+   "forced_by": [
+    "AUDIT-CRIT-4"
+   ]
+  },
+  {
+   "v1_id": "N1",
+   "disposition": "REDEFINED_ON_PC0",
+   "v2_id": "Gate A->B (ii)",
+   "forced_by": [
+    "AUDIT-CRIT-4",
+    "AUDIT-CRIT-3"
+   ]
+  },
+  {
+   "v1_id": "Part C step 1 input_trajectory_checksum fairness check",
+   "disposition": "REPLACED_BY_cell_input_payload_sha256",
+   "v2_id": "section 8.2 step 1",
+   "forced_by": [
+    "STAT-C3"
+   ]
+  },
+  {
+   "v1_id": "section 5 item 3 no-asymmetry claim",
+   "disposition": "WITHDRAWN_AND_REPLACED_BY_DECLARED_BIAS",
+   "v2_id": "section 5 items 5-6",
+   "forced_by": [
+    "STAT-C3",
+    "STAT-M9"
+   ]
+  },
+  {
+   "v1_id": "C-S1 / C-S2 / C-S3 rank_pct triple + conjunctive rule",
+   "disposition": "DEMOTED_TO_DESCRIPTIVE_RULE_DROPPED",
+   "v2_id": "C2-S6",
+   "forced_by": [
+    "STAT-C4",
+    "STAT-M10",
+    "STAT-M11"
+   ]
+  },
+  {
+   "v1_id": "C-S4 below_all_indicator rate (E2 threshold)",
+   "disposition": "DEMOTED_TO_DESCRIPTIVE",
+   "v2_id": "C2-S6",
+   "forced_by": [
+    "STAT-C4"
+   ]
+  },
+  {
+   "v1_id": "C-S6 per-token GT minus selected",
+   "disposition": "PROMOTED_AND_REDEFINED_ON_SUMMED_LOGPROB",
+   "v2_id": "C2-P",
+   "forced_by": [
+    "STAT-C4",
+    "STAT-M11"
+   ]
+  },
+  {
+   "v1_id": "C-S5 GT-affine minus GT-mult",
+   "disposition": "RETAINED_SUMMED_ONLY_DESCRIPTIVE",
+   "v2_id": "C2-S4",
+   "forced_by": [
+    "STAT-M11"
+   ]
+  },
+  {
+   "v1_id": "triple length-normalization policy",
+   "disposition": "REPLACED_SUMMED_ONLY_FOR_DECISIONS",
+   "v2_id": "section 8.3",
+   "forced_by": [
+    "STAT-M11"
+   ]
+  },
+  {
+   "v1_id": "Holm families S1 / S2 / S3",
+   "disposition": "DROPPED_ENTIRELY",
+   "v2_id": "section 9.4",
+   "forced_by": [
+    "STAT-M4"
+   ]
+  },
+  {
+   "v1_id": "section 9.4 item 4 blanket equivalence prohibition",
+   "disposition": "REWRITTEN",
+   "v2_id": "section 9.5 item 4",
+   "forced_by": [
+    "STAT-M6"
+   ]
+  },
+  {
+   "v1_id": "verdict label null_credible",
+   "disposition": "RENAMED_no_gain_observed_bound_only",
+   "v2_id": "section 9.3",
+   "forced_by": [
+    "STAT-M7"
+   ]
+  },
+  {
+   "v1_id": "outcome ladder CI values 0.0462 / 0.0026 / 0.1055 / 0.013",
+   "disposition": "CORRECTED_PLUS_OC_TABLES",
+   "v2_id": "section 9.3",
+   "forced_by": [
+    "STAT-m1",
+    "STAT-M8"
+   ]
+  },
+  {
+   "v1_id": "section 2.1 cell-grid description",
+   "disposition": "CORRECTED",
+   "v2_id": "section 2.1 + P11",
+   "forced_by": [
+    "STAT-M12"
+   ]
+  },
+  {
+   "v1_id": "reduced design bundle_index == 0",
+   "disposition": "CHANGED_TO_SPAN_ALL_THREE_BUNDLES",
+   "v2_id": "section 14 items 4-5",
+   "forced_by": [
+    "STAT-M13"
+   ]
+  },
+  {
+   "v1_id": "M3 spec 'skeleton plus _approximately_equivalent plus to_skeleton'",
+   "disposition": "PINNED_TO_SKELETON_KEY_ONLY",
+   "v2_id": "section 7.4",
+   "forced_by": [
+    "AUDIT-MAJ-1"
+   ]
+  },
+  {
+   "v1_id": "endpoint name 'semantic equivalence'",
+   "disposition": "RENAMED_SKELETON_EQUIVALENCE",
+   "v2_id": "all",
+   "forced_by": [
+    "AUDIT-MIN-10"
+   ]
+  },
+  {
+   "v1_id": "Gate 0 item 2 test selection",
+   "disposition": "CHANGED",
+   "v2_id": "section 10.1 item 2",
+   "forced_by": [
+    "AUDIT-MAJ-9"
+   ]
+  },
+  {
+   "v1_id": "run_manifest.py --data-path unspecified",
+   "disposition": "FILE_LEVEL_ALLOWLIST_PREREGISTERED",
+   "v2_id": "section 2.4",
+   "forced_by": [
+    "AUDIT-MAJ-2",
+    "AUDIT-MAJ-3",
+    "rule-02"
+   ]
+  },
+  {
+   "v1_id": "Part A parallelization model unstated",
+   "disposition": "PROCESS_BASED_PREREGISTERED",
+   "v2_id": "section 3",
+   "forced_by": [
+    "AUDIT-MAJ-5"
+   ]
+  },
+  {
+   "v1_id": "Part C re-encoding audit without separator normalization",
+   "disposition": "NORMALIZATION_SPECIFIED",
+   "v2_id": "section 8.2 step 4",
+   "forced_by": [
+    "AUDIT-MAJ-7"
+   ]
+  },
+  {
+   "v1_id": "replication changed factor numeric_equivalent seed 0->1",
+   "disposition": "CORRECTED_PRIMARY_MATCHER_IS_DETERMINISTIC",
+   "v2_id": "section 15",
+   "forced_by": [
+    "AUDIT-MAJ-8"
+   ]
+  },
+  {
+   "v1_id": "silent non-match paths",
+   "disposition": "FAILURE_TAXONOMY_PROVED_DIFFERENT_VS_COULD_NOT_EVALUATE",
+   "v2_id": "section 7.5",
+   "forced_by": [
+    "AUDIT-CRIT-3",
+    "AUDIT-MAJ-6"
+   ]
+  },
+  {
+   "v1_id": "Part D denominator-arity classification",
+   "disposition": "CUT",
+   "v2_id": null,
+   "forced_by": [
+    "scope discipline (section 18.2)"
+   ]
+  },
+  {
+   "v1_id": "compute basis P11 (129 ms/candidate, ODEBench)",
+   "disposition": "REPLACED_BY_MEASURED_BASIS",
+   "v2_id": "Q6 / section 11.1",
+   "forced_by": [
+    "AUDIT-MAJ-4"
+   ]
+  },
+  {
+   "v1_id": "PC3a threshold >= 78/80",
+   "disposition": "ELIGIBLE_SET_DEFINED",
+   "v2_id": "PC3a",
+   "forced_by": [
+    "AUDIT-MIN-9"
+   ]
+  },
+  {
+   "v1_id": "'.../phase1/' write paths",
+   "disposition": "EXPLICIT_R_PREFIX",
+   "v2_id": "section 12.1",
+   "forced_by": [
+    "AUDIT-MIN-3"
+   ]
+  },
+  {
+   "v1_id": "citations evaluation.py:40, records.py:47, 28 run dirs, VRAM 7782 MiB",
+   "disposition": "CORRECTED",
+   "v2_id": "various",
+   "forced_by": [
+    "AUDIT-MIN-8",
+    "AUDIT-MIN-2",
+    "AUDIT-MIN-6"
+   ]
+  },
+  {
+   "v1_id": "FAILURE_REASONS addition EncoderCacheMiss",
+   "disposition": "REMOVED_COULD_NEVER_FIRE",
+   "v2_id": "section 13",
+   "forced_by": [
+    "STAT-C3"
+   ]
+  }
+ ],
+ "retained_unchanged_endorsed_by_both_reviews": [
+  "system as the statistical unit and its stated justification",
+  "ANY-over-cells reduction as the generation-coverage estimand and as the anti-conservative direction for a null-shaped claim",
+  "degenerate-paired-test warning (system-level M0 == 0 makes the M3-M0 difference Bernoulli, not t)",
+  "PC3a / PC3b specificity controls",
+  "M3 as the most permissive level, with the four-matcher multiplicity absorbed under monotonicity",
+  "the prior-information ledger and its mandatory machine-readable disclosure field",
+  "section 9.4 items 1-3 (now 9.5 items 1-3), verbatim in intent",
+  "Part B interval_interpretation: generator_sampling_not_measurement_error",
+  "retention of invalid and failed candidates in every denominator",
+  "usable-candidate denominators rather than a hardcoded 50",
+  "the additive Part C instrument and its sum/n == -mean_CE regression test",
+  "the crash-loop rule",
+  "the rule-03 30-field record schema and the generation / oracle / selected distinction"
+ ],
+ "prior_information_disclosed": {
+  "published_gpu_run5_comparators": {
+   "P0a_system_true_exponent_aware_skeleton_in_beam": {
+    "value": "0/960 cells",
+    "per_family": "0/120 each",
+    "source": "phase3/beam_groups.json"
+   },
+   "P0b_component_true_exponent_aware_skeleton_in_beam": {
+    "value": "107/2040 = 0.0525",
+    "by_family": {
+     "R01": 0,
+     "R02": 0,
+     "R03": 0,
+     "R04": 56,
+     "R05": 0,
+     "R06": 0,
+     "R07": 17,
+     "R08": 34
+    },
+    "source": "phase3/beam_groups.json",
+    "note": "the frozen matcher's OWN value; not an artifact, not a discovery, never zero. v2.1: M0 is a CANONICAL-TREE matcher, not a string matcher (see amendment_record root_cause).",
+    "reverified": "all eight family counts re-verified exactly by the v2 audit (V2-OK-5)"
+   },
+   "P0c_stored_per_candidate_fields": {
+    "exponent_aware_skeleton_exact": "0.0 for all 47987",
+    "canonical_exact": "0.0 for all 47987",
+    "skeleton_exact": "0.0 for all 47987",
+    "component_exponent_aware_skeleton_exact": "1.0 for 2235 of 101963"
+   },
+   "P0d_deduction": "R01/R02 are 1-D so a component match is a system match there; 0/120 at system level forces 0 of the 107 in any dim-1 system; all 107 lie in the 1800 dim>=2 component-cells (0.0594 there, 0.0000 in dim-1)"
+  },
+  "retracted_and_unavailable_as_evidence": [
+   "that the frozen matcher scored 107 real component matches as misses",
+   "that GPU_RUN5's component-level measurement was biased to zero by the matcher",
+   "that the component_exact_loss = 0.0 floor was matcher-induced",
+   "v1 P5 and v1 P6 as findings"
+  ],
+  "truth_side_facts": {
+   "P1": "teacher_valid 240/240 train, 80/80 validation; prefix round-trip exact under | <-> ,|, normalization -> E1 REFUTED, not re-tested",
+   "P2": "zero-probability operators: abs sqrt log exp arcsin cos arccos tan arctan pow3 sub div, all exactly 0.0 | v2.1: inv, mul and add all have NON-ZERO generation probability - the basis for PC4's within-support justification (section 7.7.2).",
+   "P3": "GT teacher token length validation: min 19, median 47, mean 45.7, max 80",
+   "P4": "neg node: truths prefix-derived 960/960; candidates infix-derived 1541/47987 = 3.2%. DIFFERENT DERIVATION PATHS - must never be differenced. The surviving fact is the encoding asymmetry, not a matcher defect. | v2.1 CORRECTION (V2-CRIT-3): this asymmetry is FULLY ABSORBED by M0 in the mandated infix configuration (Q12b: M0 = 170/170 on the PC2a rewrite). It is not a matcher defect and cannot produce a gain.",
+   "P5": "nested pow2,pow2 (Hill exponent 4): 39/170 validation components, 24/80 systems, 130/510 train components",
+   "P6": "train non-identity unary count: 80/510 components (15.69%) and 60/240 systems (25.0%) exceed max_unary_ops_per_dim = 3",
+   "P7": "truth token census per 960 cells: CONST 6120, mul 4920, add 4080, x_0 2760, pow 2376, 2 2376, neg 2040, inv 1680, x_1 1680, x_2 480",
+   "P8": "R01 R02 dim 1; R03 R04 R05 dim 2; R06 R07 R08 dim 3; 10 systems each; 20/30/30 systems; 170 components; dimension PERFECTLY CONFOUNDED with family",
+   "P9": "no symbolic_equivalent field and no log-probability/score field on any of the 47987 candidates",
+   "P10": "951 cells with 50, 6 with 49, 2 with 48, 1 with 47 -> 47987 total, shortfall 13",
+   "P11": "one IC and one source trajectory per system; 12 cells -> 10 distinct input payloads; clean cells byte-identical across bundles in 80/80; input_trajectory_checksum has 80 distinct values over 80 systems, constant across each system's 12 cells"
+  },
+  "measured_on_endpoint_corpus_by_stage3_reviewers": {
+   "Q1_PC2a_M3_sensitivity": "PC2a rewrite, M3 side: M3 = 80/80 systems and 170/170 components. Verification, not discovery. Source: AUDIT-OK-8, v2 audit.",
+   "Q2_PC3a_M3_specificity": "48/48 NON-match on the alterable set (AUDIT-OK-8) -> verification",
+   "Q3_M0_exact_reproducibility": "600/600 system and component vectors via formula_metrics(teacher_infix, candidate_formula_raw)",
+   "Q4_CAS_self_equality": "28/80 at cap 40; 52/80 exceed SYMPY_MAX_NODES=40 (R01 10/10, R02 10/10, R03 4/10, R04 4/10, R05-R08 0/10)",
+   "Q5_node_cap_exceedance_real_pairs": "1652/3000 = 55.1%; R05 92.9%, R06/R07/R08 100.0%",
+   "Q6_partA_throughput": "795 ms/candidate mean, 604 ms median, 150 real GRN candidates, full M1+M2+M3 -> 10.60 single-core-hours for 47987 | SUPERSEDED as the compute basis by Q17.",
+   "Q7_truth_side_cas_node_totals": "min 10, median 25, mean 26.2, max 48",
+   "Q8_prefix_roundtrip": "20/80 raw, 80/80 under | -> ,|, normalization",
+   "Q9_hardware": "GPU 0: 8192 MiB total, 629 used, 7154 free, 49 C; disk 117 G free; RAM 60 G / 52 G available",
+   "Q10_cells_dir": "exactly 960 files, all *_validation_*, zero containing 'test'; all_candidates.json split == {validation: 47987} | re-verified V2-OK-12: 960 files, 0 containing 'test', 960 containing 'validation'.",
+   "Q11_statistical_constants": "Wilson n=80: k0 [0,0.0458], k1 [0.0022,0.0675], k2 [0.0069,0.0866], k3 [0.0128,0.1045], k4 [0.0196,0.1216], k8 [0.0515,0.1851]; one-sided 95% at 0/80 = 0.0327; rule of three 0.0375; min n tolerating 1 hit = 110, 2 hits = 142; family-clustered 0/8 = [0, 0.3244]; critical ICC = 0.011 | family-clustered 0/8 = [0, 0.3244].",
+   "Q12_PC4_gain_positive_control": "PC4: every truth component rewritten by sympy.together(sympify(component)), injected as a synthetic candidate and scored through the endpoint's own formula_metrics / symbolic_recovery / gain path. eligible 170/170 (every rewrite textually non-trivial); M0 = 40/170; M3 = 140/170; GAIN = 100/170, of which stratum H = 100 and stratum L = 0; per-family gain R01 0, R02 10, R03 20, R04 10, R05 0, R06 30, R07 20, R08 10 (6 of 8 families contribute). Source: v2 audit V2-OK-4 for the total 100/170; independently reproduced by this amendment, which additionally measured the H/L and per-family split. Consequence: the gain indicator CAN fire and it fires exactly where the primary measures. PC4 is a verification of a disclosed value and a HARD-ABORT gate.",
+   "Q12b_PC2a_M0_side": "PC2a, M0 side: M0 = 170/170 components and 80/80 systems on the P4 rewrite, hence gain = 0/170 by construction. Source: v2 audit V2-CRIT-3. Consequence: E0's flagship disclosed mechanism is already absorbed by M0; v2:575 is withdrawn; PC2a is reclassified as a harness-identity verification with short_circuited=true and an empty non-short-circuited subset.",
+   "Q13_PC2c_PC2d_tree_level": "PC2c/PC2d under a frozen TREE-LEVEL commutative permutation (reverse the argument order of every n-ary add, resp. mul, node bottom-up; re-serialize with tree_to_infix; each rewrite verified equivalent by numeric_equivalent(n_points=32, seed=0)): add -> eligible 170/170, M3 = 170/170, 0 unverified rewrites. mul -> eligible 170/170, M3 = 170/170, 0 unverified rewrites. Measured by this amendment. Consequence: the audit's crude 'PC2c-like/PC2d-like' proxies (M0 = M3 = 40/170) were implementation artifacts of an UNVERIFIED rewrite, not matcher failures; a precisely specified, equivalence-verified permutation is fully achievable and can gate safely.",
+   "Q14_PC2b_affine": "PC2b affine decomposition: M3 = 0 matches on every eligible instance. Audit's construction 0/28 components and 0/80 systems under an UNVERIFIED rewrite; this amendment's construction, restricted to instances verified equivalent by numeric_equivalent, 0/1. Both agree at zero. Consequence: M3 cannot prove affine decomposition under constant collapsing. PC2b becomes a non-gating documented limitation and the empirical basis of the section 1.3 scope restriction.",
+   "Q15_PC3b_specificity": "PC3b permuted-variable specificity. Under the v2.1 FROZEN rule (first eligible (i, x_j, x_k) in lexicographic order): eligible 60/60 systems, NON-match 60/60, 0 ineligible. Under the audit's fixed-choice rule (two lowest indices in the first multi-variable component): eligible 50, NON-match 50/50, 10 ineligible no-ops ALL R08 where the swapped pair occurs only inside the commutative product x_0*x_1. The frozen rule dominates: full coverage of all 60 dim>=2 systems and 100% correct specificity. Verification. The general hazard the audit demonstrated - symbolic_recovery('1.0*x_0 + 2.0*x_1', '1.0*x_1 + 2.0*x_0')['skeleton'] == 1.0 on an ELIGIBLE (function-changing) swap, because constants collapse - does NOT materialize on this corpus but is real; the eligibility census will expose it if a reimplementation differs.",
+   "Q16_H_L_census": "The H/L stratum census, computed by exactly the path section 7.2 prescribes: |H| = 130, |L| = 40 of 170. H by family R01 10, R02 10, R03 20, R04 10, R05 20, R06 30, R07 20, R08 10. L by family R04 10, R07 10, R08 20 (R01, R02, R03, R05, R06 have ZERO L components). H by dimension 1->20, 2->50, 3->60. L by dimension 2->10, 3->30. Agreement with the independently-derived stored structure.component_flags[i].variable_denominator_form: 170/170. Source: v2 audit V2-OK-1; reproduced 170/170 by this amendment. Consequences: |H| = 130 inside v2's blind 130-145 at the lower boundary; |L| = 40 inside 25-40 at the upper boundary; no section 7.2 fallback fires; |H| >= 100 so underpowered_bound_only does not fire; C = ceil(0.02 x 130) = 3. See section 0.4 for the blinding consequence.",
+   "Q17_partA_throughput_v2_1_configuration": "Part A throughput in the v2.1 configuration - M0 + M1 + M3, 120 real candidates, 15 per family, random.seed(20260909), formula_metrics + compare_formulas(skip_cas=True) + per-component symbolic_recovery: M0 mean 45 ms, M1 mean 16 ms, M3 mean 594 ms; M0+M1+M3 mean 655 ms, median 608, p95 1480, max 1992; per family (ms) R01 770, R02 226, R03 794, R04 338, R05 631, R06 906, R07 927, R08 647; projection 8.73 single-core-hours for 47,987. Source: v2 audit V2-OK-8. THE MEASURED COMPUTE BASIS OF RECORD, replacing Q6's 10.60 core-h upper bound. The eager equation_metrics.py:195-212 equiv block IS inside this measurement (V2-MAJ-1), so no upward correction is needed.",
+   "Q18_RAM": "phase3/all_candidates.json (174 MB on disk) loads to 0.53 GiB peak process RSS; 6 workers ~ 3.2 GiB against 52 GiB available. Source: v2 audit V2-OK-9.",
+   "Q19_sealed_inventory": "7 files named sealed* under results/runs, in 3 run directories; 2 covered by a test-open ledger (phase8/test_open_ledger.json, open_count 1, status complete), 5 with NO ledger entry. Source: v2 audit V2-MAJ-5; re-verified by name-only census. v2 section 2.4 listed 3.",
+   "Q20_test_suite": "pytest GPU_RUN5/tests --collect-only -q -> 124 collected, 0 errors, BARE; the Gate 0 item 2 selector collects 6 tests, not 4; default suite 301 passed / 1 skipped. Source: v2 audit V2-MIN-2/MIN-3; research_state.md section 8 defect 1. The ModuleNotFoundError claim is WITHDRAWN as stale."
+  },
+  "deliberately_not_looked_at_before_freeze": {
+   "statement_still_binding": "The component-type stratification of GPU_RUN5's 107 published M0 component matches has NOT been computed, inspected or estimated by anyone at this freeze. It may be computed only after R/phase1/component_strata.json and R/phase1/partA_ladder_realized.json are written and hashed (section 7.2 step 3, section 7.10 step 7). The Stage-5 auditor explicitly declined to compute it; so did this amendment.",
+   "blinding_downgrade_honest_record": "The BLINDING CLAIM v2 attached to it in section 7.3 no longer holds and v2.1 does not assert it. Computing |H| reveals that stratum L is non-empty in EXACTLY AND ONLY R04, R07 and R08 - exactly and only the three families carrying all 107 published M0 component hits (P0b) - so the correlation between L-membership and M0 success is PERFECT at family resolution, derivable from a truth-side census plus already-published data. Q12 sharpens this further: on those same three families, and only those, M0's canonical tree absorbs a common-denominator rewrite of the truth (M0 = 40/170 under PC4, distributed R04 10, R07 10, R08 20, coinciding with L's family distribution exactly).",
+   "frozen_consequence": "Section 7.3's stratification prediction is DEMOTED from frozen_blind_prediction to partly_derivable_prediction and may not be cited as evidence of foresight. A miss is still recorded and is informative about the derivation.",
+   "what_remains_genuinely_unobserved": "The primary endpoint itself. No candidate-side match indicator has been computed by anyone. That is the distinction that keeps the primary confirmatory, and it is what section 7.2's write-before-match ordering and the StrataFrozenToken gate exist to protect."
+  },
+  "measured_on_endpoint_corpus_note": "Q1-Q11 were measured by the Stage-3 reviewers; Q12-Q20 by the Stage-5 audit of v2 and by this amendment. Every one is published, truth-side, or synthetic (truth vs rewritten truth). NONE involves a candidate-side match indicator.",
+  "mandatory_disclosure_field": "Every artifact carrying a Part A endpoint must carry prior_information_disclosed naming sections 0.1-0.4 of v2.1 (not v2); the Stage-11 report must reproduce section 0 verbatim. Every artifact carrying a control result must additionally carry control_is_verification_of_disclosed_value: true for PC2a, PC2c, PC2d, PC3a, PC3b and PC4."
+ },
+ "primary_hypothesis": {
+  "id": "H-C0001-P",
+  "type": "null_shaped_confirmatory",
+  "statement": "E0 does not explain the Hill-component generation failure. Among the Hill / variable-denominator truth components of the 80 GRN validation systems, a canonicalizing constant-collapsing matcher (M3) recovers NO in-beam structural matches that GPU_RUN5's frozen exponent-aware CANONICAL-TREE matcher (M0) scored as misses, at the magnitude E0 requires. Predicted value: 0.",
+  "predicted_value": 0,
+  "inferential_content": "Powered falsification of a stated effect size, not an equivalence claim. At the realized |H| = 130 the design has 0.9991 probability of observing at least one gain if the per-component gain rate were 0.0525. The reported result of a zero observation is a bound plus that power statement - never 'the rate is zero' (section 9.5).",
+  "falsifier": "More than C = ceil(0.02 x 130) = 3 Hill components showing a matcher-attributable gain refutes H-C0001-P, means E0 operates at the component resolution that matters, requires revision of GPU_RUN5's component-level interpretation, and routes through the replication gate.",
+  "unsupported_is_not_refuted": "1 to ceil(0.02*|H|) gains leaves H-C0001-P unsupported without refuting it",
+  "effect_size_of_record": {
+   "quantity": "M0's ANY-over-12-cells reduced component rate - the reduction the primary uses",
+   "identified": false,
+   "admissible_range": [
+    0.053,
+    0.629
+   ],
+   "range_source": "STAT-M1: the 107 published component matches could be concentrated in as few as 9 components (12 cells each) or spread over as many as 107",
+   "value_used": 0.0525,
+   "how_it_is_used": "EXPLICITLY AND ONLY as the arithmetic lower bound of that range. The coincidence 107/2040 ~ 9/170 ~ 0.053 arises because there are exactly 12 cells per system and 2040 = 170 x 12. Using the lower bound is conservative for a power statement: a larger true p gives more power.",
+   "forbidden": "No artifact may present 0.0525 as 'the rate M0 achieves under the primary's reduction'; section 2.1 forbids that cross-reduction comparison.",
+   "finding": "V2-MAJ-4"
+  },
+  "precondition_without_which_no_verdict_may_be_reported": "A result of K = 0 may be reported as EVIDENCE AGAINST E0 if and only if the PC4 gain-indicator positive control PASSED (section 7.7, Gate A->B item (iii)). If PC4 fails, Part A is undecidable (gain indicator not demonstrated) and K - whatever its value - may not be cited for or against E0. Mandatory verbatim in verdict_scope_sentence. Finding: V2-CRIT-3."
+ },
+ "explanations": {
+  "E0": {
+   "status": "LIVE, with no component-level empirical support (RETRACT). M0 itself already finds 107/2040 component matches and 0/960 system matches, and M0 is a CANONICALIZING TREE matcher, not a string matcher. Nobody has run a constant-collapsing matcher on this corpus. NOW QUALIFIED by the scope restriction of section 1.3.",
+   "decided_by": "Part A"
+  },
+  "E1": {
+   "status": "REFUTED (P1), not re-tested, cited only",
+   "decided_by": null
+  },
+  "E1_prime": {
+   "status": "LIVE (P5, P6)",
+   "decided_by": "Part B"
+  },
+  "E2": {
+   "status": "LIVE",
+   "decided_by": "Part C"
+  },
+  "E3": {
+   "status": "LIVE",
+   "decided_by": "Part C"
+  },
+  "mutually_exclusive": false,
+  "reporting": "partition of components and systems into E0 / E1' / E2 / E3 / unattributed; no single-winner claim"
+ },
+ "statistical_unit_hierarchy": {
+  "analysis_element_of_primary": {
+   "level": "truth component",
+   "n": 170
+  },
+  "resampling_cluster": {
+   "level": "parameterized system",
+   "n": 80
+  },
+  "second_level_cluster": {
+   "level": "family",
+   "n": 8,
+   "note": "perfectly confounded with dimension"
+  },
+  "cells_are_never_a_unit": true,
+  "aggregation_order": "within-component over cells (ANY) first, then across components, with clustering by system and family",
+  "frozen_scope_sentence": "conditional on the single initial condition per system stored in GPU_RUN5 phase 3, and on the 10 distinct conditioning payloads its 12 cells realize",
+  "any_reduction_non_comparability": "an ANY-over-12 rate is not comparable to GPU_RUN5's per-cell rate except at exactly zero"
+ },
+ "target_population": {
+  "reading": "superpopulation",
+  "definition": "Hill-type GRN truth components emitted by the R01-R08 generator under the frozen configs/gpu_run5/base.yaml settings",
+  "finite_population_reading": "recorded and rejected as the estimand; under it an observed 0 is exactly 0 and no bound on any wider rate is licensed"
+ },
+ "splits": {
+  "train_calibration": {
+   "path": "results/runs/gpu_run5_20260823_ddd267b0/phase2/train.json",
+   "n": 240,
+   "contributes_to_endpoints": false
+  },
+  "validation_measurement": {
+   "path": "results/runs/gpu_run5_20260823_ddd267b0/phase2/validation.json",
+   "n_systems": 80,
+   "n_components": 170,
+   "sha256": "f4644d1d4c30f8a3d6f0cafc8f321fb2c07e72979d8e4c42d28862376abb8f64"
+  },
+  "candidates": {
+   "path": "results/runs/gpu_run5_20260823_ddd267b0/phase3/all_candidates.json",
+   "n": 47987,
+   "cells": 960,
+   "split_values": [
+    "validation"
+   ]
+  },
+  "replication_corpus": {
+   "path": "results/runs/gpu_run4_phase0_01/phase2/all_candidates.json",
+   "n": 12632
+  },
+  "final_test": {
+   "accessed": false,
+   "artifacts": [
+    {
+     "path": "phase2/sealed_test.json",
+     "status": "SPENT",
+     "access": "MUST NOT be read at all"
+    },
+    {
+     "path": "phase2/sealed_family_holdout_test.json",
+     "status": "SPENT",
+     "access": "MUST NOT be read at all"
+    },
+    {
+     "path": "phase4/sealed_official_test.json",
+     "status": "UNSPENT - the campaign's only clean seal",
+     "access": "MUST NOT be touched"
+    }
+   ]
+  },
+  "no_train_candidate_set": "all 47987 stored candidates are split == validation, so Part A cannot be timing-calibrated or threshold-tuned on train candidates; section 11.1 calibrates on validation candidates with match outcomes suppressed at the call site"
+ },
+ "test_firewall": {
+  "inventory_enumerated_at_run_time_never_hardcoded": {
+   "forced_by": "V2-MAJ-5 (v2 listed 3 sealed artifacts; 7 exist)",
+   "procedure": [
+    "1. Read results/runs/gpu_run5_20260823_ddd267b0/phase8/test_open_ledger.json - a ledger of digests and paths containing NO test payload - and take its sealed_paths and sealed_artifact_sha256 maps as the authority on OPEN STATUS.",
+    "2. Take a NAME-ONLY filesystem census (find results/runs -name 'sealed*'; stat only, no read, no hash) as the authority on EXISTENCE.",
+    "3. Every sealed artifact found by (2) and ABSENT from (1) is recorded ledger_status: 'no_ledger_entry' and treated as FORBIDDEN, exactly as a spent seal is. Status unknown is not status clean.",
+    "4. Assert the census count is >= 7 and that the allowlist intersects it in the empty set. A census returning fewer than 7 means a run directory moved and the assertion fails loudly."
+   ],
+   "artifact": "R/phase0/sealed_inventory.json",
+   "census_at_write_time": {
+    "results/runs/gpu_run5_20260823_ddd267b0/phase2/sealed_test.json": "SPENT (ledger: open_count 1, status complete, claimed 2026-08-31, completed 2026-09-01); sha256 881f784b...64ce0; MUST NOT be read",
+    "results/runs/gpu_run5_20260823_ddd267b0/phase2/sealed_family_holdout_test.json": "SPENT (same ledger event); a SUBSET of the 80 - never independent evidence; sha256 fa8fe375...baf91; MUST NOT be read",
+    "results/runs/gpu_run5_20260823_ddd267b0/phase4/sealed_official_test.json": "NO LEDGER ENTRY - see phase4_seal_precise_restatement; sha256 2860d829...f28e070; MUST NOT be touched",
+    "results/runs/gpu_run5_20260823_8cd0b6fa/phase2/sealed_test.json": "no ledger entry (abandoned run directory); MUST NOT be read",
+    "results/runs/gpu_run5_20260823_8cd0b6fa/phase2/sealed_family_holdout_test.json": "no ledger entry; MUST NOT be read",
+    "results/runs/gpu_run5_20260823_fec3a894/phase2/sealed_test.json": "no ledger entry (abandoned run directory); MUST NOT be read",
+    "results/runs/gpu_run5_20260823_fec3a894/phase2/sealed_family_holdout_test.json": "no ledger entry; MUST NOT be read",
+    "third_party/odeformer/odeformer/odebench/ (63 systems)": "not sealed; read-only, replication only; FORBIDDEN as adaptation / selection / hyperparameter data"
+   }
+  },
+  "phase4_seal_precise_restatement": {
+   "forced_by": "V2-MAJ-5",
+   "fact": "scripts/phases/gpu_run5_phase4.py:151-152 computes sha256_file over sealed_official_test.json AT WRITE TIME, inside phase 4, with NO claim_test_open and NO ledger, persisting the digest to phase4/official_corpus_meta.json:artifact_sha256 as 2860d829d9077d01258489fb68ed8dcd8a333d6a0e150b8e36b301f28bb1e070; :118-119 re-hashes it on every cache-validity check. That digest is BYTE-IDENTICAL to the hash v2 section 2.4 records for the seal, so v2's provenance value came from the pre-ledger event. The same meta file records test_generated_not_evaluated: true.",
+   "two_live_doctrines": {
+    "strong": "phase 8's own comment (gpu_run5_phase8.py:1170-1176): 'The sole open event is durably recorded above. Only now may sealed bytes be hashed or deserialized.' Under it, this seal was opened before C0001 existed, by its own producing phase, outside any ledger.",
+    "weak": "phase 4's own behavior plus test_generated_not_evaluated: true - hashing is a provenance operation and phase 8's hash-binding step is ceremonial."
+   },
+   "frozen_resolution": [
+    "v2.1 adopts the STRONG doctrine for C0001's own conduct: C0001 will not read, hash or deserialize any sealed file. The prohibition is prudent under either doctrine.",
+    "v2.1 does not adjudicate the campaign's history, which it did not cause and cannot undo.",
+    "The phrase 'UNSPENT - the campaign's only clean seal ... never touched' is WITHDRAWN as imprecise."
+   ],
+   "status_of_record": "phase4/sealed_official_test.json was GENERATED AND NEVER EVALUATED (test_generated_not_evaluated: true); it is NOT COVERED BY ANY TEST-OPEN LEDGER; and its SHA256 was COMPUTED BY ITS OWN PRODUCING PHASE OUTSIDE ANY LEDGER, and is recomputed on every phase-4 cache-validity check. Under the strong doctrine GPU_RUN5 phase 8 itself asserts, that hashing already constituted a test-open event. Whether this seal is usable as a clean confirmation set is therefore AN OPEN CAMPAIGN-LEVEL QUESTION, NOT A SETTLED FACT. C0001 does not touch it and does not rely on its cleanliness.",
+   "required_follow_up": "record as a research_state.md section 8 defect and correct section 4's row (see follow_ups)"
+  },
+  "input_allowlist_file_level_only": [
+   "phase2/train.json",
+   "phase2/validation.json",
+   "phase3/all_candidates.json",
+   "phase3/beam_groups.json",
+   "the enumerated 960 phase3/cells/*_validation_*.json",
+   "phase4/fixed_grn_validation_panel.json",
+   "phase8/test_open_ledger.json (status only; digests and paths, no test payload)",
+   "results/runs/gpu_run4_phase0_01/phase2/all_candidates.json (replication only)"
+  ],
+  "no_directory_is_ever_passed_to_any_reader_or_fingerprinter": true,
+  "structural_hazard_named": "AUDIT-MAJ-3: phase4/fixed_grn_validation_panel.json is a DIRECTORY SIBLING of phase4/sealed_official_test.json. The file-level grain is the whole protection; any relaxation to a directory grain re-opens the hole immediately and is forbidden for the life of this cycle.",
+  "run_manifest_data_path_rule": "scripts/ops/run_manifest.py --data-path receives only individual files from the allowlist. Passing any GPU_RUN5 or GPU_RUN4 run directory - or any directory containing a sealed* file - is FORBIDDEN. tree_sha256 (run_manifest.py:28) does rglob('*') and byte-reads every file it finds.",
+  "interception_not_convention": {
+   "forced_by": "V2-MAJ-6",
+   "defect_in_v2": "v2 claimed 'an instrumented opener records every path C0001 opens'; as designed and as built (src/gpu_runclaude1/io_allowlist.py InstrumentedOpener) that is a SANCTIONED WRAPPER CLASS, so any direct open(...), json.load(open(...)), np.load or pandas.read_* is invisible to it and sealed_paths_read: [] would again be a DISCIPLINE CLAIM, NOT A GUARANTEE.",
+   "a_audit_hook": "A sys.addaudithook is installed for the entire duration of Parts A, B and C (and the replication run), before any C0001 module is imported. It inspects the open and os.open audit events and RAISES SealedPathAccessError when the resolved path's basename matches sealed*, OR when the resolved path lies under any results/runs/gpu_run5_* or results/runs/gpu_run4_* directory and is not on the allowlist. Writes under R/ and reads of repository code, configs and the checkpoint are unaffected.",
+   "b_sole_path_requirement": "The guarded opener is the SOLE path by which candidate or truth files are opened in C0001 modules. No module under src/gpu_runclaude1/ nor any C0001 entry script may contain a file-read call site whose path does not come from the allowlist API.",
+   "c_test": "A direct open(<a sealed path>) executed FROM INSIDE the src/gpu_runclaude1 package raises SealedPathAccessError. The test constructs the path by name from the census and never reads it. Gate 0 item 12.",
+   "d_ast_test": "A static check over every module in src/gpu_runclaude1/ and every C0001 entry script asserts there is NO call to open, io.open, json.load+open, numpy.load, numpy.loadtxt, pandas.read_*, Path.read_text, Path.read_bytes or Path.open whose path argument is not obtained from the allowlist API. Violations listed by file and line. Gate 0 item 12.",
+   "wording_downgrade": "sealed_paths_read is 'the set of sealed*-matching paths the audit hook observed, which is empty iff no such path was opened by any code running under the hook'. It is COMPUTED, never a hardcoded []. It is NOT a claim that every path C0001 opened is enumerated - only reads reaching the CPython audit hook are, which is every filesystem open performed by Python-level code in-process."
+  },
+  "content_checked_assertions": [
+   "assert len(glob('phase3/cells/*_validation_*.json')) == 960",
+   "assert all('test' not in name)"
+  ],
+  "new_c0001_firewall_test": "asserts (a) the allowlist contains no sealed* path and no directory, (b) the audit hook is installed and sealed_paths_read is empty, (c) no manifest call received a directory argument, (d) the interception tests (c) and (d) above pass.",
+  "note_on_the_existing_test_v2_relied_on": "V2-MIN-4: GPU_RUN5/tests/test_gpu_run5_phase8.py:542 asserts source.index('claim_test_open(') < source.index('load_sealed_test(') - a LEXICAL first-occurrence check on source text, not a runtime ordering check; it would pass even if a later call site violated the order. The C0001-specific test is the real protection.",
+  "load_sealed_test_and_require_artifact": "src/gpu_run5/config.py:63-67 load_sealed_test raises PermissionError for int(phase) < 8, and C0001's declared phases are R/phase0-R/phase4, all below 8 - but the real protection is that v2.1 NEVER CALLS IT, not the phase gate. require_artifact (config.py:56-72) now carries a sealed* guard; it had ZERO callers repo-wide before, so AUDIT-MIN-5 overstated it as a live bypass. Both facts recorded so neither is mistaken for the primary safeguard.",
+  "repo_level_fixes_status": "V2-MIN-2: pytest.ini ALREADY carries pythonpath = . and lists GPU_RUN5/tests (added in 39ab0fd). v2's section 2.4 item 6 presented this as pending and asserted six files raise ModuleNotFoundError without PYTHONPATH=.; THAT CLAIM IS WITHDRAWN AS STALE - 124 tests collect bare with zero errors and the default suite is 301 passed / 1 skipped (Q20). Nothing further is required.",
+  "bottom_line": "C0001 consumes no seal. There is no final-test access in this cycle. No sealed file is read, hashed, stat-ed for content, or deserialized; only its name appears, from the census."
+ },
+ "what_cannot_change_after_the_irreversible_commitment": {
+  "irreversible_commitment": "the first computation of any Part A match indicator on a REAL STORED CANDIDATE. Immediately before that moment the component-strata assignment and the realized ladder (section 7.2) must be written and hashed, the StrataFrozenToken must be obtainable, and the control battery (section 7.7) must already have been run and gated (section 7.10).",
+  "immutable_thereafter": [
+   "primary hypothesis",
+   "primary endpoint, stratum definitions and matcher level M3 pinned to symbolic_recovery(...)['skeleton']",
+   "M0/M1/M3 cascade definitions, their infix representation, their timeouts",
+   "three-level unit hierarchy and aggregation order",
+   "ANY reduction",
+   "clustered-interval estimator, resample count and seed",
+   "outcome ladder and cutpoints",
+   "null-credibility conditions",
+   "control battery and pass thresholds",
+   "could_not_evaluate maximum",
+   "Go/No-Go gates",
+   "supported/unsupported/refuted/undecidable criteria",
+   "exclusion and failure policy",
+   "E2/E3 discriminator and thresholds",
+   "seeds",
+   "checkpoint SHA256",
+   "compute ceiling",
+   "run ID",
+   "the control battery's eligibility rules and its GATING MAP (section 7.7.3)",
+   "the section 1.3 E0 mechanism scope restriction",
+   "the K = 0 bound-of-record rule (interval (c)) and the prohibition on a degenerate percentile bound",
+   "the section 7.10 execution order"
+  ],
+  "any_change_forces": "a new cycle ID, not an amendment"
+ },
+ "ten_separations": {
+  "training": "NONE - zero parameters updated, no optimizer, zero training budget",
+  "validation": "the 80-system / 170-component GPU_RUN5 validation split is the only measurement set; every threshold fixed before Stage 4; nothing selected on validation outcomes",
+  "final_test": "NOT ACCESSED - two seals SPENT, one UNSPENT and untouched",
+  "generation": "measured as coverage (ANY over emitted candidates); zero new decode budget",
+  "selection": "measured separately - A2-S5 reports oracle vs selected candidate under the frozen selection rule; generation failure and selection failure never merged",
+  "numerical_fit": "reconstruction_r2, generalization_r2, NRMSE carried as COVARIATES ONLY; no match, recovery or discovery claim from any of them",
+  "formula_recovery": "four distinct resolutions kept separate: exact string, canonical prefix exact (M1), constant-collapsed skeleton equivalence (M3), structural distance (stored TED); variable recovery reported separately again; M3 is a SKELETON criterion at collapsed constants and is named as such",
+  "representation": "NOT MEASURED - no CKA, no similarity geometry, no probe",
+  "causal_contribution": "NOT MEASURED - no ablation, no intervention; A2-S7 is a statement and notes that in-beam coverage and component_exact_loss under intervention are DIFFERENT estimands",
+  "adaptation": "NOT MEASURED - no IOLE, no single-layer FT, no selective FT, no fine-tuning of any kind"
+ },
+ "model_and_budgets": {
+  "checkpoint": {
+   "path": "assets/odeformer/weights/odeformer.pt",
+   "sha256": "56754040be5aa92ed4767fc43ee2008faa293f87c12b643e66c7df3e1623a5e8",
+   "bytes": 464822385
+  },
+  "architecture_of_record": "4 encoder (dim 256) + 12 decoder (dim 512), 16 heads, 60646773 params",
+  "training_budget": "ZERO",
+  "hyperparameter_search_space": "EMPTY",
+  "new_decoding_candidate_budget": "ZERO",
+  "stored_candidate_decode_config": {
+   "beam_size": 50,
+   "beam_type": "sampling",
+   "beam_temperature": 0.1,
+   "max_generated_output_len": 200,
+   "rescale": true,
+   "failure_penalty": 10.0
+  },
+  "operator_constraints_of_record": {
+   "operators_to_use": "sin:1,inv:1,pow2:1,id:3,add:3,mul:1",
+   "min_unary_ops_per_dim": 0,
+   "max_unary_ops_per_dim": 3,
+   "min_binary_ops_per_dim": 1,
+   "max_binary_ops_per_dim": 5,
+   "max_unary_depth": 7,
+   "max_int": 10,
+   "float_precision": 3
+  },
+  "seeds": {
+   "global": 20260909,
+   "primary_matcher": "DETERMINISTIC - no RNG reachable. v2.1 CORRECTION (V2-MAJ-1): v2 stated that with M3 pinned to ['skeleton'] the grid in _approximately_equivalent 'is not called at all'. That is FALSE - the return dict at equation_metrics.py:207-212 is EAGER, so the whole equiv block at :195-205 executes on every M3 call. It remains NON-RANDOM: :84-85 fixes base = [0.2, 0.7, 1.3, 1.9] and args = [base + 0.11*index ...], with no points or seed parameter. Determinism holds for the reason stated, not for the reason v2 gave. Citation corrected :72-73 -> :84-85.",
+   "cluster_bootstrap": {
+    "generator": "numpy.random.default_rng(20260909)",
+    "streams": 1,
+    "resamples": 10000,
+    "draw_order": "families with replacement, THEN systems within each drawn family with replacement",
+    "method": "percentile",
+    "finding": "V2-MIN-6"
+   },
+   "numeric_equivalent_part_b_only": 0,
+   "control_eligibility_verification": "numeric_equivalent(n_points=32, seed=0)",
+   "cost_calibration_sampling": "numpy.random.default_rng(20260909)",
+   "throughput_measurement_sampling": "random.seed(20260909) - Q17"
+  },
+  "part_a_parallelism": {
+   "model": "process-based",
+   "max_workers": 6,
+   "thread_parallelism": "FORBIDDEN: _time_limit (equation_metrics.py:36-42, and its docstring at :32-34 says so outright) silently yields unguarded off the main thread, removing every SymPy wall-clock guard. Citation corrected from v2's :38-45 to :36-42.",
+   "smoke_assertion": "_time_limit must be demonstrated firing inside a worker process",
+   "ram_basis": "0.53 GiB/process; 6 workers ~ 3.2 GiB of 52 GiB available (Q18)"
+  },
+  "dtype_device": "fp32 throughout; Part C on cuda:0; Parts A and B CPU-only",
+  "environment": "PyTorch 2.5.1+cu124, sympy 1.13.1, numpy 2.2.6, zss 1.2.0, Python 3.10.20, lansr310",
+  "sympy_guards": "SYMPY_OP_TIMEOUT_SEC = 10.0 (equation_metrics.py:21). Unchanged by C0001. THREE LIVE 10-SECOND SURFACES PER M3 CALL, all inside the measured cost basis: to_skeleton's _timed_simplify (twice, once per side), :189's _timed_simplify(sk_true - sk_pred), :190's _timed_equals, AND :200's _timed_simplify(true_parsed - pred_parsed) on the un-skeletonized expressions, which v2 believed unreachable (V2-MAJ-1). LANSR_SYMPY_MAX_NODES and SYMPY_EQUIV_TIMEOUT_SEC (ted.py:14-15) apply only to _sympy_components_equal, which NO v2.1 endpoint calls; the PC0-CAS diagnostic runs it with the cap raised to 200 in a DEDICATED SUBPROCESS with the environment variable set BEFORE INTERPRETER START (V2-MIN-5)."
+ },
+ "comparators": {
+  "C-M0": {
+   "value": "0/960 cells (mean over cells, gpu_run5_phase3.py:442), 0/120 per family",
+   "role": "the published claim under test",
+   "note": "the stored value is a MEAN OVER 960 CELLS, not over 80 systems; the reductions coincide only because the value is exactly 0 (AUDIT-MIN-11)"
+  },
+  "C-M0c": {
+   "value": "107/2040 = 0.0525",
+   "role": "the reference level the primary's GAIN is measured against. Its ANY-reduced counterpart, which is what the primary actually compares against, is NOT IDENTIFIED: admissible range [0.053, 0.629] (V2-MAJ-4). 0.0525 is used only as the arithmetic lower bound of that range.",
+   "correction": "v1 stated 0/2040 (AUDIT-CRIT-1)"
+  },
+  "C-M0f": {
+   "value": "all 47987 stored per-candidate fields, 101963 component comparisons, 2235 component ones",
+   "role": "the R1-mandated positive control; Gate A->B requires exact reproduction"
+  },
+  "C-ODEB": {
+   "value": "4/252 = 1.59% [0.0062, 0.0401]",
+   "role": "non-zero corpus-level positive control for the replication"
+  },
+  "C-BUDGET": {
+   "value": "max_unary_ops_per_dim = 3",
+   "role": "Part B reference"
+  },
+  "C-SAMPLED": {
+   "value": "measured in Part C",
+   "role": "the model's own 50 samples; budget-matched, with the T=0.1 upper-tail caveat frozen"
+  },
+  "C-SELECTED": {
+   "value": "measured in Part C",
+   "role": "second element of the paired Stahlberg-Byrne discriminator"
+  },
+  "C-NEG": {
+   "value": null,
+   "role": "DROPPED - it was C-M0c re-derived (RETRACT, R1)"
+  },
+  "naming_correction_v2_1": "M0 is NOT 'the frozen string matcher'. It is the frozen exponent-aware CANONICAL-TREE matcher with collapsed constants: in the mandated infix-on-both-sides configuration formula_views(..., as_prefix=False) parses and canonicalizes before the skeleton is formed. Every 'string matcher' phrase in v1 and v2 is superseded. Consequences in e0_mechanism_scope_restriction and matcher_cascade[0]."
+ },
+ "fair_comparison_budget": {
+  "part_a": "M0, M1, M3 on the identical 47987 candidates, 170 truths, 960 cells, in the same pass, same process, same parsed inputs; only the equivalence criterion varies; BOTH SIDES FED INFIX (R1)",
+  "identical_failure_budgets": "no arm gets a longer wall clock, a larger node budget, or a retry the others do not All three matcher arms are subject to the same SYMPY_OP_TIMEOUT_SEC = 10.0, and NO arm runs under a raised LANSR_SYMPY_MAX_NODES (the PC0-CAS subprocess is a DIAGNOSTIC, NOT AN ARM, and produces no endpoint).",
+  "part_b": "two encodings of the SAME truth against the SAME budget of 3, identical 200-rewrite cap",
+  "part_c": "one cached encoder pass per cell reused for GT and all candidates; identical decoder call, same process, fp32, same device",
+  "declared_asymmetry_1": "conditioning identity - input_trajectory_checksum is a SYSTEM-identity check (80 distinct values, constant across a system's 12 cells) and cannot detect a cell-level mixup; replaced by cell_input_payload_sha256 (STAT-C3)",
+  "declared_asymmetry_2": "encoding orbit - the GT is scored as one of ~26-664 equivalent encodings, so logP(one encoding) is a LOWER BOUND; 9.375 commutable binary nodes per truth -> 3.25 nats (50% swappable), 4.87 (75%), 6.50 (100%); a preregistered DIRECTIONAL BIAS TOWARD E2 of 14-28% of a 0.5 nats/token scale. v1's 'no GT special path' sentence is WITHDRAWN: true of the forward pass, false of the estimand (STAT-M9)",
+  "control_battery_budget_parity_new_in_v2_1": "Every control is scored through the SAME functions, the same representation, the same timeouts and the same gain code as the endpoint pass (part_a_execution_order step 3). No control receives a bespoke matcher, a relaxed tolerance, or a second attempt. PC4 in particular is NOT a bypass: it calls formula_metrics and symbolic_recovery exactly as the endpoint pass does, differing only in that its candidate is synthetic and tagged."
+ },
+ "parts": [
+  {
+   "id": "Part A",
+   "question": "E0 - does canonicalization recover Hill-component matches M0 missed?",
+   "compute": "CPU only",
+   "gate": "Gate 0 -> A"
+  },
+  {
+   "id": "Part B",
+   "question": "E1' - is the truth outside the generator's sampling support?",
+   "compute": "CPU only",
+   "gate": "Gate A -> B"
+  },
+  {
+   "id": "Part C",
+   "question": "E2 vs E3 - model error or search error?",
+   "compute": "GPU, forward passes only",
+   "gate": "Gate B -> C"
+  }
+ ],
+ "primary_endpoint": {
+  "id": "hill_component_matcher_attributable_gain_rate",
+  "definition": "( sum over (s,i) in H of gain(s,i) ) / |H|, where gain(s,i) = 1[ m3_any(s,i) == 1 AND m0_any(s,i) == 0 ], and m*_any is the OR over usable candidates over the 12 cells of system s at truth component index i",
+  "eligible_set": "stratum H, realized |H| = 130 of 170 (Q16); denominator |H|; ladder decides on the COUNT K against C = ceil(0.02 x 130) = 3",
+  "matcher_level": "M3",
+  "intervals": [
+   {
+    "id": "a",
+    "method": "plain Wilson score 95% over |H| = 130, z = 1.959964, no continuity correction",
+    "label": "assumes_component_independence: true",
+    "value_at_0_of_130": [
+     0.0,
+     0.0287
+    ]
+   },
+   {
+    "id": "b",
+    "method": "two-stage cluster bootstrap 95% PERCENTILE: families with replacement, then systems within each drawn family with replacement, 10,000 resamples, numpy.random.default_rng(20260909), ONE generator stream, draw order families-then-systems",
+    "label": "interval_target: component_gain_rate"
+   },
+   {
+    "id": "c",
+    "method": "8-cluster Wilson on the family-level indicator (a family contributes 1 iff >= 1 of its H components shows a gain)",
+    "label": "interval_target: family_level_indicator_rate",
+    "value_at_0_of_8": [
+     0.0,
+     0.3244
+    ]
+   }
+  ],
+  "one_sidedness": "every 'upper bound' is the upper limit of a two-sided 95% interval, i.e. a 97.5% one-sided bound; labeled as such",
+  "why_not_v1s_primary": "v1 reduced by conjunction over all components of a system, estimating the d-th power of a per-component phenomenon, in a corpus where dimension is confounded with family and the only stratum where the conjunction could fire (dim-1) is known empty; outcome carried 0.286 bits (STAT-C1)",
+  "why_gain_not_level": "The gain is exactly the retracted claim, tested properly: are there components whose structure is in the beam and which the frozen matcher scored as a miss? v2's justification - that the M3 LEVEL is 'bounded below by 107/2040 under monotonicity' - is WITHDRAWN because monotonicity is false (section 7.5 item 4). The correct justification needs no inclusion: gain is measured ONLY on M0's misses by construction.",
+  "naming": "M3 collapses every numeric constant to c (equation_metrics.py:158-164), so an M3 match is SKELETON equivalence at collapsed constants, never semantic equivalence (AUDIT-MIN-10, rule 03)",
+  "bound_of_record_rule": {
+   "forced_by": "V2-MAJ-3",
+   "K_ge_1": "interval (b)",
+   "K_eq_0": "interval (c), value [0, 0.3244]",
+   "reason": "At K = 0 all 130 component indicators are 0, so EVERY bootstrap resample yields 0 and (b) is exactly the degenerate [0, 0].",
+   "prohibitions": [
+    "It is FORBIDDEN, anywhere in this cycle, to report a bootstrap percentile upper bound of 0 as an upper bound.",
+    "It is FORBIDDEN to fill section 9.5 item 1's [value] slot with 0.0000.",
+    "(b) is still computed and reported at K = 0 under degenerate_all_resamples_zero: true, and explicitly NOT as an evidential bound."
+   ],
+   "what_is_substantive_at_K_eq_0": "the POWER STATEMENT, not an interval; section 9.5 item 1 has a separate verbatim K = 0 variant in which the power statement occupies the substantive position."
+  },
+  "measured_where_M0_failed": "V2-OK-2: gain requires m0_any = 0. 90 of the 130 H components lie in R01/R02/R03/R05/R06, families with 0 published M0 component hits, so m0_any = 0 there by published data and gain = m3_any outright. At most 40 H components (R04/R07/R08) can carry m0_any = 1 and be structurally barred from contributing. The denominator is therefore at worst 31% inflated by components that cannot contribute, which DEFLATES the rate - the conservative direction for a null-shaped claim - and the ladder decides on the COUNT, which the denominator does not touch."
+ },
+ "component_strata": {
+  "derivation": "truth-side only, from phase2/validation.json:teacher_components_infix through src/gpu_run4/formulas.py formula_views(..., as_prefix=False)['components'] - the INFIX path, same derivation path as the matcher input (R1)",
+  "H": "the component's parsed tree contains at least one inv node whose argument subtree contains at least one variable leaf x_j",
+  "L": "every other component: linear-decay-only, constant-affine, and components whose only inv arguments are constant subtrees",
+  "procedural_ordering_frozen": [
+   "1. Write and hash R/phase1/component_strata.json with |H|, |L|, the per-family and per-dimension breakdown and the assertion result against Q16.",
+   "2. Write and hash R/phase1/partA_ladder_realized.json with the realized-|H| Wilson table, ladder cutpoint C, OC table and power table, ASSERTED EQUAL to the frozen tables of sections 7.3 and 9.3.",
+   "3. The H/L stratification of GPU_RUN5's 107 published M0 component hits may be computed ONLY AFTER steps 1 and 2 are written and hashed (section 0.4, section 7.10 step 7).",
+   "4. MECHANICAL ENFORCEMENT, frozen in this document (audit section 5.4): src/gpu_runclaude1/strata.py require_strata_frozen(...) returns a StrataFrozenToken whose ONLY constructor is that function, refusing unless (i) both artifacts exist on disk, (ii) the strata file's recorded sha256_of_component_assignment re-verifies against its own content, (iii) the ladder file records that same hash as sha256_of_component_strata_input. EVERY function that can compute a match indicator on a real stored candidate must REQUIRE that token as a parameter. A reimplementation satisfying the ordering by call sequence alone does NOT satisfy this preregistration.",
+   "5. Only then may any match indicator be computed on a real stored candidate. Control-battery indicators on SYNTHETIC truth-vs-rewritten-truth pairs are exempt and run in section 7.10 step 3, before the endpoint pass, because they contain no candidate-outcome information."
+  ],
+  "violation_consequence": "Part A is undecidable, with no remedy short of a new cycle ID (deviation 8), because the integrity ordering that makes the primary unobserved cannot be reconstructed after the fact.",
+  "frozen_fallbacks": {
+   "if_H_lt_40_or_L_lt_15": "the stratified primary is not_measurable; the primary falls back automatically to the UNSTRATIFIED component-level gain rate over all 170 components, with the stratified values descriptive",
+   "if_40_le_H_lt_100_and_power_lt_0.90": "the null-direction verdict is labeled underpowered_bound_only and MAY NOT be cited as refuting E0",
+   "note": "NEITHER fallback fires at the realized |H| = 130, |L| = 40; they are retained so that a harness returning different values has a defined, non-discretionary path."
+  },
+  "realized_values_frozen_here": {
+   "source": "Q16 (v2 audit V2-OK-1; reproduced 170/170 by this amendment)",
+   "H": 130,
+   "L": 40,
+   "C": 3,
+   "n_components": 170,
+   "agreement_with_stored_variable_denominator_form": "170/170",
+   "H_by_family": {
+    "R01": 10,
+    "R02": 10,
+    "R03": 20,
+    "R04": 10,
+    "R05": 20,
+    "R06": 30,
+    "R07": 20,
+    "R08": 10
+   },
+   "L_by_family": {
+    "R04": 10,
+    "R07": 10,
+    "R08": 20,
+    "R01": 0,
+    "R02": 0,
+    "R03": 0,
+    "R05": 0,
+    "R06": 0
+   },
+   "H_by_dimension": {
+    "1": 20,
+    "2": 50,
+    "3": 60
+   },
+   "L_by_dimension": {
+    "2": 10,
+    "3": 30
+   },
+   "implementation_requirement": "the implementation must RECOMPUTE these and ASSERT EQUALITY with the values frozen here; a mismatch is a harness defect, halts Part A, and is handled under section 7.6's failure protocol (deviation 6/7)"
+  }
+ },
+ "frozen_predictions": {
+  "recorded_before_looking_at": "the primary endpoint itself is genuinely unobserved: no candidate-side match indicator has been computed by anyone. |H| and |L| are now MEASURED (Q16) and the stratification prediction is only PARTLY DERIVABLE (section 0.4).",
+  "H_size": {
+   "value": 130,
+   "status": "MEASURED (Q16)",
+   "note": "inside v2's blind prediction of 130-145, at the lower boundary"
+  },
+  "L_size": {
+   "value": 40,
+   "status": "MEASURED (Q16)",
+   "note": "inside v2's blind prediction of 25-40, at the upper boundary"
+  },
+  "primary_hill_stratum_gain_rate": 0,
+  "stratification_of_the_107": {
+   "prediction": "majority in stratum L - at least 54 of 107",
+   "status": "partly_derivable_prediction, NO LONGER BLIND (section 0.4)",
+   "why": "L is non-empty in EXACTLY AND ONLY R04/R07/R08, the three families carrying ALL 107 hits (Q16 + P0b)",
+   "may_not_be_cited_as": "evidence of foresight",
+   "a_miss_is_still": "recorded and informative about the derivation"
+  },
+  "dimension_distribution_of_the_107": "0 in dim-1 - NOT a prediction, deduced from published values (P0d)",
+  "monotonicity_violations": {
+   "prediction": "NONE - v2's '<= 0.1%' is WITHDRAWN as unfounded",
+   "status": "reported, non-gating (section 7.5 item 4)",
+   "why": "M3 is NOT a superset of M0: under sympy.apart the audit measured M0 3/20 vs M3 0/20, because constant collapsing breaks identities M0's canonical tree still matches. A non-trivial violation rate is expected, is explained, and PROVABLY CANNOT AFFECT the primary."
+  },
+  "power_to_observe_at_least_one_gain_independence_based": {
+   "formula": "1 - (1 - p)^130",
+   "realized_H": 130,
+   "p_0.0525": 0.9991,
+   "p_0.03": 0.9809,
+   "p_0.02": 0.9277,
+   "p_0.01": 0.7292,
+   "p_0.005": 0.4788,
+   "effect_size_note": "0.0525 is the ARITHMETIC LOWER BOUND of M0's ANY-reduced component rate, admissible range [0.053, 0.629] (V2-MAJ-4)",
+   "clustering_note": "Clustering reduces effective power below these independence figures; the cluster bootstrap must report the family-clustered power at |H| = 130 alongside them, and the SMALLER of the two is the number the report quotes.",
+   "artifact_requirement": "recomputed into partA_ladder_realized.json and asserted equal to this table (section 7.2 step 2)"
+  },
+  "primary_hill_stratum_gain_count_K": {
+   "value": 0,
+   "denominator": 130,
+   "status": "frozen blind prediction; genuinely unobserved",
+   "basis": "E0 has no component-level empirical support after RETRACT; M0 already finds the 107; and by section 1.3 the only E0 mechanism the instrument can see is M-iii, for which no candidate-side evidence exists"
+  },
+  "L_stratum_gain_count": {
+   "value": 0,
+   "denominator": 40,
+   "status": "frozen blind prediction, RE-DERIVED in v2.1",
+   "v2_prediction": "> 0",
+   "v2_basis_withdrawn": "'real candidates spell decay as a signed constant (P4), WHICH M0 CANNOT MATCH and M3 can' - that basis is FALSE (Q12b: M0 = 170/170 on the P4 rewrite)",
+   "new_basis": "With M-i absorbed by M0, NO KNOWN MECHANISM produces a gain in stratum L, and Q12 shows the one rewrite class that does produce gains (common-denominator) yields 0 gains in L on synthetic candidates, because together is absorbed by M0 on exactly the L components.",
+   "integrity_note": "Recording the change, its cause and the withdrawn basis is required by rule 01 item 3. This is a CORRECTION OF A REFUTED PREMISE BEFORE OBSERVATION, not a threshold moved to rescue a result."
+  },
+  "H_minus_L_gain_difference": {
+   "value": 0,
+   "inference": "descriptive",
+   "note": "follows from the two rows above"
+  },
+  "PC4_gain": {
+   "prediction": ">= 40 total and >= 20 in stratum H and >= 3 families",
+   "status": "verification of Q12 (measured 100 total, 100 in H, 6 families)"
+  }
+ },
+ "matcher_cascade": [
+  {
+   "level": "M0",
+   "definition": "frozen exponent-aware CANONICAL-TREE skeleton equality with collapsed constants - NOT a string matcher",
+   "naming_correction": "V2-CRIT-3 root cause: in the mandated infix-on-both-sides configuration, formula_views(..., as_prefix=False) parses and canonicalizes before the skeleton is formed, so -1 * 0.3968 * x_0 becomes -0.3968 * x_0 and the emitted canonical prefix is add,add,0.1954,mul,-0.3968,x_0,mul,mul,0.8878,inv,add,0.8392,x_0,x_0. Every 'string matcher' phrase in v1 and v2 is superseded.",
+   "implementation": "src/gpu_run5/evaluation.py:39 formula_metrics(teacher_infix, candidate_formula_raw), fields exponent_aware_skeleton_exact (system, :84-87, requiring component_count_match AND whole-string equality of the canonical skeleton) and component_exponent_aware_skeleton_exact (component, :47-53, index-aligned split on ' | '); formula_metrics calls compare_formulas(true_infix, predicted_infix, skip_cas=True) at :41",
+   "representation": "infix on both sides"
+  },
+  {
+   "level": "M1",
+   "definition": "canonical prefix exact",
+   "implementation": "src/gpu_run4/formulas.py:479 compare_formulas(..., skip_cas=True)['canonical_exact']",
+   "representation": "infix on both sides"
+  },
+  {
+   "level": "M3",
+   "definition": "constant-collapsed skeleton equivalence - THE PRIMARY LEVEL",
+   "implementation_of_record": "EXACTLY src/evaluation/equation_metrics.py:169 symbolic_recovery(T_i_infix, C_i_infix)['skeleton'], and NO OTHER KEY. Internally: to_skeleton (:153, via _to_skeleton_with_reason) maps constants to c and returns _timed_simplify(sympify(...)), then :189 _timed_simplify(sk_true - sk_pred) == 0 OR :190 _timed_equals(sk_true, sk_pred).",
+   "representation": "infix on both sides",
+   "eager_dict_correction": {
+    "finding": "V2-MAJ-1",
+    "v2_claim_withdrawn": "v2 asserted 3x (v2:409, :620-623, :1478) that _approximately_equivalent is 'not called' and that the :205 except Exception: equiv = skeleton fallback is 'not reachable'. BOTH ASSERTIONS ARE FALSE.",
+    "fact": "The return dict at equation_metrics.py:207-212 is built EAGERLY - Python has no lazy dict values - so a caller reading only ['skeleton'] still executes the entire equiv block at :195-205: two sympify calls, _timed_simplify(true_parsed - pred_parsed) at :200 on the UN-SKELETONIZED expressions (bounded by SYMPY_OP_TIMEOUT_SEC = 10.0), _approximately_equivalent at :203 whenever diff != 0 and skeleton == 1.0, and the :204-205 handler.",
+    "what_survives": "skeleton is finalized at :187-193 STRICTLY BEFORE the equiv block; :205 writes only to the local equiv; data flow is one-directional (skeleton -> equiv, never back); the grid at :84-85 is non-random. So ['skeleton'] CANNOT be contaminated and the M3 value is deterministic.",
+    "what_changes": "the :200 timeout joins the section 7.5 failure-surface list, and section 11.1 records that this block is inside the measured 655 ms/candidate.",
+    "citation_corrections": {
+     "_approximately_equivalent grid": ":72-73 -> :84-85",
+     "_time_limit off-main-thread no-op": ":38-45 -> :36-42"
+    }
+   },
+   "implementation_divergence_resolution": {
+    "finding": "V2-MAJ-2",
+    "definition_of_record_unchanged": "symbolic_recovery(...)['skeleton']",
+    "substitute_permitted_iff": [
+     "(a) Gate 0 item 11: 100% BIT-IDENTICAL ['skeleton'] agreement over the 910 SYNTHETIC control pairs (PC0 170, PC2a 170, PC2b eligible, PC2c 170, PC2d 170, PC3a 48, PC3b 60, PC4 170, PC4b 170), which span proved matches, proved non-matches and every labeled failure surface, and contain NO candidate data, so they can be run before the strata are frozen without violating section 7.2.",
+     "(b) In-pass census: every 100th (cell, candidate, component) triple in the frozen deterministic enumeration order is scored by BOTH implementations; m3_implementation_agreement is a reported endpoint (A2-S6c) with a FROZEN REQUIREMENT OF 100%; any disagreement halts Part A as a harness defect under section 7.6's protocol. Cost ~480 extra M3 calls ~ 0.08 core-h."
+    ],
+    "if_either_fails": "the implementation must call symbolic_recovery(...)['skeleton'] directly and the pass is re-run whole",
+    "discipline_extension": "section 17's 'extended, not modified' clause is extended to src/evaluation/equation_metrics.py"
+   }
+  },
+  {
+   "level": "M2",
+   "definition": "CUT - no M2 endpoint exists (section 18.1)",
+   "unreachability": "structural: one definition (formulas.py:427), one call site (:496) behind elif not skip_cas: (:495), formula_metrics passes skip_cas=True, and equation_metrics.py never imports gpu_run4. Its node cap (SYMPY_MAX_NODES = 40, formulas.py:434, returning 0.0, None with NO failure reason) is therefore unreachable from every v2.1 endpoint path.",
+   "scope_cost": "cutting M2 leaves E0's affine-decomposition mechanism with NO instrument - see e0_mechanism_scope_restriction M-ii and section 18.1"
+  }
+ ],
+ "failure_taxonomy": {
+  "principle": "proved_different is separated from could_not_evaluate at every level; no path may return an unlabelled non-match",
+  "labeled_surfaces": {
+   "to_skeleton returns None (equation_metrics.py:166, the terminal return of _to_skeleton_with_reason)": "SkeletonParseFailure",
+   "the same terminal return when the failing attempt raised _SymTimeout": "SymbolicEquivalenceTimeout",
+   "except Exception: skeleton = 0.0 (equation_metrics.py:192-193)": "SkeletonEvaluationFailure",
+   "_timed_simplify / _timed_equals wall-clock trip at :189 or :190": "SymbolicEquivalenceTimeout",
+   "_timed_simplify(true_parsed - pred_parsed) at :200 on the un-skeletonized expressions - NEW IN v2.1, the surface v2 omitted because it wrongly believed the block dead (V2-MAJ-1)": "EquivBlockTimeout_NonEndpoint; counted SEPARATELY, OUTSIDE the could_not_evaluate_rate numerator, because it cannot change ['skeleton'] - but it CAN trip the 10 s guard and it DOES consume wall clock on every call",
+   "component-count mismatch": "ComponentCountMismatch, classified as proved_different, EXCLUDED from the could_not_evaluate numerator (V2-MIN-9)",
+   "parse failure on either side": "ParseError",
+   "nodes > SYMPY_MAX_NODES (formulas.py:434) - PC0-CAS diagnostic only": "SymbolicNodeCapExceeded"
+  },
+  "reported_endpoint": {
+   "id": "A2-S6",
+   "definition": "(SkeletonParseFailure + SkeletonEvaluationFailure + SymbolicEquivalenceTimeout + ParseError) / all scored (cell, candidate, component) triples. ComponentCountMismatch and EquivBlockTimeout_NonEndpoint are excluded.",
+   "frozen_maximum": 0.02,
+   "above_maximum": "Part A primary is undecidable (instrument failure); no null may be reported"
+  },
+  "two_sided_sensitivity_analysis": "mandatory whenever could_not_evaluate_rate > 0: recompute the primary counting every could-not-evaluate triple as a non-match (of record) and as a match (adversarial); different rungs => undecidable",
+  "rationale": "equation_metrics.py:18-20 treats a timeout as 'could not prove equivalence', conservative for a RECOVERY claim and ANTI-CONSERVATIVE for this null"
+ },
+ "monotonicity_policy": {
+  "finding": "V2-MAJ (audit section 2.3)",
+  "v2_expectation_withdrawn": "v2 expected M0 subset M1 subset M3 and made a > 1% violation rate a CRITICAL rendering Part A undecidable. THE EXPECTATION IS FALSE AND THE TRIPWIRE IS REMOVED.",
+  "reason_1_expectation_false": "Under sympy.apart the audit measured M0 3/20 vs M3 0/20. M3 can be STRICTLY LESS PERMISSIVE than M0 because to_skeleton maps every distinct constant to the same symbol c, under which some algebraic identities cease to hold while M0's exponent-aware canonical tree still matches. Retaining a CRITICAL tripwire on an expectation known to be false is a SECOND DETERMINISTIC-BURN HAZARD of exactly the kind V2-CRIT-1 and V2-CRIT-2 identified.",
+  "reason_2_violations_cannot_affect_the_primary": "gain(s,i) requires m0_any(s,i) = 0. Every violation is a component with m0_any = 1, which therefore contributes 0 to the numerator BY DEFINITION, whatever M3 does there. Monotonicity failures can neither inflate nor deflate K. The primary is an INDICATOR CONJUNCTION, NOT A DIFFERENCE, so it lies in {0,1} and can never be negative.",
+  "frozen_policy": "The full M0/M1/M3 audit is COMPUTED AND REPORTED at triple resolution, every violation logged with both expressions and both derivation paths; the component-level count of m0_any = 1, m3_any = 0 is reported explicitly as A2-S6b - the direct sibling of the primary and the exact check that would have caught the retracted representation bug. NO THRESHOLD ON IT GATES ANYTHING. The report must state the measured rate and the reason it does not bear on K.",
+  "role": "NOT a precondition for the multiplicity argument - that argument is re-derived without inclusion (section 9.4 item 4)"
+ },
+ "m0_reproduction_gate": {
+  "requirement": "The M0 arm, computed as formula_metrics(teacher_infix, candidate_formula_raw), must reproduce the stored exponent_aware_skeleton_exact and component_exponent_aware_skeleton_exact fields for ALL 47,987 candidates and ALL 101,963 component comparisons exactly - including all 2,235 stored component-level ones - and must reproduce the reduced values 0/960 system-level and 107/2040 component-level, AND ALL EIGHT PER-FAMILY COUNTS (R01 0/120, R02 0/120, R03 0/240, R04 56/240, R05 0/240, R06 0/360, R07 17/360, R08 34/360). Every figure re-verified exactly by the Stage-5 audit of v2 (V2-OK-5).",
+  "why_non_vacuous": "every stored exponent_aware_skeleton_exact / canonical_exact / skeleton_exact value is 0.0, so 'reproduces 0.0' is satisfied by any implementation that never matches; the 2235 stored component ones are the only non-degenerate signal, and 600/600 reproduction was demonstrated at audit (Q3)",
+  "replaces": "v1's A-S3 >= 0.0525 defect trigger, which compared an ANY-over-12 rate to a cell-level rate whose admissible range is [0.052, 0.629] and rested on a retracted reading",
+  "failure_protocol": "Any mismatch - INCLUDING a mismatch of the frozen |H|/|L| values (section 7.2) or of m3_implementation_agreement (section 7.4) - is a HARNESS DEFECT, NOT A FINDING: halt, store the disagreeing records at R/phase1/m0_reproduction_failures.jsonl, diagnose, fix only the defect, re-run Part A WHOLE, record a DEVIATION-nn. If it cannot be isolated within the ceiling, the ENTIRE CYCLE is undecidable. The first hypothesis to check on failure is a representation mismatch between prefix- and infix-derived strings (R1)."
+ },
+ "control_battery": [
+  {
+   "id": "PC0",
+   "class": "sensitivity",
+   "construction": "call symbolic_recovery(T_i, T_i)['skeleton'] DIRECTLY, bypassing compare_formulas entirely",
+   "eligible_set": "all 170 components / 80 systems",
+   "threshold": "170/170 components AND 80/80 systems",
+   "measured": "170/170 (v2 audit V2-OK-6: symbolic_recovery has NO short-circuit on exact, unlike compare_formulas at :493-494, so PC0 genuinely exercises the primary's own path)",
+   "failure": "HARD ABORT - matcher broken - Part A undecidable, no verdict",
+   "gating": "both branches"
+  },
+  {
+   "id": "PC4",
+   "class": "capability of the endpoint's own indicator",
+   "new_in": "v2.1",
+   "forced_by": "V2-CRIT-3",
+   "construction": "for each truth component T_i build R_i = str(sympy.together(sympify(T_i))); assemble the system candidate ' | '.join(R_i); inject it as a SYNTHETIC CANDIDATE and score it THROUGH THE SAME CODE PATH AS THE REAL MEASUREMENT: M0 = formula_metrics(teacher_infix, synthetic_system)['component_exponent_aware_skeleton_exact'][i], M3 = symbolic_recovery(T_i, R_i)['skeleton'], and gain_pc4(i) computed by THE IDENTICAL gain FUNCTION THE PRIMARY CALLS. No bypass, no bespoke matcher, no relaxed tolerance.",
+   "eligible_set": "instances where R_i differs textually from T_i AND the rewrite verifies function-preserving; measured 170/170",
+   "threshold": "gain_pc4_total >= 40 of the eligible set AND gain_pc4_H >= 20 AND >= 3 distinct families contribute >= 1 gain",
+   "measured": "Q12: total 100, H 100, L 0, 6 of 8 families - margins 2.5x, 5x, 2x",
+   "failure": "HARD ABORT - Part A undecidable (gain indicator not demonstrated); K may not be reported for or against E0; Part B may still run; PART C IS NOT RUN",
+   "gating": "both branches",
+   "why_admissible": [
+    "runs through the SAME code path as the real measurement",
+    "DEMONSTRABLY produces a non-zero gain (100/170, all in stratum H, 6 of 8 families)",
+    "its rewrite class is WITHIN THE MODEL'S OWN GENERATION SUPPORT (inv, mul, add all have non-zero generation probability, P2)",
+    "it exercises exactly the M3-vs-M0 difference the primary is built on"
+   ],
+   "what_it_does_not_show": "PC4 is INSTRUMENT VALIDATION, NOT MECHANISM VALIDATION. It does not show that any real beam candidate carries such a rewrite - that is what the primary measures. It does not restore E0's two disclosed mechanisms. And it is a VERIFICATION of a disclosed value (Q12), so a non-failure is not a discovery."
+  },
+  {
+   "id": "PC4b",
+   "class": "capability, diversification",
+   "new_in": "v2.1",
+   "construction": "rewrite a * X * inv(K + X) as a * inv(K * inv(X) + 1) (divide numerator and denominator by X), bottom-up, cap 1 rewrite per component, each verified function-preserving",
+   "eligible_set": "instances where the pattern applies and verification passes",
+   "threshold": "NONE - reported. Frozen as an UNVERIFIED PREDICTION of gain > 0",
+   "gating": false
+  },
+  {
+   "id": "PC0-CAS",
+   "class": "instrument diagnostic, NOT an endpoint",
+   "construction": "_sympy_components_equal(truth, truth) directly, M1 short-circuit bypassed, in a DEDICATED SUBPROCESS with LANSR_SYMPY_MAX_NODES=200 set BEFORE INTERPRETER START (V2-MIN-5: ted.py:15 reads it at import and formulas.py:13 binds it by value, so in-process monkeypatching leaves formulas.py:434 at 40 and PC0-CAS would silently re-measure 28/80), asserting formulas.SYMPY_MAX_NODES == 200 on entry",
+   "eligible_set": "80 systems",
+   "threshold": "reported, not gating. Known at cap 40: 28/80 with 52/80 cap-exceeded (Q4). Expected at cap 200: 80/80.",
+   "cost_bound": "80 calls x SYMPY_EQUIV_TIMEOUT_SEC = 10 s = 0.22 core-h; the per-component loop runs inside a SINGLE time_limit (formulas.py:437); Q7's truth node totals (max 48, doubled to <= 96 for truth-vs-truth) sit well inside a cap of 200",
+   "gating": false,
+   "may_invalidate_gpu_run5": false
+  },
+  {
+   "id": "PC1",
+   "class": "documentation of a known artifact",
+   "construction": "inject the truth as its own candidate",
+   "eligible_set": "80 systems",
+   "threshold": "reported alongside PC0; formulas.py:493-494 short-circuits symbolic = 1.0 when canonical_exact == 1.0, which is why v1's PC1 gave M2 80/80 while the CAS path alone gives 28/80",
+   "gating": false
+  },
+  {
+   "id": "PC2a",
+   "class": "HARNESS-IDENTITY VERIFICATION (reclassified in v2.1)",
+   "forced_by": "V2-CRIT-3",
+   "construction": "rewrite every -1 * k * x_i to (-k) * x_i - the artifact P4 identifies, in the model's own spelling",
+   "eligible_set": "170 components / 80 systems",
+   "threshold": "M3 = 170/170 components AND 80/80 systems (Q1) AND M0 = 170/170 components AND 80/80 systems (Q12b)",
+   "short_circuited": true,
+   "non_short_circuited_subset": "EMPTY",
+   "gain_pc2a": "0/170 by construction",
+   "failure": "any other value - the C0001 harness differs from the audited one - Part A undecidable",
+   "gating": "both branches, ON HARNESS IDENTITY ONLY",
+   "not_a_sensitivity_control": "it may NOT be cited as evidence that M3 adds anything (see e0_mechanism_scope_restriction M-i). v2's Gate A->B hard threshold on it AS A SENSITIVITY CONTROL is removed, per section 7.7's own short-circuit rule: no gate may be placed on a control whose non-short-circuited subset is empty. What remains is a claim about REPRODUCING TWO DISCLOSED VALUES, which is legitimate on an empty subset."
+  },
+  {
+   "id": "PC2b",
+   "class": "m3_affine_decomposition_limitation (reclassified in v2.1)",
+   "forced_by": "V2-CRIT-1",
+   "construction": "a * A^n * inv(K + A^n) -> a - a*K*inv(K + A^n), both the folded (a*K as one literal) and unfolded forms, each verified function-preserving",
+   "eligible_set": "instances matching the pattern and verifying equivalent (audit: 28 under an unverified construction; this amendment: 1 under a verified one)",
+   "threshold": "FROZEN EXPECTED VALUE: 0 matches on every eligible instance (Q14, two independent constructions agree at zero). No pass threshold.",
+   "non_zero_value": "a harness-difference DEVIATION (deviation 11), to be investigated - NOT reported as a finding about E0",
+   "gating": false,
+   "inference": "descriptive",
+   "former_role": "demonstrating M3 sensitivity to an E0 mechanism - DECLARED UNFILLABLE for this mechanism (e0_mechanism_scope_restriction M-ii); its instrument-capability role is taken by PC4"
+  },
+  {
+   "id": "PC2c",
+   "class": "sensitivity",
+   "construction": "TREE-LEVEL: parse to formula_views(..., as_prefix=False)['components'], reverse the argument order of EVERY n-ary add node bottom-up, re-serialize with tree_to_infix",
+   "eligible_set": "instances whose rewrite is textually non-trivial and verifies function-preserving; measured 170/170, ZERO unverified (Q13)",
+   "threshold": ">= 95% of the eligible set matched by M3 (measured 170/170 = 100%)",
+   "gating": "null branch"
+  },
+  {
+   "id": "PC2d",
+   "class": "sensitivity",
+   "construction": "identical, on every n-ary mul node",
+   "eligible_set": "measured 170/170, ZERO unverified (Q13)",
+   "threshold": ">= 95% of the eligible set matched by M3 (measured 170/170 = 100%)",
+   "gating": "null branch"
+  },
+  {
+   "id": "PC3a",
+   "class": "specificity (negative)",
+   "construction": "truth with one realized Hill exponent altered (4->2 or 2->1)",
+   "eligible_set": "systems with an alterable realized exponent, enumerated and reported; 48 under the auditor's rewrite, of the 24/80 carrying nested pow (P5). Alterations verified FUNCTION-CHANGING per contract rule 2.",
+   "threshold": ">= 95% of the eligible set scored NON-match (measured 48/48 = 100%, Q2)",
+   "gating": "gain branch"
+  },
+  {
+   "id": "PC3b",
+   "class": "specificity (negative), REBUILT in v2.1",
+   "forced_by": "V2-CRIT-2",
+   "construction": "FROZEN SWAP RULE: for each system of dimension >= 2, enumerate (i, x_j, x_k) with i the component index ascending and (x_j, x_k) the distinct variable leaves PRESENT IN COMPONENT i, j < k, in lexicographic order of (i, j, k); the system's PC3b instance is the FIRST triple whose swap verifies FUNCTION-CHANGING. Swap applied on the parsed tree and re-serialized.",
+   "eligible_set": "systems for which such a triple exists. Swaps that are NO-OPS UNDER COMMUTATIVITY (e.g. R08's x_0 * x_1) are ineligible_alteration_is_noop, enumerated, excluded. Measured under the frozen rule: eligible 60/60, 0 ineligible; under the audit's fixed-choice rule: eligible 50, 10 ineligible ALL R08 (Q15).",
+   "threshold": ">= 95% of the eligible set scored NON-match (measured under the frozen rule: 60/60 = 100%)",
+   "gating": "gain branch",
+   "known_general_hazard": "under constant collapsing M3 is invariant to a variable permutation whenever the two variables occupy structurally identical positions differing only in constants - the audit demonstrated symbolic_recovery('1.0*x_0 + 2.0*x_1', '1.0*x_1 + 2.0*x_0')['skeleton'] == 1.0 on an ELIGIBLE swap. It does NOT materialize on this corpus (60/60) but is real; it is why the threshold is 95% rather than 100%; and if a reimplementation's eligible set differs the census will expose it."
+  }
+ ],
+ "control_short_circuit_check": "For each of PC2a-PC2d and PC4 it must be verified and reported whether the rewrite canonicalizes back to a form M0 or M1 already matches. A control whose rewrite is absorbed by canonical_exact tests nothing about M3's own path; such a control is reported short_circuited: true with its non-short-circuited subset size stated, AND NO GATE MAY BE PLACED ON A CONTROL WHOSE NON-SHORT-CIRCUITED SUBSET IS EMPTY. This rule is what reclassifies PC2a (V2-CRIT-3).",
+ "secondary_endpoints": {
+  "part_a": [
+   {
+    "id": "A2-S1",
+    "endpoint": "L-stratum matcher-attributable gain rate, and the H - L difference",
+    "inference": "descriptive",
+    "prediction": "0 (RE-DERIVED in v2.1; v2 predicted > 0 on a basis refuted by Q12b)",
+    "recorded_structural_weakness": "audit section 2.2: L exists ONLY in R04/R07/R08, the three families where M0 already succeeds, so if the 107 sit in L then m0_any = 1 for many L components and any L-gain contrast is STRUCTURALLY SUPPRESSED. This endpoint is weak by construction and may not be read as evidence that the gain 'lives in H'."
+   },
+   {
+    "id": "A2-S2",
+    "endpoint": "component-level M3 LEVEL (not gain), overall and by stratum",
+    "inference": "descriptive",
+    "note": "reported so the gain has denominator context. v2's justification ('bounded below by C-M0c under monotonicity') is WITHDRAWN - monotonicity is false (section 7.5 item 4), so no such lower bound holds. The level is reported as a mixture with NO inequality claim attached."
+   },
+   {
+    "id": "A2-S3",
+    "endpoint": "system_skeleton_equivalence_in_beam_rate_M3_ANY over 80 systems - v1's DEMOTED PRIMARY",
+    "inference": "descriptive",
+    "constraints": [
+     "no confirmatory claim",
+     "cannot invalidate a GPU_RUN5 result",
+     "must be reported with the STAT-C1 power analysis and the clustering caveat",
+     "not comparable to GPU_RUN5's per-cell 0/960 except at exactly zero"
+    ]
+   },
+   {
+    "id": "A2-S4",
+    "endpoint": "per-system MEAN hit fraction M3, plus per-dimension (20/30/30) and per-family (8x10) stratifications",
+    "inference": "descriptive",
+    "note": "at 0/10 a family Wilson interval is [0, 0.278] and CANNOT establish family homogeneity (STAT-m7)"
+   },
+   {
+    "id": "A2-S5",
+    "endpoint": "cascade increment table |M0| |M1| |M3| at candidate/component/system level; oracle vs selected candidate under the frozen selection rule",
+    "inference": "descriptive",
+    "note": "rule 03: generation coverage vs oracle vs selected, kept distinct. The table may NOT be presented as a nested cascade: monotonicity is false, so the three levels are reported as three SETS with their pairwise intersections and differences."
+   },
+   {
+    "id": "A2-S6",
+    "endpoint": "could_not_evaluate_rate and the full section 7.5 failure taxonomy",
+    "inference": "reported endpoint with a frozen maximum of 2.0%"
+   },
+   {
+    "id": "A2-S7",
+    "endpoint": "STATEMENT ONLY - if a Hill-stratum gain exists, a future cycle should re-examine whether GPU_RUN5's causal-intervention analysis discarded usable signal",
+    "inference": "statement_only",
+    "regrounding": "in-beam component coverage and component_exact_loss under intervention are DIFFERENT estimands; v1's A-S8 moved between them illegitimately (RETRACT). C0001 measures neither."
+   },
+   {
+    "id": "A2-S8",
+    "endpoint": "rule-03 completeness panel: parse validity, NaN/Inf, denominator margin, singularity, extrapolation, complexity, variable precision/recall/F1, unnecessary variables, stored TED, variable mapping",
+    "inference": "descriptive"
+   },
+   {
+    "id": "A2-S6b",
+    "endpoint": "m0_any = 1, m3_any = 0 component census, and the full triple-level M0/M1/M3 monotonicity audit with pairwise intersections and differences",
+    "inference": "reported endpoint, NO THRESHOLD",
+    "new_in": "v2.1",
+    "note": "the direct sibling of the primary and the check that would have caught the retracted bug. Section 7.5 item 4 proves it cannot affect K."
+   },
+   {
+    "id": "A2-S6c",
+    "endpoint": "m3_implementation_agreement - the section 7.4 in-pass 1-in-100 double-computation census",
+    "inference": "reported endpoint, FROZEN REQUIREMENT 100%",
+    "new_in": "v2.1",
+    "note": "any disagreement halts Part A as a harness defect (V2-MAJ-2)"
+   }
+  ],
+  "part_b": [
+   {
+    "id": "B2-S1",
+    "endpoint": "validation system-level out_of_support_rate (of 80)",
+    "inference": "descriptive",
+    "interval_interpretation": "generator_sampling_not_measurement_error"
+   },
+   {
+    "id": "B2-S2",
+    "endpoint": "validation component-level out_of_support_rate (of 170)",
+    "inference": "descriptive",
+    "interval_interpretation": "generator_sampling_not_measurement_error"
+   },
+   {
+    "id": "B2-S3",
+    "endpoint": "realized-exponent histogram, train and validation, reconciled against configs/gpu_run5/base.yaml:28 hill_exponents [1,2,4]",
+    "inference": "descriptive"
+   },
+   {
+    "id": "B2-S4",
+    "endpoint": "mechanism decomposition: multiplicative Hill-4 single-term (U_mult=5, rescued by B-R1 to 3) vs multi-term components (U_mult>=6, NOT rescued)",
+    "inference": "descriptive"
+   },
+   {
+    "id": "B2-S5",
+    "endpoint": "per-family out_of_support rate",
+    "inference": "descriptive"
+   },
+   {
+    "id": "B2-S6",
+    "endpoint": "zero-probability-operator usage by truths (expected 0/320)",
+    "inference": "descriptive"
+   },
+   {
+    "id": "B2-S7",
+    "endpoint": "in_support cross-tabulated against Part A's H/L strata",
+    "inference": "descriptive"
+   }
+  ],
+  "part_c": [
+   {
+    "id": "C2-P",
+    "endpoint": "search_error_system_rate = sum_s E3_system(s) / n_in_support",
+    "inference": "part_c_decision_endpoint",
+    "intervals": [
+     "Wilson 95%",
+     "family-clustered bootstrap (of record)"
+    ]
+   },
+   {
+    "id": "C2-S1",
+    "endpoint": "model_error_system_rate = sum_s E2_system(s) / n_in_support",
+    "inference": "descriptive"
+   },
+   {
+    "id": "C2-S2",
+    "endpoint": "mean sb_rate across systems, and sb_best versions of C2-P and C2-S1",
+    "inference": "descriptive"
+   },
+   {
+    "id": "C2-S3",
+    "endpoint": "paired lp_gt - lp_sel per system (summed nats), and the per-token version",
+    "inference": "descriptive",
+    "note": "the per-token version may not bear a decision"
+   },
+   {
+    "id": "C2-S4",
+    "endpoint": "lp_gt(GT-affine) - lp_gt(GT-mult) per system, summed",
+    "inference": "descriptive",
+    "dropped_if": "> 20% of in-support systems lack an affine encoding"
+   },
+   {
+    "id": "C2-S5",
+    "endpoint": "per-position GT-token-rank profile, broken out by token class (operator, mantissa, exponent, | separator)",
+    "inference": "descriptive",
+    "note": "strictly stronger than any rank-in-50 statistic, immune to the length confound, and costs nothing extra (STAT-M11)"
+   },
+   {
+    "id": "C2-S6",
+    "endpoint": "descriptive rank panel: rank_pct_sum, rank_pct_per_token, rank_pct_length_matched, below_all_indicator",
+    "inference": "descriptive",
+    "frozen_note": "the 50 candidates were drawn at T=0.1 (p^10 renormalized) and are an extreme upper-tail sample; a sequence the model ranks above 99% of everything it could emit still falls below every one of 50 such draws (STAT-C4). A low rank does not establish model error and no E2/E3 attribution may cite these."
+   },
+   {
+    "id": "C2-S7",
+    "endpoint": "reference-resolution diagnostic: per-cell IQR of the 50 candidate summed log-probs and the GT gap in IQR units",
+    "inference": "descriptive",
+    "frozen_rule": "if the GT gap exceeds 5 x IQR in more than 20% of cells, the reference distribution has no resolution and no rank-based statistic in C2-S6 may be interpreted at all"
+   },
+   {
+    "id": "C2-S8",
+    "endpoint": "instrument audit: re-encoding mismatch rate, unreliable_reencoding cell rate, AffineEncodingUnavailable, CellIdentityMismatch, payload-digest distinct-count check, sum/n == -mean_CE regression result",
+    "inference": "descriptive"
+   },
+   {
+    "id": "C2-S9",
+    "endpoint": "GT token length vs lp_gt and vs sb_sel",
+    "inference": "exploratory"
+   }
+  ]
+ },
+ "part_b": {
+  "rewrite_set": {
+   "B-R1": "A^n * inv(K + A^n) -> 1 - K * inv(K + A^n)",
+   "B-R2": "fold pure-constant subtrees to a constant leaf",
+   "B-R3": "distribute mul over add ONLY when it strictly lowers the non-identity unary count",
+   "B-R4": "neg(X) <-> mul(-1, X)"
+  },
+  "cap_per_component": 200,
+  "verification": "numeric_equivalent(n_points=32, seed=0); failures discarded and logged as RewriteVerificationFailure",
+  "support_criterion": "U_min = min(U_mult, U_affine) <= 3",
+  "budget_checks": [
+   "max_unary_ops_per_dim 3",
+   "max_binary_ops_per_dim 5",
+   "max_unary_depth 7"
+  ],
+  "one_sidedness": "U_affine is a minimum over a BOUNDED rewrite set, hence an UPPER BOUND on the true minimal unary count; the claim is 'out of support under the preregistered rewrite set', never 'out of support'",
+  "b_r1_does_not_rescue_multi_term": "the affine expansion of a product of two Hill terms yields four terms with >= 6 unaries, so U_min stays > 3",
+  "hand_construction": "FORBIDDEN",
+  "exponent_4_detection": "nesting depth of pow2 over a variable-containing subtree; a literal pow,4 token is NOT how exponent 4 is spelled and searching a canonicalized string for a surface token is the exact error R1 forbids",
+  "if_out_of_support_rate_is_zero": "E1' refuted for this corpus - itself reportable; P6 makes it unlikely, so an observed 0 additionally triggers a train/validation consistency check as a possible implementation defect",
+  "b_r1_and_the_scope_restriction": "B-R1 is the same algebraic move as PC2b's affine decomposition. Part B uses it as a UNARY-COUNT REDUCTION ON THE TRUTH SIDE ONLY, which is a syntactic count and needs no matcher, so PART B IS UNAFFECTED by M3's inability to prove the identity (Q14). The two uses must not be confused: Part B asks 'can the generator express this at all'; PC2b asked 'can M3 prove these two forms equal', and the answer is no.",
+  "rewrite_traversal_order": "the enumeration order frozen in part_c.commutation_orbit_report.traversal"
+ },
+ "part_c": {
+  "eligible_subset": "systems all of whose components have U_min <= 3 (Part B); running Part C on out-of-support systems would conflate E1' with E2",
+  "expected_n_in_support": 60,
+  "if_n_in_support_lt_30": "Part C downgraded to exploratory; attributes nothing",
+  "cell_identity_protocol": {
+   "cell_input_payload_sha256": "SHA256 over the float64 little-endian bytes of the arrays passed to _point_bag, concatenated as times || observed_trajectory || initial_condition, each preceded by its shape as little-endian int64 - a digest of the object ACTUALLY USED",
+   "assertions": [
+    "system_id, bundle_index, noise_sigma, subsample_rho parsed from the record equal the values encoded in cell_id",
+    "candidate_set_hash and cache_identity match the stored values",
+    "the number of distinct cell_input_payload_sha256 values within a system is 10 (P11)"
+   ],
+   "system_identity_checksum_ok": "the retained input_trajectory_checksum comparison, EXPLICITLY a system-identity check, not a conditioning check",
+   "failure": "cell marked CellIdentityMismatch and excluded, counted and reported",
+   "removed": "v1's EncoderCacheMiss - it could never fire for the reason v1 gave",
+   "verified_satisfiable": "V2-OK-10: 10 distinct cell_input_payload_sha256 per system in 80/80 systems, 0 violations; the 3 clean cells 1 distinct payload in 80/80; input_trajectory_checksum constant within each system in 80/80. Implemented verbatim from v2's specification by the Stage-5 auditor."
+  },
+  "instrument_change": "a NEW function returning (sum_logprob, n_scored_tokens, per_token_logprobs) from get_scores=True; src/gpu_run4/training.py:23 teacher_forcing_loss is NOT modified; regression test asserts sum_logprob / n_scored_tokens == -teacher_forcing_loss(...) to 1e-5 on >= 5 fixed examples",
+  "reencoding_audit": {
+   "normalization": "| -> ,|, applied before comparison (AUDIT-MAJ-7; raw 20/80, normalized 80/80)",
+   "per_cell_tolerance": 0.1,
+   "per_run_tolerance": 0.1,
+   "over_run_tolerance": "Part C undecidable",
+   "smoke_requirement": ">= 90% exact round-trip on a known-good cell before Part C runs"
+  },
+  "commutation_orbit_report": {
+   "cap": 8,
+   "traversal": "FROZEN (V2-MIN-7): index the commutable binary nodes of the GT tree in PRE-ORDER (root first, left-to-right); the orbit is enumerated in BINARY-COUNTER ORDER over that index - orbit member t swaps the operands of node k iff bit k of t is set, for t = 0..7; t = 0 is the stored encoding. If the tree has fewer than 3 commutable nodes the orbit is the full 2^n set and the cap does not bind.",
+   "statistic": "logsumexp over the orbit reported beside the single-encoding value",
+   "gate": "enabled only if the Stage-6 smoke measures total Part C at <= 2.0 GPU-hours with it enabled; otherwise dropped and the section 5 bias remains disclosed-only",
+   "inference": "descriptive",
+   "may_bear_a_decision": false
+  },
+  "length_policy": {
+   "summed_log_prob": "the ONLY variant that is a probability comparison and the ONLY variant that may bear a decision",
+   "per_token_mean": "NOT the log-probability of anything - a length-normalized decoding heuristic; descriptive only",
+   "length_matched": "selects on a variable strongly correlated with structural complexity and makes the analyzed set outcome-dependent; descriptive only",
+   "v1_conjunctive_rule": "DROPPED - it gave two statistics that cannot bear the interpretation veto power over the one that can"
+  },
+  "e2_e3_discriminator": {
+   "precedent": "Stahlberg & Byrne, EMNLP-IJCNLP 2019 pp. 3356-3362, DOI 10.18653/v1/D19-1331",
+   "sb_sel": "1[ lp_gt(c) > lp_sel(c) ] - the model preferred the truth over what search returned => search error (E3) for that cell",
+   "sb_best": "1[ lp_gt(c) > max_k lp_cand_k(c) ] - reported alongside",
+   "sb_rate": "mean of sb_sel over the system's usable cells",
+   "E3_system": "1[ sb_rate >= 0.5 ]",
+   "E2_system": "1[ sb_rate == 0 ]"
+  },
+  "corpus_level_attribution_rule": {
+   "E3_predominant": "family-clustered 95% LOWER bound of C2-P > 0.5",
+   "E2_predominant": "family-clustered 95% UPPER bound of C2-P < 0.5 AND clustered lower bound of C2-S1 > 0.5",
+   "otherwise": "neither_E2_nor_E3_predominant - a real reportable result, DISTINCT from undecidable (instrument failure)",
+   "disclosed_operating_characteristic": "at n_in_support 30-60 a proportion's 95% interval is 0.2-0.3 wide in the middle of the range, so neither_E2_nor_E3_predominant is the EXPECTED corpus-level outcome; Part C's deliverable is primarily the per-system partition",
+   "may_invalidate_gpu_run5_alone": false,
+   "triggers_replication_gate": true
+  },
+  "null_credibility_conditions": {
+   "NC1": "the sum/n == -mean_CE regression test passes to 1e-5 on >= 5 fixed examples",
+   "NC2": "the normalized re-encoding audit is within tolerances",
+   "NC3": "every scored cell passes the identity assertions including the 10-distinct-payload check",
+   "NC4": "the C2-S7 resolution diagnostic is reported (its failure gates only C2-S6)",
+   "NC5": "n_in_support >= 30, else Part C is exploratory and attributes nothing"
+  }
+ },
+ "statistical_plan": {
+  "estimators": {
+   "proportions": "Wilson score (z = 1.959964, no continuity correction) AND two-stage cluster bootstrap (10000 resamples, seed 20260909, families then systems within family, percentile); raw limits reported, NEVER silently clipped to [0,1]",
+   "per_system_continuous_means": "cluster bootstrap over systems and families; student_t_ci may be reported BESIDE it, labeled unclustered",
+   "forbidden": "src/gpu_run4/aggregation.py:22 student_t_ci MAY NOT be used for any proportion in C0001 - simulated coverage at a 0.05 rate is 0.909-0.913 with a negative lower limit 5-17% of the time (STAT-M3), and the repository has no clustered utility, so the clustered estimator must be named in the implementation ticket",
+   "primary": "proportion over the component-level gain indicators; intervals (a) Wilson over |H| = 130, (b) two-stage cluster bootstrap percentile with numpy.random.default_rng(20260909), one stream, families then systems within family, 10,000 resamples, (c) 8-cluster Wilson on the family indicator. BOUND OF RECORD: (b) if K >= 1, (c) if K = 0 (V2-MAJ-3).",
+   "control_sensitivity_specificity": "proportion over the REALIZED ELIGIBLE SET (contract rule 3); exact counts against exact fractional thresholds; no interval carries a decision; every control reports n_eligible, n_ineligible and the ineligibility-reason distribution"
+  },
+  "degenerate_paired_test_warning": "at SYSTEM level M0 == 0 for all 80 systems, so the M3-M0 paired difference equals the M3 indicator and is Bernoulli, not t; NO paired t-test is run on it. This does not apply at COMPONENT level, where M0 is 107/2040 - which is why the primary lives there.",
+  "clustering": {
+   "design_effect": "deff = 1 + (m-1)*ICC with m = 10 systems per family",
+   "deff_table": [
+    {
+     "icc": 0.0,
+     "deff": 1.0,
+     "n_eff": 80.0,
+     "wilson_upper_at_0": 0.0458
+    },
+    {
+     "icc": 0.011,
+     "deff": 1.1,
+     "n_eff": 72.8,
+     "wilson_upper_at_0": 0.05
+    },
+    {
+     "icc": 0.1,
+     "deff": 1.9,
+     "n_eff": 42.1,
+     "wilson_upper_at_0": 0.0836
+    },
+    {
+     "icc": 0.2,
+     "deff": 2.8,
+     "n_eff": 28.6,
+     "wilson_upper_at_0": 0.1185
+    },
+    {
+     "icc": 0.3,
+     "deff": 3.7,
+     "n_eff": 21.6,
+     "wilson_upper_at_0": 0.1509
+    },
+    {
+     "icc": 0.5,
+     "deff": 5.5,
+     "n_eff": 14.5,
+     "wilson_upper_at_0": 0.2089
+    },
+    {
+     "icc": 1.0,
+     "deff": 10.0,
+     "n_eff": 8.0,
+     "wilson_upper_at_0": 0.3244
+    }
+   ],
+   "critical_icc": 0.011,
+   "family_level_0_of_8": [
+    0.0,
+    0.3244
+   ],
+   "frozen_conditional": "the empirical ICC is a reported quantity; if ICC >= 0.011 any naive-Wilson bound is WITHDRAWN and the family-clustered bound is the reported result. IF THE OBSERVED COUNT IS ZERO THE ICC IS NOT ESTIMABLE, and in that state the family-clustered bound is AUTOMATICALLY the bound of record, with the naive Wilson reported beside it under assumes_component_independence: true.",
+   "consequence": "at this corpus size an honest clustered bound is of order 0.1-0.32, which is why the primary's inferential content is the powered-falsification statement and not a small-margin bound",
+   "zero_count_degeneracy_resolved": {
+    "finding": "V2-MAJ-3",
+    "v2_text_superseded": "v2:985-989 'if the observed count is zero the ICC is not estimable ... and in that state the family-clustered bound is AUTOMATICALLY the bound of record' - ambiguous between intervals (b) and (c), resolving the wrong way because section 7.1 had already named (b) the interval of record and (b) is exactly [0,0] when every indicator is 0.",
+    "frozen_replacement": [
+     "At K = 0 the ICC is NOT ESTIMABLE (every indicator is identical), reported as icc_not_estimable_zero_count: true.",
+     "At K = 0 the BOUND OF RECORD is interval (c), the 8-cluster family-level Wilson 0/8 -> [0, 0.3244], carrying interval_target: family_level_indicator_rate so no reader mistakes it for a bound on the per-component rate.",
+     "Interval (b) is still computed and reported at K = 0, labeled degenerate_all_resamples_zero: true, and MAY NOT be quoted as an evidential upper bound.",
+     "Interval (a) is reported beside them under assumes_component_independence: true (value at 0/130: [0.0000, 0.0287]).",
+     "A bootstrap percentile upper bound of 0 may not be reported as an upper bound ANYWHERE in this cycle."
+    ],
+    "consequence": "At this corpus size an honest clustered bound is of order 0.03-0.32 and would license almost nothing on its own. THAT IS WHY the primary's inferential content is the powered-falsification statement and not a small-margin bound."
+   }
+  },
+  "outcome_ladder": {
+   "K": "observed Hill-stratum gains",
+   "C": 3,
+   "rungs": [
+    {
+     "K": "0",
+     "label": "no_gain_observed_bound_only",
+     "consequence": "H-C0001-P SUPPORTED, PROVIDED PC4 PASSED. Licenses only the section 9.5 item 1 K=0 sentence plus the section 7.3 power statement plus the section 9.5 item 6 scope sentence."
+    },
+    {
+     "K": "1..3",
+     "label": "weak_gain",
+     "consequence": "H-C0001-P UNSUPPORTED (not refuted). GPU_RUN5's component-level interpretation requires partial revision. Replication gate triggered. REQUIRES the gain-branch specificity conditions to have passed."
+    },
+    {
+     "K": "> 3",
+     "label": "matcher_attributable_gain_confirmed",
+     "consequence": "H-C0001-P REFUTED, WITHIN THE REWRITE CLASSES M3 CAN PROVE (section 1.3). GPU_RUN5's component-level interpretation requires revision. Replication gate MANDATORY. REQUIRES the gain-branch specificity conditions to have passed."
+    }
+   ],
+   "rename_reason": "v1's null_credible label travels downstream while its caveats do not (STAT-M7); every artifact carrying the verdict must carry the section 9.5 item 1 sentence verbatim in a machine-readable field",
+   "corrected_wilson_n80": {
+    "0": [
+     0.0,
+     0.0458
+    ],
+    "1": [
+     0.0022,
+     0.0675
+    ],
+    "2": [
+     0.0069,
+     0.0866
+    ],
+    "3": [
+     0.0128,
+     0.1045
+    ],
+    "4": [
+     0.0196,
+     0.1216
+    ],
+    "8": [
+     0.0515,
+     0.1851
+    ]
+   },
+   "v1_errors": "v1's 0.0462 / 0.0026 / 0.1055 were computed at n = 79; its 'lower bound > 0.013' is reproducible by no method (plain Wilson, continuity-corrected Wilson, Jeffreys, Agresti-Coull, Clopper-Pearson all checked)",
+   "min_n_tolerating_hits": {
+    "1_hit": 110,
+    "2_hits": 142
+   },
+   "operating_characteristics_n80": [
+    {
+     "p": 0.0,
+     "P_K0": 1.0,
+     "P_K1to3": 0.0,
+     "P_Kge4": 0.0
+    },
+    {
+     "p": 0.005,
+     "P_K0": 0.6696,
+     "P_K1to3": 0.3297,
+     "P_Kge4": 0.0007
+    },
+    {
+     "p": 0.01,
+     "P_K0": 0.4475,
+     "P_K1to3": 0.5438,
+     "P_Kge4": 0.0087
+    },
+    {
+     "p": 0.0125,
+     "P_K0": 0.3656,
+     "P_K1to3": 0.6162,
+     "P_Kge4": 0.0182
+    },
+    {
+     "p": 0.02,
+     "P_K0": 0.1986,
+     "P_K1to3": 0.7245,
+     "P_Kge4": 0.0769
+    },
+    {
+     "p": 0.03,
+     "P_K0": 0.0874,
+     "P_K1to3": 0.6933,
+     "P_Kge4": 0.2193
+    },
+    {
+     "p": 0.05,
+     "P_K0": 0.0165,
+     "P_K1to3": 0.4119,
+     "P_Kge4": 0.5716
+    }
+   ],
+   "frozen_disclosure_sentence": "At the realized Hill stratum size 130, the upper rung fires with probability 0.263 / 0.550 when the true per-component gain rate is 0.02 / 0.03; the lower rung fires with probability 0.072 / 0.019 at those same rates. Neither rung is calibrated. This is why the replication gate is mandatory for the upper rung and why the bound - not the point estimate - is the reported result for the lower rung.",
+   "realized_H_tables": "the primary's Wilson, OC and power tables at n = |H| must be computed from these frozen formulas and written to R/phase1/partA_ladder_realized.json BEFORE any match indicator is computed",
+   "realized_H": 130,
+   "wilson_at_realized_H_130": {
+    "0": [
+     0.0,
+     0.0287
+    ],
+    "1": [
+     0.0014,
+     0.0423
+    ],
+    "2": [
+     0.0042,
+     0.0544
+    ],
+    "3": [
+     0.0079,
+     0.0657
+    ],
+    "4": [
+     0.012,
+     0.0764
+    ],
+    "clopper_pearson_upper_at_0": 0.028,
+    "one_sided_95_upper_at_0": 0.0204,
+    "rule_of_three": 0.0231
+   },
+   "operating_characteristics_at_H_130": [
+    {
+     "p": 0.0,
+     "P_K_eq_0": 1.0,
+     "P_1_to_3": 0.0,
+     "P_K_ge_4": 0.0
+    },
+    {
+     "p": 0.005,
+     "P_K_eq_0": 0.5212,
+     "P_1_to_3": 0.4745,
+     "P_K_ge_4": 0.0043
+    },
+    {
+     "p": 0.01,
+     "P_K_eq_0": 0.2708,
+     "P_1_to_3": 0.687,
+     "P_K_ge_4": 0.0422
+    },
+    {
+     "p": 0.0125,
+     "P_K_eq_0": 0.1949,
+     "P_1_to_3": 0.724,
+     "P_K_ge_4": 0.0811
+    },
+    {
+     "p": 0.02,
+     "P_K_eq_0": 0.0723,
+     "P_1_to_3": 0.6646,
+     "P_K_ge_4": 0.2631
+    },
+    {
+     "p": 0.03,
+     "P_K_eq_0": 0.0191,
+     "P_1_to_3": 0.4314,
+     "P_K_ge_4": 0.5495
+    },
+    {
+     "p": 0.05,
+     "P_K_eq_0": 0.0013,
+     "P_1_to_3": 0.1045,
+     "P_K_ge_4": 0.8942
+    },
+    {
+     "p": 0.0525,
+     "P_K_eq_0": 0.0009,
+     "P_1_to_3": 0.0846,
+     "P_K_ge_4": 0.9145
+    }
+   ],
+   "cutpoints_do_not_move": "0, 1 and C = 3 are as defensible as any other choice at this n. What was missing in v1 was the disclosure, not a different threshold.",
+   "n80_values_govern_only": "the demoted system-level secondary A2-S3 (Q11 corrected Wilson values)"
+  },
+  "multiplicity": {
+   "primary": "exactly one endpoint, alpha = 0.05, unadjusted",
+   "holm": "DROPPED IN FULL - not executable: no null or test statistic was ever defined for any secondary so there were no p-values to order; S2 would have corrected a deterministic noiseless census; S1's members are deterministic re-reductions of the same M3 indicator set as the primary; S1's m was ambiguous between 3 and 10; S3's members carried their own uncorrected thresholds leaving the governing alpha undefined. A decorative correction is worse than none.",
+   "replacement": {
+    "all_non_primary": "descriptive or exploratory; no hypothesis test; no confirmatory claim, no supported verdict, no invalidation of a GPU_RUN5 result",
+    "simultaneous_coverage": "Part A m = 9 (A2-S1, A2-S2, A2-S3, A2-S4, A2-S5, A2-S6, A2-S6b, A2-S6c, A2-S8; A2-S7 is a statement and is not an endpoint - m RISES FROM v2's 7 because A2-S6b and A2-S6c are new reported endpoints), Part B m = 7, Part C m = 8. Every such artifact carries: 'these intervals are not multiplicity-controlled and no secondary supports a confirmatory claim.'",
+    "decision_rules_are_separate_objects": [
+     {
+      "rule": "primary ladder",
+      "decides_on": "counts 0 / 1..C / >C",
+      "reports": "two-sided 95% (= one-sided 97.5%) clustered bound"
+     },
+     {
+      "rule": "Part C attribution",
+      "decides_on": "family-clustered 95% bound of C2-P against 0.5"
+     },
+     {
+      "rule": "control battery and gates",
+      "decides_on": "exact counts and rates, no alpha"
+     }
+    ],
+    "cascade_multiplicity": "M3 is the most permissive level so under M0 subset M1 subset M3 the M3 indicator dominates; the primary is a MAXIMUM over the cascade, the adversarially correct choice for a null-shaped hypothesis, with no type-I inflation in the null direction. CONDITIONAL ON the monotonicity check passing, which is therefore the precondition for this argument.",
+    "cascade_multiplicity_re_derived": {
+     "finding": "V2-MAJ",
+     "v2_argument_withdrawn": "v2 argued M3 dominates the cascade under M0 subset M1 subset M3 so 'if M3 returns 0, every level returns 0'. THAT INCLUSION IS FALSE and the argument is withdrawn.",
+     "correct_argument": "The primary is ONE INDICATOR, gain = 1[m3_any AND NOT m0_any], so EXACTLY ONE TEST is performed on exactly one endpoint and no family of cascade-level tests exists to correct. M0's and M1's own levels appear only in the descriptive A2-S2 and A2-S5.",
+     "why_M3_is_still_the_right_positive_level": "it is the most permissive level IN INTENT, the adversarially correct choice for a null-shaped hypothesis; and where it is not (the violations of A2-S6b) the affected components are precisely those with m0_any = 1, which contribute 0 to K by definition."
+    }
+   }
+  },
+  "non_significance_is_not_equivalence": {
+   "item_1_the_only_licensed_primary_sentence": "No Hill / variable-denominator truth component gained an in-beam structural match under M3 that the frozen M0 matcher scored as a miss. The family-clustered 95% upper bound on the per-component gain rate is [value]; the naive Wilson bound, which assumes zero intra-family correlation, is [value]. The design had [power] probability of observing at least one gain had the gain rate been 0.0525, the component-level in-beam rate the frozen matcher already achieves.",
+   "item_1_forbidden": [
+    "the gain rate is zero",
+    "the matcher makes no difference",
+    "M0 and M3 are equivalent",
+    "canonicalization is unnecessary",
+    "the two matchers agree",
+    "any statement about components outside stratum H",
+    "any statement about the E0 mechanisms excluded by section 1.3"
+   ],
+   "item_2": "any Part C interval containing 0 licenses only 'this design did not detect a difference of the preregistered size'; NOT 'GT-affine and GT-mult are equally probable' and NOT 'the GT is as likely as the sampled candidates'",
+   "item_3": "a Part B rate of 0 licenses only 'no validation system was out of support under the preregistered rewrite set'; NOT 'the truth is in the generator's support'",
+   "item_4": "the primary IS a preregistered one-sided bound with margin 0.05 evaluated as a confidence-bound inclusion test (the standard one-sided analogue of TOST for a bounded rate) plus the power statement - legitimate, and specifically NOT the rule-01-item-8 error because it asserts a bound rather than inferring sameness from non-significance. NO OTHER equivalence claim may be made in C0001: not between matcher levels, GT encodings, GT vs sampled candidates, strata, or families. Stage 9 enforces THIS sentence, not v1's blanket prohibition, which contradicted the primary.",
+   "item_5": "'Not significant' is never reported as evidence of equivalence anywhere in this cycle. Where an interval is wide, THE WIDTH IS REPORTED AS THE FINDING. In particular the K = 0 bound of record, [0, 0.3244], is wide, and the report must say so rather than quoting the narrower independence-assuming interval as if it were the result.",
+   "item_0_precondition": "A primary observation of K = 0 may be reported as evidence against E0 IF AND ONLY IF the PC4 gain-indicator positive control PASSED (section 7.7). If PC4 failed, Part A is undecidable (gain indicator not demonstrated) and no value of K may be cited for or against E0, because a K = 0 would then be indistinguishable from an instrument incapable of producing a gain. MANDATORY VERBATIM in verdict_scope_sentence on every artifact carrying a Part A verdict. Finding: V2-CRIT-3.",
+   "item_1_the_only_licensed_primary_sentence_K_eq_0": "No Hill / variable-denominator truth component gained an in-beam structural match under M3 that the frozen M0 matcher scored as a miss (K = 0 of 130). At K = 0 the two-stage cluster bootstrap percentile interval is degenerate - every resample is identically zero - and is therefore NOT reported as an evidential bound. The bound of record is the family-clustered 8-cluster interval on the family-level indicator, [0, 0.3244]; the naive Wilson interval on the per-component rate, which assumes zero intra-family correlation, is [0.0000, 0.0287]. The substantive content of this result is the design's power: it had 0.9991 probability of observing at least one gain had the per-component gain rate been 0.0525 - the arithmetic lower bound of the frozen matcher's own ANY-reduced component rate - and 0.9277 at a rate of 0.02, falling to 0.7292 at 0.01. The family-clustered power at the realized stratum size is [value] and is the figure quoted, being the smaller of the two.",
+   "item_1_variant_K_ge_1": "the same sentence with the count, interval (b) as the interval of record, and the ladder rung named",
+   "item_6_scope_sentence_new_in_v2_1": "The affine-decomposition mechanism of E0 is not detectable by any matcher in C0001 v2.1 under constant-collapsing skeletons, and the P4 encoding asymmetry is fully absorbed by M0 (M0 = 170/170 on that rewrite), so the gain indicator is identically zero on it by construction. This verdict concerns only the rewrite classes M3 can prove, of which the demonstrated member is algebraic re-association / common denominator (PC4)."
+  },
+  "one_sidedness_labeling": "Every 'upper bound' in this document is the upper limit of a TWO-SIDED 95% interval, i.e. a 97.5% ONE-SIDED bound - conservative, and labeled as such. At the realized |H| = 130: one-sided 95% Wilson upper at 0/130 = 0.0204; rule of three = 0.0231; two-sided 95% Wilson upper = 0.0287; Clopper-Pearson = 0.0280."
+ },
+ "gates": {
+  "gate_0": [
+   "1. git branch --show-current == 20260909_researce_GPU_RUNclaude1; git status --short CLEAN, or every entry explained in R/manifest.json (V2-MAJ-7: at the v2 audit the tree carried M src/evaluation/equation_metrics.py (+86/-19, to_skeleton and symbolic_recovery refactored), M src/gpu_run4/records.py (+17, additive FAILURE_REASONS), M src/gpu_run5/config.py (+13, additive sealed* guard), ?? src/gpu_runclaude1/ (6 modules, 929 lines). The audit read the full diff and judged the equation_metrics.py refactor VALUE-PRESERVING for ['skeleton'] on every input, but the M3 implementation of record was edited before this gate returned, a process defect against rule 05. Required: commit with a manifest explanation and pass Gate 0 item 11.) THE TREE HAS SINCE GROWN BEYOND THAT SNAPSHOT: at the time of writing v2.1 it additionally carries M pytest.ini (adds GPU_RUNclaude1/tests to testpaths), M src/gpu_run4/training.py (ADDITIVE: a new teacher_forced_summed_logprob returning (sum_logprob, n_scored_tokens, per_token_logprobs), with teacher_forcing_loss itself untouched - exactly what section 8.2 step 3 requires), ?? GPU_RUNclaude1/tests/ and ?? scripts/phases/gpu_runclaude1_c0001_phase{0,1,2,3,4}_*.py. Gate 0 therefore ENUMERATES git status --short AT RUN TIME and explains every entry then; the snapshot is recorded only because it is what the v2 audit judged. TWO ENTRIES CARRY A SPECIFIC VERIFICATION REQUIREMENT: src/gpu_run4/training.py must be shown to leave teacher_forcing_loss BYTE-IDENTICAL (section 8.2 step 3, section 17), and src/evaluation/equation_metrics.py must pass Gate 0 item 11 (section 7.4, V2-MAJ-2).",
+   "2. pytest GPU_RUN5/tests/test_gpu_run5_firewall.py GPU_RUN5/tests/test_gpu_run5_phase8.py -k 'firewall or sealed or test_open' GREEN - ALL SELECTED TESTS, currently 6 (V2-MIN-3: v2 said '4 tests'; the selector matches on the FILENAME so both tests in test_gpu_run5_firewall.py are selected including test_nonfinite_values_are_sanitized_for_strict_json, which is not a firewall test; the gate is 'all selected green', not an exact count) - PLUS the new C0001-specific firewall test green - PLUS pytest GPU_RUN5/tests --collect-only collecting 124 tests with ZERO collection errors. PYTHONPATH=. is NOT required: pytest.ini already carries pythonpath = . (V2-MIN-2).",
+   "3. A fresh Stage-5 reproducibility audit of the v2.1 design reports ZERO CRITICAL findings. The v2 audit stated the re-audit CAN BE NARROW: it needs to confirm only (i) the amended control battery - PC2b's declassification, PC3b's eligibility rule and threshold, and PC4's construction, its same-code-path property and its thresholds; (ii) the K = 0 bound of record and the section 9.5 sentence variants; (iii) the restated effect size; (iv) the section 1.3 scope restriction; (v) the section 2.4 interception mechanism and sealed inventory. Everything in the v2 audit's section 8 (16 verified positives) is already confirmed. Additionally grep -rn sealed over the C0001 diff shows no direct sealed read.",
+   "4. Checkpoint SHA256 == 56754040be5aa92ed4767fc43ee2008faa293f87c12b643e66c7df3e1623a5e8.",
+   "5. Input SHA256 recorded for every allowlisted file; NO directory argument passed to run_manifest.py; the sys.addaudithook guard installed and sealed_paths_read COMPUTED AND EMPTY; R/phase0/sealed_inventory.json written with >= 7 entries and an empty intersection against the allowlist.",
+   "6. GPU 0 idle temperature < 70 C; free VRAM >= 6.0 GiB (measured 7,154 MiB free at 49 C, Q9); disk free >= 40 GiB (measured 117 G).",
+   "7. Stage-6 smoke on phase4/fixed_grn_validation_panel.json (24 systems) completes, writes a manifest, equation records and failure records, demonstrates resume, DEMONSTRATES _time_limit FIRING INSIDE A WORKER PROCESS, and demonstrates >= 90% normalized re-encoding round-trip on a known-good cell.",
+   "8. Measured Part A cost calibration (section 11.1) completed and within budget, with no match indicator aggregated, stored, printed, logged or read, and the artifact containing PER-FAMILY AGGREGATES ONLY (V2-MIN-8).",
+   "9. R/phase1/component_strata.json and R/phase1/partA_ladder_realized.json written and hashed, their values ASSERTED EQUAL to the frozen Q16 / section 7.3 / section 9.3 tables, and the StrataFrozenToken obtainable, BEFORE any match indicator is computed on a real stored candidate.",
+   "10. New run directory does not already exist (verified: no results/runs/gpu_runclaude1*; 27 existing run directories plus one stray log file = 28 entries).",
+   "11. M3 IMPLEMENTATION-AGREEMENT TEST GREEN (section 7.4, V2-MAJ-2): 100% bit-identical ['skeleton'] agreement between symbolic_recovery(...)['skeleton'] and any substitute implementation over the 910 synthetic control pairs.",
+   "12. INTERCEPTION TESTS GREEN (section 2.4, V2-MAJ-6): a direct open() on a sealed path from inside src/gpu_runclaude1/ raises SealedPathAccessError, and the AST check reports zero unguarded file-read call sites in any C0001 module."
+  ],
+  "gate_a_to_b": [
+   {
+    "item": "i",
+    "condition": "the M0 arm reproduces ALL 47,987 stored per-candidate fields and ALL 101,963 component comparisons exactly, including the 2,235 component ones, and the reduced values 0/960, 107/2040 and all eight per-family counts (section 7.6)",
+    "branch": "both"
+   },
+   {
+    "item": "ii",
+    "condition": "HARD - PC0 = 170/170 components AND 80/80 systems",
+    "branch": "both",
+    "evaluated_at": "section 7.10 step 4, BEFORE the endpoint pass"
+   },
+   {
+    "item": "iii",
+    "condition": "HARD - PC4 passes: gain_pc4_total >= 40 of its eligible set AND gain_pc4_H >= 20 AND >= 3 distinct families contribute a gain",
+    "branch": "both",
+    "evaluated_at": "section 7.10 step 4, BEFORE the endpoint pass",
+    "failure": "Part A undecidable (gain indicator not demonstrated); no K reported for or against E0; Part C NOT run"
+   },
+   {
+    "item": "iv",
+    "condition": "HARD - PC2a harness identity: M3 = 170/170 components AND 80/80 systems AND M0 = 170/170 components AND 80/80 systems",
+    "branch": "both",
+    "evaluated_at": "section 7.10 step 4"
+   },
+   {
+    "item": "v",
+    "condition": "PC2c >= 95% AND PC2d >= 95% of their realized eligible sets matched by M3",
+    "branch": "NULL BRANCH ONLY - binding when K = 0"
+   },
+   {
+    "item": "vi",
+    "condition": "PC3a >= 95% AND PC3b >= 95% of their realized eligible sets scored NON-match",
+    "branch": "GAIN BRANCH ONLY - binding when K >= 1"
+   },
+   {
+    "item": "vii",
+    "condition": "could_not_evaluate_rate <= 2.0%",
+    "branch": "both"
+   },
+   {
+    "item": "viii",
+    "condition": "m3_implementation_agreement = 100%",
+    "branch": "both"
+   },
+   {
+    "item": "ix",
+    "condition": "the section 7.6 reproduction protocol was not triggered, or was triggered and resolved",
+    "branch": "both"
+   }
+  ],
+  "gate_a_to_b_partial_failure": "If a gating control fails, Part B may still proceed (independent instrument, no shared matcher), but Part A is reported with the corresponding undecidable reason and PART C IS NOT RUN.",
+  "gate_b_to_c": [
+   "Part A is NOT undecidable; if Part A lands on matcher_attributable_gain_confirmed, Part C is NOT run in C0001 - the premise has changed and the correct next move is replication of Part A",
+   "n_in_support >= 30 validation systems fully in support AND with Part A component gains == 0; if < 30, Part C runs but is reported exploratory and attributes nothing"
+  ],
+  "gate_c_to_report": "Part C endpoints are reported only if NC1-NC3 pass; otherwise Part C is undecidable",
+  "removed_from_gate_a_to_b_relative_to_v2": [
+   "PC2b's >= 76/80 (V2-CRIT-1: unachievable by construction)",
+   "PC3b's absolute >= 58/60 (V2-CRIT-2: replaced by item vi, a fraction of the realized eligible set)",
+   "PC2a's SENSITIVITY threshold (V2-CRIT-3: replaced by item iv, a harness-identity check; no gate may sit on a control with an empty non-short-circuited subset)",
+   "the monotonicity <= 1% condition (V2-MAJ: the expectation it tested is false and violations provably cannot affect K)"
+  ]
+ },
+ "abort_conditions": {
+  "gpu_hours": 4.0,
+  "cpu_core_hours": 24,
+  "new_disk_gib": 15,
+  "peak_vram_gib": 5.5,
+  "vram_fallback_chain": [
+   "Part C batch size to 1",
+   "the section 14 reduced 6-cell design",
+   "GPU 1 (GTX 1060 3 GB, forward-only, batch 1)"
+  ],
+  "fallback_preserves_numerics": "the chain changes WHICH CELLS are scored, never the numerics: fp32 throughout, never fp16, never CPU",
+  "gpu_temp": "> 85 C sustained 60 s => pause, cool, resume once",
+  "crash_loop_rule": "3 consecutive identical fatal failures with no new diagnostic information => stop and reassess; record the three tracebacks and their identical signature, classify via negative-result-recovery, end the cycle",
+  "projected_throughput_abort": "if the measured calibration projects Part A > 12 core-h or the smoke projects Part C > 2.0 GPU-h, invoke the reduced designs BEFORE starting, not midway",
+  "vram_hard_cap_new_in_v2_1": "V2-MIN-10: Part C calls torch.cuda.set_per_process_memory_fraction(5.5 / 8.0, device=0) before the first allocation, so an overrun RAISES rather than being detected up to 10 s later by the telemetry sampler. GPU 0 is shared with the user's live desktop (~629 MiB already held) and nvidia-smi totals include that allocation, which is why a sampled tripwire alone was insufficient."
+ },
+ "verdict_criteria": {
+  "supported": "Gate A->B passed in full INCLUDING PC4; primary K = 0; reported as the section 9.5 item 1 K=0 sentence PLUS the section 7.3 power statement PLUS the section 9.5 item 6 scope sentence, with interval (c) as the bound of record",
+  "unsupported": "Gate A->B passed in full, including the GAIN-BRANCH specificity conditions (vi); 1 <= K <= 3 (weak_gain)",
+  "refuted": "Gate A->B passed in full, including (vi); K > 3 (matcher_attributable_gain_confirmed); replication gate mandatory; the claim is bounded by section 1.3 to the rewrite classes M3 can prove",
+  "undecidable": "PC4 fails -> undecidable (gain indicator not demonstrated); OR PC0 != 170/170; OR PC2a != its two known values (harness differs); OR K = 0 and PC2c or PC2d < 95% of its eligible set -> undecidable (matcher sensitivity insufficient); OR K >= 1 and PC3a or PC3b < 95% of its eligible set -> undecidable (matcher specificity insufficient); OR M0 fails exact reproduction; OR |H|/|L| differ from the frozen Q16 values; OR m3_implementation_agreement < 100%; OR could_not_evaluate_rate > 2.0%; OR the section 7.5 item 3 two-sided sensitivity analysis disagrees on the rung; OR the strata/ladder artifacts were not written and the token not obtained before matching; OR |H| < 40 and the fallback primary is also unmeasurable; OR the run aborted before the primary was computed",
+  "underpowered_bound_only": "40 <= |H| < 100 and realized power to detect 0.0525 < 0.90, with K = 0. Reportable; may not be cited as refuting E0. DOES NOT FIRE at |H| = 130 (power 0.9991)."
+ },
+ "mechanism_partition": {
+  "E0": "that COMPONENT has an M3 in-beam match that M0 scored as a miss (gain = 1), reported separately for stratum H and stratum L, AND ALWAYS WITH THE SECTION 1.3 RESTRICTION ATTACHED",
+  "E1_prime": "Part A gain == 0 for the system AND >= 1 of its components has U_min > 3 (out of support UNDER THE PREREGISTERED REWRITE SET)",
+  "E2": "Part A gain == 0, system fully in support, E2_system(s) == 1",
+  "E3": "Part A gain == 0, system fully in support, E3_system(s) == 1",
+  "unattributed": "none of the above, or Part C undecidable/exploratory for it",
+  "reporting": "counts in all five buckets at both component and system resolution; overlaps SHOWN not resolved by fiat; NO single-number 'the cause is X' claim"
+ },
+ "informative_on_failure": {
+  "part_a": "K = 0 bounds E0 at the resolution that matters, OVER THE REWRITE CLASSES M3 CAN PROVE, and quantifies the power of that bound. K > 0 locates E0 by stratum and by family. Either way the cycle delivers: the first exact reproduction of GPU_RUN5's 47,987 stored matcher fields (C-M0f); the first component-type stratification of its 107 published component matches; the M0/M1/M3 three-set increment table with its measured NON-INCLUSION; a measured could_not_evaluate rate for the CAS-free skeleton path; PC0-CAS's measured verdict on whether the repository's CAS path can recognize a GRN truth as itself; and - new in v2.1 - a measured, preregistered statement of WHAT THE INSTRUMENT CAN AND CANNOT PROVE (PC2b's zero, PC4's 100/170, PC2a's absorption by M0), a reusable instrument characterization for every later cycle. If a hard-abort control fails at section 7.10 step 4, THAT FAILURE IS THE REPORTABLE PART A RESULT and ~8.7 core-hours are not spent - v2 would have spent them to report the same undecidable.",
+  "part_b": "out_of_support_rate == 0 refutes E1' for this corpus and is reportable; non-zero quantifies it and decomposes it into multiplicative-Hill-4 vs multi-term mechanisms, the second of which the original brief did not name; the H/L cross-tabulation is informative either way",
+  "part_c": "the expected corpus-level outcome is neither_E2_nor_E3_predominant, REPORTED AS A RESULT not a failure; the per-system partition, the per-position GT-token-rank profile and the reference-resolution diagnostic are delivered regardless. If the re-encoding audit fails, the finding is that GPU_RUN5's stored candidate strings do not round-trip through the model's own tokenizer - a first-order reproducibility fact."
+ },
+ "compute": {
+  "ceiling": {
+   "gpu_hours": 4.0,
+   "peak_vram_gib": 5.5,
+   "cpu_core_hours": 24,
+   "new_disk_gib": 15
+  },
+  "ceiling_increase_requested": false,
+  "why_v1_needed_one": "fixing AUDIT-CRIT-3 as v1 specified projects Part A at ~66 CPU-core-h against 24 - a rule-06 hard stop; v2 avoids it by REMOVING M2, not by raising the ceiling",
+  "allocation": {
+   "part_a_cpu_core_h": 12,
+   "part_b_cpu_core_h": 2,
+   "part_c_host_cpu_core_h": 2,
+   "total_cpu_core_h": 16,
+   "slack_cpu_core_h": 8,
+   "part_c_gpu_h": 2.0,
+   "smoke_gpu_h": 0.3,
+   "gpu_reserve_h": 1.7,
+   "new_disk_gib": "3-6"
+  },
+  "measured_basis": {
+   "measurement": "Q17: M0 + M1 + M3, 120 real GRN candidates, 15 per family, random.seed(20260909), formula_metrics + compare_formulas(skip_cas=True) + per-component symbolic_recovery, env lansr310",
+   "M0_mean_ms": 45,
+   "M1_mean_ms": 16,
+   "M3_mean_ms": 594,
+   "mean_ms_per_candidate": 655,
+   "median_ms_per_candidate": 608,
+   "p95_ms": 1480,
+   "max_ms": 1992,
+   "per_family_mean_ms": {
+    "R01": 770,
+    "R02": 226,
+    "R03": 794,
+    "R04": 338,
+    "R05": 631,
+    "R06": 906,
+    "R07": 927,
+    "R08": 647
+   },
+   "projection_core_h_for_47987": 8.73,
+   "replaces": "v2's basis. v2 argued from Q6 (795 ms for the M1+M2+M3 cascade -> 10.60 core-h) that 'removing M2 strictly removes work, so 10.60 core-h is a measured upper bound'. The gap was that M0 WAS NOT IN Q6's MEASUREMENT, so the removal was not automatically net-negative. It is: M0 adds 45 ms and removing M2 saves more, and the direct measurement of the actual v2.1 configuration gives 655 ms -> 8.73 core-h.",
+   "equiv_block_is_inside_this_figure": "V2-MAJ-1: v2 believed equation_metrics.py:195-205 dead and did not budget for it. The 655 ms measurement calls symbolic_recovery - the eager path - so the two sympify calls, the :200 _timed_simplify and :203 _approximately_equivalent are all included. NO UPWARD CORRECTION IS NEEDED, and any substitute implementation that skips the block can only be faster.",
+   "bounded_additions": {
+    "control_battery": "~1,316 synthetic comparisons (PC0 170, PC1 80, PC2a 170, PC2b <= 28, PC2c 170, PC2d 170, PC3a 48, PC3b 60 + eligibility search, PC4 170, PC4b 170) ~ 0.25 core-h at the measured 594 ms M3 mean plus numeric_equivalent(n_points=32) checks at ~1 ms each",
+    "PC0-CAS": "<= 0.22 core-h (80 calls x 10 s worst case, single shared time_limit)",
+    "in_pass_implementation_agreement_census": "~0.08 core-h (~480 extra M3 calls)",
+    "timing_calibration": "~0.07 core-h (400 x 655 ms)",
+    "m0_exact_reproduction_pass": "0 - a by-product of the same endpoint pass",
+    "total": "~9.35 core-h against a 12 core-h allocation and a 24 core-h ceiling"
+   },
+   "RAM": "0.53 GiB peak process RSS; 6 workers ~ 3.2 GiB of 52 GiB available (Q18)"
+  },
+  "honestly_unmeasured": [
+   "the overhead of the section 7.5 failure-reason instrumentation",
+   "wall-clock under 6-process parallelism",
+   "the eligibility-search cost of PC3b's frozen rule on the worst-case system"
+  ],
+  "mandatory_measured_calibration": {
+   "gate": "Gate 0 item 8",
+   "sampling_frame": "400 candidates, 50 per family, drawn from phase3/all_candidates.json with numpy.random.default_rng(20260909)",
+   "measurement": "scored through the exact v2 Part A pipeline, TIMING ONLY; report mean, median and p95 per family; project mean x 47987",
+   "decision": "if the projection exceeds 12 core-h, the reduced design applies BEFORE starting",
+   "integrity_constraint": "The calibration harness must DISCARD THE MATCH BOOLEAN AT THE CALL SITE, before any aggregation. No match indicator produced during timing calibration may be stored, printed, logged, aggregated or read by any agent, and R/phase0/partA_cost_calibration.json contains PER-FAMILY AGGREGATES (mean, median, p95) AND FAILURE-LABEL COUNTS ONLY. PER-CANDIDATE TIMINGS ARE FORBIDDEN in that artifact (V2-MIN-8), because per-candidate wall time is a SIDE CHANNEL on the match indicator - a proved match exits at equation_metrics.py:189 while a non-match additionally runs _timed_equals at :190 - and the calibration sample is drawn from the SAME 47,987 candidates the primary scores. Per-family aggregates leak negligibly; per-candidate timings would leak materially. A calibration artifact containing per-candidate timings or any match rate has leaked the endpoint and Part A becomes undecidable."
+  }
+ },
+ "deviation_policy": {
+  "general_rule": "preserve original artifacts, append a dated DEVIATION-nn block to THIS file, and either mark the affected endpoint exploratory or open a new preregistered cycle. Never edit frozen text; never change a threshold to rescue a result.",
+  "named_contingencies": [
+   {
+    "n": 1,
+    "condition": "could_not_evaluate_rate non-zero",
+    "action": "<= 2.0% proceed, report as A2-S6, AND run the two-sided sensitivity analysis; different rungs => undecidable. > 2.0% => undecidable. NO timeout value is raised mid-cycle."
+   },
+   {
+    "n": 2,
+    "condition": "a needed stored field is absent",
+    "action": "recover from phase3/cells/<cell_id>.json; if still absent the dependent endpoint is dropped, marked not_measurable_from_stored_artifacts, and reported. The primary depends only on candidate_formula_raw and teacher_components_infix, both verified present, so no field absence can void it. Also verified present: structure.component_flags[i].variable_denominator_form (the independent cross-check for the H/L census)."
+   },
+   {
+    "n": 3,
+    "condition": "an affine encoding cannot be constructed",
+    "action": "log AffineEncodingUnavailable; U_affine falls back to U_mult making U_min = U_mult, the CONSERVATIVE direction which over-reports out-of-support, and the report must say so. C2-S4 dropped if > 20% of in-support systems lack one. Hand-construction FORBIDDEN."
+   },
+   {
+    "n": 4,
+    "condition": "Part A projected > 12 core-hours by the measured calibration",
+    "action": "Reduced design, chosen NOW: 6 cells per system = {bundle_index 0,1,2} x {(sigma=0, rho=0), (sigma=0.05, rho=0.5)} -> 480 cells, ~24,000 candidates, ~4.4 core-h at the measured 655 ms rate. Endpoint definitions unchanged; only the number of cells entering the ANY union shrinks, which WEAKENS the primary, so a zero under the reduced design must be reported with the reduced coverage and the RECOMPUTED POWER stated explicitly. Deliberately differs from v1's reduced design (bundle_index == 0, all 4 corruptions), which kept the four MOST MUTUALLY DEPENDENT cells and discarded all between-bundle variation - the dimension GPU_RUN5 measured LEAST stable (Spearman 0.480 / Kendall 0.389). v2.1's subsample spans all three bundles at the same compute (STAT-M13)."
+   },
+   {
+    "n": 5,
+    "condition": "Part C projected > 2.0 GPU-hours",
+    "action": "the same 6-cell design, then batch 1, then GPU 1. The commutation-orbit report is dropped FIRST, before any cell is dropped."
+   },
+   {
+    "n": 6,
+    "condition": "M0 fails exact reproduction of the stored fields, OR |H|/|L| differ from the frozen Q16 values, OR m3_implementation_agreement < 100%",
+    "action": "Harness defect, not a finding: section 7.6 protocol; if unresolved, the ENTIRE CYCLE is undecidable."
+   },
+   {
+    "n": 7,
+    "condition": "|H| falls outside 130 (the MEASURED value, Q16)",
+    "action": "Record a DEVIATION noting the discrepancy against a MEASURED, DISCLOSED quantity - which is a HARNESS DEFECT, not a prediction miss - and apply contingency 6."
+   },
+   {
+    "n": 8,
+    "condition": "The strata or ladder artifacts were not written and hashed, OR the StrataFrozenToken was not obtained, before matching",
+    "action": "Part A is undecidable; no remedy short of a new cycle ID, because the integrity ordering that makes the primary unobserved cannot be reconstructed after the fact"
+   },
+   {
+    "n": 9,
+    "condition": "A gating control fails",
+    "action": "Apply the section 7.7.3 gating map and the undecidable reasons of verdict_criteria. NO CONTROL THRESHOLD MAY BE LOWERED, NO CONTROL REDEFINED, AND NO ELIGIBLE SET RE-DERIVED AFTER THE FACT (rule 01 item 3). If PC4 fails, the correct next move is a NEW CYCLE that finds a gain-capable rewrite class on the TRAIN split before freezing, not an amendment to this one."
+   },
+   {
+    "n": 10,
+    "condition": "A control's realized eligible set falls below its frozen minimum (contract rule 3)",
+    "action": "The control is reported not_measurable and DOES NOT GATE. The report must name it and say why. If PC4 is not_measurable that is equivalent to PC4 FAILING: Part A is undecidable (gain indicator not demonstrated)."
+   },
+   {
+    "n": 11,
+    "condition": "PC2b returns a non-zero value",
+    "action": "Record a DEVIATION: two independent measurements found 0 (Q14), so a non-zero value means the harness differs. Investigate as a HARNESS DIFFERENCE; it is NOT reported as a finding about E0, and it does not change the section 1.3 scope restriction unless the discrepancy is resolved in favor of the new harness, which would require a new cycle."
+   }
+  ]
+ },
+ "replication_gate": {
+  "triggers": [
+   "the primary lands on weak_gain or matcher_attributable_gain_confirmed",
+   "the independent reviewer marks any Part A result fragile",
+   "Part C returns an E2 or E3 corpus-level attribution",
+   "the component-type stratification of the 107 contradicts the section 7.3 partly_derivable_prediction in a way that changes a stated conclusion"
+  ],
+  "changed_factors": {
+   "corpus": "GPU_RUN4 ODEBench, 12632 candidates, 63 systems - different corpus, different generation run, different dimensionality mix",
+   "process": "fresh process, clean checkout at a recorded commit, independent run ID results/runs/gpu_runclaude1_c0001r_<short7>/",
+   "agent": "lansr-replication-specialist, distinct from implementer and primary analyst",
+   "matcher_seed": "Not available, and v1's claim that it was is corrected. With M3 pinned to ['skeleton'] the primary matcher contains NO RNG AT ALL: numeric_equivalent(seed=...) is reachable only from M2's fallback (formulas.py:498), which v2.1 does not run, and M3's numeric grid is hard-coded and non-random (equation_metrics.py:84-85, base = [0.2, 0.7, 1.3, 1.9], + 0.11 * index) with no points or seed parameter. v2.1 CORRECTION (V2-MAJ-1): that grid IS executed on every M3 call, via the eager dict at :207-212; it simply cannot change ['skeleton'] and is not random. The primary instrument is deterministic; no seed change can perturb it (AUDIT-MAJ-8). The replication varies corpus, process and agent only, stated plainly."
+  },
+  "built_in_positive_control": "The ODEBench arm carries a corpus-level positive control: the frozen matcher reports 4/252 = 1.59% [0.0062, 0.0401] truth-in-beam there (C-ODEB), so the cascade must reproduce a non-zero baseline. v2.1 CORRECTION: v2 also required 'M3 >= M0 on that corpus'. THAT REQUIREMENT IS WITHDRAWN - monotonicity is false (section 7.5 item 4) and M3 can legitimately be less permissive than M0 on individual pairs. The requirement is: M0 reproduces 4/252, and the three-set M0/M1/M3 table is reported with its intersections and differences. A cascade that returns 0 for M0 on ODEBench is broken. PC4 MUST ALSO BE RUN AND PASS on the replication corpus, since a gain indicator that cannot fire there would make the ODEBench arm as uninterpretable as the GRN one.",
+  "outcome_classes": [
+   "replicated",
+   "directionally_replicated",
+   "failed_replication",
+   "inconclusive"
+  ],
+  "recorded_at": "GPU_RUNclaude1/reports/C0001_replication.md, separately, never merged into the C0001 primary result",
+  "rule_07": "a CRITICAL reviewer finding blocks a supported conclusion regardless of the replication outcome"
+ },
+ "rule_04_layer_contract": {
+  "estimands_measured": [],
+  "probe_readout": "NOT MEASURED",
+  "cka_similarity": "NOT MEASURED",
+  "gradient": "NOT MEASURED",
+  "ablation_intervention": "NOT MEASURED",
+  "iole_single_layer_ft": "NOT MEASURED",
+  "selective_ft": "NOT MEASURED",
+  "averaged_into_a_ranking": false,
+  "layer_adjacent_item": "A2-S7, a statement only, re-grounded: v1's A-S8 conflated in-beam component coverage (already 107/2040, published) with exact recovery of the selected candidate under causal intervention (component_exact_loss). v2 states only that the question of whether the intervention floor is genuine remains OPEN AND UNTESTED, and routes it to hypothesis_tree.md as a C0002 candidate.",
+  "verified_by_grep": "V2-OK-15: the v2 audit verified zero layer estimands by grep across the whole document; the same must hold for v2.1"
+ },
+ "required_reviews_before_full_experiment": {
+  "note": "All three reviews must be current against v2.1 before Stage 7, each by an agent distinct from the implementer. The v1 Stage-3 reviews do not carry over; the v2 Stage-5 reproducibility audit DOES carry over for its 16 verified positives, and Gate 0 item 3 requires only the NARROW re-audit enumerated there.",
+  "methodology": {
+   "agent": "lansr-research-methodologist",
+   "must_confirm": "that E0/E1'/E2/E3 remain mutually discriminating UNDER THE SECTION 1.3 SCOPE RESTRICTION; that the H/L stratum definitions are decidable and non-degenerate; that the gain endpoint is still the right operationalization of E0 GIVEN THAT ONLY M-iii IS REACHABLE; that PC4's rewrite class is a defensible instrument control and is NOT being passed off as a mechanism; that Part C's restriction to the in-support subset is correct; that cutting M2 and Part D does not remove a needed discrimination BEYOND WHAT SECTION 1.3 ALREADY CONCEDES"
+  },
+  "statistical": {
+   "agent": "lansr-statistical-reviewer",
+   "must_confirm": "the three-level unit hierarchy and the aggregation order; the cluster-bootstrap specification, generator, draw order and seed; the K = 0 BOUND-OF-RECORD RULE and the PROHIBITION on a degenerate percentile bound; the ICC conditional and its zero-count degeneracy; the realized-|H| = 130 ladder, OC and power tables; the RESTATED EFFECT SIZE and the [0.053, 0.629] admissible range; the section 9.4 RE-DERIVED multiplicity argument that no longer uses monotonicity; the section 9.5 sentence variants; the BRANCH-CONDITIONAL GATING MAP and whether it is legitimately outcome-independent; the Part C discriminator's thresholds and disclosed dead zone; that no endpoint uses student_t_ci for a proportion"
+  },
+  "reproducibility": {
+   "agent": "lansr-reproducibility-auditor",
+   "must_confirm": "the section 2.4 RUN-TIME sealed inventory, the sys.addaudithook INTERCEPTION, the sole-path requirement and the two new tests; that no run_manifest.py call receives a directory; the pinned M3 key AND the implementation-agreement test; process-based parallelism and the worker-timeout assertion; the section 7.5 failure taxonomy covering EVERY silent non-match surface INCLUDING :200; the section 7.2 write-before-match ordering AND the StrataFrozenToken gate; the section 11.1 calibration's outcome-suppression constraint AND the per-family-aggregates-only restriction; the section 7.10 execution order and the hard-abort-before-endpoint-pass property; that teacher_forcing_loss is extended, not modified, and that EQUATION_METRICS.PY IS EXTENDED, NOT MODIFIED"
+  },
+  "stage_9_additional_instruction": "Check that: no artifact presents the component-type stratification of the 107 as anything other than a NEW REDUCTION of GPU_RUN5's own published field (R1); no artifact presents 107/2040 as a C0001 discovery or as a matcher defect; no artifact reads a zero primary as an equivalence claim; no artifact cites a Part A or Part C secondary as confirmatory; NO ARTIFACT CALLS M0 A 'STRING MATCHER'; NO ARTIFACT PRESENTS PC4's 100/170 AS EVIDENCE THAT REAL CANDIDATES CARRY THAT REWRITE; NO ARTIFACT REPORTS A K = 0 VERDICT WITHOUT THE SECTION 9.5 ITEMS 0, 1 AND 6 SENTENCES; and NO ARTIFACT GENERALIZES THE VERDICT PAST SECTION 1.3's SCOPE RESTRICTION. Any such framing is a MAJOR finding."
+ },
+ "cuts_and_declines": {
+  "declined_amendment": {
+   "amendment": "fix SYMPY_MAX_NODES by raising it to >= 200 and retain M2 / A-S1 as an endpoint",
+   "reason": "rule 06. SYMPY_MAX_NODES = 40 is a COMBINED truth+candidate budget and formulas.py:434 returns 0.0, None above it with no failure reason. Measured: the CAS path answers 'does this GRN truth equal ITSELF?' with no for 52/80 systems, and 55.1% of 3000 real pairs exceed the cap with R06/R07/R08 at 100%. Anti-conservative for a null-shaped claim and invisible to v1's N5 and monotonicity check, because a spuriously empty M2 is monotonicity-CONSISTENT. Fixing it pushes R05-R08 into full simplify() on 40-90-node trees at up to 10 s each: ~66 core-h against a 24 core-h ceiling, a rule-06 hard stop this cycle will not request for a SECONDARY endpoint.",
+   "handling": "M2 and A-S1 are CUT, NOT DOWNGRADED. No M2 endpoint exists, so no M2 result - confirmatory, descriptive or exploratory - can be reported and none can invalidate a GPU_RUN5 result. This is strictly stronger than the 'label it exploratory' remedy a decline would otherwise require.",
+   "substitutes": [
+    "(a) the primary uses M3, which has NO node cap, is verified sensitive on identity (PC0 170/170) and on commutation (PC2c/PC2d 170/170), verified specific on exponents (PC3a 48/48) and on variable permutation (PC3b 60/60), and VERIFIED CAPABLE OF PRODUCING A GAIN (PC4 100/170)",
+    "(b) PC0-CAS runs _sympy_components_equal(truth, truth) on all 80 systems at cap 200, at a bounded 0.22 core-h, and REPORTS whether the repository's CAS path can recognize a GRN truth as itself - a deliverable that belongs in research_state.md section 8 defect 8 regardless of what Part A concludes"
+   ],
+   "crit_3_substance_met": "explicit failure_reason on every non-match, proved_different separated from could_not_evaluate, and the failure rate as a reported endpoint with a pre-specified 2.0% maximum above which the result is undecidable",
+   "cost_of_the_cut_new_in_v2_1": "audit section 5.3 / V2-CRIT-1: with M2 gone, M3 IS THE SOLE PERMISSIVE LEVEL AND M3 COLLAPSES CONSTANTS. Therefore E0's AFFINE-DECOMPOSITION MECHANISM HAS NO INSTRUMENT IN THIS CYCLE AT ALL: M0 and M1 are stricter, M3 provably cannot prove the identity (Q14), and M2 - the only level that does not collapse constants and could in principle prove it - is cut. v2 listed the two substitutes and OMITTED this consequence. It is now a FROZEN SCOPE RESTRICTION (e0_mechanism_scope_restriction M-ii), it appears in the mandatory verdict_scope_sentence, and it is the primary motivation for the C0002 candidate 'constant-preserving CAS equivalence at a node budget that covers the GRN corpus, with a compute ceiling that admits it'."
+  },
+  "cut_part_d": "v1's Part D (denominator-arity classification of the 1860 ODEBench variable-denominator candidates) bears on no C0001 endpoint and sharpens a C0002 question rather than this cycle's. Routed to hypothesis_tree.md. No compute reallocated.",
+  "demoted_not_cut": "v1's primary (system-level M3 ANY rate) is retained as A2-S3 because it is a free deterministic roll-up of indicators the primary already computes; it carries NO confirmatory claim and cannot invalidate a GPU_RUN5 result",
+  "accepted_in_full": "STAT-C1..C4, STAT-M1..M13, STAT-m1..m9, AUDIT-CRIT-1..4, AUDIT-MAJ-1..9, AUDIT-MIN-1..11, V2-CRIT-1..3, V2-MAJ-1..7, V2-MIN-1..10, plus the v2 audit's sections 2.4, 5.3 and 5.4 recommendations - except those listed in amendment_record_v2_to_v2_1.declined.",
+  "accepted_conditionally": "the commutation-orbit mitigation (STAT-M9), gated on the Stage-6 measured cost; if the gate fails, the bias remains disclosed with its magnitude and no decision depends on it",
+  "reclassified_rather_than_cut_in_v2_1": {
+   "PC2b": {
+    "v2": "gating sensitivity control, >= 76/80",
+    "v2.1": "non-gating m3_affine_decomposition_limitation, expected 0",
+    "why_not_cut": "~20 s of compute; a non-zero value proves a harness difference against two independent measurements; and it is the empirical basis of the M-ii scope restriction, one of this cycle's real deliverables"
+   },
+   "PC2a": {
+    "v2": "gating sensitivity control, >= 80/80 for M3",
+    "v2.1": "gating HARNESS-IDENTITY verification on BOTH M0 and M3, short_circuited: true",
+    "why_not_cut": "it still detects a harness that differs from the one producing Q1/Q12b, which would invalidate every disclosed comparison. Only its INTERPRETATION as evidence of M3 sensitivity is removed."
+   },
+   "monotonicity_audit": {
+    "v2": "gating: > 1% -> CRITICAL -> undecidable",
+    "v2.1": "reported endpoint A2-S6b, no threshold",
+    "why_not_cut": "it is the exact check that would have caught the retracted representation bug; only the false expectation and the burn hazard are removed"
+   },
+   "PC1": {
+    "v2": "non-gating documentation",
+    "v2.1": "unchanged",
+    "why_not_cut": "documents a real artifact (formulas.py:493-494) at negligible cost"
+   }
+  }
+ },
+ "record_schema": {
+  "base": "the 30-field src/gpu_run4/records.py:7 GPU_RUN4_REQUIRED_FIELDS, EXTENDED never replaced, via :76 make_formula_record(**extra)",
+  "campaign": "GPU_RUNclaude1_C0001",
+  "failure_reasons_base_citation": "src/gpu_run4/records.py:50 (corrects v1's :47, AUDIT-MIN-8)",
+  "failure_reasons_appended": [
+   "CanonicalizationError",
+   "RewriteVerificationFailure",
+   "AffineEncodingUnavailable",
+   "CandidateReencodingMismatch",
+   "NumericEquivalenceNonFinite",
+   "PositiveControlFailure",
+   "MatcherMonotonicityViolation",
+   "LengthMatchUnavailable",
+   "SkeletonParseFailure",
+   "SkeletonEvaluationFailure",
+   "SymbolicEquivalenceTimeout",
+   "SymbolicNodeCapExceeded",
+   "ComponentCountMismatch",
+   "CellIdentityMismatch",
+   "EquivBlockTimeout_NonEndpoint (new in v2.1, section 7.5 item 1)",
+   "SealedPathAccessError (new in v2.1, section 2.4)",
+   "ControlIneligible (new in v2.1)"
+  ],
+  "failure_reasons_removed_from_v1": [
+   "EncoderCacheMiss - it could never fire for the reason v1 gave"
+  ],
+  "exclusion_policy": {
+   "nothing_silently_dropped": true,
+   "permitted_exclusions": [
+    "candidates failing the Part C re-encoding round trip, from the Part C comparison distribution only",
+    "cells flagged unreliable_reencoding, from the Part C decision endpoint only",
+    "cells flagged CellIdentityMismatch, from Part C only",
+    "cells flagged LengthMatchUnavailable, from the C2-S6 descriptive panel only",
+    "(e) ineligible control instances, from that control's DENOMINATOR only - never from any endpoint, since controls contribute to none"
+   ],
+   "part_a_primary": "NO exclusion of any kind is permitted",
+   "preserved_invalid_equations": "include every NON-MATCHING control instance and every INELIGIBLE control instance, with its expressions (rule 01 item 5)"
+  },
+  "integrity_fields": [
+   "prior_information_disclosed (mandatory, non-empty, naming sections 0.1-0.4 of v2.1)",
+   "control_is_verification_of_disclosed_value",
+   "inference (primary|descriptive|exploratory|statement_only)",
+   "interval_interpretation",
+   "interval_target (component_gain_rate|family_level_indicator_rate)",
+   "bound_of_record",
+   "degenerate_all_resamples_zero",
+   "icc_not_estimable_zero_count",
+   "verdict_scope_sentence (the section 9.5 items 0, 1 and 6 sentences, verbatim, on every artifact carrying a ladder verdict)",
+   "assumes_component_independence",
+   "assumes_family_icc_zero",
+   "e0_mechanism_scope (machine-readable: {\"M-i\": \"absorbed_by_M0\", \"M-ii\": \"no_instrument\", \"M-iii\": \"tested\"})"
+  ],
+  "part_a_matcher_fields_added": [
+   "matcher_level",
+   "m0_string_exponent_aware_skeleton_exact (NAME RETAINED for continuity with the stored GPU_RUN5 field; it is a CANONICAL-TREE criterion, not a string one)",
+   "m0_component_exponent_aware_skeleton_exact",
+   "m1_canonical_exact",
+   "m3_skeleton_equivalent",
+   "component_m3_skeleton_equivalent",
+   "component_index",
+   "component_stratum (H|L)",
+   "m0_any",
+   "m1_any",
+   "m3_any",
+   "gain",
+   "derivation_path (infix for both sides, always)",
+   "match_outcome (matched|proved_different|could_not_evaluate)",
+   "matcher_failure_reason",
+   "cas_wall_time_sec",
+   "monotonicity_violation",
+   "m0_reproduces_stored_field",
+   "m3_implementation_agreement_checked",
+   "m3_implementation_agreement_ok"
+  ],
+  "control_fields_added": [
+   "positive_control_tag (none|PC0|PC0_CAS|PC1|PC2a|PC2b|PC2c|PC2d|PC3a|PC3b|PC4|PC4b)",
+   "control_class (sensitivity|specificity|capability|harness_identity|limitation|diagnostic)",
+   "control_expected_outcome",
+   "control_eligible",
+   "control_ineligibility_reason (none|ineligible_rewrite_unverified|ineligible_alteration_is_noop|ineligible_pattern_absent)",
+   "control_short_circuited",
+   "control_gating_branch (both|null|gain|none)",
+   "control_rewrite_verification (the numeric_equivalent result for the instance)"
+  ]
+ },
+ "rule_compliance": {
+  "rule_00": "campaign artifacts under GPU_RUNclaude1/; branch 20260909_researce_GPU_RUNclaude1; GPU_RUN1-5 history not rewritten; v1 retained unmodified",
+  "rule_01": "validation selects and evaluates, no final test accessed; no tuning after any endpoint; hypotheses/metrics/seeds/exclusions frozen here; null and negative results preserved; invalid/failed equations preserved; numerical fit is not symbolic recovery; symbolic recovery is not biological causality; non-significance is not equivalence (section 9.5); exploratory items labeled; novelty claims literature-verified (the discriminator is precedented, not novel) | v2.1: the L-stratum prediction was RE-DERIVED (not rescued) because its stated basis was refuted before observation, and the change, its cause and the withdrawn basis are recorded (item 3). Non-significance is not equivalence: section 9.5 has a dedicated K = 0 sentence variant that reports the POWER STATEMENT rather than a degenerate zero-width interval (item 8). Invalid and failed generated equations, including every ineligible control instance, are preserved (item 5).",
+  "rule_02": "final test sealed and untouched; all thresholds on validation only; file-level allowlist prevents the fingerprinter from opening a seal; no final-test example inspected",
+  "rule_03": "raw and simplified equations, ground truth, variable mapping, numerical fit, exact/skeleton/symbolic recovery, variable recovery, structural distance, complexity, validity, failure reason and singularity diagnostics all preserved; generation coverage / oracle candidate / selected candidate distinguished; no discovery claim from R2 or NMSE | v2.1: the 30-field schema is extended, never replaced; the generation-coverage / oracle-candidate / selected-candidate distinction is intact; numerical fit remains a covariate only; and no equation-discovery claim is made from R2/NMSE. PC4's 100/170 is instrument capability, NOT evidence of recovery by any real candidate.",
+  "rule_04": "no layer estimand measured; nothing averaged into a ranking",
+  "rule_05": "git status checked before and after; no reset --hard; no force push; no prior results/runs or GPU_RUN report overwritten; new run and cycle IDs; branch and commit in manifests; large artifacts hashed not committed",
+  "rule_06": "GPU/temp/disk inspected, smoke required, per-cycle ceiling defined and NOT increased; the ~66 core-h path is declined rather than escalated; crash-loop rule active",
+  "rule_07": "three independent reviews re-run against v2 before implementation; CRITICAL blocks a supported conclusion; high-impact findings pass the replication gate | v2.1: Gate 0 item 3 requires a fresh NARROW Stage-5 audit of v2.1 reporting zero CRITICAL, by an agent distinct from this amendment's author; the v2 audit's 3 CRITICALs blocked the run and are resolved here.",
+  "rule_08": "the cycle report is mandatory even for a negative, null, failed, invalidated or inconclusive outcome",
+  "rule_09": "autonomous within the ceiling; no hard-stop condition active; interesting results go to human_review_queue.md without blocking",
+  "rule_10": "quality-first routing; Opus-tier for methodology, statistics, review and interpretation",
+  "rule_11": "primary sources preferred; the discriminator's precedent is cited with a DOI; nothing is labeled novel merely for being absent locally",
+  "R1": "every comparison is same-derivation-path (infix both sides); the source run's stored artifacts were grepped for the quantity itself, and reproducing 107/2040 is preregistered as a POSITIVE CONTROL, not a finding"
+ },
+ "e0_mechanism_scope_restriction": {
+  "section": "1.3",
+  "forced_by": [
+   "V2-CRIT-1",
+   "V2-CRIT-3",
+   "audit section 5.3"
+  ],
+  "M-i_P4_encoding_asymmetry": {
+   "status": "ABSORBED_BY_M0 - no gain is possible",
+   "evidence": "Q12b: with infix on both sides, parse_system folds -1*0.3968*x_0 into -0.3968*x_0 before M0's skeleton is formed; M0 matches the rewrite 170/170 components and 80/80 systems. Since gain requires m0_any = 0, the gain indicator is identically 0 on this mechanism BY CONSTRUCTION, for every candidate, at every cascade level.",
+   "consequence_for_the_verdict": "A K = 0 primary carries NO information about M-i.",
+   "what_can_be_said_instead": "M-i is not a matcher defect at all, because the frozen matcher already handles it. v2:575's 'which M0 cannot match' is WITHDRAWN. This is reported as a disclosed prior measurement (Q12b), not a C0001 discovery."
+  },
+  "M-ii_affine_decomposition": {
+   "status": "NO_INSTRUMENT - undetectable by any matcher in v2.1",
+   "why": {
+    "M3": "cannot prove it - Q14, 0 matches on every eligible instance under two independent constructions, because a, K and a*K all collapse to c",
+    "M1": "canonical-prefix EXACT, strictly stricter than M3 on this class",
+    "M0": "canonicalizes but performs no algebraic rearrangement of this kind",
+    "M2": "could in principle prove it (the only CAS-with-constants level, does not collapse constants) BUT IS CUT on rule-06 compute grounds (~66 core-h vs a 24 core-h ceiling, for a secondary)"
+   },
+   "frozen_restriction_sentence": "The affine-decomposition mechanism of E0 is not detectable by any matcher in C0001 v2.1 under constant-collapsing skeletons. C0001 can neither confirm nor falsify E0 acting through affine decomposition.",
+   "where_it_must_appear": "verbatim in verdict_scope_sentence on every artifact reporting the primary, and in the Stage-11 report's limitations section",
+   "routed_to": "hypothesis_tree.md as a C0002 candidate: constant-preserving CAS equivalence at a node budget >= 200 with a compute ceiling that admits it"
+  },
+  "M-iii_algebraic_reassociation_common_denominator": {
+   "status": "TESTED - this is what the primary actually measures",
+   "evidence": "Q12 / PC4: gain 100/170, all 100 in stratum H, from 6 of 8 families",
+   "admissibility": [
+    "within the model's own generation support: inv, mul and add all have non-zero generation probability (P2), so a real beam candidate CAN spell a Hill component as a common-denominator ratio where the truth spells it multiplicatively",
+    "it exercises exactly the M3-vs-M0 difference the primary is built on: an algebraic re-association a constant-collapsing CAS can prove and a canonical-tree matcher cannot"
+   ],
+   "not_an_E0_disclosed_mechanism": true
+  },
+  "frozen_interpretation_rule": "The primary's verdict is a statement about the rewrite classes M3 can prove, of which PC4's class is the demonstrated member, M-i is excluded by construction and M-ii is out of reach. No artifact may generalize the verdict to 'E0 is false', to 'the canonicalization makes no difference', or to any rewrite class not exercised by a passing control."
+ },
+ "monotonicity_must_not_be_assumed_by_code": {
+  "finding": "V2-MAJ",
+  "fact": "M0 subset M1 subset M3 is FALSE (M0 3/20 vs M3 0/20 under apart)",
+  "requirements": [
+   "No implementation may short-circuit M1 or M3 on the basis of an M0 result, skip a level because a lower level matched, or derive one level's indicator from another's. All three levels are computed independently for every triple.",
+   "A2-S5's cascade increment table may NOT be presented as a nested cascade: the three levels are reported as three SETS with their pairwise intersections and differences."
+  ],
+  "component_count_mismatch_single_classification": {
+   "finding": "V2-MIN-9",
+   "classification": "a DECIDED NON-MATCH (match_outcome = proved_different, failure_reason = ComponentCountMismatch) at EVERY level",
+   "excluded_from": "the could_not_evaluate_rate numerator, because a component count is an observed fact and not a failed evaluation",
+   "empirically_inert": "(true_dim, n_pred_components) is diagonal for all 47,987 candidates (12,000 / 17,998 / 17,989) and 0 of the 2,235 stored component hits occurs under a count mismatch"
+  }
+ },
+ "control_wellposedness_contract": {
+  "section": "7.7.0",
+  "forced_by": [
+   "V2-CRIT-1",
+   "V2-CRIT-2"
+  ],
+  "shared_shape_of_both_criticals": "a control whose frozen threshold was stated as an ABSOLUTE COUNT against a population that was never verified to have the property the control assumes",
+  "rule_1_positive_controls": "Every positive control's rewrite must be VERIFIED FUNCTION-PRESERVING, by numeric_equivalent(n_points=32, seed=0) on the parsed trees and, where it returns within the guard, _timed_simplify(orig - rewritten) == 0. An instance failing verification is ineligible_rewrite_unverified, is enumerated with its expressions, and is EXCLUDED FROM THE DENOMINATOR. A control tests the matcher only where the rewrite provably preserves the function; otherwise it tests the rewriter.",
+  "rule_2_negative_controls": "Every negative control's alteration must be VERIFIED FUNCTION-CHANGING. Same machinery, opposite verdict: an alteration numeric_equivalent finds equivalent is a NO-OP, recorded ineligible_alteration_is_noop, enumerated, and EXCLUDED FROM THE DENOMINATOR. This is precisely the filter v2 applied to PC3a and omitted for PC3b.",
+  "rule_3_thresholds": "Every threshold is a FRACTION OF THE REALIZED ELIGIBLE SET, never an absolute count against an assumed population, and every control reports n_eligible, n_ineligible and the ineligibility-reason distribution. Each control carries a FROZEN MINIMUM ELIGIBLE-SET SIZE below which it is reported not_measurable and DOES NOT GATE.",
+  "rule_4_gating_by_branch": "Gating is mapped to verdict branch by the DIRECTION OF THE BIAS the control detects, frozen before any K is observed (section 7.7.3). Both branches are specified in advance and no threshold changes in either.",
+  "minimum_eligible_set_sizes": {
+   "PC2c": 40,
+   "PC2d": 40,
+   "PC4": 40,
+   "PC3a": 20,
+   "PC3b": 20,
+   "PC2b": 1
+  },
+  "below_minimum": "the control is not_measurable and DOES NOT GATE; the report must name it and say why. If PC4 is not_measurable that is equivalent to PC4 FAILING: Part A is undecidable (gain indicator not demonstrated)."
+ },
+ "control_gating_map": {
+  "section": "7.7.3",
+  "frozen_before_any_K_is_observed": true,
+  "PC0_PC4": {
+   "bias": "an instrument that cannot produce a match, or cannot produce a GAIN, manufactures K = 0",
+   "effect": "fatal to ANY verdict - a null and a refutation are both uninterpretable",
+   "gates": "both branches, HARD ABORT"
+  },
+  "PC2a": {
+   "bias": "a harness differing from the one that produced Q1/Q12b invalidates every disclosed comparison",
+   "effect": "fatal to comparability",
+   "gates": "both branches"
+  },
+  "PC2c_PC2d": {
+   "bias": "an M3 that fails on commutation is UNDER-permissive - deflates m3_any - MANUFACTURES K = 0",
+   "effect": "can only push toward the null",
+   "gates": "null branch: if either is < 95% of its eligible set and K = 0, the null is undecidable (matcher sensitivity insufficient). If K >= 1 they are reported as measured instrument facts and do not gate, because an under-permissive matcher cannot manufacture a gain."
+  },
+  "PC3a_PC3b": {
+   "bias": "an M3 that matches an altered truth is OVER-permissive - inflates m3_any - MANUFACTURES K >= 1",
+   "effect": "can only push away from the null",
+   "gates": "gain branch: if either is < 95% of its eligible set and K >= 1, that verdict (weak_gain or matcher_attributable_gain_confirmed) is undecidable (matcher specificity insufficient). If K = 0 they are reported as measured instrument facts and do not gate, and the report must state the direction argument explicitly."
+  },
+  "PC2b_PC0CAS_PC1_PC4b": {
+   "gates": "non-gating; documented limitations and instrument facts"
+  },
+  "legitimacy_note": "Both branches are specified before any K exists and NO THRESHOLD DIFFERS between them. What differs is only WHICH VERDICT A GIVEN INSTRUMENT FAILURE IS ALLOWED TO LICENSE - a statement about the direction of a bias, derived analytically and not from data. Rule 01 item 3 is not engaged: nothing is changed to rescue a result, and the STRICTER condition applies to whichever verdict the bias could have manufactured. The map is listed among the items whose change forces a new cycle ID.",
+  "why_specificity_controls_exist": "A null-shaped primary is destroyed by an over-permissive matcher exactly as easily as by an under-permissive one, and only a specificity control detects that."
+ },
+ "part_a_execution_order": {
+  "section": "7.10",
+  "new_in": "v2.1",
+  "why_frozen": "the integrity ordering of section 7.2 AND the compute-protection purpose of the battery",
+  "steps": [
+   "1. Strata census: compute H/L, assert against the frozen Q16 values, write and hash R/phase1/component_strata.json.",
+   "2. Realized ladder: compute the Wilson/OC/power tables at |H| = 130, assert against sections 7.3 and 9.3, write and hash R/phase1/partA_ladder_realized.json. Obtain the StrataFrozenToken.",
+   "3. Control battery IN FULL, on SYNTHETIC pairs only: PC0, PC0-CAS (subprocess), PC1, PC2a, PC2b, PC2c, PC2d, PC3a, PC3b, PC4, PC4b, including every eligibility verification. PC4's gain MUST be computed by the SAME FUNCTION OBJECT the endpoint pass will call - the implementation must expose one gain(m0_any, m3_any) and one per-triple scoring function and use them in both places; a duplicated implementation for the control is a preregistration violation. Write R/phase1/partA_controls.json. Cost <= 0.5 core-h.",
+   "4. GATE THE HARD-ABORT CONTROLS BEFORE SPENDING THE ENDPOINT BUDGET: if PC0 or PC4 or PC2a fails, STOP HERE. Part A is undecidable with the corresponding reason, no endpoint pass is run, ~8.7 core-hours are NOT spent, and the cycle reports the instrument failure as its Part A result. This ordering is the practical answer to V2-CRIT-1/2's 'burn the full CPU budget to report undecidable'.",
+   "5. Endpoint pass over all 47,987 candidates / 101,963 component comparisons: M0, M1, M3 computed INDEPENDENTLY per triple; the section 7.6 reproduction check accumulated in the same pass; the 1-in-100 implementation-agreement census accumulated in the same pass; all failure labels recorded.",
+   "6. Reduce and gate: compute the primary and all secondaries, evaluate section 7.5's rates, evaluate the gating map against the realized K, write R/phase1/partA_endpoints.json with the verdict, BOTH mandated sentences and every integrity field.",
+   "7. ONLY NOW compute the H/L stratification of the 107 published M0 hits and report it as A NEW REDUCTION OF GPU_RUN5'S OWN PUBLISHED FIELD, never as a C0001 discovery."
+  ]
+ },
+ "required_follow_ups_outside_this_document": [
+  "1. research_state.md section 8: ADD A DEFECT recording that scripts/phases/gpu_run5_phase4.py:118-119 and :151-152 hash sealed_official_test.json outside any test-open ledger, that the resulting digest 2860d829d9077d01258489fb68ed8dcd8a333d6a0e150b8e36b301f28bb1e070 is the value the campaign records for that seal, and that this bears on whether that seal is usable as a clean confirmation set for a future cycle. CORRECT section 4's row from 'UNSPENT - generated, never evaluated ... The only clean seal available' to the precise status of section 2.4a.",
+  "2. research_state.md section 4: CORRECT the sealed inventory from 3 artifacts to the 7 that exist (Q19), noting that 5 have no ledger entry.",
+  "3. research_state.md section 8 defect 6: mark the ModuleNotFoundError claim WITHDRAWN AS NON-REPRODUCING (already noted as not reproducing under defect 1; defect 6 still states it as fact).",
+  "4. research_state.md section 8b: consider adopting standing rule R2 from this amendment's root cause - BEFORE FREEZING ANY CONTROL THRESHOLD, VERIFY THAT THE POPULATION THE CONTROL ASSUMES ACTUALLY HAS THE PROPERTY THE CONTROL TESTS (positive-control rewrites verified function-preserving, negative-control alterations verified function-changing) AND STATE EVERY THRESHOLD AS A FRACTION OF THE REALIZED ELIGIBLE SET. Both v2 control-battery CRITICALs were instances of violating this.",
+  "5. hypothesis_tree.md: add the C0002 candidate 'constant-preserving CAS equivalence at a node budget covering the GRN corpus', motivated by the M-ii scope restriction and section 18.1, alongside the existing Part D and A2-S7 routings.",
+  "6. Gate 0 item 3: commission the NARROW Stage-5 re-audit of v2.1 by an agent distinct from this amendment's author.",
+  "7. Gate 0 item 1: commit the working tree (src/evaluation/equation_metrics.py, src/gpu_run4/records.py, src/gpu_run5/config.py, src/gpu_runclaude1/) with a manifest explanation, before any run."
+ ],
+ "signed_off": {
+  "cycle": "C0001",
+  "preregistration": "v2.1",
+  "branch": "20260909_researce_GPU_RUNclaude1",
+  "head_at_write_time": "authored at 7f507cc, completed at 7c7d96a",
+  "date": "2026-09-09",
+  "note": "v1 (C0001_preregistration.md) and v2 (C0001_preregistration_v2.md) were not modified by this amendment."
+ }
+}
