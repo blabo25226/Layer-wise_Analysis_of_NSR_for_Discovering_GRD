@@ -9,11 +9,11 @@ status: active
 current_cycle: C0001
 current_stage: PREREGISTRATION_REVIEW
 branch: 20260912_multiAI_research
-observed_commit: 6f4c53fc24bfe685bb90e002cbc01580dd5a48c6
-base_commit: aabf28bd8d257512ce96de97f9f727b6d7765861
+observed_commit: f1a9ec901b4afd13d438f201b71ceef27f2c1645
+base_commit: d4fef3f703cd3ef476529d110930aa34962fa2b0
 remote_branch: 20260912_multiAI_research
-remote_commit: 6f4c53fc24bfe685bb90e002cbc01580dd5a48c6
-last_push_attempt_utc: 2026-09-12T14:36:05Z
+remote_commit: f1a9ec901b4afd13d438f201b71ceef27f2c1645
+last_push_attempt_utc: 2026-09-12T14:57:41Z
 last_push_error: null
 binding_plan: null
 
@@ -22,32 +22,28 @@ hard_stop_reason: null
 
 tracks:
   infrastructure:
-    status: active
+    status: completed
     current_cycle: C0001
-    stage: CAPACITY_AWARE_ROUTING
+    stage: CAPACITY_AWARE_ROUTING_PUSHED
   scientific:
     status: active
     current_cycle: C0001
     stage: PREREGISTRATION_REVIEW
 
-active_tasks:
+active_tasks: []
+completed_tasks:
   - task_id: C0001-INFRA-T002-PI-INTEGRATION
     track: infrastructure
     role: research-pi
     worker: Codex PI
-    branch: ai/C0001/repo-operator/capacity-routing
-    worktree: /tmp/lansr-multiai-C0001-capacity-routing
-    write_scope: [integrate accepted routing policy to remote research branch]
-    status: pending
-    started_at: null
-    expected_outputs: [integrated routing policy on remote research branch with verified remote_commit]
-    acceptance_test: PI integrates review fixes, verifies MANIFEST, pushes non-force, confirms remote SHA.
-    retry_count: 0
-    fallback: manual PI session
+    status: integrated_and_pushed
+    source_commits: [ceb92cb6f51411d8d3d8f225a49007c0616fe44e, ed6e5707673f63f94afca6db8c6841b49cee034e, 84a4f563ac4ba05cb8ffe94b68750e1bfa7b38c4]
+    integration_commits: [3fa1683, 3236505, f1a9ec9]
+    remote_commit: f1a9ec901b4afd13d438f201b71ceef27f2c1645
+    result: capacity-aware routing integrated; manifest/compileall/diff checks passed; remote SHA verified
     implementer_identity: Cursor Agent
     independent_reviewer_identity: Claude Opus (scientific-critic)
     reviewer_diff_assertion: true
-completed_tasks:
   - task_id: C0001-INFRA-T002-GEMINI-SMOKE
     track: infrastructure
     role: research-scout
@@ -128,12 +124,11 @@ retries:
   C0001-T003: 1
 
 next_action: >
-  PI integrates accepted C0001-INFRA-T002 capacity-routing policy from task branch (Gemini PASS_WITH_LIMITATIONS,
-  Claude PASS closure), verifies MANIFEST, non-force pushes to remote research branch, and confirms remote_commit.
-  Then revise the C0001 metric-identifiability preregistration from its independent REVISE_ANALYSIS review.
-  Do not inspect GPU_RUN5 sealed-test raw artifacts.
+  Persist the C0001 independent preregistration review, route the multi-file revision through Cursor using the review
+  as a frozen evidence packet, then obtain an independent Claude closure before PI freeze. Do not inspect GPU_RUN5
+  sealed-test raw artifacts.
 
-last_checkpoint_utc: 2026-09-12T14:58:00Z
+last_checkpoint_utc: 2026-09-12T14:57:41Z
 ```
 
 ## Notes
