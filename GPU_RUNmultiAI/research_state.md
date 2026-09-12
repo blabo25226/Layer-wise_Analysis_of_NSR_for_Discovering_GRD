@@ -7,15 +7,51 @@ Update it before a parent session ends.
 campaign: GPU_RUNmultiAI
 status: active
 current_cycle: C0001
-current_stage: STATE_RECONSTRUCTION
+current_stage: COMPETING_HYPOTHESES
 branch: 20260912_multiAI_research
-commit: 93b66db
+commit: 530f4213f99bf1c0a4177bb946ee0551ffd13f5b
 binding_plan: null
 
 hard_stop: false
 hard_stop_reason: null
 
-active_tasks: []
+active_tasks:
+  - task_id: C0001-T001
+    role: research-scout
+    worker: Codex subagent
+    branch: null
+    worktree: shared read-only integration checkout
+    write_scope: []
+    status: running
+    started_at: 2026-09-12T10:54:00Z
+    expected_outputs: [structured repository-state handoff]
+    acceptance_test: Authorized run evidence is reconstructed with paths and PR #4 scientific content excluded.
+    retry_count: 0
+    fallback: Cursor read-only exploration
+  - task_id: C0001-T002
+    role: hypothesis-scientist
+    worker: Codex subagent
+    branch: null
+    worktree: shared read-only integration checkout
+    write_scope: []
+    status: running
+    started_at: 2026-09-12T10:54:00Z
+    expected_outputs: [ranked competing hypotheses handoff]
+    acceptance_test: At least five falsifiable competing hypotheses follow the hypothesis-tree contract.
+    retry_count: 0
+    fallback: Claude Opus-compatible critic
+  - task_id: C0001-T003
+    role: statistical-reviewer
+    worker: Codex subagent
+    branch: null
+    worktree: shared read-only integration checkout
+    write_scope: []
+    status: running
+    started_at: 2026-09-12T10:54:00Z
+    expected_outputs: [methodology and statistics handoff]
+    acceptance_test: Design risks and cheapest discriminating experiment are identified.
+    retry_count: 0
+    fallback: Claude Opus-compatible critic
 completed_tasks:
   - task_id: C0000-T001
     worker: Claude Code
@@ -47,11 +83,11 @@ retries:
   C0000-T003: 1
 
 next_action: >
-  Reconstruct the authorized scientific state from current repository files only, dispatch independent competing
-  hypothesis generation and repository-evidence tasks for C0001, obtain adversarial critique, and let the PI select
-  one high-information hypothesis. Do not import scientific results from the retired PR #4 GPU_RUNclaude1 track.
+  Collect the three active independent C0001 handoffs, persist an authorized evidence inventory and competing
+  hypotheses, then obtain Claude adversarial critique and a Gemini breadth pass before the PI selects one
+  high-information hypothesis. Do not import scientific results from the retired PR #4 GPU_RUNclaude1 track.
 
-last_checkpoint_utc: 2026-09-12T10:52:00Z
+last_checkpoint_utc: 2026-09-12T10:54:00Z
 ```
 
 ## Notes
