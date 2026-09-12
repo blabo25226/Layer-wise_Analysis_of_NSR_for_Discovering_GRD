@@ -9,26 +9,34 @@ status: active
 current_cycle: C0001
 current_stage: INFRASTRUCTURE_REVIEW_AND_PREREGISTRATION_REVIEW
 branch: 20260912_multiAI_research
-commit: 85e38a3b2909fb730124d8603319c636c723145c
+observed_commit: null
+base_commit: 47d745911825a4b2af27eeb65916b678365fbbcd
+remote_branch: 20260912_multiAI_research
+remote_commit: null
+last_push_attempt_utc: null
+last_push_error: null
 binding_plan: null
 
 hard_stop: false
 hard_stop_reason: null
 
-active_tasks:
-  - task_id: C0001-INFRA-T001
-    role: repo-operator
-    worker: Cursor Agent
-    branch: ai/C0001/repo-operator/pr5-infra
-    worktree: /tmp/lansr-multiai-C0001-pr5-infra
-    write_scope: [AGENTS.md, .codex/rules, .agent/rules, .agent/routing, .agent/schemas, GPU_RUNmultiAI control files, scripts/ops/update_ai_manifest.sh, scripts/ops/verify_ai_manifest.sh, MANIFEST.sha256]
-    status: planned
-    started_at: null
-    expected_outputs: [conflict-free worker policy, bootstrap, state semantics, manifest tooling, track separation, push policy, PR response]
-    acceptance_test: PR #5 findings are addressed, manifest verifies, focused checks and git diff --check pass.
-    retry_count: 0
-    fallback: Claude Code then Codex PI
+tracks:
+  infrastructure:
+    status: ready_for_integration
+    current_cycle: C0001
+    stage: PR5_INFRASTRUCTURE_REMEDIATION
+  scientific:
+    status: paused_pending_infra
+    current_cycle: C0001
+    stage: PREREGISTRATION_REVIEW
+
+active_tasks: []
 completed_tasks:
+  - task_id: C0001-INFRA-T001
+    worker: Cursor Agent
+    status: completed
+    source_branch: ai/C0001/repo-operator/pr5-infra
+    result: PR #5 infrastructure remediation committed in isolated worktree; awaiting PI integration and remote push verification
   - task_id: C0000-T001
     worker: Claude Code
     status: integrated
@@ -79,14 +87,16 @@ retries:
   C0001-T003: 1
 
 next_action: >
-  Complete PR #5 infrastructure remediation in its isolated worktree, integrate and push it, then independently review
-  and freeze the metric-identifiability preregistration before implementation. Do not inspect GPU_RUN5 sealed-test raw artifacts.
+  Integrate PR #5 infrastructure remediation from ai/C0001/repo-operator/pr5-infra, non-force push
+  20260912_multiAI_research, verify remote_commit, then independently review and freeze the metric-identifiability
+  preregistration before implementation. Do not inspect GPU_RUN5 sealed-test raw artifacts.
 
-last_checkpoint_utc: 2026-09-12T14:28:48Z
+last_checkpoint_utc: 2026-09-12T14:30:00Z
 ```
 
 ## Notes
 
 - `C0000` is infrastructure/bootstrap only, not a scientific result cycle.
-- Replace branch/commit with actual values during first reconstruction.
+- Use `observed_commit`, `base_commit`, and verified `remote_commit` instead of a self-referential `commit` field.
+- Reconstruction must reclassify stale `running` tasks using branch, worktree, artifact, and acceptance evidence.
 - Active task entries follow `.agent/schemas/task-handoff-schema.md`.

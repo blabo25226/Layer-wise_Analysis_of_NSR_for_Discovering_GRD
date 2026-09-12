@@ -5,13 +5,26 @@
 Run a continuous, falsifiable, reproducible multi-AI research program.
 The default is to continue into the next cycle unless a hard stop is active.
 
+## Tracks
+
+Keep infrastructure and scientific work separate in state, reviews, and integration.
+
+| Track | Examples | Durability authority |
+|---|---|---|
+| Infrastructure | C0000 bootstrap, PR #5 remediation, routing, manifest, push policy | `research_state.md` `tracks.infrastructure` |
+| Scientific | hypothesis tree, preregistration, experiments, analysis | `research_state.md` `tracks.scientific` plus cycle artifacts under `cycles/Cxxxx/` |
+
+Infrastructure PASS/FAIL does not support or falsify a scientific hypothesis.
+Do not mix infrastructure conclusions into scientific reports or preregistrations.
+
 ## Stage 0 — Reconstruct state
 
 Research PI:
 - read repository state and `research_state.md`
 - inspect active branches/worktrees/tasks
-- repair stale bookkeeping
-- identify exact next action
+- repair stale bookkeeping and reclassify stale `running` tasks
+- record `observed_commit`, `base_commit`, and verified `remote_commit`
+- identify exact next action for each track
 
 ## Stage 1 — Competing hypotheses
 
@@ -86,6 +99,16 @@ Update:
 - `hypothesis_tree.md`
 - `human_review_queue.md`
 - task board
+
+After accepted integration or a stable checkpoint on an active remote research branch, non-force push and verify
+`remote_commit` before reporting durability.
+
+Refresh `MANIFEST.sha256` when bootstrap/control/tooling files change:
+
+```bash
+bash scripts/ops/update_ai_manifest.sh
+bash scripts/ops/verify_ai_manifest.sh
+```
 
 If `hard_stop: false`, create/select the next cycle and continue.
 

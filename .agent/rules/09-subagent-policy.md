@@ -22,3 +22,12 @@ A subagent starts with incomplete context. Its task must state:
 
 Prefer 2-4 focused subagents to a large vague swarm. Persist important outputs to files instead of sending huge results
 back through the parent context.
+
+## Task acceptance
+
+A delegated task is not accepted on process exit code alone.
+
+Require the expected artifact(s), recorded commands/tests, and the stated acceptance test to pass.
+For Gemini/Antigravity headless work, treat exit code 0 without the requested filesystem artifact as **FAIL** until a
+fresh filesystem end-to-end check passes. Until then, assign prompt-supplied evidence tasks rather than repo-file
+write tasks.

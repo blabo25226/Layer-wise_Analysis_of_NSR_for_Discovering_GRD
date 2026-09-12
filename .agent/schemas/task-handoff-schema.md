@@ -35,3 +35,8 @@ At completion, return:
 - deviations
 - unresolved risks
 - recommended next action
+
+## Acceptance
+
+`status: completed` requires the expected artifact(s) and acceptance test(s) to pass.
+Process exit code alone is insufficient, especially for Gemini/Antigravity headless filesystem work.

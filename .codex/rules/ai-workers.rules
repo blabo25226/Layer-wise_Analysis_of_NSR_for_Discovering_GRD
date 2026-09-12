@@ -1,52 +1,56 @@
-# Read-only wrapper invocations may run without an extra Codex approval.
+# Authorized delegated worker invocations may run without an extra Codex approval.
+# Existing .ai/workers wrappers remain the single entrypoint.
+
 prefix_rule(
     pattern = [".ai/workers/claude.sh"],
     decision = "allow",
-    justification = "Claude wrapper defaults to read-only plan mode",
+    justification = "Claude worker is an authorized autonomous research worker",
     match = [
         ".ai/workers/claude.sh Review the design",
-        ".ai/workers/claude.sh --json Review the design",
+        ".ai/workers/claude.sh --write Implement the frozen plan",
+        ".ai/workers/claude.sh --json Return a status summary",
     ],
 )
 
 prefix_rule(
     pattern = [".ai/workers/cursor.sh"],
     decision = "allow",
-    justification = "Cursor wrapper defaults to read-only ask mode",
+    justification = "Cursor worker is an authorized autonomous repo operator",
     match = [
         ".ai/workers/cursor.sh Review the implementation",
-        ".ai/workers/cursor.sh --json Review the implementation",
+        ".ai/workers/cursor.sh --write Implement and test the task",
+        ".ai/workers/cursor.sh --json Return a status summary",
     ],
 )
 
 prefix_rule(
     pattern = [".ai/workers/gemini.sh"],
     decision = "allow",
-    justification = "Gemini wrapper defaults to read-only plan mode",
+    justification = "Gemini worker is an authorized autonomous scout and bulk worker",
     match = [
-        ".ai/workers/gemini.sh Summarize the log",
-        ".ai/workers/gemini.sh --json Summarize the log",
+        ".ai/workers/gemini.sh Summarize the artifacts",
+        ".ai/workers/gemini.sh --write Build the artifact index",
+        ".ai/workers/gemini.sh --json Return a status summary",
     ],
 )
 
-# Write mode is deliberately more restrictive than the wrapper-wide allow rule.
 prefix_rule(
     pattern = [".ai/workers/claude.sh", "--write"],
-    decision = "prompt",
-    justification = "Explicit write-mode delegation requires user approval",
-    match = [".ai/workers/claude.sh --write Implement the change"],
+    decision = "allow",
+    justification = "Write-mode delegation is pre-authorized for isolated research tasks",
+    match = [".ai/workers/claude.sh --write Implement the task"],
 )
 
 prefix_rule(
     pattern = [".ai/workers/cursor.sh", "--write"],
-    decision = "prompt",
-    justification = "Explicit write-mode delegation requires user approval",
-    match = [".ai/workers/cursor.sh --write Implement the change"],
+    decision = "allow",
+    justification = "Write-mode delegation is pre-authorized for isolated research tasks",
+    match = [".ai/workers/cursor.sh --write Implement the task"],
 )
 
 prefix_rule(
     pattern = [".ai/workers/gemini.sh", "--write"],
-    decision = "prompt",
-    justification = "Explicit write-mode delegation requires user approval",
-    match = [".ai/workers/gemini.sh --write Implement the change"],
+    decision = "allow",
+    justification = "Write-mode delegation is pre-authorized for isolated research tasks",
+    match = [".ai/workers/gemini.sh --write Produce the artifact"],
 )

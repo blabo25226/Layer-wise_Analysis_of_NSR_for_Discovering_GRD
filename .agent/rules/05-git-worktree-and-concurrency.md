@@ -34,3 +34,15 @@ Without explicit human authorization:
 - no overwriting prior run directories
 
 If branches conflict, resolve deliberately and record what was chosen.
+
+## Remote research branch durability
+
+After each accepted integration or stable checkpoint on an active remote research branch:
+
+1. push with a normal non-force `git push` (set upstream with `-u` when needed)
+2. fetch or query the remote ref
+3. verify that `remote_commit` equals the intended local integration SHA
+4. record `remote_branch`, `remote_commit`, and `last_checkpoint_utc` in `GPU_RUNmultiAI/research_state.md`
+
+If push fails, record `last_push_attempt_utc` and `last_push_error`, retry when safe, and continue the campaign.
+Never report that work is durably pushed before remote verification succeeds.
