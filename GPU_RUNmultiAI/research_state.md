@@ -22,15 +22,28 @@ hard_stop_reason: null
 
 tracks:
   infrastructure:
-    status: completed
+    status: active
     current_cycle: C0001
-    stage: PR5_INFRASTRUCTURE_REMEDIATION_PUSHED
+    stage: CAPACITY_AWARE_ROUTING
   scientific:
     status: active
     current_cycle: C0001
     stage: PREREGISTRATION_REVIEW
 
-active_tasks: []
+active_tasks:
+  - task_id: C0001-INFRA-T002
+    track: infrastructure
+    role: repo-operator
+    worker: Cursor Agent
+    branch: ai/C0001/repo-operator/capacity-routing
+    worktree: /tmp/lansr-multiai-C0001-capacity-routing
+    write_scope: [canonical routing rules and roles, thin provider adapters, C0001 routing inventory/smoke, state/task board, MANIFEST.sha256]
+    status: planned
+    started_at: null
+    expected_outputs: [repo_evidence_inventory.md, capacity_routing_cursor_smoke.md, durable canonical routing changes]
+    acceptance_test: Cursor inventory covers at least ten substantive files with provenance; routing and manifest checks pass.
+    retry_count: 0
+    fallback: Claude Sonnet for specialized edits, Codex PI only for integration conflict
 completed_tasks:
   - task_id: C0001-INFRA-T001
     worker: Cursor Agent
@@ -89,9 +102,9 @@ retries:
   C0001-T003: 1
 
 next_action: >
-  Apply the requested capacity-aware routing update and routing smoke test as a separate infrastructure task, then
-  revise the C0001 metric-identifiability preregistration from its independent REVISE_ANALYSIS review. Do not inspect
-  GPU_RUN5 sealed-test raw artifacts.
+  Run C0001-INFRA-T002 in its isolated Cursor worktree, feed its evidence inventory to Gemini and then Claude for the
+  routing smoke, integrate and push the accepted policy, then revise the C0001 metric-identifiability preregistration
+  from its independent REVISE_ANALYSIS review. Do not inspect GPU_RUN5 sealed-test raw artifacts.
 
 last_checkpoint_utc: 2026-09-12T14:36:05Z
 ```
