@@ -19,10 +19,18 @@ Codex should use `--write` for delegated tasks that can modify files:
 .ai/workers/gemini.sh --write "<task>"
 ```
 
-`.codex/rules/ai-workers-full-access.rules` removes the extra Codex approval gate for these wrapper prefixes.
+`.codex/rules/ai-workers.rules` uses one `allow` policy for read-only and `--write`
+wrapper prefixes. There is no separate full-access rules file.
 
 If a wrapper itself still launches its provider in a plan/read-only mode, update that wrapper locally so `--write`
 selects the provider's normal autonomous write/execute mode. Keep authentication owned by the official CLI.
+
+## Isolated write tasks and acceptance
+
+Delegated write tasks require an isolated worktree/branch and a declared write scope.
+Do not treat worker exit code 0 as task success. Require the expected artifact(s),
+acceptance test(s), and any required commit. Canonical policy:
+`.agent/rules/09-subagent-policy.md` and `.agent/schemas/task-handoff-schema.md`.
 
 ## Provider setting principle
 

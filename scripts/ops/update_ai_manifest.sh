@@ -6,8 +6,35 @@ set -euo pipefail
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 
-MANIFEST="MANIFEST.sha256"
-TMP="$(mktemp)"
+OUTPUT="MANIFEST.sha256"
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -o|--output)
+      if [[ $# -lt 2 ]]; then
+        echo "update_ai_manifest: missing argument for $1" >&2
+        exit 2
+      fi
+      OUTPUT="$2"
+      shift 2
+      ;;
+    -h|--help)
+      echo "Usage: update_ai_manifest.sh [-o|--output PATH]" >&2
+      exit 0
+      ;;
+    --)
+      shift
+      break
+      ;;
+    -*)
+      echo "update_ai_manifest: unknown option: $1" >&2
+      exit 2
+      ;;
+    *)
+      OUTPUT="$1"
+      shift
+      ;;
+  esac
+done
 
 collect_manifest_paths() {
   local paths=()
@@ -16,7 +43,7 @@ collect_manifest_paths() {
     paths+=("$path")
   done < <(
     {
-      find .agent .agents .claude .codex .cursor .gemini \
+      find .agent .agents .ai .claude .codex .cursor .gemini \
         -type f ! -path '*/.*' 2>/dev/null || true
       printf '%s\n' \
         AGENTS.md \
@@ -55,8 +82,9 @@ collect_manifest_paths() {
   done
 }
 
+TMP="$(mktemp)"
 while IFS= read -r rel; do
   sha256sum "$rel"
 done < <(collect_manifest_paths | LC_ALL=C sort) > "$TMP"
 
-mv "$TMP" "$MANIFEST"
+mv "$TMP" "$OUTPUT"

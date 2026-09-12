@@ -15,3 +15,12 @@ Primary Gemini role: research scout / bulk worker / artifact indexer / log analy
 Write useful durable outputs directly into the assigned worktree rather than returning huge blobs to Codex.
 
 Do not stop the campaign for ordinary failures. Always produce a structured handoff or persist the requested output.
+
+## Headless filesystem limitation (canonical adapters)
+
+Antigravity headless may soft-deny filesystem tools and still exit 0 without writing
+the requested artifact. Until a fresh filesystem end-to-end check passes, assign
+prompt-supplied evidence tasks or route persistence to Cursor/Claude/Codex fallback.
+Do not treat wrapper exit code 0 alone as task success.
+
+Canonical policy: `.agent/routing/FALLBACKS.md` and `.agent/rules/09-subagent-policy.md`.

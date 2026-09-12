@@ -88,7 +88,17 @@ Official references:
 
 ## Codex command rules
 
-Project-local rules in `.codex/rules/ai-workers.rules` allow the three read-only
-wrapper prefixes without a separate command approval. Invocations beginning
-with `--write` remain approval-gated. The project must be trusted and Codex must
-be restarted after the rules are first added or changed.
+Project-local rules in `.codex/rules/ai-workers.rules` use a single `allow`
+policy for all authorized wrapper prefixes, including `--write` invocations.
+There is no separate `ai-workers-full-access.rules` file. The project must be
+trusted and Codex must be restarted after the rules are first added or changed.
+
+## Delegated write tasks
+
+Use `--write` only for isolated tasks with an explicit worktree/branch and a
+declared write scope. Do not run parallel write tasks in the same checkout.
+
+A delegated task succeeds only when the expected artifact(s), acceptance
+test(s), and any required commit are present. Process exit code alone is
+insufficient, especially for Gemini/Antigravity headless work. Canonical policy:
+`.agent/rules/09-subagent-policy.md` and `.agent/schemas/task-handoff-schema.md`.

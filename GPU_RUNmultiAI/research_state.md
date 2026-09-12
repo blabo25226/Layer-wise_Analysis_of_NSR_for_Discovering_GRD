@@ -7,7 +7,7 @@ Update it before a parent session ends.
 campaign: GPU_RUNmultiAI
 status: active
 current_cycle: C0001
-current_stage: INFRASTRUCTURE_REVIEW_AND_PREREGISTRATION_REVIEW
+current_stage: PREREGISTRATION_REVIEW
 branch: 20260912_multiAI_research
 observed_commit: null
 base_commit: 47d745911825a4b2af27eeb65916b678365fbbcd

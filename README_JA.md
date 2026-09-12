@@ -32,8 +32,8 @@
 
 - 既存 `AGENTS.md` は上書きせず、`ROOT_SNIPPETS/AGENTS_APPEND.md` の内容を末尾付近へ統合。
 - 既存 `GPU_RUNmultiAI/` は削除せず、このパッケージ内のテンプレートの不足ファイルのみ追加。
-- 既存 `.codex/rules/ai-workers.rules` がある場合、
-  `ai-workers-full-access.rules` と矛盾しないように、write invocation の `prompt` を削除/置換。
+- 既存 `.codex/rules/ai-workers.rules` がある場合、単一の `allow` policy に統合し、
+  削除済みの `ai-workers-full-access.rules` への参照を残さない。
 - `.ai/workers/` のwrapper自体はこのパッケージには含めません。既存PR #5のwrapperを利用します。
 
 ## ディレクトリ
