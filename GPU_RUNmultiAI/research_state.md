@@ -9,11 +9,11 @@ status: active
 current_cycle: C0001
 current_stage: PREREGISTRATION_REVIEW
 branch: 20260912_multiAI_research
-observed_commit: null
-base_commit: 47d745911825a4b2af27eeb65916b678365fbbcd
+observed_commit: 6f4c53fc24bfe685bb90e002cbc01580dd5a48c6
+base_commit: aabf28bd8d257512ce96de97f9f727b6d7765861
 remote_branch: 20260912_multiAI_research
-remote_commit: null
-last_push_attempt_utc: null
+remote_commit: 6f4c53fc24bfe685bb90e002cbc01580dd5a48c6
+last_push_attempt_utc: 2026-09-12T14:36:05Z
 last_push_error: null
 binding_plan: null
 
@@ -22,11 +22,11 @@ hard_stop_reason: null
 
 tracks:
   infrastructure:
-    status: ready_for_integration
+    status: completed
     current_cycle: C0001
-    stage: PR5_INFRASTRUCTURE_REMEDIATION
+    stage: PR5_INFRASTRUCTURE_REMEDIATION_PUSHED
   scientific:
-    status: paused_pending_infra
+    status: active
     current_cycle: C0001
     stage: PREREGISTRATION_REVIEW
 
@@ -34,9 +34,11 @@ active_tasks: []
 completed_tasks:
   - task_id: C0001-INFRA-T001
     worker: Cursor Agent
-    status: completed
+    status: integrated_and_pushed
     source_branch: ai/C0001/repo-operator/pr5-infra
-    result: PR #5 infrastructure remediation committed in isolated worktree; awaiting PI integration and remote push verification
+    source_commit: e003033c7d8200e8fc6a2f98579fca835ae482f2
+    integration_commits: [45ba171, 6f4c53f]
+    result: PR #5 infrastructure remediation integrated; remote research branch verified at 6f4c53fc24bfe685bb90e002cbc01580dd5a48c6
   - task_id: C0000-T001
     worker: Claude Code
     status: integrated
@@ -87,11 +89,11 @@ retries:
   C0001-T003: 1
 
 next_action: >
-  Integrate PR #5 infrastructure remediation from ai/C0001/repo-operator/pr5-infra, non-force push
-  20260912_multiAI_research, verify remote_commit, then independently review and freeze the metric-identifiability
-  preregistration before implementation. Do not inspect GPU_RUN5 sealed-test raw artifacts.
+  Apply the requested capacity-aware routing update and routing smoke test as a separate infrastructure task, then
+  revise the C0001 metric-identifiability preregistration from its independent REVISE_ANALYSIS review. Do not inspect
+  GPU_RUN5 sealed-test raw artifacts.
 
-last_checkpoint_utc: 2026-09-12T14:30:00Z
+last_checkpoint_utc: 2026-09-12T14:36:05Z
 ```
 
 ## Notes
