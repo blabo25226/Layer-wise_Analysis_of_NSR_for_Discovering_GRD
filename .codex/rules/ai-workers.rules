@@ -1,0 +1,52 @@
+# Read-only wrapper invocations may run without an extra Codex approval.
+prefix_rule(
+    pattern = [".ai/workers/claude.sh"],
+    decision = "allow",
+    justification = "Claude wrapper defaults to read-only plan mode",
+    match = [
+        ".ai/workers/claude.sh Review the design",
+        ".ai/workers/claude.sh --json Review the design",
+    ],
+)
+
+prefix_rule(
+    pattern = [".ai/workers/cursor.sh"],
+    decision = "allow",
+    justification = "Cursor wrapper defaults to read-only ask mode",
+    match = [
+        ".ai/workers/cursor.sh Review the implementation",
+        ".ai/workers/cursor.sh --json Review the implementation",
+    ],
+)
+
+prefix_rule(
+    pattern = [".ai/workers/gemini.sh"],
+    decision = "allow",
+    justification = "Gemini wrapper defaults to read-only plan mode",
+    match = [
+        ".ai/workers/gemini.sh Summarize the log",
+        ".ai/workers/gemini.sh --json Summarize the log",
+    ],
+)
+
+# Write mode is deliberately more restrictive than the wrapper-wide allow rule.
+prefix_rule(
+    pattern = [".ai/workers/claude.sh", "--write"],
+    decision = "prompt",
+    justification = "Explicit write-mode delegation requires user approval",
+    match = [".ai/workers/claude.sh --write Implement the change"],
+)
+
+prefix_rule(
+    pattern = [".ai/workers/cursor.sh", "--write"],
+    decision = "prompt",
+    justification = "Explicit write-mode delegation requires user approval",
+    match = [".ai/workers/cursor.sh --write Implement the change"],
+)
+
+prefix_rule(
+    pattern = [".ai/workers/gemini.sh", "--write"],
+    decision = "prompt",
+    justification = "Explicit write-mode delegation requires user approval",
+    match = [".ai/workers/gemini.sh --write Implement the change"],
+)
