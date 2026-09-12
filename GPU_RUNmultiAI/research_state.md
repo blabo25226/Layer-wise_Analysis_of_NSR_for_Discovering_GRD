@@ -7,51 +7,27 @@ Update it before a parent session ends.
 campaign: GPU_RUNmultiAI
 status: active
 current_cycle: C0001
-current_stage: COMPETING_HYPOTHESES
+current_stage: PREREGISTRATION_DRAFT
 branch: 20260912_multiAI_research
-commit: 530f4213f99bf1c0a4177bb946ee0551ffd13f5b
+commit: 85e38a3b2909fb730124d8603319c636c723145c
 binding_plan: null
 
 hard_stop: false
 hard_stop_reason: null
 
 active_tasks:
-  - task_id: C0001-T001
-    role: research-scout
-    worker: Codex subagent
-    branch: null
-    worktree: shared read-only integration checkout
-    write_scope: []
-    status: running
-    started_at: 2026-09-12T10:54:00Z
-    expected_outputs: [structured repository-state handoff]
-    acceptance_test: Authorized run evidence is reconstructed with paths and PR #4 scientific content excluded.
+  - task_id: C0001-T004
+    role: research-engineer
+    worker: Claude Code
+    branch: ai/C0001/research-engineer/preregister-metric-audit
+    worktree: /tmp/lansr-multiai-C0001-preregister
+    write_scope: [GPU_RUNmultiAI/cycles/C0001/scientific_state.md, GPU_RUNmultiAI/cycles/C0001/hypothesis_review.md, GPU_RUNmultiAI/cycles/C0001/literature_evidence.md, GPU_RUNmultiAI/cycles/C0001/preregistration_draft.md]
+    status: planned
+    started_at: null
+    expected_outputs: [four scoped Markdown artifacts]
+    acceptance_test: Draft covers the frozen-contract fields and preserves competing evidence.
     retry_count: 0
-    fallback: Cursor read-only exploration
-  - task_id: C0001-T002
-    role: hypothesis-scientist
-    worker: Codex subagent
-    branch: null
-    worktree: shared read-only integration checkout
-    write_scope: []
-    status: running
-    started_at: 2026-09-12T10:54:00Z
-    expected_outputs: [ranked competing hypotheses handoff]
-    acceptance_test: At least five falsifiable competing hypotheses follow the hypothesis-tree contract.
-    retry_count: 0
-    fallback: Claude Opus-compatible critic
-  - task_id: C0001-T003
-    role: statistical-reviewer
-    worker: Codex subagent
-    branch: null
-    worktree: shared read-only integration checkout
-    write_scope: []
-    status: running
-    started_at: 2026-09-12T10:54:00Z
-    expected_outputs: [methodology and statistics handoff]
-    acceptance_test: Design risks and cheapest discriminating experiment are identified.
-    retry_count: 0
-    fallback: Claude Opus-compatible critic
+    fallback: Codex PI synthesis
 completed_tasks:
   - task_id: C0000-T001
     worker: Claude Code
@@ -75,19 +51,32 @@ completed_tasks:
     worker: Codex subagent
     status: completed
     result: PASS
+  - task_id: C0001-T001
+    worker: Codex subagent
+    status: completed
+    result: authorized scientific state reconstructed
+  - task_id: C0001-T002
+    worker: Codex subagent
+    status: completed
+    result: seven competing hypotheses ranked
+  - task_id: C0001-T003
+    worker: Codex subagent then Claude Opus fallback
+    status: completed_with_fallback
+    result: quota error after useful partial handoff; independent Claude review completed
 open_findings:
   - Eight pre-existing GPU_RUN5 worktree records are prunable; they are unrelated to C0000 and were left untouched.
   - Gemini headless filesystem access soft-denies read_file/ListDir and can exit 0 without producing an artifact.
+  - Claude critic raised a possible rescaling/exact-skeleton non-invariance; an exploratory algebraically equivalent formula check reproduced a false negative, but the actual pipeline round-trip remains untested.
 
 retries:
   C0000-T003: 1
+  C0001-T003: 1
 
 next_action: >
-  Collect the three active independent C0001 handoffs, persist an authorized evidence inventory and competing
-  hypotheses, then obtain Claude adversarial critique and a Gemini breadth pass before the PI selects one
-  high-information hypothesis. Do not import scientific results from the retired PR #4 GPU_RUNclaude1 track.
+  Run C0001-T004 in its isolated worktree, review and freeze the metric-identifiability preregistration, then hand
+  the frozen contract to Cursor for implementation/tests. Do not inspect GPU_RUN5 sealed-test raw artifacts.
 
-last_checkpoint_utc: 2026-09-12T10:54:00Z
+last_checkpoint_utc: 2026-09-12T11:05:00Z
 ```
 
 ## Notes
