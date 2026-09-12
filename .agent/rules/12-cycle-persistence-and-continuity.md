@@ -8,6 +8,8 @@ Before any main-agent session ends, ensure `GPU_RUNmultiAI/research_state.md` co
 - separate infrastructure and scientific track status under `tracks`
 - binding preregistration/version if any
 - active worker tasks and branches/worktrees
+- `implementer_identity` and `independent_reviewer_identity` for tasks under review when applicable
+- `reviewer_diff_assertion` (or documented `reviewer_independence_exception`) for tasks requiring independent review
 - completed work
 - unresolved findings
 - deviations/retractions not yet propagated

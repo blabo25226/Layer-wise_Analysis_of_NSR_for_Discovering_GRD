@@ -28,8 +28,10 @@ Apply `.agent/rules/08-routing-and-delegation.md` at every stage. Summary:
 | Multi-file implementation | Cursor `repo-operator` |
 | Report first draft | Gemini → Claude polish → PI final claims |
 
-Capacity pressure may reroute routine work but **never** removes preregistration, final scientific review,
-primary-artifact verification, leakage protection, or replication gates.
+Capacity pressure may reroute routine work but **never** removes preregistration and metric freeze, final scientific
+review and reviewer independence, primary-artifact verification, leakage protection, or replication gates.
+
+Routine broad reconnaissance must not fall back to Codex or Claude without a recorded PI exception and reason.
 
 ## Stage 0 — Reconstruct state
 
@@ -110,7 +112,16 @@ Replicate fragile/surprising/high-impact claims when required.
 
 ## Stage 11 — Report and archive
 
-Gemini produces report first draft; Claude Sonnet reviews/polishes; PI owns final claims.
+Gemini produces report first draft.
+
+Before Claude Sonnet review/polish or PI final claims, **mechanically verify numeric fidelity**: compare every reported
+numeric value, table cell, and aggregate cited in the draft against the primary JSON/CSV artifacts that produced them.
+Record discrepancies and resolve or flag them before scientific polish or final claim approval.
+
+Claude Sonnet reviews/polishes; PI owns final claims.
+Record `implementer_identity` and `independent_reviewer_identity` in the handoff/state contract; assert the final
+independent reviewer differs from the implementation author unless a documented hard-stop exception is approved.
+
 Create cycle report, manifest/checksums, review record and reproduction commands.
 Negative/invalidated cycles still get a report.
 

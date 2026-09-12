@@ -21,5 +21,7 @@ description: Run or resume one complete GPU_RUNmultiAI scientific cycle and cont
 15. If `hard_stop == false`, begin the next cycle.
 
 Never skip the report because the result is negative.
-Never let the implementer be the only reviewer.
-Never demote preregistration, leakage protection, primary-artifact verification, or replication gates for capacity.
+Never let the implementer be the only reviewer; record `implementer_identity`, `independent_reviewer_identity`, and
+`reviewer_diff_assertion` in handoffs and state.
+Never demote preregistration and metric freeze, final scientific review and reviewer independence, leakage protection,
+primary-artifact verification, or replication gates for capacity.

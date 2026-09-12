@@ -31,38 +31,45 @@ tracks:
     stage: PREREGISTRATION_REVIEW
 
 active_tasks:
+  - task_id: C0001-INFRA-T002-PI-INTEGRATION
+    track: infrastructure
+    role: research-pi
+    worker: Codex PI
+    branch: ai/C0001/repo-operator/capacity-routing
+    worktree: /tmp/lansr-multiai-C0001-capacity-routing
+    write_scope: [integrate accepted routing policy to remote research branch]
+    status: pending
+    started_at: null
+    expected_outputs: [integrated routing policy on remote research branch with verified remote_commit]
+    acceptance_test: PI integrates review fixes, verifies MANIFEST, pushes non-force, confirms remote SHA.
+    retry_count: 0
+    fallback: manual PI session
+    implementer_identity: Cursor Agent
+    independent_reviewer_identity: Claude Opus (scientific-critic)
+    reviewer_diff_assertion: true
+completed_tasks:
   - task_id: C0001-INFRA-T002-GEMINI-SMOKE
     track: infrastructure
     role: research-scout
     worker: Gemini / Antigravity
     branch: ai/C0001/repo-operator/capacity-routing
-    worktree: /tmp/lansr-multiai-C0001-capacity-routing
-    write_scope: [prompt-supplied evidence packet from repo_evidence_inventory.md]
-    status: planned
-    started_at: null
-    expected_outputs: [classified evidence packet with evidence/inference/speculation separation]
-    acceptance_test: Gemini returns categories, deduplicated findings, unresolved questions, routing risks.
-    retry_count: 0
-    fallback: Codex subagent with prompt-supplied inventory
+    status: completed
+    result: PASS_WITH_LIMITATIONS; prompt-supplied evidence packet; artifact capacity_routing_gemini_smoke.md
   - task_id: C0001-INFRA-T002-CLAUDE-SMOKE
     track: infrastructure
     role: scientific-critic
     worker: Claude Opus
     branch: ai/C0001/repo-operator/capacity-routing
-    worktree: /tmp/lansr-multiai-C0001-capacity-routing
-    write_scope: [compressed-packet audit note]
-    status: planned
-    started_at: null
-    expected_outputs: [scientific-quality audit of routing policy from compressed packet]
-    acceptance_test: Claude checks only necessary primary files; confirms guards preserved.
-    retry_count: 0
-    fallback: Codex PI direct audit
-completed_tasks:
+    status: completed
+    implementer_identity: Cursor Agent
+    independent_reviewer_identity: Claude Opus (scientific-critic)
+    reviewer_diff_assertion: true
+    result: REVISE; artifact capacity_routing_claude_review.md; H1-H7 fixes applied in follow-up commit
   - task_id: C0001-INFRA-T002
     worker: Cursor Agent
     status: completed
     source_branch: ai/C0001/repo-operator/capacity-routing
-    result: capacity-aware routing canonical changes, evidence inventory, Cursor smoke; Gemini/Claude smoke pending
+    result: capacity-aware routing canonical changes, evidence inventory, Cursor smoke; Gemini/Claude smoke completed; PI integration pending
   - task_id: C0001-INFRA-T001
     worker: Cursor Agent
     status: integrated_and_pushed
@@ -121,12 +128,12 @@ retries:
   C0001-T003: 1
 
 next_action: >
-  Run C0001-INFRA-T002-GEMINI-SMOKE with prompt-supplied repo_evidence_inventory.md, then
-  C0001-INFRA-T002-CLAUDE-SMOKE on the compressed packet. Integrate accepted routing policy and push.
-  Then revise the C0001 metric-identifiability preregistration from its independent REVISE_ANALYSIS review.
+  PI integrates C0001-INFRA-T002 review fixes (H1-H7) from capacity-routing task branch, verifies MANIFEST,
+  non-force pushes to remote research branch, and confirms remote_commit. Then revise the C0001
+  metric-identifiability preregistration from its independent REVISE_ANALYSIS review.
   Do not inspect GPU_RUN5 sealed-test raw artifacts.
 
-last_checkpoint_utc: 2026-09-12T14:50:00Z
+last_checkpoint_utc: 2026-09-12T14:55:00Z
 ```
 
 ## Notes

@@ -60,13 +60,28 @@ were **not** opened or edited.
 | `update_ai_manifest.sh` + `verify_ai_manifest.sh` | PASS (deterministic) |
 | `python -m compileall -q src scripts tests` | PASS |
 
+## Independent review response checks (H1–H7)
+
+| Finding | Required fix | Result |
+|---|---|---|
+| H1 smoke artifacts uncommitted | Commit Gemini/Claude smoke artifacts with review fixes | PASS |
+| H2 reconnaissance fallback contradiction | Align FALLBACKS/MODEL_ROUTING; PI exception before Codex/Claude broad recon | PASS |
+| H3 `substantive file` undefined | Canonical definition in `.agent/rules/08-routing-and-delegation.md` | PASS |
+| H4 reviewer independence unbound | `implementer_identity`, `independent_reviewer_identity`, `reviewer_diff_assertion` in handoff/state/loop | PASS |
+| H5 Gemini limitation omitted from canonical threshold | Prompt-supplied evidence requirement beside ~10k threshold | PASS |
+| H6 report numeric-fidelity gap | Stage 11 mechanical JSON/CSV comparison before polish/final claims | PASS |
+| H7 evidence-packet chunking missing | Deterministic split by artifact/run/section; no universal token ceiling | PASS |
+| Never-demote list consistency | Reviewer independence in all never-demote summaries | PASS |
+
 ## Downstream smoke status
 
 | Worker | Task | Status |
 |---|---|---|
-| Gemini | Classify inventory; evidence/inference/speculation separation | **pending** |
-| Claude Opus | Compressed-packet scientific-quality audit | **pending** |
+| Gemini | Classify inventory; evidence/inference/speculation separation | **completed** (`capacity_routing_gemini_smoke.md`) |
+| Claude Opus | Compressed-packet scientific-quality audit | **completed** (`capacity_routing_claude_review.md`; REVISE; fixes applied) |
+| Codex PI | Integrate accepted routing policy to remote branch | **pending** |
 
 ## Deviations
 
 None from handoff scope. All canonical minimum write-scope files updated; only necessary thin adapters touched.
+Scientific C0001 artifacts remain untouched.
