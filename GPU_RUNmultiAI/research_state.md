@@ -7,9 +7,9 @@ Update it before a parent session ends.
 campaign: GPU_RUNmultiAI
 status: active
 current_cycle: C0001
-current_stage: PREREGISTRATION_V9_FROZEN_PENDING_INTEGRATION
+current_stage: IMPLEMENTATION_DECOMPOSITION
 branch: 20260912_multiAI_research
-observed_commit: 6432888754b0a768a8e3b90add6b6ea647286323
+observed_commit: 17aff965d77053d3c607f2809c899e687723ec81
 base_commit: d4fef3f703cd3ef476529d110930aa34962fa2b0
 remote_branch: 20260912_multiAI_research
 remote_commit: 6432888754b0a768a8e3b90add6b6ea647286323
@@ -37,34 +37,24 @@ tracks:
   scientific:
     status: active
     current_cycle: C0001
-    stage: PREREGISTRATION_V9_FROZEN_PENDING_INTEGRATION
+    stage: IMPLEMENTATION_DECOMPOSITION
 
-active_tasks:
+active_tasks: []
+completed_tasks:
   - task_id: C0001-T005
     track: scientific
-    role: repo-operator
-    worker: Cursor Agent
-    branch: ai/C0001/repo-operator/revise-preregistration
-    worktree: /tmp/lansr-multiai-C0001-revise-prereg
-    write_scope: [preregistration_draft_v9.md, preregistration_v9_closure_review.md, preregistration_v9_freeze_record.md, state, task board, MANIFEST.sha256]
-    status: review_passed_frozen_pending_integration
-    started_at: 2026-09-13T02:30:00Z
-    completed_at: 2026-09-13T08:06:24Z
-    expected_outputs: [C0001 preregistration v9, independent PASS closure, PI freeze record]
-    deliverables:
-      - GPU_RUNmultiAI/cycles/C0001/preregistration_draft_v9.md
-      - GPU_RUNmultiAI/cycles/C0001/preregistration_v8_review_response.md
-      - GPU_RUNmultiAI/cycles/C0001/preregistration_v8_closure_review.md
-      - GPU_RUNmultiAI/cycles/C0001/preregistration_v9_closure_review.md
-      - GPU_RUNmultiAI/cycles/C0001/preregistration_v9_freeze_record.md
-    acceptance_test: PASS; independent closure found no required fixes; binding plan SHA256 frozen; 23550 confirmatory; 25860 grand max.
-    retry_count: 0
-    fallback: Claude Sonnet specialized scientific writing; Codex PI only for conflict resolution
+    role: repo-operator + independent reviewer + research-pi
+    worker: Cursor Agent + Codex methodological subagent + Codex PI
+    status: integrated_pending_push
+    source_branch: ai/C0001/repo-operator/revise-preregistration
+    source_commit: d1de348ca478d0c8180a30afb27a446f9133595b
+    integration_commits: [032cfca, 304142f, 38706c8, f31e7aa, 52df7e2, 7efc466, 826c5a2, f4ac3dc, 17aff96]
+    binding_plan: GPU_RUNmultiAI/cycles/C0001/preregistration_draft_v9.md
+    binding_plan_sha256: 60cfed79780c6b027192a3da14e69416d72090e0a89dddd22248b0f00f50cf00
+    result: PASS closure; preregistration v9 frozen and integrated; manifest/compileall/diff checks passed
     implementer_identity: Cursor Agent
     independent_reviewer_identity: Codex methodological subagent (Claude reviewer timeout fallback)
     reviewer_diff_assertion: true
-    evidence_packet: GPU_RUNmultiAI/cycles/C0001/preregistration_v9_closure_review.md
-completed_tasks:
   - task_id: C0001-INFRA-T002-PI-INTEGRATION
     track: infrastructure
     role: research-pi
@@ -157,9 +147,8 @@ retries:
   C0001-T003: 1
 
 next_action: >
-  Push and verify the accepted task branch, integrate all C0001-T005 commits into
-  20260912_multiAI_research, verify and push the integration checkpoint, then create an isolated
-  implementation task bound to preregistration v9 SHA256. Do not inspect GPU_RUN5 sealed-test raw artifacts.
+  Push and verify the integrated preregistration checkpoint, then create an isolated implementation
+  task bound to preregistration v9 SHA256. Do not inspect GPU_RUN5 sealed-test raw artifacts.
 
 last_checkpoint_utc: 2026-09-13T08:06:24Z
 ```
