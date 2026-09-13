@@ -15,6 +15,7 @@ from experiment_runtime import REPO_ROOT
 from gpu_run4.formulas import split_components
 
 from gpu_runmultiai.constants import SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC
+from gpu_runmultiai.guard_side_channel import child_side_channel_path, load_guard_attempts
 
 
 class ODEFormerUnavailable(RuntimeError):
@@ -185,6 +186,9 @@ def simplify_tree_subprocess(
 ) -> dict[str, Any]:
     worker = REPO_ROOT / "src/gpu_runmultiai/simplifier_worker.py"
     payload = json.dumps({"prefixes": prefixes, "timeout_sec": timeout_sec})
+    side_channel = child_side_channel_path()
+    if side_channel.is_file():
+        side_channel.unlink()
     try:
         proc = subprocess.run(
             [sys.executable, str(worker)],
@@ -195,14 +199,20 @@ def simplify_tree_subprocess(
             cwd=str(REPO_ROOT),
         )
     except subprocess.TimeoutExpired as exc:
-        guard_attempts = _guard_attempts_from_timeout_output(exc)
+        guard_attempts = _merge_guard_attempts(
+            _guard_attempts_from_timeout_output(exc),
+            load_guard_attempts(side_channel),
+        )
         return {
             "ok": False,
             "failure_reason": "SubprocessTimeout",
             "guard_attempts": guard_attempts,
         }
 
-    guard_attempts = _guard_attempts_from_process_output(proc.stdout, proc.stderr)
+    guard_attempts = _merge_guard_attempts(
+        _guard_attempts_from_process_output(proc.stdout, proc.stderr),
+        load_guard_attempts(side_channel),
+    )
     if proc.returncode != 0:
         return {
             "ok": False,
@@ -210,16 +220,38 @@ def simplify_tree_subprocess(
             "guard_attempts": guard_attempts,
         }
     try:
-        payload = json.loads(proc.stdout)
+        result_payload = json.loads(proc.stdout)
     except json.JSONDecodeError:
         return {
             "ok": False,
             "failure_reason": "JSONDecodeError",
             "guard_attempts": guard_attempts,
         }
-    if not payload.get("guard_attempts"):
-        payload["guard_attempts"] = guard_attempts
-    return payload
+    if not result_payload.get("guard_attempts"):
+        result_payload["guard_attempts"] = guard_attempts
+    else:
+        result_payload["guard_attempts"] = _merge_guard_attempts(
+            result_payload.get("guard_attempts", []),
+            guard_attempts,
+        )
+    return result_payload
+
+
+def _merge_guard_attempts(*groups: list[dict[str, str]]) -> list[dict[str, str]]:
+    merged: list[dict[str, str]] = []
+    seen: set[tuple[str, str, str]] = set()
+    for group in groups:
+        for row in group:
+            key = (
+                row.get("attempted_operation", ""),
+                row.get("attempted_path_norm", ""),
+                row.get("attempted_path_real", ""),
+            )
+            if key in seen:
+                continue
+            seen.add(key)
+            merged.append(row)
+    return merged
 
 
 def _guard_attempts_from_process_output(stdout: str, stderr: str) -> list[dict[str, str]]:

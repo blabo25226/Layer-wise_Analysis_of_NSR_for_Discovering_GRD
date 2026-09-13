@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from gpu_runmultiai.invariants import StageCacheSerializationError
+
 
 def cache_key(
     *,
@@ -35,7 +37,11 @@ def load_stage_cache(path: Path) -> dict[str, Any]:
 def append_stage_cache(path: Path, *, cache_key_value: str, payload: Any) -> None:
     try:
         encoded = json.dumps({"cache_key": cache_key_value, "payload": payload}, sort_keys=True)
-    except (TypeError, ValueError):
-        return
+    except (TypeError, ValueError) as exc:
+        raise StageCacheSerializationError(
+            f"stage cache payload is not JSON-serializable for {cache_key_value}: {exc}"
+        ) from exc
+    path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as handle:
         handle.write(encoded + "\n")
+        handle.flush()

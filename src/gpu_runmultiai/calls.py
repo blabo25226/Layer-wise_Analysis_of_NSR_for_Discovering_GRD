@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import json
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
 from gpu_runmultiai.constants import CONFIRMATORY_CALL_CEILING, FULL_RUN_CALL_CEILING
+from gpu_runmultiai.invariants import AuditInvariantError
 
 DESCRIPTIVE_CONDITIONS = frozenset({"D2"})
 
@@ -79,7 +81,7 @@ class CallLogger:
                 row["unit_id"],
             ).as_tuple()
             if key in logger._keys:
-                raise RuntimeError(f"duplicate counted call in call_log: {key}")
+                raise AuditInvariantError(f"duplicate counted call in call_log: {key}")
             logger._keys.add(key)
             logger.rows.append(row)
         return logger
@@ -99,12 +101,12 @@ class CallLogger:
     def assert_pre_call_ceiling(self, condition: str) -> None:
         if condition in DESCRIPTIVE_CONDITIONS:
             if self.descriptive_total() >= expected_descriptive_calls():
-                raise RuntimeError("G1 FAIL: descriptive call ceiling reached before execution")
+                raise AuditInvariantError("G1 FAIL: descriptive call ceiling reached before execution")
             if self.total() >= FULL_RUN_CALL_CEILING:
-                raise RuntimeError("G1 FAIL: full-run call ceiling reached before execution")
+                raise AuditInvariantError("G1 FAIL: full-run call ceiling reached before execution")
         else:
             if self.confirmatory_total() >= CONFIRMATORY_CALL_CEILING:
-                raise RuntimeError("G1 FAIL: confirmatory call ceiling reached before execution")
+                raise AuditInvariantError("G1 FAIL: confirmatory call ceiling reached before execution")
 
     def execute_or_record(
         self,
@@ -131,21 +133,39 @@ class CallLogger:
         ):
             return False, None
         self.assert_pre_call_ceiling(condition)
-        result = executor() if executor is not None else None
-        resolved_status = status_for_result(result) if status_for_result is not None else status
-        resolved_rewrite_id = (
-            rewrite_id_for_result(result) if rewrite_id_for_result is not None else rewrite_id
-        )
-        self.record(
-            primitive=primitive,
-            condition=condition,
-            stage=stage,
-            unit_type=unit_type,
-            unit_id=unit_id,
-            status=resolved_status,
-            duration_sec=duration_sec,
-            rewrite_id=resolved_rewrite_id,
-        )
+        started = time.perf_counter()
+        result = None
+        resolved_status = status
+        resolved_rewrite_id = rewrite_id
+        should_record = True
+        try:
+            if executor is not None:
+                result = executor()
+            resolved_status = status_for_result(result) if status_for_result is not None else status
+            resolved_rewrite_id = (
+                rewrite_id_for_result(result) if rewrite_id_for_result is not None else rewrite_id
+            )
+        except AuditInvariantError:
+            should_record = False
+            raise
+        except Exception:
+            resolved_status = "failed"
+            raise
+        finally:
+            if should_record:
+                measured = duration_sec
+                if measured is None:
+                    measured = time.perf_counter() - started
+                self.record(
+                    primitive=primitive,
+                    condition=condition,
+                    stage=stage,
+                    unit_type=unit_type,
+                    unit_id=unit_id,
+                    status=resolved_status,
+                    duration_sec=measured,
+                    rewrite_id=resolved_rewrite_id,
+                )
         return True, result
 
     def record(
@@ -164,7 +184,7 @@ class CallLogger:
         if key in self._keys:
             if self.skip_duplicates:
                 return
-            raise RuntimeError(f"duplicate counted call: {key}")
+            raise AuditInvariantError(f"duplicate counted call: {key}")
         self._keys.add(key)
         row = {
             "primitive": primitive,
@@ -181,6 +201,7 @@ class CallLogger:
         if self.path is not None:
             with self.path.open("a", encoding="utf-8") as handle:
                 handle.write(json.dumps(row, sort_keys=True) + "\n")
+                handle.flush()
 
     def confirmatory_total(self) -> int:
         return sum(1 for row in self.rows if row["condition"] not in DESCRIPTIVE_CONDITIONS)
@@ -194,12 +215,12 @@ class CallLogger:
     def assert_ceiling(self, *, run_d2: bool = False) -> None:
         confirmatory = self.confirmatory_total()
         if confirmatory > CONFIRMATORY_CALL_CEILING:
-            raise RuntimeError(
+            raise AuditInvariantError(
                 f"G1 FAIL: confirmatory calls {confirmatory} exceed ceiling {CONFIRMATORY_CALL_CEILING}"
             )
         if run_d2:
             full_total = self.total()
             if full_total > FULL_RUN_CALL_CEILING:
-                raise RuntimeError(
+                raise AuditInvariantError(
                     f"G1 FAIL: full-run calls {full_total} exceed ceiling {FULL_RUN_CALL_CEILING}"
                 )

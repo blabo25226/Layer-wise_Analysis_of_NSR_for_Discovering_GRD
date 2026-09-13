@@ -13,9 +13,10 @@ from gpu_runmultiai.calls import CallLogger, expected_confirmatory_calls
 from gpu_runmultiai.config_paths import output_root_abs
 from gpu_runmultiai.controls import any_gate_failed, condition_summary, evaluate_validity_gates
 from gpu_runmultiai.corpus import load_frozen_corpus
-from gpu_runmultiai.stage_cache import load_stage_cache
+from gpu_runmultiai.guard_side_channel import append_guard_attempts, load_guard_attempts, side_channel_path
+from gpu_runmultiai.invariants import CorpusGateError, ScalerGateError
 from gpu_runmultiai.ids import component_id_for
-from gpu_runmultiai.manifest import build_resume_identity, current_commit, verify_plan_hash, verify_resume_identity, write_manifest
+from gpu_runmultiai.manifest import build_resume_identity, current_commit, verify_plan_hash, verify_resume_identity
 from gpu_runmultiai.odeformer_runtime import ODEFormerUnavailable, get_env, measure_g0_scaler_asserts, require_odeformer
 from gpu_runmultiai.outcomes import PAIR_RESULT_COLUMNS, evaluate_primary_decision
 from gpu_runmultiai.pipeline import (
@@ -29,8 +30,10 @@ from gpu_runmultiai.pipeline import (
     run_negative_controls,
     select_b3_pairs,
 )
+from gpu_runmultiai.resources import ResourceMonitor
 from gpu_runmultiai.sealed_guard import SealedPathGuard
-from gpu_runmultiai.strata import is_linear_component, is_strict_hill_component
+from gpu_runmultiai.stage_cache import load_stage_cache
+from gpu_runmultiai.strata import is_strict_hill_component
 
 
 def _attach_records(component_index: list[dict[str, Any]], train_records: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -41,12 +44,28 @@ def _attach_records(component_index: list[dict[str, Any]], train_records: list[d
     return enriched
 
 
+def _csv_value(value: Any) -> Any:
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return str(value).lower()
+    if isinstance(value, str):
+        return value.rstrip()
+    return value
+
+
 def _write_pair_results(path: Path, rows: list[dict[str, Any]]) -> None:
     with path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=PAIR_RESULT_COLUMNS)
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=PAIR_RESULT_COLUMNS,
+            lineterminator="\n",
+        )
         writer.writeheader()
         for row in rows:
-            writer.writerow({column: row.get(column) for column in PAIR_RESULT_COLUMNS})
+            writer.writerow(
+                {column: _csv_value(row.get(column)) for column in PAIR_RESULT_COLUMNS}
+            )
 
 
 def _load_pair_cache(path: Path) -> dict[str, dict[str, Any]]:
@@ -66,6 +85,7 @@ def _load_pair_cache(path: Path) -> dict[str, dict[str, Any]]:
 def _append_pair_cache(path: Path, row: dict[str, Any]) -> None:
     with path.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(row, sort_keys=True) + "\n")
+        handle.flush()
 
 
 def _write_atomic_manifest(path: Path, payload: dict[str, Any]) -> None:
@@ -74,30 +94,34 @@ def _write_atomic_manifest(path: Path, payload: dict[str, Any]) -> None:
     tmp.replace(path)
 
 
+def _oracle_payload_from_row(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "pair_id": row["pair_id"],
+        "component_idx": row["component_idx"],
+        "scale": row["scale"],
+        "E1": {
+            "completed": row.get("e1_oracle_completed"),
+            "analytic_equivalent": row.get("e1_analytic_equivalent"),
+            "numeric_equivalent": row.get("e1_numeric_equivalent"),
+            "equivalent": row.get("e1_oracle_equivalent"),
+            "failure_reason": row.get("e1_oracle_failure_reason"),
+            "rational_tokens": row.get("e1_rational_tokens", {}),
+            "parsed_rationals": row.get("e1_parsed_rationals", {}),
+        },
+        "E2": {
+            "completed": row.get("e2_oracle_completed"),
+            "analytic_equivalent": row.get("e2_analytic_equivalent"),
+            "numeric_equivalent": row.get("e2_numeric_equivalent"),
+            "equivalent": row.get("e2_oracle_equivalent"),
+            "failure_reason": row.get("e2_oracle_failure_reason"),
+            "rational_tokens": row.get("e2_rational_tokens", {}),
+            "parsed_rationals": row.get("e2_parsed_rationals", {}),
+        },
+    }
+
+
 def _write_equivalence_oracle(path: Path, rows: list[dict[str, Any]]) -> None:
-    payload = []
-    for row in rows:
-        if row.get("condition") not in {"B0", "D2"}:
-            continue
-        payload.append(
-            {
-                "pair_id": row["pair_id"],
-                "component_idx": row["component_idx"],
-                "scale": row["scale"],
-                "E1": {
-                    "completed": row.get("e1_oracle_completed"),
-                    "analytic_equivalent": row.get("e1_analytic_equivalent"),
-                    "numeric_equivalent": row.get("e1_numeric_equivalent"),
-                    "equivalent": row.get("e1_oracle_equivalent"),
-                },
-                "E2": {
-                    "completed": row.get("e2_oracle_completed"),
-                    "analytic_equivalent": row.get("e2_analytic_equivalent"),
-                    "numeric_equivalent": row.get("e2_numeric_equivalent"),
-                    "equivalent": row.get("e2_oracle_equivalent"),
-                },
-            }
-        )
+    payload = [_oracle_payload_from_row(row) for row in rows if row.get("condition") in {"B0", "D2"}]
     write_json(path, payload)
 
 
@@ -137,6 +161,35 @@ def _g_corpus_pass(corpus: dict[str, Any]) -> bool:
     )
 
 
+def _assert_g_corpus(corpus: dict[str, Any]) -> None:
+    if not _g_corpus_pass(corpus):
+        raise CorpusGateError("G_corpus FAIL: frozen corpus contract violated before primary audit")
+
+
+def _assert_g0(sample_dimension: int, *, scale: float) -> dict[str, Any]:
+    try:
+        asserts = measure_g0_scaler_asserts(sample_dimension, scale=scale)
+    except ODEFormerUnavailable:
+        return {}
+    expected = {
+        "time_scale": 9,
+        "time_shift": 1,
+        "a_t": 0.9,
+        "b_t": 1.0,
+        "rescale_features": True,
+    }
+    for key, value in expected.items():
+        if asserts.get(key) != value:
+            raise ScalerGateError(f"G0 FAIL: scaler assert mismatch for {key}: {asserts.get(key)} != {value}")
+    return asserts
+
+
+def _replay_guard_attempts(guard: SealedPathGuard, output_dir: Path) -> None:
+    attempts = load_guard_attempts(side_channel_path(output_dir))
+    if attempts:
+        guard.extend_child_attempts(attempts)
+
+
 def run_audit(options: dict[str, Any]) -> dict[str, Any]:
     verify_plan_hash()
     output_dir = Path(options["output_dir"]).resolve()
@@ -168,9 +221,15 @@ def _run_audit_body(
     *,
     runtime_available: bool,
 ) -> dict[str, Any]:
+    resource_monitor = ResourceMonitor(output_dir)
     corpus = load_frozen_corpus()
+    _assert_g_corpus(corpus)
     component_index = _attach_records(corpus["component_index"], corpus["train_records"])
     smoke_limit = 2 if options.get("smoke") else None
+    scales = ["0.1"] if options.get("smoke") else list(options.get("primary_scales", ("0.1", "0.5", "1.0", "2.0")))
+    selected_components = component_index[: smoke_limit or len(component_index)]
+    sample_dimension = int(selected_components[0]["record"]["dimension"]) if selected_components else 3
+    scaler_asserts = _assert_g0(sample_dimension, scale=float(scales[0])) if runtime_available else {}
 
     call_log_path = output_dir / "call_log.jsonl"
     pair_cache_path = output_dir / "pair_cache.jsonl"
@@ -180,6 +239,7 @@ def _run_audit_body(
         call_logger.skip_duplicates = True
         pair_cache = _load_pair_cache(pair_cache_path)
         stage_cache = load_stage_cache(stage_cache_path)
+        _replay_guard_attempts(guard, output_dir)
     else:
         if call_log_path.exists():
             call_log_path.unlink()
@@ -241,11 +301,10 @@ def _run_audit_body(
     b1_rows: list[dict[str, Any]] = []
     b2_rows: list[dict[str, Any]] = []
     d2_rows: list[dict[str, Any]] = []
-    scales = ["0.1"] if options.get("smoke") else list(options.get("primary_scales", ("0.1", "0.5", "1.0", "2.0")))
-    selected_components = component_index[: smoke_limit or len(component_index)]
     cached_pair_ids = set(pair_cache.keys())
 
     for item in selected_components:
+        resource_monitor.assert_within_limits()
         record = item["record"]
         component_idx = item["component_idx"]
         component_id, _ = component_id_for(corpus["corpus_hash"], item["system_id"], component_idx)
@@ -349,8 +408,6 @@ def _run_audit_body(
         if b0_rows
         else []
     )
-    write_json(output_dir / "b3_results.json", b3_rows)
-    write_json(output_dir / "b4_results.json", b4_rows)
 
     linear_rows = []
     non_strict_rows = []
@@ -366,12 +423,6 @@ def _run_audit_body(
             linear_rows.append(control_row)
         if row.get("stratum") == "non_strict_hill":
             non_strict_rows.append(control_row)
-
-    sample_dimension = int(selected_components[0]["record"]["dimension"]) if selected_components else 3
-    try:
-        scaler_asserts = measure_g0_scaler_asserts(sample_dimension, scale=float(scales[0]))
-    except ODEFormerUnavailable:
-        scaler_asserts = {}
 
     strict_rows = [row for row in b0_rows if row.get("stratum") == "strict_hill"]
     run_d2 = bool(d2_rows)
@@ -392,6 +443,18 @@ def _run_audit_body(
     }
     gates = evaluate_validity_gates(gate_state)
     decision = evaluate_primary_decision(strict_rows, validity_gate_failed=any_gate_failed(gates))
+
+    (output_dir / "fingerprint_bytes.bin").write_bytes(corpus["fingerprint_bytes"])
+    write_json(output_dir / "fingerprint_payload.json", corpus["fingerprint_payload"])
+    write_json(output_dir / "b3_results.json", b3_rows)
+    write_json(output_dir / "b4_results.json", b4_rows)
+    write_json(output_dir / "condition_summary.json", condition_summary(strict_rows))
+    write_json(output_dir / "negative_controls.json", negative_controls)
+    _write_pair_results(output_dir / "pair_results.csv", pair_rows)
+    _write_equivalence_oracle(output_dir / "equivalence_oracle.json", b0_rows + d2_rows)
+    _write_deviation_log(output_dir / "deviation_log.md", deviations)
+    append_guard_attempts(side_channel_path(output_dir), guard.to_log())
+
     manifest = {
         "audit_id": resume_identity["audit_id"],
         "commit": commit,
@@ -423,14 +486,7 @@ def _run_audit_body(
         "b4_results_path": str(output_dir / "b4_results.json"),
         "deviations": deviations,
     }
-    (output_dir / "fingerprint_bytes.bin").write_bytes(corpus["fingerprint_bytes"])
-    write_json(output_dir / "fingerprint_payload.json", corpus["fingerprint_payload"])
     _write_atomic_manifest(manifest_path, manifest)
-    write_json(output_dir / "condition_summary.json", condition_summary(strict_rows))
-    write_json(output_dir / "negative_controls.json", negative_controls)
-    _write_pair_results(output_dir / "pair_results.csv", pair_rows)
-    _write_equivalence_oracle(output_dir / "equivalence_oracle.json", b0_rows + d2_rows)
-    _write_deviation_log(output_dir / "deviation_log.md", deviations)
     return {
         "manifest": manifest,
         "pair_rows": pair_rows,

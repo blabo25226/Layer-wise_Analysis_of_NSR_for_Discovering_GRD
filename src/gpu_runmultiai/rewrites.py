@@ -5,7 +5,7 @@ from __future__ import annotations
 from gpu_run4.formulas import split_components
 
 from gpu_runmultiai.ids import negative_id_for, rewrite_id_for
-from gpu_runmultiai.oracle import oracle_equivalence, prefix_to_infix_component
+from gpu_runmultiai.oracle import oracle_equivalence_prefix, prefix_to_infix_component
 
 
 def build_rewrite_prefix(truth_prefix: str, r: int) -> str:
@@ -36,10 +36,9 @@ def rewrite_registration(
     rewrite_prefix = build_rewrite_prefix(truth_prefix, selected_r)
     rewrite_infix = build_rewrite_infix(truth_infix, selected_r)
     lexical_non_identity = rewrite_prefix != truth_prefix and rewrite_infix != truth_infix
-    oracle = oracle_equivalence(
-        truth_infix,
-        rewrite_infix,
-        component_idx=0,
+    oracle = oracle_equivalence_prefix(
+        truth_prefix,
+        rewrite_prefix,
         timeout_sec=oracle_timeout_sec,
     )
     valid = lexical_non_identity and oracle.completed and oracle.equivalent
@@ -66,10 +65,9 @@ def negative_control_row(
     negative_id, selected_c, canonical_key = negative_id_for(system_id, component_idx)
     negative_prefix = build_negative_prefix(truth_prefix, selected_c)
     negative_infix = build_negative_infix(truth_infix, selected_c)
-    oracle = oracle_equivalence(
-        truth_infix,
-        negative_infix,
-        component_idx=0,
+    oracle = oracle_equivalence_prefix(
+        truth_prefix,
+        negative_prefix,
         timeout_sec=oracle_timeout_sec,
     )
     return {

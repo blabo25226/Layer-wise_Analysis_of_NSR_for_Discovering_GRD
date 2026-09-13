@@ -62,9 +62,22 @@ def _validate_frozen_seeds(args: argparse.Namespace) -> None:
         raise SystemExit(f"audit-cas-subset-seed must be {AUDIT_CAS_SUBSET_SEED}")
 
 
+def _validate_frozen_environment() -> None:
+    from gpu_runmultiai.invariants import FrozenEnvironmentError
+
+    for key, value in FROZEN_ENV_VARS.items():
+        actual = os.environ.get(key)
+        if actual != value:
+            raise FrozenEnvironmentError(
+                f"frozen environment mismatch for {key}: expected {value!r}, got {actual!r}"
+            )
+
+
 def main() -> int:
     for key, value in FROZEN_ENV_VARS.items():
-        os.environ.setdefault(key, value)
+        if key not in os.environ:
+            os.environ[key] = value
+    _validate_frozen_environment()
     verify_plan_hash()
     args = parse_args()
     _validate_frozen_seeds(args)

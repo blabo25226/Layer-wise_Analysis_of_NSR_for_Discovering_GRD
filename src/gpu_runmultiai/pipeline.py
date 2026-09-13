@@ -20,8 +20,10 @@ from gpu_runmultiai.constants import (
 )
 from gpu_runmultiai.ids import component_id_for, negative_id_for, pair_id_for
 from gpu_run4.ted import time_limit
+from gpu_runmultiai.invariants import AuditInvariantError
 from gpu_runmultiai.odeformer_runtime import (
     ODEFormerUnavailable,
+    build_identity_scaler,
     build_production_scaler,
     decode_system_tree,
     forward_scale_system,
@@ -34,12 +36,14 @@ from gpu_runmultiai.odeformer_runtime import (
     tree_to_system_infix,
     truth_system_prefixes,
 )
+from gpu_runmultiai.serialization import json_safe_stage_payload
 from gpu_runmultiai.oracle import (
     extract_component_infix,
     oracle_equivalence,
     oracle_single_component,
     prefix_to_infix_component,
 )
+from gpu_runmultiai.invariants import ResumeCacheMissError
 from gpu_runmultiai.stage_cache import append_stage_cache, cache_key
 from gpu_runmultiai.outcomes import build_outcome_row
 from gpu_runmultiai.rewrites import (
@@ -83,11 +87,12 @@ def _cached_call(
     )
     if not executed:
         if key not in stage_cache:
-            raise RuntimeError(f"resume cache miss for counted call: {key}")
+            raise ResumeCacheMissError(f"resume cache miss for counted call: {key}")
         return stage_cache[key]
-    stage_cache[key] = result
+    safe_result = json_safe_stage_payload(result)
+    stage_cache[key] = safe_result
     if cache_path is not None:
-        append_stage_cache(cache_path, cache_key_value=key, payload=result)
+        append_stage_cache(cache_path, cache_key_value=key, payload=safe_result)
     return result
 
 
@@ -183,10 +188,16 @@ def _stage_flags(
         "e1_oracle_equivalent": bool(e1.get("equivalent")),
         "e1_analytic_equivalent": bool(e1.get("analytic_equivalent")),
         "e1_numeric_equivalent": bool(e1.get("numeric_equivalent")),
+        "e1_oracle_failure_reason": e1.get("failure_reason"),
+        "e1_rational_tokens": e1.get("rational_tokens", {}),
+        "e1_parsed_rationals": e1.get("parsed_rationals", {}),
         "e2_oracle_completed": bool(e2.get("completed")),
         "e2_oracle_equivalent": bool(e2.get("equivalent")),
         "e2_analytic_equivalent": bool(e2.get("analytic_equivalent")),
         "e2_numeric_equivalent": bool(e2.get("numeric_equivalent")),
+        "e2_oracle_failure_reason": e2.get("failure_reason"),
+        "e2_rational_tokens": e2.get("rational_tokens", {}),
+        "e2_parsed_rationals": e2.get("parsed_rationals", {}),
         "hill_form": bool(hill_form),
         "classifier_parse_valid": classifier_parse_valid,
         "classifier_parse_failure_reason": classifier_parse_failure_reason,
@@ -283,7 +294,7 @@ def _execute_chain(
         env = get_env()
         if use_identity:
             prefixes = truth_system_prefixes(record)
-            scaler, _ = build_production_scaler(1.0, int(record["dimension"]))
+            scaler, _ = build_identity_scaler(int(record["dimension"]))
         else:
             prefixes = replace_component_prefixes(record, component_idx, rewrite_row["rewrite_prefix"])
             scaler, _ = build_production_scaler(float(scale), int(record["dimension"]))
@@ -499,7 +510,7 @@ def _execute_chain(
             formula_metrics_valid=metrics.get("formula_metrics_valid"),
             **flags,
         )
-    except RuntimeError:
+    except AuditInvariantError:
         raise
     except (ODEFormerUnavailable, ValueError, TypeError, IndexError, json.JSONDecodeError, subprocess.TimeoutExpired) as exc:
         stage = locals().get("current_stage", "E0")
@@ -670,22 +681,31 @@ def run_b2_pair(
             executor=lambda: _component_metrics(record, score_infix, component_idx),
             status_for_result=lambda row: "completed" if row["formula_metrics_valid"] else "failed",
         )
-        row = {
-            **b0_row,
-            "condition": "B2",
-            "classifier_parse_valid": parse_valid,
-            "classifier_parse_failure_reason": parse_reason,
-            "hill_form": hill_form,
-            "canonical_exact": metrics.get("canonical_exact"),
-            "exponent_aware_skeleton_exact": metrics.get("exponent_aware_skeleton_exact"),
-            "formula_metrics_valid": metrics.get("formula_metrics_valid"),
-        }
-    except RuntimeError:
+        row = dict(b0_row)
+        row.update(
+            {
+                "condition": "B2",
+                "classifier_parse_valid": parse_valid,
+                "classifier_parse_failure_reason": parse_reason,
+                "hill_form": hill_form,
+                "canonical_exact": metrics.get("canonical_exact"),
+                "exponent_aware_skeleton_exact": metrics.get("exponent_aware_skeleton_exact"),
+                "formula_metrics_valid": metrics.get("formula_metrics_valid"),
+            }
+        )
+        row = build_outcome_row(**row)
+    except AuditInvariantError:
         raise
     except Exception as exc:
         row = build_outcome_row(
-            **b0_row,
             condition="B2",
+            pair_id=b0_row.get("pair_id"),
+            component_id=b0_row.get("component_id"),
+            system_id=b0_row.get("system_id"),
+            component_idx=b0_row.get("component_idx"),
+            scale=b0_row.get("scale"),
+            rewrite_id=b0_row.get("rewrite_id"),
+            stratum=b0_row.get("stratum"),
             execution_failure=True,
             failure_reason=type(exc).__name__,
             e0_status=b0_row.get("e0_status"),
@@ -762,7 +782,7 @@ def run_b4_row(
             "hill_form": bool(classified["component_flags"][component_idx]["hill_form"]),
             "formula_metrics_valid": metrics.get("formula_metrics_valid"),
         }
-    except RuntimeError:
+    except AuditInvariantError:
         raise
     except Exception as exc:
         row = {
@@ -852,6 +872,42 @@ def run_b3_pairs(
         component_idx = int(row["component_idx"])
         truth = row.get("truth_infix") or ""
         pred_system = row.get("e2_infix_pre_classifier") or row.get("e2_infix") or ""
+        def _record_failed_b3(failure_reason: str) -> dict[str, Any]:
+            if not call_logger.is_recorded(
+                primitive="compare_formulas_cas",
+                condition="B3",
+                stage="CAS",
+                unit_type="pair",
+                unit_id=pair_id,
+            ):
+                call_logger.assert_pre_call_ceiling("B3")
+                call_logger.record(
+                    primitive="compare_formulas_cas",
+                    condition="B3",
+                    stage="CAS",
+                    unit_type="pair",
+                    unit_id=pair_id,
+                    status="failed",
+                    duration_sec=0.0,
+                )
+                key = cache_key(
+                    primitive="compare_formulas_cas",
+                    condition="B3",
+                    stage="CAS",
+                    unit_type="pair",
+                    unit_id=pair_id,
+                )
+                payload_cache = {"valid": False, "failure_reason": failure_reason}
+                stage_cache[key] = payload_cache
+                if cache_path is not None:
+                    append_stage_cache(cache_path, cache_key_value=key, payload=payload_cache)
+            return {
+                "pair_id": pair_id,
+                "valid": False,
+                "execution_failure": True,
+                "failure_reason": failure_reason,
+            }
+
         try:
             def _compare():
                 try:
@@ -874,15 +930,10 @@ def run_b3_pairs(
                 status_for_result=lambda _: "completed",
             )
             payload = {"pair_id": pair_id, **comparison}
-        except RuntimeError:
+        except AuditInvariantError:
             raise
         except Exception as exc:
-            payload = {
-                "pair_id": pair_id,
-                "valid": False,
-                "execution_failure": True,
-                "failure_reason": type(exc).__name__,
-            }
+            payload = _record_failed_b3(type(exc).__name__)
         if result_cache is not None:
             result_cache[pair_id] = payload
         rows.append(payload)

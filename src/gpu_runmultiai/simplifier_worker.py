@@ -10,13 +10,21 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from gpu_runmultiai.config_paths import output_root_abs
+from gpu_runmultiai.guard_side_channel import append_guard_attempts, child_side_channel_path
 from gpu_runmultiai.sealed_guard import SealedPathGuard
 
 output_root = output_root_abs()
 guard = SealedPathGuard(output_root_abs=output_root)
 guard.install()
+side_channel_path = child_side_channel_path()
 
 from gpu_runmultiai.odeformer_runtime import decode_system_tree, get_env, require_odeformer, tree_to_system_infix
+
+
+def _flush_guard_attempts() -> list[dict[str, str]]:
+    attempts = guard.to_log()
+    append_guard_attempts(side_channel_path, attempts)
+    return attempts
 
 
 def main() -> int:
@@ -36,7 +44,7 @@ def main() -> int:
                     "ok": True,
                     "infix": infix,
                     "prefix": prefix,
-                    "guard_attempts": guard.to_log(),
+                    "guard_attempts": _flush_guard_attempts(),
                 }
             )
         )
@@ -47,7 +55,7 @@ def main() -> int:
                 {
                     "ok": False,
                     "failure_reason": type(exc).__name__,
-                    "guard_attempts": guard.to_log(),
+                    "guard_attempts": _flush_guard_attempts(),
                 }
             )
         )

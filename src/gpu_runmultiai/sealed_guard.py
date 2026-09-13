@@ -9,6 +9,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
 
+from experiment_runtime import REPO_ROOT
+
 DENY_DIR_NAMES = frozenset({"test", "sealed", "final_test"})
 
 
@@ -23,10 +25,17 @@ def _is_fd(path: object) -> bool:
     return isinstance(path, int) and not isinstance(path, bool)
 
 
+def _resolve_repo_relative(path: object) -> str:
+    fspath = os.fspath(path)
+    if not os.path.isabs(fspath):
+        fspath = os.path.join(REPO_ROOT, fspath)
+    return fspath
+
+
 def _path_strings(path: object) -> tuple[str, str] | None:
     if _is_fd(path):
         return None
-    fspath = os.fspath(path)
+    fspath = _resolve_repo_relative(path)
     norm = os.path.normpath(os.path.abspath(fspath))
     real = os.path.realpath(fspath)
     return norm, real

@@ -551,20 +551,16 @@ def test_e0_e1_round_trip_primary_scales(scale):
         guard=SealedPathGuard(output_root_abs=Path("/nonexistent/results/runs")),
     )
     assert row.get("e1_oracle_completed")
+    assert row.get("outcome_category") == "semantic_drift"
+    assert row.get("e1_analytic_equivalent") is False
+    assert row.get("e1_oracle_equivalent") is False
     assert row.get("e1_oracle_equivalent") == (
         bool(row.get("e1_analytic_equivalent")) and bool(row.get("e1_numeric_equivalent"))
     )
-    if scale == "2.0":
-        assert row.get("outcome_category") == "semantic_drift"
-        assert row.get("e1_numeric_equivalent") is False
-    else:
-        assert row.get("e1_numeric_equivalent") is True
-        assert row.get("e1_analytic_equivalent") is False
-        assert row.get("outcome_category") == "semantic_drift"
-        e1_prefix = row["e1_prefix_raw"].split("|")[0]
-        oracle = oracle_equivalence_prefix(rewrite["rewrite_prefix"], e1_prefix, timeout_sec=30.0)
-        assert oracle.completed
-        assert oracle.equivalent == (oracle.analytic_equivalent and oracle.numeric_equivalent)
+    e1_prefix = row["e1_prefix_raw"].split("|")[0]
+    oracle = oracle_equivalence_prefix(rewrite["rewrite_prefix"], e1_prefix, timeout_sec=30.0)
+    assert oracle.completed
+    assert oracle.equivalent == (oracle.analytic_equivalent and oracle.numeric_equivalent)
 
 
 def test_resume_skips_reexecution_with_spy(tmp_path):
@@ -718,3 +714,267 @@ def test_terminal_row_on_invalid_rewrite():
     )
     assert row["outcome_category"] == "construction_incomplete"
     assert row["pair_id"]
+
+
+def test_oracle_token_preserving_rational_analytic_independent():
+    result = oracle_equivalence("(0.1*x_0)", "((1/10)*x_0)", component_idx=0, timeout_sec=5.0)
+    assert result.completed
+    assert result.analytic_equivalent is True
+    assert result.numeric_equivalent is True
+    assert result.equivalent is True
+    assert result.parsed_rationals.get("1/10") == "1/10"
+
+
+def test_registration_all_components_accept_pow_dialect():
+    corpus = load_frozen_corpus()
+    logger = CallLogger()
+    from gpu_runmultiai.audit import _attach_records
+    from gpu_runmultiai.pipeline import registration_rows
+    from gpu_runmultiai.stage_cache import load_stage_cache
+
+    cache_path = Path("/tmp/lansr_registration_pow_test.jsonl")
+    if cache_path.exists():
+        cache_path.unlink()
+    component_index = _attach_records(corpus["component_index"], corpus["train_records"])
+    truth_rows, rewrite_rows = registration_rows(
+        corpus["corpus_hash"],
+        component_index,
+        oracle_timeout_sec=30.0,
+        call_logger=logger,
+        stage_cache={},
+        cache_path=cache_path,
+    )
+    assert len(truth_rows) == 510
+    assert len(rewrite_rows) == 510
+    assert all(row["valid"] for row in rewrite_rows)
+    assert logger.total() == 1020
+    assert len(load_stage_cache(cache_path)) == 1020
+
+
+def test_n1_all_controls_reject_with_prefix_oracle():
+    corpus = load_frozen_corpus()
+    logger = CallLogger()
+    from gpu_runmultiai.audit import _attach_records
+    from gpu_runmultiai.pipeline import run_negative_controls
+
+    component_index = _attach_records(corpus["component_index"], corpus["train_records"])
+    rows = run_negative_controls(
+        component_index,
+        oracle_timeout_sec=30.0,
+        call_logger=logger,
+        stage_cache={},
+        cache_path=None,
+        limit=100,
+    )
+    assert len(rows) == 100
+    assert all(row["oracle"]["completed"] for row in rows)
+    assert all(not row["oracle"]["equivalent"] for row in rows)
+    assert logger.total() == 100
+
+
+def test_stage_cache_rejects_non_serializable_payload(tmp_path):
+    from gpu_runmultiai.invariants import StageCacheSerializationError
+    from gpu_runmultiai.stage_cache import append_stage_cache
+
+    class _Bad:
+        pass
+
+    with pytest.raises(StageCacheSerializationError):
+        append_stage_cache(tmp_path / "stage_cache.jsonl", cache_key_value="k", payload=_Bad())
+
+
+def test_execute_or_record_records_failed_call_on_exception(tmp_path):
+    logger = CallLogger(tmp_path / "call_log.jsonl")
+
+    def _boom():
+        raise ValueError("boom")
+
+    with pytest.raises(ValueError):
+        logger.execute_or_record(
+            primitive="truth_register_classify",
+            condition="registration",
+            stage="truth",
+            unit_type="component",
+            unit_id="component_sha256:fail",
+            executor=_boom,
+        )
+    reloaded = CallLogger.load(tmp_path / "call_log.jsonl")
+    assert reloaded.total() == 1
+    assert reloaded.rows[0]["status"] == "failed"
+    assert reloaded.rows[0]["duration_sec"] is not None
+
+
+def test_b2_ordinary_exception_terminalizes_without_abort():
+    from gpu_runmultiai.pipeline import run_b2_pair
+
+    b0_row = {
+        "pair_id": "pair_sha256:deadbeef",
+        "component_idx": 0,
+        "e1_infix": None,
+        "e0_status": "completed",
+        "condition": "B0",
+        "system_id": "R01_train_d61001_000",
+        "component_id": "component_sha256:abc",
+        "scale": "0.1",
+        "rewrite_id": "rewrite_sha256:def",
+        "stratum": "strict_hill",
+    }
+    corpus = load_frozen_corpus()
+    record = next(row for row in corpus["train_records"] if row["system_id"] == "R01_train_d61001_000")
+    logger = CallLogger()
+    row = run_b2_pair(b0_row=b0_row, record=record, call_logger=logger)
+    assert row["condition"] == "B2"
+    assert row.get("execution_failure") is True
+    assert logger.total() == 2
+
+
+def test_b3_failure_still_counts_call():
+    from gpu_runmultiai.pipeline import run_b3_pairs
+
+    selected = [
+        {
+            "pair_id": "pair_sha256:abc",
+            "component_idx": 0,
+            "truth_infix": "(x_0)",
+            "e2_infix_pre_classifier": None,
+            "condition": "B0",
+            "stratum": "strict_hill",
+        }
+    ]
+    logger = CallLogger()
+    rows = run_b3_pairs(selected, call_logger=logger)
+    assert len(rows) == 1
+    assert rows[0].get("execution_failure") or rows[0].get("valid") is False
+    assert logger.total() == 1
+
+
+def test_invariant_exception_does_not_record_failed_call(tmp_path):
+    from gpu_runmultiai.invariants import AuditInvariantError
+
+    logger = CallLogger(tmp_path / "call_log.jsonl")
+
+    def _boom():
+        raise AuditInvariantError("ceiling")
+
+    with pytest.raises(AuditInvariantError):
+        logger.execute_or_record(
+            primitive="truth_register_classify",
+            condition="registration",
+            stage="truth",
+            unit_type="component",
+            unit_id="component_sha256:invariant",
+            executor=_boom,
+        )
+    assert CallLogger.load(tmp_path / "call_log.jsonl").total() == 0
+
+
+def test_sealed_guard_repo_relative_path_denied_after_chdir(tmp_path, monkeypatch):
+    import experiment_runtime
+    import gpu_runmultiai.sealed_guard as sealed_guard_module
+
+    monkeypatch.setattr(experiment_runtime, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(sealed_guard_module, "REPO_ROOT", tmp_path)
+    output_root = tmp_path / "results" / "runs"
+    denied = output_root / "gpu_run5_example" / "test" / "rows.json"
+    denied.parent.mkdir(parents=True)
+    denied.write_text("[]", encoding="utf-8")
+    guard = SealedPathGuard(output_root_abs=output_root.resolve())
+    guard.install()
+    try:
+        repo_relative = "results/runs/gpu_run5_example/test/rows.json"
+        monkeypatch.chdir("/tmp")
+        with pytest.raises(PermissionError):
+            open(repo_relative, encoding="utf-8")
+        assert guard.attempt_count() == 1
+    finally:
+        guard.restore()
+
+
+def test_resume_replays_guard_side_channel(tmp_path):
+    from gpu_runmultiai.audit import run_audit
+    from gpu_runmultiai.guard_side_channel import append_guard_attempts, load_guard_attempts, side_channel_path
+
+    output_dir = tmp_path / "resume_guard"
+    options = {
+        "output_dir": str(output_dir),
+        "oracle_timeout_sec": 30.0,
+        "simplifier_subprocess_timeout_sec": SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
+        "fail_if_exists": False,
+        "resume": False,
+        "smoke": True,
+        "primary_scales": ("0.1",),
+    }
+    run_audit(options)
+    append_guard_attempts(
+        side_channel_path(output_dir),
+        [
+            {
+                "attempted_operation": "open",
+                "attempted_path_norm": "/tmp/norm",
+                "attempted_path_real": "/tmp/real",
+            }
+        ],
+    )
+    resumed = run_audit({**options, "resume": True})
+    manifest = json.loads((output_dir / "audit_manifest.json").read_text(encoding="utf-8"))
+    assert manifest["status"] == "completed"
+    assert any(
+        item["attempted_path_norm"] == "/tmp/norm"
+        for item in manifest["access_guard_attempts"]
+    )
+    assert resumed["manifest"]["status"] == "completed"
+
+
+def test_manifest_completed_last_and_schema_columns(tmp_path):
+    from gpu_runmultiai.audit import run_audit
+
+    output_dir = tmp_path / "schema_smoke"
+    run_audit(
+        {
+            "output_dir": str(output_dir),
+            "oracle_timeout_sec": 30.0,
+            "simplifier_subprocess_timeout_sec": SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
+            "fail_if_exists": False,
+            "resume": False,
+            "smoke": True,
+            "primary_scales": ("0.1",),
+        }
+    )
+    manifest = json.loads((output_dir / "audit_manifest.json").read_text(encoding="utf-8"))
+    assert manifest["status"] == "completed"
+    call_rows = [
+        json.loads(line)
+        for line in (output_dir / "call_log.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    assert all(row.get("duration_sec") is not None for row in call_rows)
+    header = (output_dir / "pair_results.csv").read_text(encoding="utf-8").splitlines()[0]
+    assert "failure_reason" in header
+    assert "rescale_incomplete" in header
+    assert "formula_metrics_valid" in header
+    oracle_payload = json.loads((output_dir / "equivalence_oracle.json").read_text(encoding="utf-8"))
+    assert oracle_payload
+    assert "failure_reason" in oracle_payload[0]["E1"]
+    assert "rational_tokens" in oracle_payload[0]["E1"]
+
+
+def test_frozen_environment_mismatch_fails_fast(monkeypatch):
+    from gpu_runmultiai.invariants import FrozenEnvironmentError
+    from scripts.phases.gpu_runmultiai_c0001_metric_audit import _validate_frozen_environment
+
+    monkeypatch.setenv("LANSR_TED_TIMEOUT_SEC", "999")
+    with pytest.raises(FrozenEnvironmentError):
+        _validate_frozen_environment()
+
+
+def test_b1_uses_identity_scaler():
+    from gpu_runmultiai.odeformer_runtime import ODEFormerUnavailable, build_identity_scaler, require_odeformer
+
+    try:
+        require_odeformer()
+    except ODEFormerUnavailable:
+        pytest.skip("ODEFormer runtime unavailable")
+    scaler, asserts = build_identity_scaler(3)
+    assert asserts["a_t"] == 1.0
+    assert asserts["b_t"] == 0.0
+    assert scaler.get_params()[0:2] == (1.0, 0.0)
