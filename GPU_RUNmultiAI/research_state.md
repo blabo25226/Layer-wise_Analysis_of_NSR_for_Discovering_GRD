@@ -30,7 +30,24 @@ tracks:
     current_cycle: C0001
     stage: PREREGISTRATION_REVIEW
 
-active_tasks: []
+active_tasks:
+  - task_id: C0001-T005
+    track: scientific
+    role: repo-operator
+    worker: Cursor Agent
+    branch: ai/C0001/repo-operator/revise-preregistration
+    worktree: /tmp/lansr-multiai-C0001-revise-prereg
+    write_scope: [preregistration_draft_v2.md, preregistration_review_response.md, state, task board, MANIFEST.sha256]
+    status: planned
+    started_at: null
+    expected_outputs: [C0001 preregistration v2, finding-by-finding response]
+    acceptance_test: C1-C3 and M1-M7 closed; one endpoint; correct full-system scaling chain; exact counts; failure-aware; no leakage.
+    retry_count: 0
+    fallback: Claude Sonnet specialized scientific writing; Codex PI only for conflict resolution
+    implementer_identity: Cursor Agent
+    independent_reviewer_identity: Claude scientific-critic
+    reviewer_diff_assertion: true
+    evidence_packet: GPU_RUNmultiAI/cycles/C0001/preregistration_independent_review.md
 completed_tasks:
   - task_id: C0001-INFRA-T002-PI-INTEGRATION
     track: infrastructure
@@ -124,9 +141,8 @@ retries:
   C0001-T003: 1
 
 next_action: >
-  Persist the C0001 independent preregistration review, route the multi-file revision through Cursor using the review
-  as a frozen evidence packet, then obtain an independent Claude closure before PI freeze. Do not inspect GPU_RUN5
-  sealed-test raw artifacts.
+  Run C0001-T005 in its isolated Cursor worktree using the independent review packet, then obtain an independent Claude
+  closure before PI freeze. Do not inspect GPU_RUN5 sealed-test raw artifacts.
 
 last_checkpoint_utc: 2026-09-12T14:57:41Z
 ```
