@@ -42,10 +42,35 @@ def _attach_records(component_index: list[dict[str, Any]], train_records: list[d
 
 def _write_pair_results(path: Path, rows: list[dict[str, Any]]) -> None:
     with path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=PAIR_RESULT_COLUMNS, extrasaction="ignore")
+        writer = csv.DictWriter(handle, fieldnames=PAIR_RESULT_COLUMNS)
         writer.writeheader()
         for row in rows:
             writer.writerow({column: row.get(column) for column in PAIR_RESULT_COLUMNS})
+
+
+def _load_pair_cache(path: Path) -> dict[str, dict[str, Any]]:
+    cache: dict[str, dict[str, Any]] = {}
+    if not path.is_file():
+        return cache
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        row = json.loads(line)
+        pair_id = row.get("pair_id")
+        if pair_id:
+            cache[pair_id] = row
+    return cache
+
+
+def _append_pair_cache(path: Path, row: dict[str, Any]) -> None:
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(row, sort_keys=True) + "\n")
+
+
+def _write_atomic_manifest(path: Path, payload: dict[str, Any]) -> None:
+    tmp = path.with_suffix(".json.tmp")
+    write_json(tmp, payload)
+    tmp.replace(path)
 
 
 def _write_equivalence_oracle(path: Path, rows: list[dict[str, Any]]) -> None:
@@ -118,13 +143,18 @@ def _run_audit_body(
     smoke_limit = 2 if options.get("smoke") else None
 
     call_log_path = output_dir / "call_log.jsonl"
+    pair_cache_path = output_dir / "pair_cache.jsonl"
     if options.get("resume") and call_log_path.is_file():
         call_logger = CallLogger.load(call_log_path)
         call_logger.skip_duplicates = True
+        pair_cache = _load_pair_cache(pair_cache_path)
     else:
         if call_log_path.exists():
             call_log_path.unlink()
+        if pair_cache_path.exists():
+            pair_cache_path.unlink()
         call_logger = CallLogger(call_log_path)
+        pair_cache = {}
 
     commit = current_commit()
     script_path = REPO_ROOT / "scripts/phases/gpu_runmultiai_c0001_metric_audit.py"
@@ -139,6 +169,15 @@ def _run_audit_body(
     if options.get("resume"):
         existing = json.loads(manifest_path.read_text(encoding="utf-8"))
         verify_resume_identity(existing.get("resume_identity", {}), resume_identity)
+    else:
+        _write_atomic_manifest(
+            manifest_path,
+            {
+                "status": "in_progress",
+                "commit": commit,
+                "resume_identity": resume_identity,
+            },
+        )
 
     oracle_timeout_sec = float(options["oracle_timeout_sec"])
     simplifier_timeout_sec = float(options.get("simplifier_subprocess_timeout_sec", 5.0))
@@ -159,6 +198,7 @@ def _run_audit_body(
     d2_rows: list[dict[str, Any]] = []
     scales = ["0.1"] if options.get("smoke") else list(options.get("primary_scales", ("0.1", "0.5", "1.0", "2.0")))
     selected_components = component_index[: smoke_limit or len(component_index)]
+    cached_pair_ids = set(pair_cache.keys())
 
     for item in selected_components:
         record = item["record"]
@@ -177,7 +217,11 @@ def _run_audit_body(
                 call_logger=call_logger,
                 runtime_available=runtime_available,
                 guard=guard,
+                pair_cache=pair_cache,
             )
+            if row["pair_id"] not in cached_pair_ids:
+                _append_pair_cache(pair_cache_path, row)
+                cached_pair_ids.add(row["pair_id"])
             b0_rows.append(row)
             pair_rows.append(row)
             if runtime_available and not options.get("smoke"):
@@ -252,15 +296,16 @@ def _run_audit_body(
         scaler_asserts = {}
 
     strict_rows = [row for row in b0_rows if row.get("stratum") == "strict_hill"]
-    descriptive = bool(d2_rows)
-    call_logger.assert_ceiling(descriptive=descriptive)
+    run_d2 = bool(d2_rows)
+    call_logger.assert_ceiling(run_d2=run_d2)
 
     gate_state = {
         "g_corpus_pass": True,
         "scaler_asserts": scaler_asserts,
         "access_attempts": guard.attempt_count(),
-        "total_calls": call_logger.total(),
+        "total_calls": call_logger.confirmatory_total(),
         "call_ceiling": expected_confirmatory_calls(),
+        "descriptive_calls": call_logger.descriptive_total(),
         "negative_controls": negative_controls,
         "b4_rows": b4_rows,
         "linear_rows": linear_rows,
@@ -280,13 +325,16 @@ def _run_audit_body(
         "access_guard_attempts": guard.to_log(),
         "validity_gates": gates,
         "primary_decision": decision,
-        "primitive_completion_rate": call_logger.total() / expected_confirmatory_calls(),
+        "status": "completed",
+        "confirmatory_calls": call_logger.confirmatory_total(),
+        "descriptive_calls": call_logger.descriptive_total(),
+        "primitive_completion_rate": call_logger.confirmatory_total() / expected_confirmatory_calls(),
         "b3_rows": len(b3_rows),
         "non_strict_rows": len(non_strict_rows),
     }
     (output_dir / "fingerprint_bytes.bin").write_bytes(corpus["fingerprint_bytes"])
     write_json(output_dir / "fingerprint_payload.json", corpus["fingerprint_payload"])
-    write_manifest(manifest_path, manifest)
+    _write_atomic_manifest(manifest_path, manifest)
     write_json(output_dir / "condition_summary.json", condition_summary(strict_rows))
     write_json(output_dir / "negative_controls.json", negative_controls)
     _write_pair_results(output_dir / "pair_results.csv", pair_rows)

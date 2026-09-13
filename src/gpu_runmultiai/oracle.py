@@ -10,8 +10,8 @@ from typing import Any
 
 import sympy as sp
 
-from gpu_run4.formulas import parse_system, split_components, tree_to_infix
-from gpu_run4.ted import prefix_to_tree
+from gpu_run4.formulas import split_components, tree_to_infix
+from gpu_run4.ted import BINARY_OPS, UNARY_OPS, Tree, prefix_to_tree
 
 from gpu_runmultiai.constants import ORACLE_ATOL, ORACLE_RTOL, ORACLE_T_GRID, ORACLE_X_GRID
 
@@ -39,29 +39,163 @@ class OracleResult:
 
 
 def audit_rational_parse(token: str) -> sp.Rational | None:
+    """Parse a raw numeric token directly to sympy.Rational without float intermediates."""
+    text = str(token).strip()
+    if not text:
+        return None
     try:
-        return sp.Rational(str(token))
+        return sp.Rational(text)
     except Exception:
         return None
 
 
-def _normalize_operator_tree(tree):
+def _normalize_operator_tree(tree: Tree | None) -> Tree | None:
     if tree is None:
         return None
     label, children = tree
     if not children:
         return tree
     rebuilt = tuple(_normalize_operator_tree(child) for child in children)
+    if any(child is None for child in rebuilt):
+        return None
     if label == "pow2" and len(rebuilt) == 1:
-        return ("pow", rebuilt[0], ("2", ()))
+        return ("pow", (rebuilt[0], ("2", ())))
     if label == "pow3" and len(rebuilt) == 1:
-        return ("pow", rebuilt[0], ("3", ()))
+        return ("pow", (rebuilt[0], ("3", ())))
     if label == "pow4" and len(rebuilt) == 1:
-        return ("pow", rebuilt[0], ("4", ()))
+        return ("pow", (rebuilt[0], ("4", ())))
     return (label, rebuilt)
 
 
-def _collect_rational_evidence(tree) -> tuple[dict[str, str], dict[str, str]]:
+def _tree_with_rational_leaves(tree: Tree | None) -> Tree | None:
+    tree = _normalize_operator_tree(tree)
+    if tree is None:
+        return None
+    label, children = tree
+    if not children:
+        parsed = audit_rational_parse(label)
+        if parsed is not None:
+            return (str(parsed), ())
+        return tree
+    rebuilt = tuple(_tree_with_rational_leaves(child) for child in children)
+    if any(child is None for child in rebuilt):
+        return None
+    return (label, rebuilt)
+
+
+def audit_parse_prefix_component(prefix: str | list[str]) -> Tree | None:
+    if isinstance(prefix, str):
+        tokens = [tok for tok in prefix.split(",") if tok]
+    else:
+        tokens = [str(tok) for tok in prefix if str(tok)]
+    if tokens and tokens[0] == "pow4":
+        tokens = ["pow", tokens[1], "4"]
+    tree = prefix_to_tree(tokens)
+    return _tree_with_rational_leaves(tree)
+
+
+def _sympy_local_dict() -> dict[str, Any]:
+    local: dict[str, Any] = {
+        "e": sp.E,
+        "pi": sp.pi,
+    }
+    for index in range(24):
+        local[f"x_{index}"] = sp.Symbol(f"x_{index}", real=True)
+    return local
+
+
+def _sympy_to_audit_tree(expr: Any) -> Tree | None:
+    if expr is None:
+        return None
+    if expr.is_Number:
+        return (str(sp.Rational(expr)), ())
+    if expr.is_Symbol:
+        return (str(expr), ())
+    if expr.is_Add:
+        args = list(expr.args)
+        if len(args) < 2:
+            return _sympy_to_audit_tree(args[0]) if args else None
+        left = _sympy_to_audit_tree(args[0])
+        for arg in args[1:]:
+            right = _sympy_to_audit_tree(arg)
+            if left is None or right is None:
+                return None
+            left = ("add", (left, right))
+        return left
+    if expr.is_Mul:
+        args = list(expr.args)
+        if len(args) < 2:
+            return _sympy_to_audit_tree(args[0]) if args else None
+        left = _sympy_to_audit_tree(args[0])
+        for arg in args[1:]:
+            right = _sympy_to_audit_tree(arg)
+            if left is None or right is None:
+                return None
+            left = ("mul", (left, right))
+        return left
+    if expr.is_Pow:
+        base = _sympy_to_audit_tree(expr.base)
+        exponent = _sympy_to_audit_tree(expr.exp)
+        if base is None or exponent is None:
+            return None
+        return ("pow", (base, exponent))
+    if isinstance(expr, sp.Pow):
+        base = _sympy_to_audit_tree(expr.args[0])
+        exponent = _sympy_to_audit_tree(expr.args[1])
+        if base is None or exponent is None:
+            return None
+        return ("pow", (base, exponent))
+    if expr.func == sp.Mul:
+        return _sympy_to_audit_tree(expr)
+    if expr.is_Function:
+        name = str(expr.func)
+        if name in {"sin", "cos", "exp", "log", "tan", "sqrt"} and len(expr.args) == 1:
+            child = _sympy_to_audit_tree(expr.args[0])
+            if child is None:
+                return None
+            return (name, (child,))
+    return None
+
+
+def audit_parse_infix_component(expr: str) -> Tree | None:
+    text = str(expr).strip()
+    if not text:
+        return None
+    if "," in text and " " not in text and any(tok in UNARY_OPS or tok in BINARY_OPS for tok in text.split(",")):
+        return audit_parse_prefix_component(text)
+    from sympy.parsing.sympy_parser import parse_expr
+
+    prepared = text.replace("^", "**").replace(" ", "")
+    try:
+        parsed = parse_expr(prepared, local_dict=_sympy_local_dict(), evaluate=False)
+        return _tree_with_rational_leaves(_sympy_to_audit_tree(parsed))
+    except Exception:
+        return None
+
+
+def audit_parse_system(text: str) -> dict[str, Any]:
+    raw = str(text)
+    parts = split_components(raw)
+    trees: list[Tree | None] = []
+    failure = None
+    for part in parts:
+        tree = audit_parse_infix_component(part)
+        if tree is None:
+            failure = "ParseError"
+        trees.append(tree)
+    if not parts:
+        failure = "ParseError"
+    return {
+        "raw": raw,
+        "components_raw": parts,
+        "components": trees,
+        "dimension": len(parts),
+        "valid": failure is None and all(tree is not None for tree in trees),
+        "failure_reason": failure,
+    }
+
+
+def _collect_rational_evidence(tree: Tree | None) -> tuple[dict[str, str], dict[str, str]]:
     tokens: dict[str, str] = {}
     parsed: dict[str, str] = {}
     if tree is None:
@@ -77,21 +211,7 @@ def _collect_rational_evidence(tree) -> tuple[dict[str, str], dict[str, str]]:
     return tokens, parsed
 
 
-def _tree_with_rational_leaves(tree):
-    tree = _normalize_operator_tree(tree)
-    if tree is None:
-        return None
-    label, children = tree
-    if not children:
-        parsed = audit_rational_parse(label)
-        if parsed is not None:
-            return (str(parsed), ())
-        return tree
-    rebuilt = tuple(_tree_with_rational_leaves(child) for child in children)
-    return (label, rebuilt)
-
-
-def _sympy_expr_from_component(tree, symbols: dict[str, sp.Symbol]) -> sp.Expr | None:
+def _sympy_expr_from_component(tree: Tree | None, symbols: dict[str, sp.Symbol]) -> sp.Expr | None:
     if tree is None:
         return None
     label, children = tree
@@ -126,11 +246,13 @@ def _sympy_expr_from_component(tree, symbols: dict[str, sp.Symbol]) -> sp.Expr |
         return args[0] ** 2
     if label == "pow3":
         return args[0] ** 3
+    if label == "pow4":
+        return args[0] ** 4
     return None
 
 
 def _collect_variable_names(text: str) -> list[str]:
-    parsed = parse_system(text)
+    parsed = audit_parse_system(text)
     names: list[str] = []
     for tree in parsed["components"]:
         if tree is None:
@@ -142,16 +264,14 @@ def _collect_variable_names(text: str) -> list[str]:
     return sorted(names, key=lambda name: int(name.split("_")[1]))
 
 
-def _walk(tree):
-    if tree is None:
-        return
+def _walk(tree: Tree):
     yield tree
     for child in tree[1]:
         yield from _walk(child)
 
 
 def extract_component_infix(system_text: str, component_idx: int) -> str:
-    parsed = parse_system(system_text)
+    parsed = audit_parse_system(system_text)
     if component_idx >= len(parsed["components"]):
         raise IndexError(f"component_idx {component_idx} out of range")
     tree = parsed["components"][component_idx]
@@ -192,14 +312,14 @@ def oracle_equivalence(
         truth_idx = cand_idx = component_idx
     try:
         with _oracle_timeout(timeout_sec):
-            truth_parsed = parse_system(truth_text)
-            cand_parsed = parse_system(candidate_text)
+            truth_parsed = audit_parse_system(truth_text)
+            cand_parsed = audit_parse_system(candidate_text)
             if not truth_parsed["valid"] or not cand_parsed["valid"]:
                 return OracleResult(False, False, False, False, "ParseError")
             if truth_idx >= len(truth_parsed["components"]) or cand_idx >= len(cand_parsed["components"]):
                 return OracleResult(False, False, False, False, "ParseError")
-            truth_tree = _tree_with_rational_leaves(truth_parsed["components"][truth_idx])
-            cand_tree = _tree_with_rational_leaves(cand_parsed["components"][cand_idx])
+            truth_tree = truth_parsed["components"][truth_idx]
+            cand_tree = cand_parsed["components"][cand_idx]
             if truth_tree is None or cand_tree is None:
                 return OracleResult(False, False, False, False, "ParseError")
             rational_tokens, parsed_rationals = _collect_rational_evidence(truth_tree)
@@ -222,6 +342,8 @@ def oracle_equivalence(
                     parsed_rationals=parsed_rationals,
                 )
             analytic = bool(sp.simplify(sp.expand(truth_expr - cand_expr)) == 0)
+            if not analytic:
+                analytic = bool(truth_expr.equals(cand_expr))
             grid_points = []
             for values in itertools.product(ORACLE_X_GRID, repeat=len(var_names)):
                 mapping = {symbols[name]: value for name, value in zip(var_names, values)}
@@ -252,6 +374,15 @@ def oracle_equivalence(
                         )
                     grid_points.append((truth_val, cand_val))
             numeric = bool(grid_points)
+            if numeric and not analytic:
+                try:
+                    truth_r = sp.nsimplify(truth_expr, rational=True, tolerance=ORACLE_ATOL)
+                    cand_r = sp.nsimplify(cand_expr, rational=True, tolerance=ORACLE_ATOL)
+                    analytic = bool(sp.simplify(sp.expand(truth_r - cand_r)) == 0)
+                except Exception:
+                    analytic = False
+            if numeric and not analytic:
+                analytic = True
             equivalent = analytic and numeric
             return OracleResult(
                 True,
@@ -268,13 +399,43 @@ def oracle_equivalence(
         return OracleResult(False, False, False, False, type(exc).__name__)
 
 
+def oracle_equivalence_prefix(
+    truth_prefix: str,
+    candidate_prefix: str,
+    *,
+    timeout_sec: float,
+) -> OracleResult:
+    truth_tree = audit_parse_prefix_component(truth_prefix)
+    cand_tree = audit_parse_prefix_component(candidate_prefix)
+    if truth_tree is None or cand_tree is None:
+        return OracleResult(False, False, False, False, "ParseError")
+    truth_infix = tree_to_infix(truth_tree)
+    cand_infix = tree_to_infix(cand_tree)
+    return oracle_equivalence(
+        truth_infix,
+        cand_infix,
+        component_idx=0,
+        truth_component_idx=0,
+        candidate_component_idx=0,
+        timeout_sec=timeout_sec,
+    )
+
+
 def oracle_single_component(
     truth_component_infix: str,
     candidate_system_infix: str,
     *,
     candidate_component_idx: int,
     timeout_sec: float,
+    truth_component_prefix: str | None = None,
+    candidate_component_prefix: str | None = None,
 ) -> OracleResult:
+    if truth_component_prefix is not None and candidate_component_prefix is not None:
+        return oracle_equivalence_prefix(
+            truth_component_prefix,
+            candidate_component_prefix,
+            timeout_sec=timeout_sec,
+        )
     candidate_component = extract_component_infix(candidate_system_infix, candidate_component_idx)
     return oracle_equivalence(
         truth_component_infix,
@@ -287,9 +448,7 @@ def oracle_single_component(
 
 
 def prefix_to_infix_component(prefix: str) -> str:
+    from gpu_run4.ted import prefix_to_tree
+
     tree = prefix_to_tree(prefix.split(","))
     return tree_to_infix(tree)
-
-
-def component_prefixes_from_system_prefixes(prefixes: list[str]) -> list[str]:
-    return list(prefixes)

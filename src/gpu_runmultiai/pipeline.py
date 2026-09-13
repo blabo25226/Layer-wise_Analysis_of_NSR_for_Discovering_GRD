@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import subprocess
 from typing import Any
 
 from evaluation.gpu_run5_structure import classify_formula
@@ -10,11 +12,14 @@ from gpu_run5.evaluation import formula_metrics
 
 from gpu_runmultiai.constants import (
     B3_PAIR_COUNT,
+    CAS_TIMEOUT_SEC,
     IDENTITY_REWRITE_ID,
     IDENTITY_SCALE,
     N1_COUNT,
+    TRUTH_COPY_REWRITE_ID,
 )
 from gpu_runmultiai.ids import component_id_for, pair_id_for
+from gpu_run4.ted import time_limit
 from gpu_runmultiai.odeformer_runtime import (
     ODEFormerUnavailable,
     build_identity_scaler,
@@ -192,7 +197,13 @@ def _execute_chain(
         )
 
     e0_construct_primitive = "e0_identity_construct" if use_identity else "e0_analytic_construct"
+    current_stage = "E0"
+    e0_prefix_raw = None
+    e1_prefix_raw = None
+    e0_infix = None
+    e1_infix = None
     try:
+        call_logger.assert_pre_call_ceiling(condition)
         env = get_env()
         if use_identity:
             prefixes = truth_system_prefixes(record)
@@ -201,6 +212,7 @@ def _execute_chain(
             prefixes = replace_component_prefixes(record, component_idx, rewrite_row["rewrite_prefix"])
             scaler, _ = build_production_scaler(float(scale), int(record["dimension"]))
         base_tree = decode_system_tree(env, prefixes)
+        e0_tree = forward_scale_system(env, base_tree, scaler)
         call_logger.record(
             primitive=e0_construct_primitive,
             condition=condition,
@@ -209,9 +221,9 @@ def _execute_chain(
             unit_id=pair_id,
             status="completed",
         )
-        e0_tree = forward_scale_system(env, base_tree, scaler)
         e0_prefix_raw = "|".join(tree_to_prefix_list(e0_tree))
         e0_infix = tree_to_system_infix(e0_tree)
+        current_stage = "E1"
         e1_tree, rescale_incomplete = rescale_system(env, scaler, e0_tree)
         call_logger.record(
             primitive="scaler_rescale_function",
@@ -236,11 +248,14 @@ def _execute_chain(
         e1_oracle = {"completed": False, "equivalent": False}
         e2_oracle = {"completed": False, "equivalent": False}
         if run_oracles:
+            e1_component_prefix = tree_to_prefix_list(e1_tree)[component_idx]
             e1_oracle = oracle_single_component(
                 truth_component,
                 e1_infix,
                 candidate_component_idx=component_idx,
                 timeout_sec=oracle_timeout_sec,
+                truth_component_prefix=truth_prefix,
+                candidate_component_prefix=e1_component_prefix,
             ).as_dict()
             call_logger.record(
                 primitive="oracle_equivalence",
@@ -253,6 +268,7 @@ def _execute_chain(
         e2_infix = e1_infix
         e2_prefix_raw = e1_prefix_raw
         e2_status = "skipped"
+        current_stage = "E2"
         if not skip_simplifier:
             simplified = simplify_tree_subprocess(
                 tree_to_prefix_list(e1_tree),
@@ -285,11 +301,19 @@ def _execute_chain(
             e2_prefix_raw = simplified.get("prefix") or "|".join(tree_to_prefix_list(e1_tree))
             e2_status = "completed"
             if run_oracles:
+                prefix_blob = simplified.get("prefix") or ""
+                e2_component_prefix = (
+                    prefix_blob.split("|")[component_idx]
+                    if prefix_blob
+                    else tree_to_prefix_list(e1_tree)[component_idx]
+                )
                 e2_oracle = oracle_single_component(
                     truth_component,
                     e2_infix,
                     candidate_component_idx=component_idx,
                     timeout_sec=oracle_timeout_sec,
+                    truth_component_prefix=truth_prefix,
+                    candidate_component_prefix=e2_component_prefix,
                 ).as_dict()
                 call_logger.record(
                     primitive="oracle_equivalence",
@@ -364,11 +388,31 @@ def _execute_chain(
             formula_metrics_valid=metrics.get("formula_metrics_valid"),
             **flags,
         )
-    except ODEFormerUnavailable:
+    except (ODEFormerUnavailable, ValueError, TypeError, IndexError, json.JSONDecodeError, subprocess.TimeoutExpired) as exc:
+        stage = locals().get("current_stage", "E0")
+        status_map = {
+            "E0": ("execution_failure", None, None),
+            "E1": ("completed", "execution_failure", None),
+            "E2": ("completed", "completed", "execution_failure"),
+        }
+        e0_status, e1_status, e2_status = status_map.get(stage, ("execution_failure", None, None))
         return build_outcome_row(
             **base,
             execution_failure=True,
-            failure_reason="ODEFormerUnavailable",
+            failure_reason=type(exc).__name__,
+            e0_status=e0_status,
+            e1_status=e1_status,
+            e2_status=e2_status,
+            e0_prefix_raw=locals().get("e0_prefix_raw"),
+            e1_prefix_raw=locals().get("e1_prefix_raw"),
+            e0_infix=locals().get("e0_infix"),
+            e1_infix=locals().get("e1_infix"),
+        )
+    except Exception as exc:
+        return build_outcome_row(
+            **base,
+            execution_failure=True,
+            failure_reason=type(exc).__name__,
             e0_status="execution_failure",
         )
 
@@ -385,9 +429,12 @@ def run_b0_pair(
     call_logger,
     runtime_available: bool,
     guard,
+    pair_cache: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     pair_id, _ = pair_id_for(corpus_hash, record["system_id"], component_idx, scale, rewrite_row["rewrite_id"])
-    return _execute_chain(
+    if pair_cache is not None and pair_id in pair_cache:
+        return pair_cache[pair_id]
+    row = _execute_chain(
         corpus_hash=corpus_hash,
         record=record,
         component_idx=component_idx,
@@ -404,6 +451,9 @@ def run_b0_pair(
         runtime_available=runtime_available,
         guard=guard,
     )
+    if pair_cache is not None:
+        pair_cache[pair_id] = row
+    return row
 
 
 def run_b1_pair(
@@ -496,6 +546,13 @@ def run_b4_row(
 ) -> dict[str, Any]:
     system_id = record["system_id"]
     component_id, _ = component_id_for(corpus_hash, system_id, component_idx)
+    pair_id, _ = pair_id_for(
+        corpus_hash,
+        system_id,
+        component_idx,
+        IDENTITY_SCALE,
+        TRUTH_COPY_REWRITE_ID,
+    )
     truth_full = full_system_infix_from_record(record)
     metrics = formula_metrics(truth_full, truth_full)
     classified = classify_formula(truth_full)
@@ -503,19 +560,20 @@ def run_b4_row(
         primitive="classify_component_flags",
         condition="B4",
         stage="truth_copy",
-        unit_type="component",
-        unit_id=component_id,
+        unit_type="pair",
+        unit_id=pair_id,
         status="completed",
     )
     call_logger.record(
         primitive="formula_metrics_pair",
         condition="B4",
         stage="truth_copy",
-        unit_type="component",
-        unit_id=component_id,
+        unit_type="pair",
+        unit_id=pair_id,
         status="completed",
     )
     return {
+        "pair_id": pair_id,
         "component_id": component_id,
         "valid": bool(metrics["valid"]),
         "canonical_exact": metrics.get("canonical_exact"),
@@ -584,7 +642,8 @@ def run_b3_pairs(
             pred = extract_component_infix(pred_system, component_idx) if " | " in pred_system else pred_system
         except IndexError:
             pred = pred_system
-        comparison = compare_formulas(truth, pred, skip_cas=False)
+        with time_limit(CAS_TIMEOUT_SEC):
+            comparison = compare_formulas(truth, pred, skip_cas=False)
         call_logger.record(
             primitive="compare_formulas_cas",
             condition="B3",

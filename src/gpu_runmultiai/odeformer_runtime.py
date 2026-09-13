@@ -133,13 +133,13 @@ def measure_g0_scaler_asserts(dimension: int, *, scale: float = 0.1) -> dict[str
     return asserts
 
 
-def _substitute_variables_forward(prefix: list[str], traj_scale: np.ndarray) -> list[str]:
+def _substitute_variables_forward(prefix: list[str], scale: np.ndarray) -> list[str]:
     idx = 0
     while idx < len(prefix):
         token = prefix[idx]
         if token.startswith("x_"):
             dim = int(token.split("_")[1])
-            s_j = str(float(traj_scale[dim]))
+            s_j = str(float(scale[dim]))
             prefix = prefix[:idx] + ["div", token, s_j] + prefix[idx + 1 :]
             idx += 3
         else:
@@ -148,17 +148,17 @@ def _substitute_variables_forward(prefix: list[str], traj_scale: np.ndarray) -> 
 
 
 def forward_scale_system(env: Any, tree: Any, scaler: Any) -> Any:
-    """Apply g_i(z) = (s_i/a_t) f_i(z/s) on the full ordered system."""
-    a_t, _, _ = scaler.get_params()
-    traj_scale = scaler.traj_scale
+    """Apply g_i(z) = (scale_i/a_t) f_i(z/scale) on the full ordered system."""
+    a_t, _, scale = scaler.get_params()
+    scale_arr = np.asarray(scale, dtype=float)
     nodes = tree.prefix().split("|") if hasattr(tree, "prefix") else []
-    if len(nodes) > len(traj_scale):
+    if len(nodes) > len(scale_arr):
         raise ValueError("forward scale dimension mismatch")
     rebuilt: list[str] = []
     for index, node_str in enumerate(nodes):
         prefix = [token for token in node_str.split(",") if token]
-        prefix = _substitute_variables_forward(prefix, traj_scale)
-        factor = str(float(traj_scale[index]) / float(a_t))
+        prefix = _substitute_variables_forward(prefix, scale_arr)
+        factor = str(float(scale_arr[index]) / float(a_t))
         scaled_prefix = ["mul", factor] + prefix
         rebuilt.append(",".join(scaled_prefix))
     full_prefix: list[str] = []
@@ -185,21 +185,35 @@ def simplify_tree_subprocess(
 ) -> dict[str, Any]:
     worker = REPO_ROOT / "src/gpu_runmultiai/simplifier_worker.py"
     payload = json.dumps({"prefixes": prefixes, "timeout_sec": timeout_sec})
-    proc = subprocess.run(
-        [sys.executable, str(worker)],
-        input=payload,
-        text=True,
-        capture_output=True,
-        timeout=timeout_sec + 0.5,
-        cwd=str(REPO_ROOT),
-    )
+    try:
+        proc = subprocess.run(
+            [sys.executable, str(worker)],
+            input=payload,
+            text=True,
+            capture_output=True,
+            timeout=timeout_sec + 0.5,
+            cwd=str(REPO_ROOT),
+        )
+    except subprocess.TimeoutExpired:
+        return {
+            "ok": False,
+            "failure_reason": "SubprocessTimeout",
+            "guard_attempts": [],
+        }
     if proc.returncode != 0:
         return {
             "ok": False,
             "failure_reason": proc.stderr.strip() or "subprocess_failure",
             "guard_attempts": [],
         }
-    return json.loads(proc.stdout)
+    try:
+        return json.loads(proc.stdout)
+    except json.JSONDecodeError:
+        return {
+            "ok": False,
+            "failure_reason": "JSONDecodeError",
+            "guard_attempts": [],
+        }
 
 
 def replace_component_prefixes(record: dict[str, Any], component_idx: int, new_prefix: str) -> list[str]:

@@ -5,9 +5,11 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from gpu_runmultiai.constants import CONFIRMATORY_CALL_CEILING, FULL_RUN_CALL_CEILING
+
+DESCRIPTIVE_CONDITIONS = frozenset({"D2"})
 
 PRIMITIVE_TABLE: list[dict[str, Any]] = [
     {"id": "P1", "primitive": "truth_register_classify", "condition": "registration", "units": 510},
@@ -35,6 +37,10 @@ PRIMITIVE_TABLE: list[dict[str, Any]] = [
 
 def expected_confirmatory_calls() -> int:
     return sum(int(row["units"]) for row in PRIMITIVE_TABLE)
+
+
+def expected_descriptive_calls() -> int:
+    return FULL_RUN_CALL_CEILING - CONFIRMATORY_CALL_CEILING
 
 
 @dataclass(frozen=True)
@@ -78,6 +84,64 @@ class CallLogger:
             logger.rows.append(row)
         return logger
 
+    def is_recorded(
+        self,
+        *,
+        primitive: str,
+        condition: str,
+        stage: str,
+        unit_type: str,
+        unit_id: str,
+    ) -> bool:
+        key = CallKey(primitive, condition, stage, unit_type, unit_id).as_tuple()
+        return key in self._keys
+
+    def assert_pre_call_ceiling(self, condition: str) -> None:
+        if condition in DESCRIPTIVE_CONDITIONS:
+            if self.descriptive_total() >= expected_descriptive_calls():
+                raise RuntimeError("G1 FAIL: descriptive call ceiling reached before execution")
+            if self.total() >= FULL_RUN_CALL_CEILING:
+                raise RuntimeError("G1 FAIL: full-run call ceiling reached before execution")
+        else:
+            if self.confirmatory_total() >= CONFIRMATORY_CALL_CEILING:
+                raise RuntimeError("G1 FAIL: confirmatory call ceiling reached before execution")
+
+    def execute_or_record(
+        self,
+        *,
+        primitive: str,
+        condition: str,
+        stage: str,
+        unit_type: str,
+        unit_id: str,
+        status: str,
+        duration_sec: float | None = None,
+        rewrite_id: str | None = None,
+        executor: Callable[[], Any] | None = None,
+    ) -> tuple[bool, Any]:
+        """Pre-execution dedup: skip executor when the 6-tuple key already exists."""
+        if self.is_recorded(
+            primitive=primitive,
+            condition=condition,
+            stage=stage,
+            unit_type=unit_type,
+            unit_id=unit_id,
+        ):
+            return False, None
+        self.assert_pre_call_ceiling(condition)
+        result = executor() if executor is not None else None
+        self.record(
+            primitive=primitive,
+            condition=condition,
+            stage=stage,
+            unit_type=unit_type,
+            unit_id=unit_id,
+            status=status,
+            duration_sec=duration_sec,
+            rewrite_id=rewrite_id,
+        )
+        return True, result
+
     def record(
         self,
         *,
@@ -112,11 +176,24 @@ class CallLogger:
             with self.path.open("a", encoding="utf-8") as handle:
                 handle.write(json.dumps(row, sort_keys=True) + "\n")
 
+    def confirmatory_total(self) -> int:
+        return sum(1 for row in self.rows if row["condition"] not in DESCRIPTIVE_CONDITIONS)
+
+    def descriptive_total(self) -> int:
+        return sum(1 for row in self.rows if row["condition"] in DESCRIPTIVE_CONDITIONS)
+
     def total(self) -> int:
         return len(self.rows)
 
-    def assert_ceiling(self, *, descriptive: bool = False) -> None:
-        ceiling = FULL_RUN_CALL_CEILING if descriptive else CONFIRMATORY_CALL_CEILING
-        total = self.total()
-        if total > ceiling:
-            raise RuntimeError(f"G1 FAIL: counted calls {total} exceed ceiling {ceiling}")
+    def assert_ceiling(self, *, run_d2: bool = False) -> None:
+        confirmatory = self.confirmatory_total()
+        if confirmatory > CONFIRMATORY_CALL_CEILING:
+            raise RuntimeError(
+                f"G1 FAIL: confirmatory calls {confirmatory} exceed ceiling {CONFIRMATORY_CALL_CEILING}"
+            )
+        if run_d2:
+            full_total = self.total()
+            if full_total > FULL_RUN_CALL_CEILING:
+                raise RuntimeError(
+                    f"G1 FAIL: full-run calls {full_total} exceed ceiling {FULL_RUN_CALL_CEILING}"
+                )

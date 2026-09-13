@@ -128,9 +128,10 @@ class SealedPathGuard:
         def guarded_os_open(path, flags, *args, **kwargs):
             if _is_fd(path):
                 return originals["os_open"](path, flags, *args, **kwargs)
-            if flags & (os.O_WRONLY | os.O_RDWR):
+            access_mode = flags & os.O_ACCMODE
+            if access_mode in (os.O_WRONLY, os.O_RDWR):
                 guard._check("os.open(write)", path)
-            elif flags & os.O_RDONLY:
+            else:
                 guard._check("os.open", path)
             return originals["os_open"](path, flags, *args, **kwargs)
 
