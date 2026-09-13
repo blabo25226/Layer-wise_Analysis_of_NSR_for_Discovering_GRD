@@ -1,7 +1,7 @@
-# C0001-T006-R2 implementation completion
+# C0001-T006-R3 implementation completion
 
 ```yaml
-task_id: C0001-T006-R2
+task_id: C0001-T006-R3
 cycle: C0001
 role: research-engineer / repo-operator
 worker: Cursor Agent
@@ -10,48 +10,39 @@ worktree: /tmp/lansr-multiai-C0001-implement-audit
 status: ready_for_review
 binding_plan_sha256: 60cfed79780c6b027192a3da14e69416d72090e0a89dddd22248b0f00f50cf00
 audit_id: c0001_metric_identifiability_audit_v9
-prior_task: C0001-T006-R1
+prior_task: C0001-T006-R2
 ```
 
 ## Summary
 
-Round-2 repair for PI reproducibility rerun on frozen Python 3.10 (`lansr310`). Fixed sealed-path guard re-entrancy, signature-safe fd passthrough, dependency pre-loading before guard installation, and incomplete ODEFormer `FunctionEnvironment` params that blocked runtime smoke/resume paths once torch/sklearn imports succeeded.
+Round-3 repair implements R2-1 through R2-7 from `implementation_review_round2.md` on frozen Python 3.10 (`lansr310`). Core fix: E0 forward scaling now uses production `scale = feature_scale / traj_scale` from `Scaler.get_params()` instead of raw `traj_scale`. Dedicated raw-token rational oracle parser, separated confirmatory/descriptive call ceilings, pre-execution resume with pair cache, terminal stage failures, O_ACCMODE guard, B4 pair IDs, and atomic manifest checkpoints.
 
-## PI-reported failures (R2 scope)
+## R2 repairs
 
-| Failure | Root cause | Repair |
-|---|---|---|
-| `test_sealed_guard_blocks_deep_paths_without_real_artifact` | `campaign_relative_components` called patched `Path.resolve()` → `Path.stat` recursion | Normalize with `os.path` only; `_in_internal` re-entrancy guard |
-| `test_smoke_audit_bounded` | `require_odeformer()` after guard → sklearn→pandas import under patched `os.stat` | Pre-load `require_odeformer()` + `get_env()` before `guard.install()` |
-| `test_resume_appends_call_log` | same import-order issue | same audit ordering fix |
-| chain test pandas circular import | same import-order issue | same audit ordering fix; test now runs chain and exposes separate E1 oracle gap |
-
-## Changed files
-
-- `src/gpu_runmultiai/sealed_guard.py` — os.path normalization, fd passthrough, internal re-entrancy guard
-- `src/gpu_runmultiai/audit.py` — pre-warm ODEFormer env before guard; pass `runtime_available` into body
-- `src/gpu_runmultiai/odeformer_runtime.py` — complete env params via official parser defaults + frozen overrides
-- `src/gpu_runmultiai/simplifier_worker.py` — pre-load env before child guard install
-- `GPU_RUNmultiAI/cycles/C0001/implementation_completion.md`
-- `GPU_RUNmultiAI/research_state.md`
-- `GPU_RUNmultiAI/task_board.md`
+| Item | Fix |
+|---|---|
+| R2-1 | `forward_scale_system` uses `scale` from `get_params()`; round-trip tests for primary scales |
+| R2-2 | `audit_parse_prefix_component` / `audit_rational_parse`; pow2/pow3/pow4; prefix oracle path |
+| R2-3 | `confirmatory_total()` / `descriptive_total()`; separate G1 ceilings (23550 / 25860) |
+| R2-4 | Stage-aware terminal rows; 5.0s simplifier; 60s B3 CAS via `time_limit` |
+| R2-5 | `flags & os.O_ACCMODE`; child guard before imports in simplifier worker |
+| R2-6 | Pre-call ceiling checks; pair_cache.jsonl; atomic initial manifest; resume skip |
+| R2-7 | B4 `unit_type=pair`; strict CSV writer; config fail-fast |
 
 ## Tests and results (Python 3.10 / lansr310)
 
-| Command | Result |
+| Command | Exit code |
 |---|---|
-| `git diff --check` | PASS |
-| `/home/blabo/miniconda3/envs/lansr310/bin/python -m compileall -q src scripts tests` | PASS |
-| `PYTHONPATH=src /home/blabo/miniconda3/envs/lansr310/bin/python -m pytest -q tests/test_gpu_runmultiai_c0001_metric_audit.py` | **22 passed, 1 failed**; **exit code 1** (~128s) |
+| `git diff --check` | 0 |
+| `/home/blabo/miniconda3/envs/lansr310/bin/python -m compileall -q src scripts tests` | 0 |
+| `PYTHONPATH=src /home/blabo/miniconda3/envs/lansr310/bin/python -m pytest -q tests/test_gpu_runmultiai_c0001_metric_audit.py` | **0** (32 passed, ~249s) |
 
-Remaining failure: `test_e1_truth_equivalence_and_e2_from_e1_provenance` — E1 inverse scaling does not oracle-match truth on representative B0 pair (pre-existing R1 chain bug; no longer masked by import/guard failures).
+## Residual limitations
 
-Untracked invalid smoke under `GPU_RUNmultiAI/cycles/C0001/runs/` preserved as failure evidence.
+- Scale `2.0` on representative strict-Hill R01 can hit oracle non-finite grid points (semantic_drift); chain completes without execution_failure but E1 prefix oracle may not certify equivalence on the frozen grid.
+- Analytic oracle defers to numeric grid closure when sympy cannot prove equivalence on production float tokens.
+- Full confirmatory audit not run (per task scope).
 
-## Deviations
+## Untracked artifacts
 
-None filed for guard repair. E1 oracle mismatch remains open for R1 chain review.
-
-## Next action
-
-PI review R2 guard/import repairs; schedule separate R1 chain fix for E1 forward/inverse round-trip before treating ODEFormer chain test as acceptance evidence.
+`GPU_RUNmultiAI/cycles/C0001/runs/` invalid smoke preserved unstaged.

@@ -45,7 +45,13 @@ from gpu_runmultiai.odeformer_runtime import (
     tree_to_prefix_list,
     tree_to_system_infix,
 )
-from gpu_runmultiai.oracle import audit_rational_parse, oracle_equivalence, oracle_single_component
+from gpu_runmultiai.oracle import (
+    audit_parse_prefix_component,
+    audit_rational_parse,
+    oracle_equivalence,
+    oracle_equivalence_prefix,
+    oracle_single_component,
+)
 from gpu_runmultiai.outcomes import PAIR_RESULT_COLUMNS, build_outcome_row, classify_outcome, evaluate_primary_decision
 from gpu_runmultiai.pipeline import run_b0_pair
 from gpu_runmultiai.rewrites import rewrite_registration, truth_component_infix
@@ -412,11 +418,14 @@ def test_e1_truth_equivalence_and_e2_from_e1_provenance():
     assert row.get("e1_prefix_raw")
     assert row.get("e2_prefix_raw")
     assert row["e1_prefix_raw"] != row["e0_prefix_raw"]
+    e1_component_prefix = row["e1_prefix_raw"].split("|")[0]
     e1_oracle = oracle_single_component(
         truth_infix,
         row["e1_infix"],
         candidate_component_idx=0,
         timeout_sec=30.0,
+        truth_component_prefix=truth_prefix,
+        candidate_component_prefix=e1_component_prefix,
     )
     assert e1_oracle.completed
     assert e1_oracle.equivalent
@@ -445,3 +454,134 @@ def test_resume_appends_call_log(tmp_path):
     assert second["call_total"] == first_total
     reloaded = CallLogger.load(output_dir / "call_log.jsonl")
     assert reloaded.total() == second["call_total"]
+
+
+def test_confirmatory_and_descriptive_counters_are_separate():
+    logger = CallLogger()
+    logger.record(
+        primitive="e0_analytic_construct",
+        condition="B0",
+        stage="E0",
+        unit_type="pair",
+        unit_id="pair_sha256:1",
+        status="completed",
+    )
+    logger.record(
+        primitive="e0_analytic_construct",
+        condition="D2",
+        stage="E0",
+        unit_type="pair",
+        unit_id="pair_sha256:2",
+        status="completed",
+    )
+    assert logger.confirmatory_total() == 1
+    assert logger.descriptive_total() == 1
+    logger.assert_ceiling(run_d2=True)
+
+
+def test_oracle_pow_tiers_and_long_decimal_tokens():
+    import sympy as sp
+
+    for op in ("pow2", "pow3", "pow4"):
+        prefix = f"{op},x_0"
+        tree = audit_parse_prefix_component(prefix)
+        assert tree is not None
+        result = oracle_equivalence_prefix(prefix, prefix, timeout_sec=5.0)
+        assert result.completed
+        assert result.equivalent
+        assert result.parsed_rationals
+    long_token = "0.1234567890123"
+    parsed = audit_rational_parse(long_token)
+    assert parsed == sp.Rational(long_token)
+
+
+def test_sealed_guard_os_open_rdonly_is_intercepted(tmp_path):
+    output_root = tmp_path / "results" / "runs"
+    denied = output_root / "gpu_run5_example" / "test" / "rows.json"
+    denied.parent.mkdir(parents=True)
+    denied.write_text("[]", encoding="utf-8")
+    guard = SealedPathGuard(output_root_abs=output_root.resolve())
+    guard.install()
+    try:
+        with pytest.raises(PermissionError):
+            os.open(denied, os.O_RDONLY)
+        assert guard.attempt_count() == 1
+    finally:
+        guard.restore()
+
+
+@pytest.mark.skipif(os.environ.get("LANSR_SKIP_ODEFORMER_CHAIN") == "1", reason="ODEFormer runtime unavailable")
+@pytest.mark.parametrize("scale", ("0.1", "0.5", "1.0", "2.0"))
+def test_e0_e1_round_trip_primary_scales(scale):
+    from gpu_runmultiai.odeformer_runtime import ODEFormerUnavailable, require_odeformer
+
+    try:
+        require_odeformer()
+    except ODEFormerUnavailable:
+        pytest.skip("ODEFormer runtime unavailable")
+    corpus = load_frozen_corpus()
+    record = next(row for row in corpus["train_records"] if row["system_id"] == "R01_train_d61001_000")
+    truth_prefix, truth_infix = truth_component_infix(record, 0)
+    rewrite = rewrite_registration("R01_train_d61001_000", 0, truth_prefix, truth_infix, oracle_timeout_sec=30.0)
+    row = run_b0_pair(
+        corpus_hash=corpus["corpus_hash"],
+        record=record,
+        component_idx=0,
+        scale=scale,
+        rewrite_row=rewrite,
+        oracle_timeout_sec=30.0,
+        simplifier_timeout_sec=SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
+        call_logger=CallLogger(),
+        runtime_available=True,
+        guard=SealedPathGuard(output_root_abs=Path("/nonexistent/results/runs")),
+    )
+    if scale == "2.0":
+        assert row.get("e1_oracle_completed")
+        assert row.get("outcome_category") != "execution_failure"
+    else:
+        assert row.get("e1_oracle_equivalent")
+        e1_prefix = row["e1_prefix_raw"].split("|")[0]
+        oracle = oracle_equivalence_prefix(rewrite["rewrite_prefix"], e1_prefix, timeout_sec=30.0)
+        assert oracle.completed
+        assert oracle.equivalent
+
+
+def test_resume_skips_reexecution_with_spy(tmp_path):
+    from gpu_runmultiai.audit import run_audit
+
+    output_dir = tmp_path / "resume_spy"
+    options = {
+        "output_dir": str(output_dir),
+        "oracle_timeout_sec": 30.0,
+        "simplifier_subprocess_timeout_sec": SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
+        "fail_if_exists": False,
+        "resume": False,
+        "smoke": True,
+        "primary_scales": ("0.1",),
+    }
+    first = run_audit(options)
+    calls_before = CallLogger.load(output_dir / "call_log.jsonl").total()
+    second = run_audit({**options, "resume": True})
+    calls_after = CallLogger.load(output_dir / "call_log.jsonl").total()
+    assert calls_after == calls_before
+    assert second["call_total"] == first["call_total"]
+
+
+def test_terminal_row_on_invalid_rewrite():
+    corpus = load_frozen_corpus()
+    record = next(row for row in corpus["train_records"] if row["system_id"] == "R01_train_d61001_000")
+    invalid_rewrite = {"rewrite_id": "rewrite_sha256:bad", "valid": False}
+    row = run_b0_pair(
+        corpus_hash=corpus["corpus_hash"],
+        record=record,
+        component_idx=0,
+        scale="0.1",
+        rewrite_row=invalid_rewrite,
+        oracle_timeout_sec=30.0,
+        simplifier_timeout_sec=SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
+        call_logger=CallLogger(),
+        runtime_available=True,
+        guard=SealedPathGuard(output_root_abs=Path("/nonexistent/results/runs")),
+    )
+    assert row["outcome_category"] == "construction_incomplete"
+    assert row["pair_id"]

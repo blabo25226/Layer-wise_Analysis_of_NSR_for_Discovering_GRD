@@ -7,7 +7,7 @@ Update it before a parent session ends.
 campaign: GPU_RUNmultiAI
 status: active
 current_cycle: C0001
-current_stage: IMPLEMENTATION_R2_READY_FOR_REVIEW
+current_stage: IMPLEMENTATION_R3_READY_FOR_REVIEW
 branch: 20260912_multiAI_research
 observed_commit: 441c3768cac0e2128fe196fea7b0caadfdde7a76
 base_commit: d4fef3f703cd3ef476529d110930aa34962fa2b0
@@ -37,9 +37,26 @@ tracks:
   scientific:
     status: active
     current_cycle: C0001
-    stage: IMPLEMENTATION_R2_READY_FOR_REVIEW
+    stage: IMPLEMENTATION_R3_READY_FOR_REVIEW
 
 active_tasks:
+  - task_id: C0001-T006-R3
+    track: scientific
+    role: research-engineer / repo-operator
+    worker: Cursor Agent
+    branch: ai/C0001/research-engineer/implement-metric-audit
+    worktree: /tmp/lansr-multiai-C0001-implement-audit
+    write_scope: [src/gpu_runmultiai, focused tests, implementation completion, state]
+    status: ready_for_review
+    started_at: 2026-09-13T22:34:00Z
+    expected_outputs: [R2-1..R2-7 repairs, focused pytest exit 0 on lansr310]
+    deliverables:
+      - src/gpu_runmultiai/
+      - tests/test_gpu_runmultiai_c0001_metric_audit.py
+      - GPU_RUNmultiAI/cycles/C0001/implementation_completion.md
+    acceptance_test: R2-1..R2-7; compileall; focused pytest exit 0; diff check
+    retry_count: 0
+    prior_task: C0001-T006-R2
   - task_id: C0001-T006-R2
     track: scientific
     role: research-engineer / repo-operator
@@ -47,7 +64,7 @@ active_tasks:
     branch: ai/C0001/research-engineer/implement-metric-audit
     worktree: /tmp/lansr-multiai-C0001-implement-audit
     write_scope: [src/gpu_runmultiai, focused tests, implementation completion, state, task board]
-    status: ready_for_review
+    status: superseded_by_T006_R3
     started_at: 2026-09-13T13:17:00Z
     expected_outputs: [guard re-entrancy repair, import ordering, focused pytest on lansr310]
     deliverables:
@@ -206,10 +223,9 @@ retries:
   C0001-T003: 1
 
 next_action: >
-  PI review C0001-T006-R2 guard/import repairs on branch
-  ai/C0001/research-engineer/implement-metric-audit; lansr310 focused pytest now 22 passed /
-  1 failed (E1 oracle chain); do not run confirmatory audit until guard acceptance and E1 chain
-  are reviewed.
+  PI independent review of C0001-T006-R3 on branch
+  ai/C0001/research-engineer/implement-metric-audit; lansr310 focused pytest 32 passed exit 0;
+  R2-1..R2-7 implemented; do not run full confirmatory audit until independent review passes.
 
 last_checkpoint_utc: 2026-09-13T13:30:00Z
 ```
