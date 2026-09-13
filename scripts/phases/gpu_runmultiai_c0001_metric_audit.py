@@ -68,6 +68,14 @@ def main() -> int:
     verify_plan_hash()
     args = parse_args()
     _validate_frozen_seeds(args)
+    if args.oracle_timeout_sec != ORACLE_TIMEOUT_SEC:
+        raise SystemExit(f"oracle-timeout-sec must be {ORACLE_TIMEOUT_SEC}")
+    if args.simplifier_subprocess_timeout_sec != SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC:
+        raise SystemExit(
+            f"simplifier-subprocess-timeout-sec must be {SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC}"
+        )
+    if args.cas_timeout_sec != CAS_TIMEOUT_SEC:
+        raise SystemExit(f"cas-timeout-sec must be {CAS_TIMEOUT_SEC}")
     options = {
         "audit_id": args.audit_id,
         "output_dir": args.output_dir,

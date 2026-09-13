@@ -28,14 +28,36 @@ def _path_strings(path: object) -> tuple[str, str] | None:
         return None
     fspath = os.fspath(path)
     norm = os.path.normpath(os.path.abspath(fspath))
-    real = os.path.realpath(norm)
+    real = os.path.realpath(fspath)
     return norm, real
 
 
-def _is_under_root(real: str, root: str) -> bool:
-    real_norm = os.path.normpath(real)
+def _is_under_root(candidate: str, root: str) -> bool:
+    candidate_norm = os.path.normpath(candidate)
     root_norm = os.path.normpath(root)
-    return real_norm == root_norm or real_norm.startswith(root_norm + os.sep)
+    return candidate_norm == root_norm or candidate_norm.startswith(root_norm + os.sep)
+
+
+def _relative_components(candidate: str, root: str) -> list[str] | None:
+    if not _is_under_root(candidate, root):
+        return None
+    rel = os.path.relpath(candidate, root)
+    if rel in (".", ""):
+        return []
+    return [part for part in rel.split(os.sep) if part]
+
+
+def _components_match_deny(components: list[str]) -> bool:
+    if not components:
+        return False
+    if not components[0].startswith("gpu_run5_"):
+        return False
+    for index, name in enumerate(components):
+        if name in DENY_DIR_NAMES:
+            return True
+        if name == "predictions" and "phase8" in components[:index]:
+            return True
+    return False
 
 
 @dataclass
@@ -45,36 +67,39 @@ class SealedPathGuard:
     child_attempts: list[AccessAttempt] = field(default_factory=list)
     _installed: bool = False
     _originals: dict[str, Any] = field(default_factory=dict)
+    _output_root_norm: str = field(init=False, repr=False)
     _output_root_real: str = field(init=False, repr=False)
     _in_internal: bool = field(default=False, init=False, repr=False)
 
     def __post_init__(self) -> None:
-        self._output_root_real = os.path.realpath(os.path.abspath(os.fspath(self.output_root_abs)))
+        root = os.path.abspath(os.fspath(self.output_root_abs))
+        self._output_root_norm = os.path.normpath(root)
+        self._output_root_real = os.path.realpath(root)
 
     def campaign_relative_components(self, path: str | Path) -> list[str] | None:
+        return self.campaign_relative_components_lexical(path)
+
+    def campaign_relative_components_lexical(self, path: str | Path) -> list[str] | None:
         try:
-            real = os.path.realpath(os.path.abspath(os.fspath(path)))
+            norm = os.path.normpath(os.path.abspath(os.fspath(path)))
         except (OSError, TypeError, ValueError):
             return None
-        if not _is_under_root(real, self._output_root_real):
+        return _relative_components(norm, self._output_root_norm)
+
+    def campaign_relative_components_real(self, path: str | Path) -> list[str] | None:
+        try:
+            real = os.path.realpath(os.fspath(path))
+        except (OSError, TypeError, ValueError):
             return None
-        rel = os.path.relpath(real, self._output_root_real)
-        if rel in (".", ""):
-            return []
-        return [part for part in rel.split(os.sep) if part]
+        return _relative_components(real, self._output_root_real)
 
     def is_denied(self, path_norm: str | Path, path_real: str | Path) -> bool:
-        for candidate in (path_norm, path_real):
-            components = self.campaign_relative_components(candidate)
-            if components is None or not components:
-                continue
-            if not components[0].startswith("gpu_run5_"):
-                continue
-            for index, name in enumerate(components):
-                if name in DENY_DIR_NAMES:
-                    return True
-                if name == "predictions" and "phase8" in components[:index]:
-                    return True
+        lexical = self.campaign_relative_components_lexical(path_norm)
+        if lexical is not None and _components_match_deny(lexical):
+            return True
+        real = self.campaign_relative_components_real(path_real)
+        if real is not None and _components_match_deny(real):
+            return True
         return False
 
     def _check(self, operation: str, path: object) -> None:

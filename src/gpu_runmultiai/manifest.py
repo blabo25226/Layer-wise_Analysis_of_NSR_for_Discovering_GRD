@@ -51,11 +51,19 @@ def audit_script_hash(script_path: Path) -> str:
     return sha256_file(script_path)
 
 
+def runtime_provenance() -> dict[str, str]:
+    return {
+        "os": platform.platform(),
+        "cpu": platform.processor() or platform.machine(),
+    }
+
+
 def dependency_versions() -> dict[str, str]:
     versions = {
         "python": platform.python_version(),
         "numpy": np.__version__,
         "scipy": scipy.__version__,
+        **runtime_provenance(),
     }
     try:
         import sympy
@@ -129,11 +137,14 @@ def build_resume_identity(
         },
         "primitive_table": PRIMITIVE_TABLE,
         "cli_args_normalized": normalize_cli_args(cli_args),
-        "oracle_timeout_sec": ORACLE_TIMEOUT_SEC,
-        "simplifier_subprocess_timeout_sec": SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
-        "cas_timeout_sec": CAS_TIMEOUT_SEC,
+        "oracle_timeout_sec": float(cli_args.get("oracle_timeout_sec", ORACLE_TIMEOUT_SEC)),
+        "simplifier_subprocess_timeout_sec": float(
+            cli_args.get("simplifier_subprocess_timeout_sec", SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC)
+        ),
+        "cas_timeout_sec": float(cli_args.get("cas_timeout_sec", CAS_TIMEOUT_SEC)),
         "dependency_versions": dependency_versions(),
         "environment": frozen_environment(),
+        "runtime_provenance": runtime_provenance(),
         "confirmatory_call_ceiling": expected_confirmatory_calls(),
     }
 
@@ -158,6 +169,7 @@ def verify_resume_identity(existing: dict[str, Any], current: dict[str, Any]) ->
         "cas_timeout_sec",
         "dependency_versions",
         "environment",
+        "runtime_provenance",
     ]
     for key in keys:
         if existing.get(key) != current.get(key):

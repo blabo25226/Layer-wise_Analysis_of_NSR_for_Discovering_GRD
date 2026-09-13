@@ -114,12 +114,14 @@ class CallLogger:
         stage: str,
         unit_type: str,
         unit_id: str,
-        status: str,
+        status: str = "completed",
         duration_sec: float | None = None,
         rewrite_id: str | None = None,
         executor: Callable[[], Any] | None = None,
+        status_for_result: Callable[[Any], str] | None = None,
+        rewrite_id_for_result: Callable[[Any], str | None] | None = None,
     ) -> tuple[bool, Any]:
-        """Pre-execution dedup: skip executor when the 6-tuple key already exists."""
+        """Pre-execution dedup: skip executor when the 5-tuple key already exists."""
         if self.is_recorded(
             primitive=primitive,
             condition=condition,
@@ -130,15 +132,19 @@ class CallLogger:
             return False, None
         self.assert_pre_call_ceiling(condition)
         result = executor() if executor is not None else None
+        resolved_status = status_for_result(result) if status_for_result is not None else status
+        resolved_rewrite_id = (
+            rewrite_id_for_result(result) if rewrite_id_for_result is not None else rewrite_id
+        )
         self.record(
             primitive=primitive,
             condition=condition,
             stage=stage,
             unit_type=unit_type,
             unit_id=unit_id,
-            status=status,
+            status=resolved_status,
             duration_sec=duration_sec,
-            rewrite_id=rewrite_id,
+            rewrite_id=resolved_rewrite_id,
         )
         return True, result
 

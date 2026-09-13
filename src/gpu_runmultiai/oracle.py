@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import itertools
+import re
 import signal
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -14,6 +15,18 @@ from gpu_run4.formulas import split_components, tree_to_infix
 from gpu_run4.ted import BINARY_OPS, UNARY_OPS, Tree, prefix_to_tree
 
 from gpu_runmultiai.constants import ORACLE_ATOL, ORACLE_RTOL, ORACLE_T_GRID, ORACLE_X_GRID
+
+_NUMERIC_TOKEN_RE = re.compile(r"(?<![A-Za-z_])\d+\.\d+|\d+")
+
+
+def collect_pre_rational_tokens(*texts: str) -> dict[str, str]:
+    """Capture original numeric tokens before audit rationalization."""
+    tokens: dict[str, str] = {}
+    for text in texts:
+        for match in _NUMERIC_TOKEN_RE.findall(str(text)):
+            if audit_rational_parse(match) is not None:
+                tokens[match] = match
+    return tokens
 
 
 @dataclass
@@ -322,10 +335,16 @@ def oracle_equivalence(
             cand_tree = cand_parsed["components"][cand_idx]
             if truth_tree is None or cand_tree is None:
                 return OracleResult(False, False, False, False, "ParseError")
-            rational_tokens, parsed_rationals = _collect_rational_evidence(truth_tree)
-            cand_tokens, cand_parsed_rationals = _collect_rational_evidence(cand_tree)
-            rational_tokens.update(cand_tokens)
-            parsed_rationals.update(cand_parsed_rationals)
+            rational_tokens = collect_pre_rational_tokens(truth_text, candidate_text)
+            parsed_rationals = {
+                token: str(audit_rational_parse(token))
+                for token in rational_tokens
+                if audit_rational_parse(token) is not None
+            }
+            tree_tokens, tree_parsed = _collect_rational_evidence(truth_tree)
+            parsed_rationals.update(tree_parsed)
+            cand_tokens, cand_parsed = _collect_rational_evidence(cand_tree)
+            parsed_rationals.update(cand_parsed)
             var_names = _collect_variable_names(truth_text) or _collect_variable_names(candidate_text)
             symbols = {name: sp.Symbol(name, real=True) for name in var_names}
             t_sym = sp.Symbol("t", real=True)
@@ -381,8 +400,6 @@ def oracle_equivalence(
                     analytic = bool(sp.simplify(sp.expand(truth_r - cand_r)) == 0)
                 except Exception:
                     analytic = False
-            if numeric and not analytic:
-                analytic = True
             equivalent = analytic and numeric
             return OracleResult(
                 True,

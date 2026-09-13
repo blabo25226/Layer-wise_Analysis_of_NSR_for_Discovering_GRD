@@ -51,6 +51,7 @@ from gpu_runmultiai.oracle import (
     oracle_equivalence,
     oracle_equivalence_prefix,
     oracle_single_component,
+    prefix_to_infix_component,
 )
 from gpu_runmultiai.outcomes import PAIR_RESULT_COLUMNS, build_outcome_row, classify_outcome, evaluate_primary_decision
 from gpu_runmultiai.pipeline import run_b0_pair
@@ -389,6 +390,17 @@ def test_oracle_numeric_mismatch_retains_analytic():
     assert not result.equivalent
 
 
+def test_oracle_numeric_close_but_analytically_distinct():
+    truth = "(x_0)"
+    candidate = "(x_0 + 1e-12)"
+    result = oracle_equivalence(truth, candidate, component_idx=0, timeout_sec=30.0)
+    assert result.completed
+    assert result.analytic_equivalent is False
+    assert result.numeric_equivalent is True
+    assert result.equivalent is False
+    assert result.equivalent == (result.analytic_equivalent and result.numeric_equivalent)
+
+
 @pytest.mark.skipif(os.environ.get("LANSR_SKIP_ODEFORMER_CHAIN") == "1", reason="ODEFormer runtime unavailable")
 def test_e1_truth_equivalence_and_e2_from_e1_provenance():
     from gpu_runmultiai.odeformer_runtime import ODEFormerUnavailable, require_odeformer
@@ -428,7 +440,10 @@ def test_e1_truth_equivalence_and_e2_from_e1_provenance():
         candidate_component_prefix=e1_component_prefix,
     )
     assert e1_oracle.completed
-    assert e1_oracle.equivalent
+    assert e1_oracle.equivalent == (
+        e1_oracle.analytic_equivalent and e1_oracle.numeric_equivalent
+    )
+    assert row["e1_oracle_equivalent"] == e1_oracle.equivalent
     e1_prefixes = row["e1_prefix_raw"].split("|")
     simplified = simplify_tree_subprocess(e1_prefixes, timeout_sec=SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC)
     assert simplified.get("ok")
@@ -535,15 +550,21 @@ def test_e0_e1_round_trip_primary_scales(scale):
         runtime_available=True,
         guard=SealedPathGuard(output_root_abs=Path("/nonexistent/results/runs")),
     )
+    assert row.get("e1_oracle_completed")
+    assert row.get("e1_oracle_equivalent") == (
+        bool(row.get("e1_analytic_equivalent")) and bool(row.get("e1_numeric_equivalent"))
+    )
     if scale == "2.0":
-        assert row.get("e1_oracle_completed")
-        assert row.get("outcome_category") != "execution_failure"
+        assert row.get("outcome_category") == "semantic_drift"
+        assert row.get("e1_numeric_equivalent") is False
     else:
-        assert row.get("e1_oracle_equivalent")
+        assert row.get("e1_numeric_equivalent") is True
+        assert row.get("e1_analytic_equivalent") is False
+        assert row.get("outcome_category") == "semantic_drift"
         e1_prefix = row["e1_prefix_raw"].split("|")[0]
         oracle = oracle_equivalence_prefix(rewrite["rewrite_prefix"], e1_prefix, timeout_sec=30.0)
         assert oracle.completed
-        assert oracle.equivalent
+        assert oracle.equivalent == (oracle.analytic_equivalent and oracle.numeric_equivalent)
 
 
 def test_resume_skips_reexecution_with_spy(tmp_path):
@@ -565,6 +586,118 @@ def test_resume_skips_reexecution_with_spy(tmp_path):
     calls_after = CallLogger.load(output_dir / "call_log.jsonl").total()
     assert calls_after == calls_before
     assert second["call_total"] == first["call_total"]
+
+
+@pytest.mark.skipif(os.environ.get("LANSR_SKIP_ODEFORMER_CHAIN") == "1", reason="ODEFormer runtime unavailable")
+def test_live_d2_pair_counts_descriptive_only():
+    from gpu_runmultiai.odeformer_runtime import ODEFormerUnavailable, require_odeformer
+    from gpu_runmultiai.pipeline import run_d2_pair
+
+    try:
+        require_odeformer()
+    except ODEFormerUnavailable:
+        pytest.skip("ODEFormer runtime unavailable")
+    corpus = load_frozen_corpus()
+    record = next(
+        row
+        for row in corpus["train_records"]
+        if row["system_id"] == "R01_train_d61001_000"
+    )
+    truth_prefix, truth_infix = truth_component_infix(record, 0)
+    rewrite = rewrite_registration(
+        "R01_train_d61001_000", 0, truth_prefix, truth_infix, oracle_timeout_sec=30.0
+    )
+    logger = CallLogger()
+    before_confirmatory = logger.confirmatory_total()
+    before_descriptive = logger.descriptive_total()
+    run_d2_pair(
+        corpus_hash=corpus["corpus_hash"],
+        record=record,
+        component_idx=0,
+        rewrite_row=rewrite,
+        oracle_timeout_sec=30.0,
+        simplifier_timeout_sec=SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
+        call_logger=logger,
+        runtime_available=True,
+        guard=SealedPathGuard(output_root_abs=Path("/nonexistent/results/runs")),
+    )
+    assert logger.confirmatory_total() == before_confirmatory
+    assert logger.descriptive_total() == before_descriptive + 7
+    d2_calls = [row for row in logger.rows if row["condition"] == "D2"]
+    assert len(d2_calls) == 7
+    assert {row["primitive"] for row in d2_calls} == {
+        "e0_analytic_construct",
+        "scaler_rescale_function",
+        "simplifier_subprocess",
+        "oracle_equivalence",
+        "classify_component_flags",
+        "formula_metrics_pair",
+    }
+    assert sum(1 for row in d2_calls if row["primitive"] == "oracle_equivalence") == 2
+
+
+def test_simplifier_subprocess_timeout_is_exact():
+    import subprocess
+    from unittest.mock import patch
+
+    from gpu_runmultiai.odeformer_runtime import simplify_tree_subprocess
+
+    with patch("gpu_runmultiai.odeformer_runtime.subprocess.run") as mocked_run:
+        mocked_run.side_effect = subprocess.TimeoutExpired(cmd="worker", timeout=5.0)
+        result = simplify_tree_subprocess(["add,x_0,1"], timeout_sec=SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC)
+        assert mocked_run.call_args.kwargs["timeout"] == SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC
+        assert result["failure_reason"] == "SubprocessTimeout"
+
+
+def test_sealed_guard_symlink_lexical_and_real_checks(tmp_path):
+    output_root = tmp_path / "results" / "runs"
+    denied_real = output_root / "gpu_run5_example" / "phase8" / "test" / "rows.json"
+    denied_real.parent.mkdir(parents=True)
+    denied_real.write_text("[]", encoding="utf-8")
+    link_parent = output_root / "gpu_run5_linkdir"
+    link_parent.mkdir(parents=True)
+    symlink_path = link_parent / "alias.json"
+    symlink_path.symlink_to(denied_real)
+    guard = SealedPathGuard(output_root_abs=output_root.resolve())
+    assert guard.is_denied(symlink_path, symlink_path)
+    lexical_only = output_root / "gpu_run5_lexical" / "test" / "rows.json"
+    lexical_only.parent.mkdir(parents=True)
+    lexical_only.write_text("[]", encoding="utf-8")
+    assert guard.is_denied(lexical_only, lexical_only)
+
+
+def test_simplifier_preserves_child_guard_attempts_on_failure(tmp_path, monkeypatch):
+    import gpu_runmultiai.odeformer_runtime as runtime
+
+    attempts = [
+        {
+            "attempted_operation": "open",
+            "attempted_path_norm": "/tmp/norm",
+            "attempted_path_real": "/tmp/real",
+        }
+    ]
+    payload = json.dumps({"ok": False, "failure_reason": "PermissionError", "guard_attempts": attempts})
+
+    class _Proc:
+        returncode = 1
+        stdout = payload
+        stderr = ""
+
+    monkeypatch.setattr(runtime.subprocess, "run", lambda *args, **kwargs: _Proc())
+    result = runtime.simplify_tree_subprocess(["add,x_0,1"], timeout_sec=5.0)
+    assert result["guard_attempts"] == attempts
+
+
+def test_component_level_linear_control_metrics():
+    from gpu_runmultiai.odeformer_runtime import full_system_infix_from_record
+    from gpu_runmultiai.pipeline import _component_metrics
+
+    corpus = load_frozen_corpus()
+    record = next(row for row in corpus["train_records"] if row["system_id"] == "R01_train_d61001_000")
+    truth_full = full_system_infix_from_record(record)
+    metrics = _component_metrics(record, truth_full, 0)
+    assert metrics["canonical_exact"] == 1.0
+    assert metrics["exponent_aware_skeleton_exact"] == 1.0
 
 
 def test_terminal_row_on_invalid_rewrite():

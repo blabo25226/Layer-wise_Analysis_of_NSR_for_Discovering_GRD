@@ -191,29 +191,60 @@ def simplify_tree_subprocess(
             input=payload,
             text=True,
             capture_output=True,
-            timeout=timeout_sec + 0.5,
+            timeout=timeout_sec,
             cwd=str(REPO_ROOT),
         )
-    except subprocess.TimeoutExpired:
+    except subprocess.TimeoutExpired as exc:
+        guard_attempts = _guard_attempts_from_timeout_output(exc)
         return {
             "ok": False,
             "failure_reason": "SubprocessTimeout",
-            "guard_attempts": [],
+            "guard_attempts": guard_attempts,
         }
+
+    guard_attempts = _guard_attempts_from_process_output(proc.stdout, proc.stderr)
     if proc.returncode != 0:
         return {
             "ok": False,
             "failure_reason": proc.stderr.strip() or "subprocess_failure",
-            "guard_attempts": [],
+            "guard_attempts": guard_attempts,
         }
     try:
-        return json.loads(proc.stdout)
+        payload = json.loads(proc.stdout)
     except json.JSONDecodeError:
         return {
             "ok": False,
             "failure_reason": "JSONDecodeError",
-            "guard_attempts": [],
+            "guard_attempts": guard_attempts,
         }
+    if not payload.get("guard_attempts"):
+        payload["guard_attempts"] = guard_attempts
+    return payload
+
+
+def _guard_attempts_from_process_output(stdout: str, stderr: str) -> list[dict[str, str]]:
+    for blob in (stdout, stderr):
+        text = str(blob or "").strip()
+        if not text:
+            continue
+        try:
+            payload = json.loads(text)
+        except json.JSONDecodeError:
+            continue
+        attempts = payload.get("guard_attempts")
+        if isinstance(attempts, list):
+            return attempts
+    return []
+
+
+def _guard_attempts_from_timeout_output(exc: subprocess.TimeoutExpired) -> list[dict[str, str]]:
+    stdout = exc.stdout
+    stderr = exc.stderr
+    if isinstance(stdout, bytes):
+        stdout = stdout.decode("utf-8", errors="replace")
+    if isinstance(stderr, bytes):
+        stderr = stderr.decode("utf-8", errors="replace")
+    return _guard_attempts_from_process_output(str(stdout or ""), str(stderr or ""))
 
 
 def replace_component_prefixes(record: dict[str, Any], component_idx: int, new_prefix: str) -> list[str]:
