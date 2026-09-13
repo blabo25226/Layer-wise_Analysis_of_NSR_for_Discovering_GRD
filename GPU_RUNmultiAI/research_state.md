@@ -7,7 +7,7 @@ Update it before a parent session ends.
 campaign: GPU_RUNmultiAI
 status: active
 current_cycle: C0001
-current_stage: IMPLEMENTATION_COMPLETE_PENDING_REVIEW
+current_stage: IMPLEMENTATION_R1_READY_FOR_REVIEW
 branch: 20260912_multiAI_research
 observed_commit: 441c3768cac0e2128fe196fea7b0caadfdde7a76
 base_commit: d4fef3f703cd3ef476529d110930aa34962fa2b0
@@ -37,9 +37,26 @@ tracks:
   scientific:
     status: active
     current_cycle: C0001
-    stage: IMPLEMENTATION_QUEUED
+    stage: IMPLEMENTATION_R1_READY_FOR_REVIEW
 
 active_tasks:
+  - task_id: C0001-T006-R1
+    track: scientific
+    role: research-engineer / repo-operator
+    worker: Cursor Agent
+    branch: ai/C0001/research-engineer/implement-metric-audit
+    worktree: /tmp/lansr-multiai-C0001-implement-audit
+    write_scope: [src/gpu_runmultiai, frozen CLI, focused tests, implementation completion, state, task board, MANIFEST.sha256]
+    status: ready_for_review
+    started_at: 2026-09-13T13:06:00Z
+    expected_outputs: [R1 repair diff, focused tests exit 0, completion record]
+    deliverables:
+      - src/gpu_runmultiai/
+      - tests/test_gpu_runmultiai_c0001_metric_audit.py
+      - GPU_RUNmultiAI/cycles/C0001/implementation_completion.md
+    acceptance_test: R1-R8 repairs; compileall; focused pytest exit 0; diff check
+    retry_count: 1
+    prior_blocked_commit: 88720c1d905fd65848222e0c67a5812ac21f1385
   - task_id: C0001-T006
     track: scientific
     role: research-engineer / repo-operator
@@ -47,7 +64,7 @@ active_tasks:
     branch: ai/C0001/research-engineer/implement-metric-audit
     worktree: /tmp/lansr-multiai-C0001-implement-audit
     write_scope: [src/gpu_runmultiai, frozen CLI, focused tests, implementation completion, state, task board, MANIFEST.sha256]
-    status: completed_pending_review
+    status: superseded_by_T006_R1
     started_at: 2026-09-13T08:10:11Z
     completed_at: 2026-09-13T08:22:00Z
     expected_outputs: [audit implementation, CLI, tests, bounded smoke, completion record]
@@ -171,11 +188,11 @@ retries:
   C0001-T003: 1
 
 next_action: >
-  PI reviews C0001-T006 implementation on branch ai/C0001/research-engineer/implement-metric-audit;
-  run independent reproducibility-audit in Python 3.10 with torch/sklearn/omegaconf before confirmatory
-  23,550-call execution. Do not push until acceptance review passes.
+  PI / reproducibility-auditor review C0001-T006-R1 on branch
+  ai/C0001/research-engineer/implement-metric-audit; rerun focused pytest in Python 3.10 with
+  torch/sklearn/omegaconf; do not run confirmatory audit until accepted.
 
-last_checkpoint_utc: 2026-09-13T08:22:00Z
+last_checkpoint_utc: 2026-09-13T13:20:00Z
 ```
 
 ## Notes

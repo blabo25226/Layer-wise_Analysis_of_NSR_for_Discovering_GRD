@@ -54,6 +54,29 @@ class CallLogger:
         self.path = path
         self.rows: list[dict[str, Any]] = []
         self._keys: set[tuple[str, str, str, str, str]] = set()
+        self.skip_duplicates: bool = False
+
+    @classmethod
+    def load(cls, path: Path) -> "CallLogger":
+        logger = cls(path)
+        if not path.is_file():
+            return logger
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            row = json.loads(line)
+            key = CallKey(
+                row["primitive"],
+                row["condition"],
+                row["stage"],
+                row["unit_type"],
+                row["unit_id"],
+            ).as_tuple()
+            if key in logger._keys:
+                raise RuntimeError(f"duplicate counted call in call_log: {key}")
+            logger._keys.add(key)
+            logger.rows.append(row)
+        return logger
 
     def record(
         self,
@@ -69,6 +92,8 @@ class CallLogger:
     ) -> None:
         key = CallKey(primitive, condition, stage, unit_type, unit_id).as_tuple()
         if key in self._keys:
+            if self.skip_duplicates:
+                return
             raise RuntimeError(f"duplicate counted call: {key}")
         self._keys.add(key)
         row = {

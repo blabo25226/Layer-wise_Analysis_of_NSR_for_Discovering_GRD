@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from typing import Any
 
 from evaluation.gpu_run5_structure import classify_formula
-from gpu_run4.formulas import compare_formulas
+from gpu_run4.formulas import compare_formulas, parse_system
 from gpu_run5.evaluation import formula_metrics
 
 from gpu_runmultiai.constants import (
@@ -13,21 +13,24 @@ from gpu_runmultiai.constants import (
     IDENTITY_REWRITE_ID,
     IDENTITY_SCALE,
     N1_COUNT,
-    PRIMARY_SCALES,
-    TRUTH_COPY_REWRITE_ID,
 )
 from gpu_runmultiai.ids import component_id_for, pair_id_for
 from gpu_runmultiai.odeformer_runtime import (
     ODEFormerUnavailable,
+    build_identity_scaler,
     build_production_scaler,
     decode_system_tree,
+    forward_scale_system,
+    full_system_infix_from_record,
     get_env,
     replace_component_prefixes,
     rescale_system,
     simplify_tree_subprocess,
+    tree_to_prefix_list,
     tree_to_system_infix,
+    truth_system_prefixes,
 )
-from gpu_runmultiai.oracle import oracle_equivalence
+from gpu_runmultiai.oracle import oracle_equivalence, oracle_single_component, prefix_to_infix_component
 from gpu_runmultiai.outcomes import build_outcome_row
 from gpu_runmultiai.rewrites import (
     negative_control_row,
@@ -62,7 +65,7 @@ def registration_rows(
                 "truth_prefix": truth_prefix,
                 "truth_infix": truth_infix,
                 "classifier_parse_valid": bool(classified["valid"]),
-                "hill_form": bool(classified["component_flags"][component_idx]["hill_form"]),
+                "hill_form": bool(classified["component_flags"][0]["hill_form"]),
             }
         )
         call_logger.record(
@@ -102,6 +105,7 @@ def _stage_flags(
     e2_oracle: dict[str, Any] | None = None,
     hill_form: bool | None = None,
     classifier_parse_valid: bool = False,
+    classifier_parse_failure_reason: str | None = None,
 ) -> dict[str, Any]:
     e1 = e1_oracle or {}
     e2 = e2_oracle or {}
@@ -119,7 +123,254 @@ def _stage_flags(
         "e2_numeric_equivalent": bool(e2.get("numeric_equivalent")),
         "hill_form": bool(hill_form),
         "classifier_parse_valid": classifier_parse_valid,
+        "classifier_parse_failure_reason": classifier_parse_failure_reason,
     }
+
+
+def _component_metrics(
+    record: dict[str, Any],
+    predicted_infix: str,
+    component_idx: int,
+) -> dict[str, Any]:
+    truth_full = full_system_infix_from_record(record)
+    metrics = formula_metrics(truth_full, predicted_infix)
+    component_valid = metrics.get("component_valid", [])
+    valid = component_idx < len(component_valid) and bool(component_valid[component_idx])
+    return {
+        "valid": valid,
+        "canonical_exact": metrics.get("canonical_exact"),
+        "exponent_aware_skeleton_exact": metrics.get("exponent_aware_skeleton_exact"),
+        "formula_metrics_valid": valid,
+    }
+
+
+def _execute_chain(
+    *,
+    corpus_hash: str,
+    record: dict[str, Any],
+    component_idx: int,
+    scale: str,
+    rewrite_row: dict[str, Any] | None,
+    use_identity: bool,
+    skip_simplifier: bool,
+    run_oracles: bool,
+    oracle_timeout_sec: float,
+    simplifier_timeout_sec: float,
+    call_logger,
+    condition: str,
+    pair_id: str,
+    runtime_available: bool,
+    guard,
+) -> dict[str, Any]:
+    system_id = record["system_id"]
+    family = record["family"]
+    component_id, _ = component_id_for(corpus_hash, system_id, component_idx)
+    truth_prefix, truth_component = truth_component_infix(record, component_idx)
+    rewrite_id = rewrite_row["rewrite_id"] if rewrite_row else IDENTITY_REWRITE_ID
+    stratum = component_stratum(family, component_idx)
+
+    base = {
+        "condition": condition,
+        "pair_id": pair_id,
+        "component_id": component_id,
+        "system_id": system_id,
+        "component_idx": component_idx,
+        "scale": scale,
+        "rewrite_id": rewrite_id,
+        "stratum": stratum,
+        "truth_infix": truth_component,
+    }
+
+    if rewrite_row is not None and not rewrite_row.get("valid"):
+        return build_outcome_row(**base, construction_incomplete=True, e0_status="construction_incomplete")
+    if not runtime_available:
+        return build_outcome_row(
+            **base,
+            execution_failure=True,
+            failure_reason="ODEFormerUnavailable",
+            e0_status="execution_failure",
+        )
+
+    e0_construct_primitive = "e0_identity_construct" if use_identity else "e0_analytic_construct"
+    try:
+        env = get_env()
+        if use_identity:
+            prefixes = truth_system_prefixes(record)
+            scaler, _ = build_identity_scaler(int(record["dimension"]))
+        else:
+            prefixes = replace_component_prefixes(record, component_idx, rewrite_row["rewrite_prefix"])
+            scaler, _ = build_production_scaler(float(scale), int(record["dimension"]))
+        base_tree = decode_system_tree(env, prefixes)
+        call_logger.record(
+            primitive=e0_construct_primitive,
+            condition=condition,
+            stage="E0",
+            unit_type="pair",
+            unit_id=pair_id,
+            status="completed",
+        )
+        e0_tree = forward_scale_system(env, base_tree, scaler)
+        e0_prefix_raw = "|".join(tree_to_prefix_list(e0_tree))
+        e0_infix = tree_to_system_infix(e0_tree)
+        e1_tree, rescale_incomplete = rescale_system(env, scaler, e0_tree)
+        call_logger.record(
+            primitive="scaler_rescale_function",
+            condition=condition,
+            stage="E1",
+            unit_type="pair",
+            unit_id=pair_id,
+            status="completed" if not rescale_incomplete else "failed",
+        )
+        if rescale_incomplete:
+            return build_outcome_row(
+                **base,
+                execution_failure=True,
+                rescale_incomplete=True,
+                e0_status="completed",
+                e1_status="execution_failure",
+                e0_prefix_raw=e0_prefix_raw,
+                e0_infix=e0_infix,
+            )
+        e1_prefix_raw = "|".join(tree_to_prefix_list(e1_tree))
+        e1_infix = tree_to_system_infix(e1_tree)
+        e1_oracle = {"completed": False, "equivalent": False}
+        e2_oracle = {"completed": False, "equivalent": False}
+        if run_oracles:
+            e1_oracle = oracle_single_component(
+                truth_component,
+                e1_infix,
+                candidate_component_idx=component_idx,
+                timeout_sec=oracle_timeout_sec,
+            ).as_dict()
+            call_logger.record(
+                primitive="oracle_equivalence",
+                condition="B0_E1" if condition in {"B0", "D2"} else condition,
+                stage="E1",
+                unit_type="pair",
+                unit_id=pair_id,
+                status="completed" if e1_oracle["completed"] else "failed",
+            )
+        e2_infix = e1_infix
+        e2_prefix_raw = e1_prefix_raw
+        e2_status = "skipped"
+        if not skip_simplifier:
+            simplified = simplify_tree_subprocess(
+                tree_to_prefix_list(e1_tree),
+                timeout_sec=simplifier_timeout_sec,
+            )
+            if simplified.get("guard_attempts"):
+                guard.extend_child_attempts(simplified["guard_attempts"])
+            call_logger.record(
+                primitive="simplifier_subprocess",
+                condition=condition,
+                stage="E2",
+                unit_type="pair",
+                unit_id=pair_id,
+                status="completed" if simplified.get("ok") else "failed",
+            )
+            if not simplified.get("ok"):
+                return build_outcome_row(
+                    **base,
+                    execution_failure=True,
+                    e0_status="completed",
+                    e1_status="completed",
+                    e2_status="execution_failure",
+                    e0_prefix_raw=e0_prefix_raw,
+                    e1_prefix_raw=e1_prefix_raw,
+                    e0_infix=e0_infix,
+                    e1_infix=e1_infix,
+                    **_stage_flags(e1_oracle=e1_oracle if run_oracles else None),
+                )
+            e2_infix = simplified["infix"]
+            e2_prefix_raw = simplified.get("prefix") or "|".join(tree_to_prefix_list(e1_tree))
+            e2_status = "completed"
+            if run_oracles:
+                e2_oracle = oracle_single_component(
+                    truth_component,
+                    e2_infix,
+                    candidate_component_idx=component_idx,
+                    timeout_sec=oracle_timeout_sec,
+                ).as_dict()
+                call_logger.record(
+                    primitive="oracle_equivalence",
+                    condition="B0_E2" if condition in {"B0", "D2"} else condition,
+                    stage="E2",
+                    unit_type="pair",
+                    unit_id=pair_id,
+                    status="completed" if e2_oracle["completed"] else "failed",
+                )
+        score_infix = e2_infix if not skip_simplifier else e1_infix
+        classified = classify_formula(score_infix)
+        parse_valid = bool(classified["valid"])
+        parse_reason = classified.get("failure_reason")
+        hill_form = False
+        if parse_valid and component_idx < len(classified["component_flags"]):
+            hill_form = bool(classified["component_flags"][component_idx]["hill_form"])
+        call_logger.record(
+            primitive="classify_component_flags",
+            condition=condition,
+            stage="E2" if not skip_simplifier else "E1",
+            unit_type="pair",
+            unit_id=pair_id,
+            status="completed" if parse_valid else "failed",
+        )
+        metrics = _component_metrics(record, score_infix, component_idx)
+        call_logger.record(
+            primitive="formula_metrics_pair",
+            condition=condition,
+            stage="E2" if not skip_simplifier else "E1",
+            unit_type="pair",
+            unit_id=pair_id,
+            status="completed" if metrics["formula_metrics_valid"] else "failed",
+        )
+        flags = _stage_flags(
+            construction_incomplete=False,
+            execution_failure=not parse_valid
+            or (
+                run_oracles
+                and not (e1_oracle.get("completed") and (skip_simplifier or e2_oracle.get("completed")))
+            ),
+            semantic_drift=bool(
+                run_oracles
+                and (
+                    (e1_oracle.get("completed") and not e1_oracle.get("equivalent"))
+                    or (
+                        not skip_simplifier
+                        and e2_oracle.get("completed")
+                        and not e2_oracle.get("equivalent")
+                    )
+                )
+            ),
+            e1_oracle=e1_oracle if run_oracles else None,
+            e2_oracle=e2_oracle if run_oracles and not skip_simplifier else None,
+            hill_form=hill_form,
+            classifier_parse_valid=parse_valid,
+            classifier_parse_failure_reason=parse_reason,
+        )
+        return build_outcome_row(
+            **base,
+            e2_infix_pre_classifier=score_infix if not skip_simplifier else None,
+            e0_prefix_raw=e0_prefix_raw,
+            e1_prefix_raw=e1_prefix_raw,
+            e2_prefix_raw=e2_prefix_raw if not skip_simplifier else None,
+            e0_infix=e0_infix,
+            e1_infix=e1_infix,
+            e2_infix=e2_infix if not skip_simplifier else None,
+            e0_status="completed",
+            e1_status="completed",
+            e2_status=e2_status,
+            canonical_exact=metrics.get("canonical_exact"),
+            exponent_aware_skeleton_exact=metrics.get("exponent_aware_skeleton_exact"),
+            formula_metrics_valid=metrics.get("formula_metrics_valid"),
+            **flags,
+        )
+    except ODEFormerUnavailable:
+        return build_outcome_row(
+            **base,
+            execution_failure=True,
+            failure_reason="ODEFormerUnavailable",
+            e0_status="execution_failure",
+        )
 
 
 def run_b0_pair(
@@ -130,174 +381,110 @@ def run_b0_pair(
     scale: str,
     rewrite_row: dict[str, Any],
     oracle_timeout_sec: float,
+    simplifier_timeout_sec: float,
     call_logger,
     runtime_available: bool,
+    guard,
 ) -> dict[str, Any]:
-    system_id = record["system_id"]
-    family = record["family"]
-    rewrite_id = rewrite_row["rewrite_id"]
-    pair_id, _ = pair_id_for(corpus_hash, system_id, component_idx, scale, rewrite_id)
-    component_id, _ = component_id_for(corpus_hash, system_id, component_idx)
-    truth_prefix, truth_infix = truth_component_infix(record, component_idx)
-    if not rewrite_row.get("valid"):
-        return build_outcome_row(
-            condition="B0",
-            pair_id=pair_id,
-            component_id=component_id,
-            system_id=system_id,
-            component_idx=component_idx,
-            scale=scale,
-            rewrite_id=rewrite_id,
-            stratum=component_stratum(family, component_idx),
-            construction_incomplete=True,
-        )
-    if not runtime_available:
-        return build_outcome_row(
-            condition="B0",
-            pair_id=pair_id,
-            component_id=component_id,
-            system_id=system_id,
-            component_idx=component_idx,
-            scale=scale,
-            rewrite_id=rewrite_id,
-            stratum=component_stratum(family, component_idx),
-            execution_failure=True,
-            failure_reason="ODEFormerUnavailable",
-        )
-    try:
-        env = get_env()
-        prefixes = replace_component_prefixes(record, component_idx, rewrite_row["rewrite_prefix"])
-        call_logger.record(
-            primitive="e0_analytic_construct",
-            condition="B0",
-            stage="E0",
-            unit_type="pair",
-            unit_id=pair_id,
-            status="completed",
-        )
-        e0_tree = decode_system_tree(env, prefixes)
-        e0_infix = tree_to_system_infix(e0_tree)
-        scaler, _ = build_production_scaler(float(scale), int(record["dimension"]))
-        e1_tree, rescale_incomplete = rescale_system(env, scaler, e0_tree)
-        call_logger.record(
-            primitive="scaler_rescale_function",
-            condition="B0",
-            stage="E1",
-            unit_type="pair",
-            unit_id=pair_id,
-            status="completed" if not rescale_incomplete else "failed",
-        )
-        if rescale_incomplete:
-            return build_outcome_row(
-                condition="B0",
-                pair_id=pair_id,
-                component_id=component_id,
-                system_id=system_id,
-                component_idx=component_idx,
-                scale=scale,
-                rewrite_id=rewrite_id,
-                stratum=component_stratum(family, component_idx),
-                execution_failure=True,
-                rescale_incomplete=True,
-            )
-        e1_infix = tree_to_system_infix(e1_tree)
-        simplified = simplify_tree_subprocess(prefixes)
-        call_logger.record(
-            primitive="simplifier_subprocess",
-            condition="B0",
-            stage="E2",
-            unit_type="pair",
-            unit_id=pair_id,
-            status="completed" if simplified.get("ok") else "failed",
-        )
-        if not simplified.get("ok"):
-            return build_outcome_row(
-                condition="B0",
-                pair_id=pair_id,
-                component_id=component_id,
-                system_id=system_id,
-                component_idx=component_idx,
-                scale=scale,
-                rewrite_id=rewrite_id,
-                stratum=component_stratum(family, component_idx),
-                execution_failure=True,
-            )
-        e2_infix = simplified["infix"]
-        e1_oracle = oracle_equivalence(
-            truth_infix, e1_infix, component_idx=component_idx, timeout_sec=oracle_timeout_sec
-        ).as_dict()
-        e2_oracle = oracle_equivalence(
-            truth_infix, e2_infix, component_idx=component_idx, timeout_sec=oracle_timeout_sec
-        ).as_dict()
-        for stage, oracle in (("E1", e1_oracle), ("E2", e2_oracle)):
-            call_logger.record(
-                primitive="oracle_equivalence",
-                condition="B0",
-                stage=stage,
-                unit_type="pair",
-                unit_id=pair_id,
-                status="completed" if oracle["completed"] else "failed",
-            )
-        classified = classify_formula(e2_infix)
+    pair_id, _ = pair_id_for(corpus_hash, record["system_id"], component_idx, scale, rewrite_row["rewrite_id"])
+    return _execute_chain(
+        corpus_hash=corpus_hash,
+        record=record,
+        component_idx=component_idx,
+        scale=scale,
+        rewrite_row=rewrite_row,
+        use_identity=False,
+        skip_simplifier=False,
+        run_oracles=True,
+        oracle_timeout_sec=oracle_timeout_sec,
+        simplifier_timeout_sec=simplifier_timeout_sec,
+        call_logger=call_logger,
+        condition="B0",
+        pair_id=pair_id,
+        runtime_available=runtime_available,
+        guard=guard,
+    )
+
+
+def run_b1_pair(
+    *,
+    corpus_hash: str,
+    record: dict[str, Any],
+    component_idx: int,
+    oracle_timeout_sec: float,
+    simplifier_timeout_sec: float,
+    call_logger,
+    runtime_available: bool,
+    guard,
+) -> dict[str, Any]:
+    pair_id, _ = pair_id_for(
+        corpus_hash,
+        record["system_id"],
+        component_idx,
+        IDENTITY_SCALE,
+        IDENTITY_REWRITE_ID,
+    )
+    return _execute_chain(
+        corpus_hash=corpus_hash,
+        record=record,
+        component_idx=component_idx,
+        scale=IDENTITY_SCALE,
+        rewrite_row={"rewrite_id": IDENTITY_REWRITE_ID, "valid": True},
+        use_identity=True,
+        skip_simplifier=False,
+        run_oracles=False,
+        oracle_timeout_sec=oracle_timeout_sec,
+        simplifier_timeout_sec=simplifier_timeout_sec,
+        call_logger=call_logger,
+        condition="B1",
+        pair_id=pair_id,
+        runtime_available=runtime_available,
+        guard=guard,
+    )
+
+
+def run_b2_pair(
+    *,
+    b0_row: dict[str, Any],
+    record: dict[str, Any],
+    call_logger,
+) -> dict[str, Any]:
+    pair_id = b0_row["pair_id"]
+    component_idx = b0_row["component_idx"]
+    score_infix = b0_row.get("e1_infix") or ""
+    classified = classify_formula(score_infix)
+    parse_valid = bool(classified["valid"])
+    parse_reason = classified.get("failure_reason")
+    hill_form = False
+    if parse_valid and component_idx < len(classified["component_flags"]):
         hill_form = bool(classified["component_flags"][component_idx]["hill_form"])
-        call_logger.record(
-            primitive="classify_component_flags",
-            condition="B0",
-            stage="E2",
-            unit_type="pair",
-            unit_id=pair_id,
-            status="completed",
-        )
-        metrics = formula_metrics(truth_infix, e2_infix)
-        call_logger.record(
-            primitive="formula_metrics_pair",
-            condition="B0",
-            stage="E2",
-            unit_type="pair",
-            unit_id=pair_id,
-            status="completed",
-        )
-        flags = _stage_flags(
-            construction_incomplete=False,
-            execution_failure=not (e1_oracle["completed"] and e2_oracle["completed"]),
-            semantic_drift=bool(
-                (e1_oracle.get("completed") and not e1_oracle.get("equivalent"))
-                or (e2_oracle.get("completed") and not e2_oracle.get("equivalent"))
-            ),
-            e1_oracle=e1_oracle,
-            e2_oracle=e2_oracle,
-            hill_form=hill_form,
-            classifier_parse_valid=bool(classified["valid"]),
-        )
-        return build_outcome_row(
-            condition="B0",
-            pair_id=pair_id,
-            component_id=component_id,
-            system_id=system_id,
-            component_idx=component_idx,
-            scale=scale,
-            rewrite_id=rewrite_id,
-            stratum=component_stratum(family, component_idx),
-            e2_infix_pre_classifier=e2_infix,
-            e0_infix=e0_infix,
-            e1_infix=e1_infix,
-            canonical_exact=metrics.get("canonical_exact"),
-            exponent_aware_skeleton_exact=metrics.get("exponent_aware_skeleton_exact"),
-            **flags,
-        )
-    except ODEFormerUnavailable:
-        return build_outcome_row(
-            condition="B0",
-            pair_id=pair_id,
-            component_id=component_id,
-            system_id=system_id,
-            component_idx=component_idx,
-            scale=scale,
-            rewrite_id=rewrite_id,
-            stratum=component_stratum(family, component_idx),
-            execution_failure=True,
-            failure_reason="ODEFormerUnavailable",
-        )
+    call_logger.record(
+        primitive="classify_component_flags",
+        condition="B2",
+        stage="E1",
+        unit_type="pair",
+        unit_id=pair_id,
+        status="completed" if parse_valid else "failed",
+    )
+    metrics = _component_metrics(record, score_infix, component_idx)
+    call_logger.record(
+        primitive="formula_metrics_pair",
+        condition="B2",
+        stage="E1",
+        unit_type="pair",
+        unit_id=pair_id,
+        status="completed" if metrics["formula_metrics_valid"] else "failed",
+    )
+    return {
+        **b0_row,
+        "condition": "B2",
+        "classifier_parse_valid": parse_valid,
+        "classifier_parse_failure_reason": parse_reason,
+        "hill_form": hill_form,
+        "canonical_exact": metrics.get("canonical_exact"),
+        "exponent_aware_skeleton_exact": metrics.get("exponent_aware_skeleton_exact"),
+        "formula_metrics_valid": metrics.get("formula_metrics_valid"),
+    }
 
 
 def run_b4_row(
@@ -309,9 +496,9 @@ def run_b4_row(
 ) -> dict[str, Any]:
     system_id = record["system_id"]
     component_id, _ = component_id_for(corpus_hash, system_id, component_idx)
-    truth_prefix, truth_infix = truth_component_infix(record, component_idx)
-    metrics = formula_metrics(truth_infix, truth_infix)
-    classified = classify_formula(truth_infix)
+    truth_full = full_system_infix_from_record(record)
+    metrics = formula_metrics(truth_full, truth_full)
+    classified = classify_formula(truth_full)
     call_logger.record(
         primitive="classify_component_flags",
         condition="B4",
@@ -385,12 +572,18 @@ def run_b3_pairs(
     selected: list[dict[str, Any]],
     *,
     call_logger,
-    cas_timeout_sec: float,
 ) -> list[dict[str, Any]]:
     rows = []
     for row in selected:
+        component_idx = int(row["component_idx"])
         truth = row.get("truth_infix") or ""
-        pred = row.get("e2_infix_pre_classifier") or truth
+        pred_system = row.get("e2_infix_pre_classifier") or row.get("e2_infix") or ""
+        from gpu_runmultiai.oracle import extract_component_infix
+
+        try:
+            pred = extract_component_infix(pred_system, component_idx) if " | " in pred_system else pred_system
+        except IndexError:
+            pred = pred_system
         comparison = compare_formulas(truth, pred, skip_cas=False)
         call_logger.record(
             primitive="compare_formulas_cas",
@@ -402,3 +595,42 @@ def run_b3_pairs(
         )
         rows.append({"pair_id": row["pair_id"], **comparison})
     return rows
+
+
+def run_d2_pair(
+    *,
+    corpus_hash: str,
+    record: dict[str, Any],
+    component_idx: int,
+    rewrite_row: dict[str, Any],
+    oracle_timeout_sec: float,
+    simplifier_timeout_sec: float,
+    call_logger,
+    runtime_available: bool,
+    guard,
+) -> dict[str, Any]:
+    pair_id, _ = pair_id_for(
+        corpus_hash,
+        record["system_id"],
+        component_idx,
+        "5.0",
+        rewrite_row["rewrite_id"],
+    )
+    row = _execute_chain(
+        corpus_hash=corpus_hash,
+        record=record,
+        component_idx=component_idx,
+        scale="5.0",
+        rewrite_row=rewrite_row,
+        use_identity=False,
+        skip_simplifier=False,
+        run_oracles=True,
+        oracle_timeout_sec=oracle_timeout_sec,
+        simplifier_timeout_sec=simplifier_timeout_sec,
+        call_logger=call_logger,
+        condition="D2",
+        pair_id=pair_id,
+        runtime_available=runtime_available,
+        guard=guard,
+    )
+    return row

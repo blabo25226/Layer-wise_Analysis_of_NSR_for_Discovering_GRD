@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import builtins
+import functools
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -18,10 +19,23 @@ class AccessAttempt:
     attempted_path_real: str
 
 
+def _is_fd(path: object) -> bool:
+    return isinstance(path, int) and not isinstance(path, bool)
+
+
+def _path_strings(path: object) -> tuple[str, str] | None:
+    if _is_fd(path):
+        return None
+    norm = os.path.normpath(os.path.abspath(os.fspath(path)))
+    real = os.path.realpath(norm)
+    return norm, real
+
+
 @dataclass
 class SealedPathGuard:
     output_root_abs: Path
     attempts: list[AccessAttempt] = field(default_factory=list)
+    child_attempts: list[AccessAttempt] = field(default_factory=list)
     _installed: bool = False
     _originals: dict[str, Any] = field(default_factory=dict)
 
@@ -46,9 +60,11 @@ class SealedPathGuard:
                     return True
         return False
 
-    def _check(self, operation: str, path: str | os.PathLike[str]) -> None:
-        norm = os.path.normpath(os.path.abspath(os.fspath(path)))
-        real = os.path.realpath(norm)
+    def _check(self, operation: str, path: object) -> None:
+        resolved = _path_strings(path)
+        if resolved is None:
+            return
+        norm, real = resolved
         if self.is_denied(norm, real):
             self.attempts.append(
                 AccessAttempt(
@@ -58,6 +74,10 @@ class SealedPathGuard:
                 )
             )
             raise PermissionError(f"sealed-path guard denied {operation} on {norm}")
+
+    def _is_write_open_mode(self, mode: object) -> bool:
+        mode_str = str(mode)
+        return any(flag in mode_str for flag in ("w", "a", "x", "+"))
 
     def install(self) -> None:
         if self._installed:
@@ -70,28 +90,39 @@ class SealedPathGuard:
             "os_scandir": os.scandir,
         }
 
+        guard = self
+        originals = self._originals
+
+        @functools.wraps(originals["open"])
         def guarded_open(file, mode="r", *args, **kwargs):
-            mode_str = str(mode)
-            if not any(flag in mode_str for flag in ("w", "a", "x")):
-                self._check("open", file)
-            return self._originals["open"](file, mode, *args, **kwargs)
+            if guard._is_write_open_mode(mode):
+                guard._check("open(write)", file)
+            else:
+                guard._check("open", file)
+            return originals["open"](file, mode, *args, **kwargs)
 
+        @functools.wraps(originals["os_open"])
         def guarded_os_open(path, flags, *args, **kwargs):
-            if flags & os.O_WRONLY == 0 and flags & os.O_RDWR == 0:
-                self._check("os.open", path)
-            return self._originals["os_open"](path, flags, *args, **kwargs)
+            if flags & (os.O_WRONLY | os.O_RDWR):
+                guard._check("os.open(write)", path)
+            elif flags & os.O_RDONLY:
+                guard._check("os.open", path)
+            return originals["os_open"](path, flags, *args, **kwargs)
 
+        @functools.wraps(originals["os_stat"])
         def guarded_stat(path, *args, **kwargs):
-            self._check("os.stat", path)
-            return self._originals["os_stat"](path, *args, **kwargs)
+            guard._check("os.stat", path)
+            return originals["os_stat"](path, *args, **kwargs)
 
-        def guarded_listdir(path="."):
-            self._check("os.listdir", path)
-            return self._originals["os_listdir"](path)
+        @functools.wraps(originals["os_listdir"])
+        def guarded_listdir(path=".", *args, **kwargs):
+            guard._check("os.listdir", path)
+            return originals["os_listdir"](path, *args, **kwargs)
 
-        def guarded_scandir(path="."):
-            self._check("os.scandir", path)
-            return self._originals["os_scandir"](path)
+        @functools.wraps(originals["os_scandir"])
+        def guarded_scandir(path=".", *args, **kwargs):
+            guard._check("os.scandir", path)
+            return originals["os_scandir"](path, *args, **kwargs)
 
         builtins.open = guarded_open
         os.open = guarded_os_open
@@ -112,16 +143,18 @@ class SealedPathGuard:
             "rglob": Path.rglob,
         }
         self._originals["pathlib"] = originals
-
         guard = self
 
         def wrap(method_name: str):
             original = originals[method_name]
 
+            @functools.wraps(original)
             def wrapper(path_self, *args, **kwargs):
                 if method_name == "open":
-                    mode = args[0] if args else "r"
-                    if "r" in str(mode):
+                    mode = kwargs.get("mode", args[0] if args else "r")
+                    if guard._is_write_open_mode(mode):
+                        guard._check(f"Path.{method_name}(write)", path_self)
+                    else:
                         guard._check(f"Path.{method_name}", path_self)
                 else:
                     guard._check(f"Path.{method_name}", path_self)
@@ -149,6 +182,16 @@ class SealedPathGuard:
         for name, func in pathlib_originals.items():
             setattr(Path, name, func)
         self._installed = False
+
+    def extend_child_attempts(self, rows: list[dict[str, str]]) -> None:
+        for row in rows:
+            attempt = AccessAttempt(
+                attempted_operation=row["attempted_operation"],
+                attempted_path_norm=row["attempted_path_norm"],
+                attempted_path_real=row["attempted_path_real"],
+            )
+            self.child_attempts.append(attempt)
+            self.attempts.append(attempt)
 
     def attempt_count(self) -> int:
         return len(self.attempts)

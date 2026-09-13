@@ -12,6 +12,42 @@ OUTCOME_CATEGORIES = (
     "preserved",
 )
 
+PAIR_RESULT_COLUMNS = [
+    "condition",
+    "pair_id",
+    "component_id",
+    "system_id",
+    "component_idx",
+    "scale",
+    "rewrite_id",
+    "stratum",
+    "outcome_category",
+    "is_fully_diagnostic",
+    "e1_oracle_completed",
+    "e1_oracle_equivalent",
+    "e1_analytic_equivalent",
+    "e1_numeric_equivalent",
+    "e2_oracle_completed",
+    "e2_oracle_equivalent",
+    "e2_analytic_equivalent",
+    "e2_numeric_equivalent",
+    "e0_status",
+    "e1_status",
+    "e2_status",
+    "e2_infix_pre_classifier",
+    "classifier_parse_valid",
+    "classifier_parse_failure_reason",
+    "hill_form",
+    "canonical_exact",
+    "exponent_aware_skeleton_exact",
+    "e0_prefix_raw",
+    "e1_prefix_raw",
+    "e2_prefix_raw",
+    "e0_infix",
+    "e1_infix",
+    "e2_infix",
+]
+
 
 def classify_outcome(row: dict[str, Any]) -> str:
     if row.get("construction_incomplete"):
@@ -36,6 +72,10 @@ def is_fully_diagnostic(outcome_category: str) -> bool:
 
 def build_outcome_row(**flags: Any) -> dict[str, Any]:
     row = dict(flags)
+    if row.get("classifier_parse_valid") is False and not row.get("construction_incomplete"):
+        row["execution_failure"] = True
+        if not row.get("classifier_parse_failure_reason"):
+            row["classifier_parse_failure_reason"] = "ClassifierParseError"
     category = classify_outcome(row)
     row["outcome_category"] = category
     row["is_fully_diagnostic"] = is_fully_diagnostic(category)

@@ -76,9 +76,24 @@ def frozen_environment() -> dict[str, str]:
     return {key: os.environ.get(key, "") for key in FROZEN_ENV_VARS}
 
 
+def _normalize_value(value: Any) -> Any:
+    if isinstance(value, tuple):
+        return [_normalize_value(item) for item in value]
+    if isinstance(value, list):
+        return [_normalize_value(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _normalize_value(item) for key, item in sorted(value.items())}
+    return value
+
+
 def normalize_cli_args(args: dict[str, Any]) -> dict[str, Any]:
     excluded = {"resume", "fail_if_exists"}
-    return {key: value for key, value in sorted(args.items()) if key not in excluded}
+    normalized = {
+        key: _normalize_value(value)
+        for key, value in sorted(args.items())
+        if key not in excluded
+    }
+    return normalized
 
 
 def build_resume_identity(
@@ -87,7 +102,13 @@ def build_resume_identity(
     audit_script_path: Path,
     corpus_hash: str,
     cli_args: dict[str, Any],
+    output_dir: Path | None = None,
 ) -> dict[str, Any]:
+    fingerprint_payload_path = None
+    fingerprint_bytes_path = None
+    if output_dir is not None:
+        fingerprint_payload_path = str(output_dir / "fingerprint_payload.json")
+        fingerprint_bytes_path = str(output_dir / "fingerprint_bytes.bin")
     return {
         "audit_id": AUDIT_ID,
         "commit": commit,
@@ -96,6 +117,9 @@ def build_resume_identity(
         "config_hash": sha256_file(SOURCE_HASH_PATHS[-1]),
         "source_hashes": source_hashes(),
         "corpus_hash": corpus_hash,
+        "fingerprint_payload_path": fingerprint_payload_path,
+        "fingerprint_bytes_path": fingerprint_bytes_path,
+        "fingerprint_payload_bytes_hash": corpus_hash,
         "seeds": {
             "audit_data_seed": AUDIT_DATA_SEED,
             "audit_trajectory_seed": AUDIT_TRAJECTORY_SEED,
@@ -123,6 +147,9 @@ def verify_resume_identity(existing: dict[str, Any], current: dict[str, Any]) ->
         "config_hash",
         "source_hashes",
         "corpus_hash",
+        "fingerprint_payload_path",
+        "fingerprint_bytes_path",
+        "fingerprint_payload_bytes_hash",
         "seeds",
         "primitive_table",
         "cli_args_normalized",

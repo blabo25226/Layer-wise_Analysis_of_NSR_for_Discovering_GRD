@@ -39,7 +39,7 @@ def rewrite_registration(
     oracle = oracle_equivalence(
         truth_infix,
         rewrite_infix,
-        component_idx=component_idx,
+        component_idx=0,
         timeout_sec=oracle_timeout_sec,
     )
     valid = lexical_non_identity and oracle.completed and oracle.equivalent
@@ -69,7 +69,7 @@ def negative_control_row(
     oracle = oracle_equivalence(
         truth_infix,
         negative_infix,
-        component_idx=component_idx,
+        component_idx=0,
         timeout_sec=oracle_timeout_sec,
     )
     return {
