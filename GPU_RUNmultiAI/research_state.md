@@ -7,13 +7,13 @@ Update it before a parent session ends.
 campaign: GPU_RUNmultiAI
 status: active
 current_cycle: C0001
-current_stage: IMPLEMENTATION_DECOMPOSITION
+current_stage: IMPLEMENTATION_QUEUED
 branch: 20260912_multiAI_research
-observed_commit: 17aff965d77053d3c607f2809c899e687723ec81
+observed_commit: 441c3768cac0e2128fe196fea7b0caadfdde7a76
 base_commit: d4fef3f703cd3ef476529d110930aa34962fa2b0
 remote_branch: 20260912_multiAI_research
-remote_commit: 6432888754b0a768a8e3b90add6b6ea647286323
-last_push_attempt_utc: 2026-09-13T08:05:00Z
+remote_commit: 441c3768cac0e2128fe196fea7b0caadfdde7a76
+last_push_attempt_utc: 2026-09-13T08:10:11Z
 last_push_error: null
 binding_plan:
   path: GPU_RUNmultiAI/cycles/C0001/preregistration_draft_v9.md
@@ -37,21 +37,45 @@ tracks:
   scientific:
     status: active
     current_cycle: C0001
-    stage: IMPLEMENTATION_DECOMPOSITION
+    stage: IMPLEMENTATION_QUEUED
 
-active_tasks: []
+active_tasks:
+  - task_id: C0001-T006
+    track: scientific
+    role: research-engineer / repo-operator
+    worker: Cursor Agent
+    branch: ai/C0001/research-engineer/implement-metric-audit
+    worktree: /tmp/lansr-multiai-C0001-implement-audit
+    write_scope: [src/gpu_runmultiai, frozen CLI, focused tests, implementation completion, state, task board, MANIFEST.sha256]
+    status: planned
+    started_at: 2026-09-13T08:10:11Z
+    completed_at: null
+    expected_outputs: [audit implementation, CLI, tests, bounded smoke, completion record]
+    deliverables:
+      - src/gpu_runmultiai/
+      - scripts/phases/gpu_runmultiai_c0001_metric_audit.py
+      - tests/test_gpu_runmultiai_c0001_metric_audit.py
+      - GPU_RUNmultiAI/cycles/C0001/implementation_completion.md
+    acceptance_test: frozen SHA; fixtures; corpus/index; decision; call/resume; sealed guard; controls; compileall; focused pytest; diff check
+    retry_count: 0
+    fallback: Claude Sonnet research-engineer; Codex PI conflict resolution only
+    implementer_identity: Cursor Agent
+    independent_reviewer_identity: Claude reproducibility-auditor or Codex methodological subagent fallback
+    reviewer_diff_assertion: true
+    evidence_packet: GPU_RUNmultiAI/cycles/C0001/implementation_handoff.md
 completed_tasks:
   - task_id: C0001-T005
     track: scientific
     role: repo-operator + independent reviewer + research-pi
     worker: Cursor Agent + Codex methodological subagent + Codex PI
-    status: integrated_pending_push
+    status: integrated_and_pushed
     source_branch: ai/C0001/repo-operator/revise-preregistration
     source_commit: d1de348ca478d0c8180a30afb27a446f9133595b
     integration_commits: [032cfca, 304142f, 38706c8, f31e7aa, 52df7e2, 7efc466, 826c5a2, f4ac3dc, 17aff96]
     binding_plan: GPU_RUNmultiAI/cycles/C0001/preregistration_draft_v9.md
     binding_plan_sha256: 60cfed79780c6b027192a3da14e69416d72090e0a89dddd22248b0f00f50cf00
-    result: PASS closure; preregistration v9 frozen and integrated; manifest/compileall/diff checks passed
+    remote_commit: 441c3768cac0e2128fe196fea7b0caadfdde7a76
+    result: PASS closure; preregistration v9 frozen, integrated, pushed, and remote SHA verified; manifest/compileall/diff checks passed
     implementer_identity: Cursor Agent
     independent_reviewer_identity: Codex methodological subagent (Claude reviewer timeout fallback)
     reviewer_diff_assertion: true
@@ -147,10 +171,10 @@ retries:
   C0001-T003: 1
 
 next_action: >
-  Push and verify the integrated preregistration checkpoint, then create an isolated implementation
-  task bound to preregistration v9 SHA256. Do not inspect GPU_RUN5 sealed-test raw artifacts.
+  Create the C0001-T006 isolated worktree from the verified remote checkpoint and dispatch Cursor with
+  implementation_handoff.md. Do not run the full confirmatory audit before independent code/reproducibility review.
 
-last_checkpoint_utc: 2026-09-13T08:06:24Z
+last_checkpoint_utc: 2026-09-13T08:10:11Z
 ```
 
 ## Notes
