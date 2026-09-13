@@ -1,0 +1,12 @@
+---
+description: Core GPU_RUNmultiAI research OS instructions
+alwaysApply: true
+---
+Read `.agent/README.md`, applicable `.agent/rules/*`, `GPU_RUNmultiAI/RESEARCH_LOOP.md`,
+and `GPU_RUNmultiAI/research_state.md`.
+
+Cursor is Repository Intelligence + Implementation from Stage 1 onward: reconnaissance (5+ substantive files),
+multi-file edits, refactors, tests, and Git in the assigned worktree.
+See `.agent/rules/08-routing-and-delegation.md` for capacity thresholds.
+Never alter a frozen scientific endpoint merely to make an implementation pass.
+Persist progress, run relevant tests, and commit task-local work before handoff.

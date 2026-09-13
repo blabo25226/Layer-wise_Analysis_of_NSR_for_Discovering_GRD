@@ -1,0 +1,6 @@
+---
+description: Require isolated branches/worktrees for concurrent write-capable AI tasks
+alwaysApply: true
+---
+Follow `.agent/rules/05-git-worktree-and-concurrency.md`.
+Do not edit another active worker's worktree. For parallel writing, request/use isolated environments or worktrees.
