@@ -57,17 +57,16 @@ def get_env() -> Any:
 
     install_odeformer_path()
     from odeformer.envs.environment import FunctionEnvironment
+    from parsers import get_parser
 
-    class Params:
-        float_precision = 3
-        max_size = 20
-        use_two_hot = False
-        use_sympy = False
-        max_int = 10
-        max_unary_depth = 6
-        prob_prefactor = 0.0
-
-    return FunctionEnvironment(Params())
+    params = get_parser().parse_args([])
+    params.float_precision = 3
+    params.use_two_hot = False
+    params.use_sympy = False
+    params.max_int = 10
+    params.max_unary_depth = 6
+    params.prob_prefactor = 0.0
+    return FunctionEnvironment(params)
 
 
 def prefix_tokens_for_system(prefixes: list[str]) -> list[str]:

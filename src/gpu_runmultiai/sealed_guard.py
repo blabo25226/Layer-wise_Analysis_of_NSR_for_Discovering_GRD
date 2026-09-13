@@ -26,9 +26,16 @@ def _is_fd(path: object) -> bool:
 def _path_strings(path: object) -> tuple[str, str] | None:
     if _is_fd(path):
         return None
-    norm = os.path.normpath(os.path.abspath(os.fspath(path)))
+    fspath = os.fspath(path)
+    norm = os.path.normpath(os.path.abspath(fspath))
     real = os.path.realpath(norm)
     return norm, real
+
+
+def _is_under_root(real: str, root: str) -> bool:
+    real_norm = os.path.normpath(real)
+    root_norm = os.path.normpath(root)
+    return real_norm == root_norm or real_norm.startswith(root_norm + os.sep)
 
 
 @dataclass
@@ -38,16 +45,26 @@ class SealedPathGuard:
     child_attempts: list[AccessAttempt] = field(default_factory=list)
     _installed: bool = False
     _originals: dict[str, Any] = field(default_factory=dict)
+    _output_root_real: str = field(init=False, repr=False)
+    _in_internal: bool = field(default=False, init=False, repr=False)
 
-    def campaign_relative_components(self, path: Path) -> list[str] | None:
+    def __post_init__(self) -> None:
+        self._output_root_real = os.path.realpath(os.path.abspath(os.fspath(self.output_root_abs)))
+
+    def campaign_relative_components(self, path: str | Path) -> list[str] | None:
         try:
-            rel = path.resolve().relative_to(self.output_root_abs.resolve())
-        except ValueError:
+            real = os.path.realpath(os.path.abspath(os.fspath(path)))
+        except (OSError, TypeError, ValueError):
             return None
-        return list(rel.parts)
+        if not _is_under_root(real, self._output_root_real):
+            return None
+        rel = os.path.relpath(real, self._output_root_real)
+        if rel in (".", ""):
+            return []
+        return [part for part in rel.split(os.sep) if part]
 
     def is_denied(self, path_norm: str | Path, path_real: str | Path) -> bool:
-        for candidate in (Path(path_norm), Path(path_real)):
+        for candidate in (path_norm, path_real):
             components = self.campaign_relative_components(candidate)
             if components is None or not components:
                 continue
@@ -61,19 +78,25 @@ class SealedPathGuard:
         return False
 
     def _check(self, operation: str, path: object) -> None:
+        if self._in_internal:
+            return
         resolved = _path_strings(path)
         if resolved is None:
             return
         norm, real = resolved
-        if self.is_denied(norm, real):
-            self.attempts.append(
-                AccessAttempt(
-                    attempted_operation=operation,
-                    attempted_path_norm=norm,
-                    attempted_path_real=real,
+        self._in_internal = True
+        try:
+            if self.is_denied(norm, real):
+                self.attempts.append(
+                    AccessAttempt(
+                        attempted_operation=operation,
+                        attempted_path_norm=norm,
+                        attempted_path_real=real,
+                    )
                 )
-            )
-            raise PermissionError(f"sealed-path guard denied {operation} on {norm}")
+                raise PermissionError(f"sealed-path guard denied {operation} on {norm}")
+        finally:
+            self._in_internal = False
 
     def _is_write_open_mode(self, mode: object) -> bool:
         mode_str = str(mode)
@@ -103,6 +126,8 @@ class SealedPathGuard:
 
         @functools.wraps(originals["os_open"])
         def guarded_os_open(path, flags, *args, **kwargs):
+            if _is_fd(path):
+                return originals["os_open"](path, flags, *args, **kwargs)
             if flags & (os.O_WRONLY | os.O_RDWR):
                 guard._check("os.open(write)", path)
             elif flags & os.O_RDONLY:
@@ -111,17 +136,20 @@ class SealedPathGuard:
 
         @functools.wraps(originals["os_stat"])
         def guarded_stat(path, *args, **kwargs):
-            guard._check("os.stat", path)
+            if not _is_fd(path):
+                guard._check("os.stat", path)
             return originals["os_stat"](path, *args, **kwargs)
 
         @functools.wraps(originals["os_listdir"])
         def guarded_listdir(path=".", *args, **kwargs):
-            guard._check("os.listdir", path)
+            if not _is_fd(path):
+                guard._check("os.listdir", path)
             return originals["os_listdir"](path, *args, **kwargs)
 
         @functools.wraps(originals["os_scandir"])
         def guarded_scandir(path=".", *args, **kwargs):
-            guard._check("os.scandir", path)
+            if not _is_fd(path):
+                guard._check("os.scandir", path)
             return originals["os_scandir"](path, *args, **kwargs)
 
         builtins.open = guarded_open

@@ -15,7 +15,7 @@ from gpu_runmultiai.controls import any_gate_failed, condition_summary, evaluate
 from gpu_runmultiai.corpus import load_frozen_corpus
 from gpu_runmultiai.ids import component_id_for
 from gpu_runmultiai.manifest import build_resume_identity, current_commit, verify_plan_hash, verify_resume_identity, write_manifest
-from gpu_runmultiai.odeformer_runtime import ODEFormerUnavailable, measure_g0_scaler_asserts, require_odeformer
+from gpu_runmultiai.odeformer_runtime import ODEFormerUnavailable, get_env, measure_g0_scaler_asserts, require_odeformer
 from gpu_runmultiai.outcomes import PAIR_RESULT_COLUMNS, evaluate_primary_decision
 from gpu_runmultiai.pipeline import (
     registration_rows,
@@ -89,25 +89,33 @@ def run_audit(options: dict[str, Any]) -> dict[str, Any]:
     if options.get("fail_if_exists") and any(output_dir.iterdir()) and not options.get("resume"):
         raise RuntimeError(f"output directory already exists: {output_dir}")
 
-    guard = SealedPathGuard(output_root_abs=output_root_abs())
-    guard.install()
-    try:
-        return _run_audit_body(options, output_dir, guard)
-    finally:
-        guard.restore()
-
-
-def _run_audit_body(options: dict[str, Any], output_dir: Path, guard: SealedPathGuard) -> dict[str, Any]:
-    corpus = load_frozen_corpus()
-    component_index = _attach_records(corpus["component_index"], corpus["train_records"])
-    smoke_limit = 2 if options.get("smoke") else None
     runtime_available = True
     try:
         require_odeformer()
+        get_env()
     except ODEFormerUnavailable:
         runtime_available = False
         if not options.get("smoke"):
             raise
+
+    guard = SealedPathGuard(output_root_abs=output_root_abs())
+    guard.install()
+    try:
+        return _run_audit_body(options, output_dir, guard, runtime_available=runtime_available)
+    finally:
+        guard.restore()
+
+
+def _run_audit_body(
+    options: dict[str, Any],
+    output_dir: Path,
+    guard: SealedPathGuard,
+    *,
+    runtime_available: bool,
+) -> dict[str, Any]:
+    corpus = load_frozen_corpus()
+    component_index = _attach_records(corpus["component_index"], corpus["train_records"])
+    smoke_limit = 2 if options.get("smoke") else None
 
     call_log_path = output_dir / "call_log.jsonl"
     if options.get("resume") and call_log_path.is_file():
