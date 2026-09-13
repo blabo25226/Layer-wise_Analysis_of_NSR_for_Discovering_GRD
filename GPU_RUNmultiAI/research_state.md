@@ -7,7 +7,7 @@ Update it before a parent session ends.
 campaign: GPU_RUNmultiAI
 status: active
 current_cycle: C0001
-current_stage: PREREGISTRATION_V5_READY_FOR_INDEPENDENT_CLOSURE_REVIEW
+current_stage: PREREGISTRATION_V6_READY_FOR_INDEPENDENT_CLOSURE_REVIEW
 branch: 20260912_multiAI_research
 observed_commit: f1a9ec901b4afd13d438f201b71ceef27f2c1645
 base_commit: d4fef3f703cd3ef476529d110930aa34962fa2b0
@@ -28,7 +28,7 @@ tracks:
   scientific:
     status: active
     current_cycle: C0001
-    stage: PREREGISTRATION_V5_READY_FOR_INDEPENDENT_CLOSURE_REVIEW
+    stage: PREREGISTRATION_V6_READY_FOR_INDEPENDENT_CLOSURE_REVIEW
 
 active_tasks:
   - task_id: C0001-T005
@@ -37,16 +37,16 @@ active_tasks:
     worker: Cursor Agent
     branch: ai/C0001/repo-operator/revise-preregistration
     worktree: /tmp/lansr-multiai-C0001-revise-prereg
-    write_scope: [preregistration_draft_v5.md, preregistration_v4_review_response.md, preregistration_v4_closure_review.md, state, task board, MANIFEST.sha256]
+    write_scope: [preregistration_draft_v6.md, preregistration_v5_review_response.md, preregistration_v5_closure_review.md, state, task board, MANIFEST.sha256]
     status: ready_for_independent_closure_review
     started_at: 2026-09-13T02:30:00Z
     completed_at: null
-    expected_outputs: [C0001 preregistration v5, v4 review response]
+    expected_outputs: [C0001 preregistration v6, v5 review response]
     deliverables:
-      - GPU_RUNmultiAI/cycles/C0001/preregistration_draft_v5.md
-      - GPU_RUNmultiAI/cycles/C0001/preregistration_v4_review_response.md
-      - GPU_RUNmultiAI/cycles/C0001/preregistration_v4_closure_review.md
-    acceptance_test: V4-1-V4-8 closed; diagnostic coverage rule; 1320/1320 terminal; 510 SHA256 rewrite; 23550 confirmatory; 25860 grand max; 2-stage readout; G_n1 100/100; G_b4 510/510; not frozen or approved.
+      - GPU_RUNmultiAI/cycles/C0001/preregistration_draft_v6.md
+      - GPU_RUNmultiAI/cycles/C0001/preregistration_v5_review_response.md
+      - GPU_RUNmultiAI/cycles/C0001/preregistration_v5_closure_review.md
+    acceptance_test: v5-R1-v5-R8 closed; exclusive decision order; oracle tri-state; rewrite UTF-8 example; whole-chain scope; component sealed matcher; semantic CLI resume replay; N1 100/100 completed non-equivalent; G_ctrl_cov 480/480; 23550 confirmatory; 25860 grand max; not frozen or approved.
     retry_count: 0
     fallback: Claude Sonnet specialized scientific writing; Codex PI only for conflict resolution
     implementer_identity: Cursor Agent
@@ -146,12 +146,12 @@ retries:
   C0001-T003: 1
 
 next_action: >
-  Assign independent closure review of preregistration_draft_v5.md against
-  preregistration_v4_closure_review.md using preregistration_v4_review_response.md closure map.
-  Reviewer must be distinct from v5 implementer. v5 is ready for review but not frozen or approved.
+  Assign independent closure review of preregistration_draft_v6.md against
+  preregistration_v5_closure_review.md using preregistration_v5_review_response.md closure map.
+  Reviewer must be distinct from v6 implementer. v6 is ready for review but not frozen or approved.
   On PASS, PI may freeze binding_plan. Do not inspect GPU_RUN5 sealed-test raw artifacts.
 
-last_checkpoint_utc: 2026-09-13T03:45:00Z
+last_checkpoint_utc: 2026-09-13T03:38:00Z
 ```
 
 ## Notes
