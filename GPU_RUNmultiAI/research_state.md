@@ -7,7 +7,7 @@ Update it before a parent session ends.
 campaign: GPU_RUNmultiAI
 status: active
 current_cycle: C0001
-current_stage: PREREGISTRATION_REVIEW
+current_stage: PREREGISTRATION_READY_FOR_INDEPENDENT_REVIEW
 branch: 20260912_multiAI_research
 observed_commit: f1a9ec901b4afd13d438f201b71ceef27f2c1645
 base_commit: d4fef3f703cd3ef476529d110930aa34962fa2b0
@@ -28,7 +28,7 @@ tracks:
   scientific:
     status: active
     current_cycle: C0001
-    stage: PREREGISTRATION_REVIEW
+    stage: PREREGISTRATION_READY_FOR_INDEPENDENT_REVIEW
 
 active_tasks:
   - task_id: C0001-T005
@@ -38,9 +38,13 @@ active_tasks:
     branch: ai/C0001/repo-operator/revise-preregistration
     worktree: /tmp/lansr-multiai-C0001-revise-prereg
     write_scope: [preregistration_draft_v2.md, preregistration_review_response.md, state, task board, MANIFEST.sha256]
-    status: planned
-    started_at: null
+    status: ready_for_independent_review
+    started_at: 2026-09-13T02:30:00Z
+    completed_at: null
     expected_outputs: [C0001 preregistration v2, finding-by-finding response]
+    deliverables:
+      - GPU_RUNmultiAI/cycles/C0001/preregistration_draft_v2.md
+      - GPU_RUNmultiAI/cycles/C0001/preregistration_review_response.md
     acceptance_test: C1-C3 and M1-M7 closed; one endpoint; correct full-system scaling chain; exact counts; failure-aware; no leakage.
     retry_count: 0
     fallback: Claude Sonnet specialized scientific writing; Codex PI only for conflict resolution
@@ -141,10 +145,11 @@ retries:
   C0001-T003: 1
 
 next_action: >
-  Run C0001-T005 in its isolated Cursor worktree using the independent review packet, then obtain an independent Claude
-  closure before PI freeze. Do not inspect GPU_RUN5 sealed-test raw artifacts.
+  Assign independent Claude scientific-critic re-review of preregistration_draft_v2.md against
+  preregistration_independent_review.md using preregistration_review_response.md closure map. On PASS, PI may freeze
+  binding_plan. Do not inspect GPU_RUN5 sealed-test raw artifacts.
 
-last_checkpoint_utc: 2026-09-12T14:57:41Z
+last_checkpoint_utc: 2026-09-13T02:30:00Z
 ```
 
 ## Notes
