@@ -1,0 +1,13 @@
+{
+  "denominator": 1320,
+  "partition_rates": {
+    "construction_incomplete": 0.0007575757575757576,
+    "execution_failure": 0.0,
+    "semantic_drift": 0.0007575757575757576,
+    "structural_false_negative": 0.0,
+    "preserved": 0.0,
+    "unknown": 0.0
+  },
+  "diagnostic_coverage_rate": 0.0,
+  "terminal_coverage_rate": 0.0015151515151515152
+}

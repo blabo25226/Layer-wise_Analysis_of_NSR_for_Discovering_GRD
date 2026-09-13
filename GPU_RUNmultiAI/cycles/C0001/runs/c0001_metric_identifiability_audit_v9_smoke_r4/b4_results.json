@@ -1,0 +1,30 @@
+[
+  {
+    "pair_id": "pair_sha256:aa689b66178e503aec6d4604e400b45d3620224ee4919dd1e52316903254d2d6",
+    "component_id": "component_sha256:9c74179cb95b9c59c1172cee61c7c7c0c5547aacb8647faf7c30cfd2823e7fba",
+    "system_id": "R01_train_d61001_000",
+    "component_idx": 0,
+    "truth_infix": "((6626416347727853/144115188075855872 + (((5487636145950949/2251799813685248 * x_0) * 1) * ((1988789595446811/4503599627370496 + x_0) ** -1))) + ((-1 * 955551250937335/1125899906842624) * x_0))",
+    "valid": true,
+    "canonical_exact": 1.0,
+    "exponent_aware_skeleton_exact": 1.0,
+    "classifier_parse_valid": true,
+    "classifier_parse_failure_reason": null,
+    "hill_form": true,
+    "formula_metrics_valid": true
+  },
+  {
+    "pair_id": "pair_sha256:06f5ab160f491958f063f240edce521e8cd3ed9fabb6df8324171c2de8d00cea",
+    "component_id": "component_sha256:40d04b01e7906d32d19b82edd08aa4a4ce16ea920f781efaeedf4d54d9d0d30f",
+    "system_id": "R01_train_d61001_001",
+    "component_idx": 0,
+    "truth_infix": "",
+    "valid": false,
+    "canonical_exact": 0.0,
+    "exponent_aware_skeleton_exact": 1.0,
+    "classifier_parse_valid": false,
+    "classifier_parse_failure_reason": "ParseError",
+    "hill_form": false,
+    "formula_metrics_valid": false
+  }
+]

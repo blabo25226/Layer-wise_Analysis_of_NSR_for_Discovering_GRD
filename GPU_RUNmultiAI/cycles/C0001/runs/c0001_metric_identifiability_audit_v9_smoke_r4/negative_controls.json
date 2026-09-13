@@ -1,0 +1,54 @@
+[
+  {
+    "negative_id": "negative_sha256:018140b909eb51b287b5852aa6ff8856f24817d2102519d8983fa613998078e1",
+    "canonical_key": "audit_negative_seed=61004|system_id=R03_train_d61001_007|component_idx=0",
+    "selected_c": 3,
+    "negative_prefix": "add,add,mul,0.6985,inv,add,0.3257,pow2,x_1,mul,-1,mul,0.8712,x_0,3",
+    "negative_infix": "((((0.6985 * (1 / (0.3257 + pow2(x_1)))) + (-1 * (0.8712 * x_0))))+(3))",
+    "oracle": {
+      "completed": false,
+      "analytic_equivalent": false,
+      "numeric_equivalent": false,
+      "equivalent": false,
+      "failure_reason": "ParseError",
+      "rational_tokens": {},
+      "parsed_rationals": {}
+    },
+    "valid": false
+  },
+  {
+    "negative_id": "negative_sha256:02490f2efa92ea5c9b2027d59f8239ed64cc32da1d27280f2426c7860fa4be73",
+    "canonical_key": "audit_negative_seed=61004|system_id=R03_train_d61001_006|component_idx=1",
+    "selected_c": 5,
+    "negative_prefix": "add,add,mul,2.473,inv,add,1.028,x_0,mul,-1,mul,0.7833,x_1,5",
+    "negative_infix": "((((2.473 * (1 / (1.028 + x_0))) + (-1 * (0.7833 * x_1))))+(5))",
+    "oracle": {
+      "completed": true,
+      "analytic_equivalent": false,
+      "numeric_equivalent": false,
+      "equivalent": false,
+      "failure_reason": null,
+      "rational_tokens": {
+        "2.473": "2.473",
+        "1": "1",
+        "1.028": "1.028",
+        "0": "0",
+        "0.7833": "0.7833",
+        "5": "5"
+      },
+      "parsed_rationals": {
+        "2.473": "2473/1000",
+        "1": "1",
+        "1.028": "257/250",
+        "0": "0",
+        "0.7833": "7833/10000",
+        "5": "5",
+        "2784350469621809/1125899906842624": "2784350469621809/1125899906842624",
+        "2314850208468435/2251799813685248": "2314850208468435/2251799813685248",
+        "-1": "-1",
+        "7055339176238619/9007199254740992": "7055339176238619/9007199254740992"
+      }
+    },
+    "valid": true
+  }
+]
