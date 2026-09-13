@@ -1,0 +1,30 @@
+[
+  {
+    "pair_id": "pair_sha256:aa689b66178e503aec6d4604e400b45d3620224ee4919dd1e52316903254d2d6",
+    "component_id": "component_sha256:9c74179cb95b9c59c1172cee61c7c7c0c5547aacb8647faf7c30cfd2823e7fba",
+    "system_id": "R01_train_d61001_000",
+    "component_idx": 0,
+    "truth_infix": "(((2299 * (50000 ** -1)) + ((((2437 * (1000 ** -1)) * x_0) * 1) * (((276 * (625 ** -1)) + x_0) ** -1))) + (((-1 * 8487) * (10000 ** -1)) * x_0))",
+    "valid": true,
+    "canonical_exact": 1.0,
+    "exponent_aware_skeleton_exact": 1.0,
+    "classifier_parse_valid": true,
+    "classifier_parse_failure_reason": null,
+    "hill_form": true,
+    "formula_metrics_valid": true
+  },
+  {
+    "pair_id": "pair_sha256:06f5ab160f491958f063f240edce521e8cd3ed9fabb6df8324171c2de8d00cea",
+    "component_id": "component_sha256:40d04b01e7906d32d19b82edd08aa4a4ce16ea920f781efaeedf4d54d9d0d30f",
+    "system_id": "R01_train_d61001_001",
+    "component_idx": 0,
+    "truth_infix": "(((903 * (5000 ** -1)) + ((((1231 * (500 ** -1)) * (x_0 ** 2)) * 1) * (((2143 * (2500 ** -1)) + (x_0 ** 2)) ** -1))) + (((-1 * 253) * (400 ** -1)) * x_0))",
+    "valid": true,
+    "canonical_exact": 1.0,
+    "exponent_aware_skeleton_exact": 1.0,
+    "classifier_parse_valid": true,
+    "classifier_parse_failure_reason": null,
+    "hill_form": true,
+    "formula_metrics_valid": true
+  }
+]

@@ -7,9 +7,9 @@ Update it before a parent session ends.
 campaign: GPU_RUNmultiAI
 status: active
 current_cycle: C0001
-current_stage: IMPLEMENTATION_R4_READY_FOR_REVIEW
-branch: 20260912_multiAI_research
-observed_commit: 6d29b02a207bf8329d764e31c3e45ed3a7beea2d
+current_stage: IMPLEMENTATION_R5_READY_FOR_REVIEW
+branch: ai/C0001/research-engineer/implement-metric-audit
+observed_commit: c739aa2da7ca1ee275409e949ca2a8a77c8e524d
 base_commit: d4fef3f703cd3ef476529d110930aa34962fa2b0
 remote_branch: 20260912_multiAI_research
 remote_commit: 441c3768cac0e2128fe196fea7b0caadfdde7a76
@@ -37,9 +37,27 @@ tracks:
   scientific:
     status: active
     current_cycle: C0001
-    stage: IMPLEMENTATION_R4_READY_FOR_REVIEW
+    stage: IMPLEMENTATION_R5_READY_FOR_REVIEW
 
 active_tasks:
+  - task_id: C0001-T006-R5
+    track: scientific
+    role: research-engineer / repo-operator
+    worker: Cursor Agent
+    branch: ai/C0001/research-engineer/implement-metric-audit
+    worktree: /tmp/lansr-multiai-C0001-implement-audit
+    write_scope: [src/gpu_runmultiai, focused tests, R5 smoke evidence, state]
+    status: ready_for_review
+    started_at: 2026-09-14T06:00:00Z
+    expected_outputs: [R4-1..R4-8 repairs, 51 focused pytest PASS, bounded smoke_r5]
+    deliverables:
+      - src/gpu_runmultiai/
+      - tests/test_gpu_runmultiai_c0001_metric_audit.py
+      - GPU_RUNmultiAI/cycles/C0001/runs/c0001_metric_identifiability_audit_v9_smoke_r5/
+      - GPU_RUNmultiAI/cycles/C0001/implementation_completion_r5.md
+    acceptance_test: R4-1..R4-8; compileall; focused pytest 51 passed; diff check; smoke manifest commit match
+    retry_count: 0
+    prior_task: C0001-T006-R4
   - task_id: C0001-T006-R4
     track: scientific
     role: research-engineer / repo-operator
@@ -47,7 +65,7 @@ active_tasks:
     branch: ai/C0001/research-engineer/implement-metric-audit
     worktree: /tmp/lansr-multiai-C0001-implement-audit
     write_scope: [src/gpu_runmultiai, focused tests, implementation completion, state]
-    status: ready_for_review
+    status: superseded_by_T006_R5
     started_at: 2026-09-14T05:00:00Z
     expected_outputs: [R3-1..R3-2 and all P1/P2 gaps, focused pytest exit 0, bounded smoke]
     deliverables:
@@ -240,12 +258,12 @@ retries:
   C0001-T003: 1
 
 next_action: >
-  PI independent review of C0001-T006-R4 on branch
-  ai/C0001/research-engineer/implement-metric-audit; lansr310 focused pytest 38 passed exit 0;
-  R3-1/R3-2 and P1/P2 gaps implemented; bounded smoke manifest must match commit and D2 confirmatory=0;
-  do not run full confirmatory audit until independent review passes.
+  Independent reproducibility review of C0001-T006-R5 on branch
+  ai/C0001/research-engineer/implement-metric-audit; code commit c739aa2; smoke_r5 manifest
+  commit must match code commit; lansr310 focused pytest 51 passed; D2 descriptive-only live test PASS;
+  do not run full confirmatory audit until review passes.
 
-last_checkpoint_utc: 2026-09-14T05:30:00Z
+last_checkpoint_utc: 2026-09-14T06:30:00Z
 ```
 
 ## Notes
