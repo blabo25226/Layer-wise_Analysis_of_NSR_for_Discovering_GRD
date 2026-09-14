@@ -7,7 +7,7 @@ Update it before a parent session ends.
 campaign: GPU_RUNmultiAI
 status: active
 current_cycle: C0001
-current_stage: IMPLEMENTATION_R5_READY_FOR_REVIEW
+current_stage: PREREGISTRATION_V10_AMENDMENT_DRAFTING
 branch: ai/C0001/research-engineer/implement-metric-audit
 observed_commit: c739aa2da7ca1ee275409e949ca2a8a77c8e524d
 base_commit: d4fef3f703cd3ef476529d110930aa34962fa2b0
@@ -37,9 +37,20 @@ tracks:
   scientific:
     status: active
     current_cycle: C0001
-    stage: IMPLEMENTATION_R5_READY_FOR_REVIEW
+    stage: PREREGISTRATION_V10_AMENDMENT_DRAFTING
 
 active_tasks:
+  - task_id: C0001-T009
+    track: scientific
+    role: research-engineer / scientific-writer
+    worker: Claude Code
+    branch: ai/C0001/research-engineer/implement-metric-audit
+    worktree: /tmp/lansr-multiai-C0001-implement-audit
+    write_scope: [v10 preregistration draft, v9-to-v10 change table, drafting completion]
+    status: queued
+    expected_outputs: [complete v10 draft, exhaustive change table, call recount, reachable decision fixtures]
+    acceptance_test: v9 unchanged; audit id v10; denominator 1320; Q4 contract executable; call recount; diff check; commit/push/remote verification
+    prior_task: C0001-T007-R5
   - task_id: C0001-T006-R5
     track: scientific
     role: research-engineer / repo-operator
@@ -47,7 +58,7 @@ active_tasks:
     branch: ai/C0001/research-engineer/implement-metric-audit
     worktree: /tmp/lansr-multiai-C0001-implement-audit
     write_scope: [src/gpu_runmultiai, focused tests, R5 smoke evidence, state]
-    status: ready_for_review
+    status: blocked_by_round5_and_v10_amendment
     started_at: 2026-09-14T06:00:00Z
     expected_outputs: [R4-1..R4-8 repairs, 51 focused pytest PASS, bounded smoke_r5]
     deliverables:
@@ -248,6 +259,9 @@ completed_tasks:
     integration_commit: 47d7459
     result: four C0001 evidence and preregistration draft artifacts persisted
 open_findings:
+  - Frozen v9 is immutable but pre-confirmatory review found an unreachable negative decision caused by E2 four-decimal quantization versus original-truth exact equivalence. Full audit is prohibited; v10 drafting is queued.
+  - R5 implementation is blocked on F1-F8 in implementation_review_round5.md. The focused 51-test PASS includes assertions of the broken E1 outcome and is not an acceptance signal.
+  - Two R5 Codex review subagents failed because of shared usage limits; Claude completed the independent review. Gemini completed a methodology scout; a second Claude methodology call was stopped after seven minutes without output.
   - Eight pre-existing GPU_RUN5 worktree records are prunable; they are unrelated to C0000 and were left untouched.
   - Gemini headless filesystem access soft-denies read_file/ListDir and can exit 0 without producing an artifact.
   - Claude critic raised a possible rescaling/exact-skeleton non-invariance; an exploratory algebraically equivalent formula check reproduced a false negative, but the actual pipeline round-trip remains untested.
@@ -258,6 +272,10 @@ retries:
   C0001-T003: 1
 
 next_action: >
+  Delegate C0001-T009 to Claude in write mode. Draft and push preregistration v10
+  plus the exhaustive v9-to-v10 change table. Then run an independent methodology
+  review and freeze only after all endpoint, Q4, call-count, and reachable-decision
+  findings close. Do not edit implementation or run the full audit before freeze.
   Independent reproducibility review of C0001-T006-R5 on branch
   ai/C0001/research-engineer/implement-metric-audit; code commit c739aa2; smoke_r5 manifest
   commit must match code commit; lansr310 focused pytest 51 passed; D2 descriptive-only live test PASS;
