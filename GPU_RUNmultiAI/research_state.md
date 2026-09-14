@@ -7,9 +7,9 @@ Update it before a parent session ends.
 campaign: GPU_RUNmultiAI
 status: active
 current_cycle: C0001
-current_stage: PREREGISTRATION_V10_AMENDMENT_DRAFTING
+current_stage: PREREGISTRATION_V10_INDEPENDENT_REVIEW
 branch: ai/C0001/research-engineer/implement-metric-audit
-observed_commit: c739aa2da7ca1ee275409e949ca2a8a77c8e524d
+observed_commit: 985b2445d8256a691de07963390ab257cbfe7ebe
 base_commit: d4fef3f703cd3ef476529d110930aa34962fa2b0
 remote_branch: 20260912_multiAI_research
 remote_commit: 441c3768cac0e2128fe196fea7b0caadfdde7a76
@@ -37,17 +37,25 @@ tracks:
   scientific:
     status: active
     current_cycle: C0001
-    stage: PREREGISTRATION_V10_AMENDMENT_DRAFTING
+    stage: PREREGISTRATION_V10_INDEPENDENT_REVIEW
 
 active_tasks:
   - task_id: C0001-T009
     track: scientific
     role: research-engineer / scientific-writer
-    worker: Claude Code
+    worker: Cursor Agent
     branch: ai/C0001/research-engineer/implement-metric-audit
     worktree: /tmp/lansr-multiai-C0001-implement-audit
     write_scope: [v10 preregistration draft, v9-to-v10 change table, drafting completion]
-    status: queued
+    status: ready_for_independent_review
+    started_at: 2026-09-14T04:00:00Z
+    completed_at: 2026-09-14T04:30:00Z
+    fallback: Claude Code write attempts 1-2 produced no file edits; Cursor authorized fallback
+    retry_count: 2
+    deliverables:
+      - GPU_RUNmultiAI/cycles/C0001/preregistration_draft_v10.md
+      - GPU_RUNmultiAI/cycles/C0001/preregistration_v9_to_v10_change_table.md
+      - GPU_RUNmultiAI/cycles/C0001/preregistration_v10_drafting_completion.md
     expected_outputs: [complete v10 draft, exhaustive change table, call recount, reachable decision fixtures]
     acceptance_test: v9 unchanged; audit id v10; denominator 1320; Q4 contract executable; call recount; diff check; commit/push/remote verification
     prior_task: C0001-T007-R5
@@ -259,7 +267,8 @@ completed_tasks:
     integration_commit: 47d7459
     result: four C0001 evidence and preregistration draft artifacts persisted
 open_findings:
-  - Frozen v9 is immutable but pre-confirmatory review found an unreachable negative decision caused by E2 four-decimal quantization versus original-truth exact equivalence. Full audit is prohibited; v10 drafting is queued.
+  - Frozen v9 is immutable. v10 draft complete (audit_id c0001_metric_identifiability_audit_v10; confirmatory 27636 calls). Independent methodology review and freeze pending. Full audit prohibited until v10 freeze.
+  - Claude Code made two write attempts on C0001-T009 with no file edits; Cursor fallback produced v10 deliverables.
   - R5 implementation is blocked on F1-F8 in implementation_review_round5.md. The focused 51-test PASS includes assertions of the broken E1 outcome and is not an acceptance signal.
   - Two R5 Codex review subagents failed because of shared usage limits; Claude completed the independent review. Gemini completed a methodology scout; a second Claude methodology call was stopped after seven minutes without output.
   - Eight pre-existing GPU_RUN5 worktree records are prunable; they are unrelated to C0000 and were left untouched.
@@ -272,16 +281,13 @@ retries:
   C0001-T003: 1
 
 next_action: >
-  Delegate C0001-T009 to Claude in write mode. Draft and push preregistration v10
-  plus the exhaustive v9-to-v10 change table. Then run an independent methodology
-  review and freeze only after all endpoint, Q4, call-count, and reachable-decision
-  findings close. Do not edit implementation or run the full audit before freeze.
-  Independent reproducibility review of C0001-T006-R5 on branch
-  ai/C0001/research-engineer/implement-metric-audit; code commit c739aa2; smoke_r5 manifest
-  commit must match code commit; lansr310 focused pytest 51 passed; D2 descriptive-only live test PASS;
-  do not run full confirmatory audit until review passes.
+  Run independent methodology review on preregistration_draft_v10.md (reachable fixtures,
+  Q4 non-circularity, 27636/30276 recount, G_q4ref). Close review findings; freeze v10
+  at exact path and SHA256 only after PASS. Then implement F1-F8 against frozen v10 and
+  bounded smoke_r6. Do not run full confirmatory audit before v10 freeze and post-freeze
+  implementation review. C0001-T006-R5 remains blocked until v10 freeze.
 
-last_checkpoint_utc: 2026-09-14T06:30:00Z
+last_checkpoint_utc: 2026-09-14T04:30:00Z
 ```
 
 ## Notes
