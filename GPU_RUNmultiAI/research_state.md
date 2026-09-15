@@ -7,7 +7,7 @@ Update it before a parent session ends.
 campaign: GPU_RUNmultiAI
 status: active
 current_cycle: C0001
-current_stage: PREREGISTRATION_V13_REVISION_QUEUED
+current_stage: PREREGISTRATION_V13_READY_FOR_REVIEW
 branch: ai/C0001/research-engineer/implement-metric-audit
 observed_commit: 7ed72c5a0d10d68a3bb48edb936e7b84a6a98678
 base_commit: d4fef3f703cd3ef476529d110930aa34962fa2b0
@@ -37,20 +37,20 @@ tracks:
   scientific:
     status: active
     current_cycle: C0001
-    stage: PREREGISTRATION_V13_REVISION_QUEUED
+    stage: PREREGISTRATION_V13_READY_FOR_REVIEW
 
 active_tasks:
-  - task_id: C0001-T012
+  - task_id: C0001-T012-REVIEW
     track: scientific
-    role: repo-operator / scientific-document-implementer
-    worker: Cursor Agent
+    role: independent reviewer (Claude reproducibility-auditor / scientific-critic)
+    worker: Claude Code + Codex independent subagent
     branch: ai/C0001/research-engineer/implement-metric-audit
     worktree: /tmp/lansr-multiai-C0001-implement-audit
-    write_scope: [v13 preregistration, v12 review response, drafting completion, state]
+    write_scope: [targeted v13 closure review only]
     status: queued
-    expected_outputs: [self-contained v13, R12-1..R12-5 closure, stable provenance]
-    acceptance_test: 7 Q4 fixtures; counts 27637/2640/30277; complete algorithms/schemas/resume/guard/source hashes; diff check; push verification
-    prior_task: C0001-T011-REVIEW
+    expected_outputs: [v13 closure verdict PASS or BLOCK on R12-1..R12-5]
+    acceptance_test: read-only review of v13 changed sections; v9-v12 bytes unchanged; no freeze without PASS
+    prior_task: C0001-T012
   - task_id: C0001-T011-REVIEW
     track: scientific
     role: independent reviewer (Claude reproducibility-auditor / scientific-critic)
@@ -225,6 +225,24 @@ active_tasks:
     reviewer_diff_assertion: true
     evidence_packet: GPU_RUNmultiAI/cycles/C0001/implementation_handoff.md
 completed_tasks:
+  - task_id: C0001-T012
+    track: scientific
+    role: repo-operator / scientific-document-implementer
+    worker: Cursor Agent
+    branch: ai/C0001/research-engineer/implement-metric-audit
+    worktree: /tmp/lansr-multiai-C0001-implement-audit
+    status: completed
+    started_at: 2026-09-15T15:00:00Z
+    completed_at: 2026-09-15T15:30:00Z
+    content_source_commit: 7ed72c5a0d10d68a3bb48edb936e7b84a6a98678
+    deliverables:
+      - GPU_RUNmultiAI/cycles/C0001/preregistration_draft_v13.md
+      - GPU_RUNmultiAI/cycles/C0001/preregistration_v12_review_response.md
+      - GPU_RUNmultiAI/cycles/C0001/preregistration_v13_drafting_completion.md
+    plan_sha256: c70502e194cac0420a5724b8ca7608ab92006aaad9f8c19faccf0d412447a962
+    expected_outputs: [self-contained v13, R12-1..R12-5 closure, stable provenance]
+    acceptance_test: 7 Q4 fixtures; counts 27637/2640/30277; complete algorithms/schemas/resume/guard/source hashes; diff check; push verification
+    prior_task: C0001-T011-REVIEW
   - task_id: C0001-T011
     track: scientific
     role: repo-operator / scientific-document-implementer
@@ -339,9 +357,8 @@ completed_tasks:
     integration_commit: 47d7459
     result: four C0001 evidence and preregistration draft artifacts persisted
 open_findings:
-  - v12 targeted independent review BLOCKED freeze. v13 revision is queued to close R12-1 through R12-5. Full audit remains prohibited.
-  - v13 must add counted Rational q4_fixture_07 and use confirmatory 27,637, D2 2,640, grand 30,277.
-  - v13 must separate production Q4 operator arity from audit-oracle pow4 support, inline n-ary folding, and restore full guard/artifact/resume/provenance contracts.
+  - v13 draft ready for targeted independent review (R12-1 through R12-5). Full audit remains prohibited until v13 freeze PASS.
+  - v12 remains unfrozen historical draft only (BLOCK verdict preserved).
   - v11 independent closure review BLOCKED freeze (historical). v11 remains unfrozen historical draft only.
   - PI ruled reachability_evidence.json is a post-freeze G_impl artifact, not a pre-freeze file.
   - REACH-UNS-1 constructive 1,320-row synthetic proof artifact not yet generated (G_impl implementation evidence pending).
@@ -361,12 +378,12 @@ retries:
   C0001-T003: 1
 
 next_action: >
-  Delegate C0001-T012 to Cursor in the existing isolated worktree. Produce and
-  push self-contained v13, then run targeted independent closure review of
-  R12-1 through R12-5. Freeze only after PASS; then implement G_impl and bounded
-  smoke. Do not run full audit before freeze.
+  Run targeted independent closure review on v13 (R12-1 through R12-5 only).
+  Verify v9-v12 bytes unchanged and plan SHA256 c70502e194cac0420a5724b8ca7608ab92006aaad9f8c19faccf0d412447a962.
+  Freeze only after PASS; then implement G_impl and bounded smoke. Do not run
+  full 27,637-call audit before freeze.
 
-last_checkpoint_utc: 2026-09-15T15:12:28Z
+last_checkpoint_utc: 2026-09-15T15:30:00Z
 ```
 
 ## Notes
