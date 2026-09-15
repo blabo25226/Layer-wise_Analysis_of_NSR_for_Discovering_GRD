@@ -7,12 +7,13 @@ Update it before a parent session ends.
 campaign: GPU_RUNmultiAI
 status: active
 current_cycle: C0001
-current_stage: PREREGISTRATION_V13_READY_FOR_REVIEW
+current_stage: PREREGISTRATION_V14_REVISION_QUEUED
 branch: ai/C0001/research-engineer/implement-metric-audit
-observed_commit: 7ed72c5a0d10d68a3bb48edb936e7b84a6a98678
+observed_commit: ad4dc017c9ed8e11342f0e958c682c26cf362b75
 base_commit: d4fef3f703cd3ef476529d110930aa34962fa2b0
 remote_branch: ai/C0001/research-engineer/implement-metric-audit
-remote_commit: ec5063115e1037e889f0261b1fe463f880126151
+remote_commit: ad4dc017c9ed8e11342f0e958c682c26cf362b75
+remote_verification_scope: reviewed_tip_before_review_record_commit
 last_push_attempt_utc: 2026-09-15T15:35:00Z
 last_push_error: null
 binding_plan:
@@ -37,9 +38,20 @@ tracks:
   scientific:
     status: active
     current_cycle: C0001
-    stage: PREREGISTRATION_V13_READY_FOR_REVIEW
+    stage: PREREGISTRATION_V14_REVISION_QUEUED
 
 active_tasks:
+  - task_id: C0001-T013
+    track: scientific
+    role: repo-operator / scientific-document-implementer
+    worker: Cursor Agent
+    branch: ai/C0001/research-engineer/implement-metric-audit
+    worktree: /tmp/lansr-multiai-C0001-implement-audit
+    write_scope: [v14 preregistration, v13 review response, drafting completion, state]
+    status: queued
+    expected_outputs: [self-contained v14, R13-1..R13-6 closure, stable provenance]
+    acceptance_test: executable 7 Q4 fixtures; full guard/source/artifact/resume contracts; G_contract; diff check; push verification
+    prior_task: C0001-T012-REVIEW
   - task_id: C0001-T012-REVIEW
     track: scientific
     role: independent reviewer (Claude reproducibility-auditor / scientific-critic)
@@ -47,7 +59,10 @@ active_tasks:
     branch: ai/C0001/research-engineer/implement-metric-audit
     worktree: /tmp/lansr-multiai-C0001-implement-audit
     write_scope: [targeted v13 closure review only]
-    status: queued
+    status: completed_block
+    reviewed_commit: ad4dc017c9ed8e11342f0e958c682c26cf362b75
+    reviewed_plan_sha256: c70502e194cac0420a5724b8ca7608ab92006aaad9f8c19faccf0d412447a962
+    result: v13 BLOCK; R13-1 through R13-6 recorded; revise to v14
     expected_outputs: [v13 closure verdict PASS or BLOCK on R12-1..R12-5]
     acceptance_test: read-only review of v13 changed sections; v9-v12 bytes unchanged; no freeze without PASS
     prior_task: C0001-T012
@@ -359,7 +374,9 @@ completed_tasks:
     integration_commit: 47d7459
     result: four C0001 evidence and preregistration draft artifacts persisted
 open_findings:
-  - v13 draft ready for targeted independent review (R12-1 through R12-5). Full audit remains prohibited until v13 freeze PASS.
+  - v13 targeted independent review BLOCKED freeze. v14 revision is queued to close R13-1 through R13-6. Full audit remains prohibited.
+  - v13 source hashes bind the broken pre-implementation runtime and would prevent required post-freeze F repairs; v14 must bind paths now and accepted hashes after implementation closure.
+  - v13 Q4 Rational and n-ary fixtures are not executable against the frozen API/fold and must be corrected without changing the seven-call budget.
   - v12 remains unfrozen historical draft only (BLOCK verdict preserved).
   - v11 independent closure review BLOCKED freeze (historical). v11 remains unfrozen historical draft only.
   - PI ruled reachability_evidence.json is a post-freeze G_impl artifact, not a pre-freeze file.
@@ -380,12 +397,11 @@ retries:
   C0001-T003: 1
 
 next_action: >
-  Run targeted independent closure review on v13 (R12-1 through R12-5 only).
-  Verify v9-v12 bytes unchanged and plan SHA256 c70502e194cac0420a5724b8ca7608ab92006aaad9f8c19faccf0d412447a962.
-  Freeze only after PASS; then implement G_impl and bounded smoke. Do not run
-  full 27,637-call audit before freeze.
+  Delegate C0001-T013 to Cursor in the existing isolated worktree. Produce and
+  push self-contained v14 using at most two commits, then run targeted
+  independent closure review of R13-1 through R13-6. Freeze only after PASS.
 
-last_checkpoint_utc: 2026-09-15T15:30:00Z
+last_checkpoint_utc: 2026-09-15T15:28:29Z
 ```
 
 ## Notes
