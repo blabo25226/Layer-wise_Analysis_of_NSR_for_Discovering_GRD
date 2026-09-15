@@ -7,6 +7,9 @@
 - starting_tip: `642d063ed7b32857394a22e056ce455321f961c8`
 - completed_at_utc: 2026-09-16T00:00:00Z
 - content_source_commit: `642d063ed7b32857394a22e056ce455321f961c8`
+- deliverable_commit: `a648aa72a5fac1f40be46faba474f0b8d98659ca`
+- v12 SHA256: `fc90aef070977e8b889fc9f0f89ae8bbcb92afb011133ab1cbb4e1f3fa78cee0`
+- remote_verified: `a648aa72a5fac1f40be46faba474f0b8d98659ca` (LOCAL==REMOTE PASS)
 - status: **ready_for_targeted_review**
 - frozen: **NO**
 
@@ -92,7 +95,13 @@ Run at commit time (see commit record).
 
 ## Remote verification
 
-Recorded after commit/push in stdout only. `observed_commit` in state reflects content source commit, not post-push tip chase.
+```text
+deliverable_commit=a648aa72a5fac1f40be46faba474f0b8d98659ca
+remote_commit=a648aa72a5fac1f40be46faba474f0b8d98659ca
+REMOTE_VERIFY=PASS
+```
+
+`observed_commit` in state remains content source `642d063` (no tip chase).
 
 ## Next steps (out of T011 scope)
 
