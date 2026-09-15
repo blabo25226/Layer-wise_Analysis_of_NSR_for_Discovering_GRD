@@ -7,9 +7,9 @@ Update it before a parent session ends.
 campaign: GPU_RUNmultiAI
 status: active
 current_cycle: C0001
-current_stage: PREREGISTRATION_V12_REVISION_QUEUED
+current_stage: PREREGISTRATION_V12_READY_FOR_TARGETED_REVIEW
 branch: ai/C0001/research-engineer/implement-metric-audit
-observed_commit: 5fdb2af29682625552efdfea11a0e4c0734a36de
+observed_commit: 642d063ed7b32857394a22e056ce455321f961c8
 base_commit: d4fef3f703cd3ef476529d110930aa34962fa2b0
 remote_branch: 20260912_multiAI_research
 remote_commit: 441c3768cac0e2128fe196fea7b0caadfdde7a76
@@ -37,20 +37,20 @@ tracks:
   scientific:
     status: active
     current_cycle: C0001
-    stage: PREREGISTRATION_V12_REVISION_QUEUED
+    stage: PREREGISTRATION_V12_READY_FOR_TARGETED_REVIEW
 
 active_tasks:
-  - task_id: C0001-T011
+  - task_id: C0001-T011-REVIEW
     track: scientific
-    role: repo-operator / scientific-document-implementer
-    worker: Cursor Agent
+    role: independent reviewer (Claude reproducibility-auditor / scientific-critic)
+    worker: Claude Code + Codex independent subagent
     branch: ai/C0001/research-engineer/implement-metric-audit
     worktree: /tmp/lansr-multiai-C0001-implement-audit
-    write_scope: [v12 preregistration, v11 review response, v12 completion, state]
+    write_scope: [targeted v12 closure review only]
     status: queued
-    expected_outputs: [self-contained v12, R11-1..R11-9 closure, stable provenance]
-    acceptance_test: historical hashes unchanged; exact counts; complete schemas; targeted diff check; commit/push/remote verification
-    prior_task: C0001-T010-REVIEW
+    expected_outputs: [v12 closure verdict PASS or BLOCK]
+    acceptance_test: read-only review of v12 changed sections; R11-1..R11-9 verification; no freeze without PASS
+    prior_task: C0001-T011
   - task_id: C0001-T010-REVIEW
     track: scientific
     role: independent reviewer (Claude reproducibility-auditor / scientific-critic)
@@ -211,6 +211,23 @@ active_tasks:
     reviewer_diff_assertion: true
     evidence_packet: GPU_RUNmultiAI/cycles/C0001/implementation_handoff.md
 completed_tasks:
+  - task_id: C0001-T011
+    track: scientific
+    role: repo-operator / scientific-document-implementer
+    worker: Cursor Agent
+    branch: ai/C0001/research-engineer/implement-metric-audit
+    worktree: /tmp/lansr-multiai-C0001-implement-audit
+    status: completed
+    started_at: 2026-09-16T00:00:00Z
+    completed_at: 2026-09-16T00:00:00Z
+    content_source_commit: 642d063ed7b32857394a22e056ce455321f961c8
+    deliverables:
+      - GPU_RUNmultiAI/cycles/C0001/preregistration_draft_v12.md
+      - GPU_RUNmultiAI/cycles/C0001/preregistration_v11_review_response.md
+      - GPU_RUNmultiAI/cycles/C0001/preregistration_v12_drafting_completion.md
+    expected_outputs: [self-contained v12, R11-1..R11-9 closure, stable provenance]
+    acceptance_test: historical hashes unchanged; exact counts; complete schemas; diff check; commit/push/remote verification
+    prior_task: C0001-T010-REVIEW
   - task_id: C0001-T005
     track: scientific
     role: repo-operator + independent reviewer + research-pi
@@ -308,9 +325,9 @@ completed_tasks:
     integration_commit: 47d7459
     result: four C0001 evidence and preregistration draft artifacts persisted
 open_findings:
-  - v11 independent closure review BLOCKED freeze. Required v12 repairs are R11-1 through R11-9 in preregistration_v11_independent_review.md.
-  - PI ruled reachability_evidence.json is a post-freeze G_impl artifact, not a pre-freeze file; real classifier/oracle fixtures and decision logic were independently verified before v12 drafting.
-  - v11 draft complete (audit_id c0001_metric_identifiability_audit_v11; B1-B9 response written). Independent closure review queued. v11 remains unfrozen. Full audit prohibited until v11 freeze.
+  - v12 draft complete (audit_id c0001_metric_identifiability_audit_v12; R11-1..R11-9 response written). Targeted independent closure review queued. v12 remains unfrozen. Full audit prohibited until v12 freeze.
+  - v11 independent closure review BLOCKED freeze (historical). v11 remains unfrozen historical draft only.
+  - PI ruled reachability_evidence.json is a post-freeze G_impl artifact, not a pre-freeze file.
   - REACH-UNS-1 constructive 1,320-row synthetic proof artifact not yet generated (G_impl implementation evidence pending).
   - F1-F8 implementation repairs still blocked; G_impl requires post-freeze code acceptance.
   - Gemini v10 bulk audit produced no result because command permission was auto-denied; exit 0 is not PASS.
@@ -328,12 +345,12 @@ retries:
   C0001-T003: 1
 
 next_action: >
-  Delegate C0001-T011 to Cursor on the isolated task worktree. Produce and push
-  self-contained preregistration v12 plus the R11 response. Obtain targeted
-  independent closure PASS before freeze. Do not edit implementation or run the
-  full audit.
+  Delegate C0001-T011-REVIEW for targeted independent closure on v12 changed
+  sections. Verify R11-1..R11-9 closure, counts, G_stratum/G1/G_grand split,
+  and REACH decision fixtures. Freeze only after PASS; then implement G_impl
+  (F1,F2,F4,F5,F6,F7,F8) and bounded smoke. Do not run full audit before freeze.
 
-last_checkpoint_utc: 2026-09-15T14:45:00Z
+last_checkpoint_utc: 2026-09-16T00:00:00Z
 ```
 
 ## Notes
