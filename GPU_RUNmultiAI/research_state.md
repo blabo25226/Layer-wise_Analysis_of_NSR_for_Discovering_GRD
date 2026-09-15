@@ -7,9 +7,9 @@ Update it before a parent session ends.
 campaign: GPU_RUNmultiAI
 status: active
 current_cycle: C0001
-current_stage: PREREGISTRATION_V11_REVISION_QUEUED
+current_stage: PREREGISTRATION_V11_READY_FOR_INDEPENDENT_CLOSURE_REVIEW
 branch: ai/C0001/research-engineer/implement-metric-audit
-observed_commit: 985b2445d8256a691de07963390ab257cbfe7ebe
+observed_commit: 402cac89511364b597dfde71e160685ca87ecf73
 base_commit: d4fef3f703cd3ef476529d110930aa34962fa2b0
 remote_branch: 20260912_multiAI_research
 remote_commit: 441c3768cac0e2128fe196fea7b0caadfdde7a76
@@ -37,9 +37,20 @@ tracks:
   scientific:
     status: active
     current_cycle: C0001
-    stage: PREREGISTRATION_V11_REVISION_QUEUED
+    stage: PREREGISTRATION_V11_READY_FOR_INDEPENDENT_CLOSURE_REVIEW
 
 active_tasks:
+  - task_id: C0001-T010-REVIEW
+    track: scientific
+    role: independent reviewer (Claude reproducibility-auditor / scientific-critic)
+    worker: pending delegation
+    branch: ai/C0001/research-engineer/implement-metric-audit
+    worktree: /tmp/lansr-multiai-C0001-implement-audit
+    write_scope: [independent closure review only]
+    status: queued
+    expected_outputs: [v11 closure verdict PASS or BLOCK]
+    acceptance_test: read-only review of v11 bytes; B1-B9 closure verification; no freeze without PASS
+    prior_task: C0001-T010
   - task_id: C0001-T010
     track: scientific
     role: repo-operator / scientific-document-implementer
@@ -47,7 +58,13 @@ active_tasks:
     branch: ai/C0001/research-engineer/implement-metric-audit
     worktree: /tmp/lansr-multiai-C0001-implement-audit
     write_scope: [v11 preregistration, v10 review response, drafting completion, state, human review queue]
-    status: queued
+    status: completed
+    started_at: 2026-09-15T14:00:00Z
+    completed_at: 2026-09-15T14:45:00Z
+    deliverables:
+      - GPU_RUNmultiAI/cycles/C0001/preregistration_draft_v11.md
+      - GPU_RUNmultiAI/cycles/C0001/preregistration_v10_review_response.md
+      - GPU_RUNmultiAI/cycles/C0001/preregistration_v11_drafting_completion.md
     expected_outputs: [self-contained v11, B1-B9 response, reachable fixtures, G_impl, G_b1]
     acceptance_test: v9/v10 unchanged; no cross-reference-only binding rules; counts reconcile; diff check; commit/push/remote verification
     prior_task: C0001-T010-REVIEW
@@ -278,9 +295,11 @@ completed_tasks:
     integration_commit: 47d7459
     result: four C0001 evidence and preregistration draft artifacts persisted
 open_findings:
-  - v10 independent Claude closure review BLOCKED freeze on B1-B9: silent simplifier fallback, unfrozen Q4 serialization, unproven reachability, incomplete terminal/control taxonomy, missing G_impl/G_b1, fixture unit type, bounded non-independence, non-self-contained binding text, and ambiguous stratum token parsing.
+  - v11 draft complete (audit_id c0001_metric_identifiability_audit_v11; B1-B9 response written). Independent closure review queued. v11 remains unfrozen. Full audit prohibited until v11 freeze.
+  - REACH-UNS-1 constructive 1,320-row synthetic proof artifact not yet generated (G_impl implementation evidence pending).
+  - F1-F8 implementation repairs still blocked; G_impl requires post-freeze code acceptance.
   - Gemini v10 bulk audit produced no result because command permission was auto-denied; exit 0 is not PASS.
-  - Frozen v9 is immutable. v10 draft complete (audit_id c0001_metric_identifiability_audit_v10; confirmatory 27636 calls). Independent methodology review and freeze pending. Full audit prohibited until v10 freeze.
+  - Frozen v9 is immutable. v10 draft remains unfrozen historical draft only.
   - Claude Code made two write attempts on C0001-T009 with no file edits; Cursor fallback produced v10 deliverables.
   - R5 implementation is blocked on F1-F8 in implementation_review_round5.md. The focused 51-test PASS includes assertions of the broken E1 outcome and is not an acceptance signal.
   - Two R5 Codex review subagents failed because of shared usage limits; Claude completed the independent review. Gemini completed a methodology scout; a second Claude methodology call was stopped after seven minutes without output.
@@ -294,11 +313,11 @@ retries:
   C0001-T003: 1
 
 next_action: >
-  Delegate C0001-T010 to Cursor on the isolated task worktree. Produce and push
-  self-contained preregistration v11 plus B1-B9 response, then obtain independent
-  closure PASS before freezing. Do not edit implementation or run the full audit.
+  Delegate C0001-T010-REVIEW for independent v11 closure review. On PASS, freeze
+  v11 at exact path + SHA256 + source commit. Do not edit implementation or run
+  the full audit until v11 freeze and G_impl evidence exist.
 
-last_checkpoint_utc: 2026-09-14T04:30:00Z
+last_checkpoint_utc: 2026-09-15T14:45:00Z
 ```
 
 ## Notes
