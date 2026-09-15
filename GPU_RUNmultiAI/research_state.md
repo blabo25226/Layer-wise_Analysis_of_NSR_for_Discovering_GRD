@@ -7,12 +7,12 @@ Update it before a parent session ends.
 campaign: GPU_RUNmultiAI
 status: active
 current_cycle: C0001
-current_stage: PREREGISTRATION_V12_READY_FOR_TARGETED_REVIEW
+current_stage: PREREGISTRATION_V13_REVISION_QUEUED
 branch: ai/C0001/research-engineer/implement-metric-audit
-observed_commit: 642d063ed7b32857394a22e056ce455321f961c8
+observed_commit: 7ed72c5a0d10d68a3bb48edb936e7b84a6a98678
 base_commit: d4fef3f703cd3ef476529d110930aa34962fa2b0
-remote_branch: 20260912_multiAI_research
-remote_commit: 441c3768cac0e2128fe196fea7b0caadfdde7a76
+remote_branch: ai/C0001/research-engineer/implement-metric-audit
+remote_commit: 7ed72c5a0d10d68a3bb48edb936e7b84a6a98678
 last_push_attempt_utc: 2026-09-13T08:10:11Z
 last_push_error: null
 binding_plan:
@@ -37,9 +37,20 @@ tracks:
   scientific:
     status: active
     current_cycle: C0001
-    stage: PREREGISTRATION_V12_READY_FOR_TARGETED_REVIEW
+    stage: PREREGISTRATION_V13_REVISION_QUEUED
 
 active_tasks:
+  - task_id: C0001-T012
+    track: scientific
+    role: repo-operator / scientific-document-implementer
+    worker: Cursor Agent
+    branch: ai/C0001/research-engineer/implement-metric-audit
+    worktree: /tmp/lansr-multiai-C0001-implement-audit
+    write_scope: [v13 preregistration, v12 review response, drafting completion, state]
+    status: queued
+    expected_outputs: [self-contained v13, R12-1..R12-5 closure, stable provenance]
+    acceptance_test: 7 Q4 fixtures; counts 27637/2640/30277; complete algorithms/schemas/resume/guard/source hashes; diff check; push verification
+    prior_task: C0001-T011-REVIEW
   - task_id: C0001-T011-REVIEW
     track: scientific
     role: independent reviewer (Claude reproducibility-auditor / scientific-critic)
@@ -47,7 +58,10 @@ active_tasks:
     branch: ai/C0001/research-engineer/implement-metric-audit
     worktree: /tmp/lansr-multiai-C0001-implement-audit
     write_scope: [targeted v12 closure review only]
-    status: queued
+    status: completed_block
+    reviewed_commit: 7ed72c5a0d10d68a3bb48edb936e7b84a6a98678
+    reviewed_plan_sha256: fc90aef070977e8b889fc9f0f89ae8bbcb92afb011133ab1cbb4e1f3fa78cee0
+    result: v12 BLOCK; R12-1 through R12-5 recorded; revise to v13
     expected_outputs: [v12 closure verdict PASS or BLOCK]
     acceptance_test: read-only review of v12 changed sections; R11-1..R11-9 verification; no freeze without PASS
     prior_task: C0001-T011
@@ -325,7 +339,9 @@ completed_tasks:
     integration_commit: 47d7459
     result: four C0001 evidence and preregistration draft artifacts persisted
 open_findings:
-  - v12 draft complete (audit_id c0001_metric_identifiability_audit_v12; R11-1..R11-9 response written). Targeted independent closure review queued. v12 remains unfrozen. Full audit prohibited until v12 freeze.
+  - v12 targeted independent review BLOCKED freeze. v13 revision is queued to close R12-1 through R12-5. Full audit remains prohibited.
+  - v13 must add counted Rational q4_fixture_07 and use confirmatory 27,637, D2 2,640, grand 30,277.
+  - v13 must separate production Q4 operator arity from audit-oracle pow4 support, inline n-ary folding, and restore full guard/artifact/resume/provenance contracts.
   - v11 independent closure review BLOCKED freeze (historical). v11 remains unfrozen historical draft only.
   - PI ruled reachability_evidence.json is a post-freeze G_impl artifact, not a pre-freeze file.
   - REACH-UNS-1 constructive 1,320-row synthetic proof artifact not yet generated (G_impl implementation evidence pending).
@@ -345,12 +361,12 @@ retries:
   C0001-T003: 1
 
 next_action: >
-  Delegate C0001-T011-REVIEW for targeted independent closure on v12 changed
-  sections. Verify R11-1..R11-9 closure, counts, G_stratum/G1/G_grand split,
-  and REACH decision fixtures. Freeze only after PASS; then implement G_impl
-  (F1,F2,F4,F5,F6,F7,F8) and bounded smoke. Do not run full audit before freeze.
+  Delegate C0001-T012 to Cursor in the existing isolated worktree. Produce and
+  push self-contained v13, then run targeted independent closure review of
+  R12-1 through R12-5. Freeze only after PASS; then implement G_impl and bounded
+  smoke. Do not run full audit before freeze.
 
-last_checkpoint_utc: 2026-09-16T00:00:00Z
+last_checkpoint_utc: 2026-09-15T15:12:28Z
 ```
 
 ## Notes
