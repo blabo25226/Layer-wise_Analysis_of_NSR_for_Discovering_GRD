@@ -7,9 +7,9 @@
 - starting_tip: `7ed72c5a0d10d68a3bb48edb936e7b84a6a98678`
 - completed_at_utc: 2026-09-15T15:30:00Z
 - content_source_commit: `7ed72c5a0d10d68a3bb48edb936e7b84a6a98678`
+- deliverable_commit: `9ebb775caf5cdcfc8572aa8c9ae0faaae31dc98a`
 - v13 SHA256: `c70502e194cac0420a5724b8ca7608ab92006aaad9f8c19faccf0d412447a962`
-- deliverable_commit: see post-push metadata commit
-- remote_verified: see post-push metadata commit
+- remote_verified: `9ebb775caf5cdcfc8572aa8c9ae0faaae31dc98a` (LOCAL==REMOTE PASS)
 - status: **ready_for_targeted_review**
 - frozen: **NO**
 
