@@ -12,8 +12,8 @@ branch: ai/C0001/research-engineer/implement-metric-audit
 observed_commit: 7ed72c5a0d10d68a3bb48edb936e7b84a6a98678
 base_commit: d4fef3f703cd3ef476529d110930aa34962fa2b0
 remote_branch: ai/C0001/research-engineer/implement-metric-audit
-remote_commit: 7ed72c5a0d10d68a3bb48edb936e7b84a6a98678
-last_push_attempt_utc: 2026-09-13T08:10:11Z
+remote_commit: 2cde9c3770ebf72a0427d310d606985e365aee09
+last_push_attempt_utc: 2026-09-15T15:35:00Z
 last_push_error: null
 binding_plan:
   path: GPU_RUNmultiAI/cycles/C0001/preregistration_draft_v9.md
@@ -240,6 +240,8 @@ completed_tasks:
       - GPU_RUNmultiAI/cycles/C0001/preregistration_v12_review_response.md
       - GPU_RUNmultiAI/cycles/C0001/preregistration_v13_drafting_completion.md
     plan_sha256: c70502e194cac0420a5724b8ca7608ab92006aaad9f8c19faccf0d412447a962
+    deliverable_commit: 9ebb775caf5cdcfc8572aa8c9ae0faaae31dc98a
+    remote_verified: 2cde9c3770ebf72a0427d310d606985e365aee09
     expected_outputs: [self-contained v13, R12-1..R12-5 closure, stable provenance]
     acceptance_test: 7 Q4 fixtures; counts 27637/2640/30277; complete algorithms/schemas/resume/guard/source hashes; diff check; push verification
     prior_task: C0001-T011-REVIEW

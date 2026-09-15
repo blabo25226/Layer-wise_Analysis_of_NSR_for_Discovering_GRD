@@ -76,6 +76,16 @@ All four match historical introduction records.
 - `audit_id` v13 only in normative CLI / resume / manifest fields
 - `git diff --check` → **PASS**
 
+## Remote verification
+
+```text
+content_commit=9ebb775caf5cdcfc8572aa8c9ae0faaae31dc98a
+remote_tip=2cde9c3770ebf72a0427d310d606985e365aee09
+REMOTE_VERIFY=PASS (LOCAL==REMOTE)
+```
+
+`observed_commit` in state remains content source `7ed72c5` (no tip chase).
+
 ## Next steps (out of T012 scope)
 
 1. Targeted independent closure review on v13 R12-1…R12-5.
