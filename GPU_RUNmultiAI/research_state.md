@@ -7,7 +7,7 @@ Update it before a parent session ends.
 campaign: GPU_RUNmultiAI
 status: active
 current_cycle: C0001
-current_stage: PREREGISTRATION_V10_INDEPENDENT_REVIEW
+current_stage: PREREGISTRATION_V11_REVISION_QUEUED
 branch: ai/C0001/research-engineer/implement-metric-audit
 observed_commit: 985b2445d8256a691de07963390ab257cbfe7ebe
 base_commit: d4fef3f703cd3ef476529d110930aa34962fa2b0
@@ -37,9 +37,20 @@ tracks:
   scientific:
     status: active
     current_cycle: C0001
-    stage: PREREGISTRATION_V10_INDEPENDENT_REVIEW
+    stage: PREREGISTRATION_V11_REVISION_QUEUED
 
 active_tasks:
+  - task_id: C0001-T010
+    track: scientific
+    role: repo-operator / scientific-document-implementer
+    worker: Cursor Agent
+    branch: ai/C0001/research-engineer/implement-metric-audit
+    worktree: /tmp/lansr-multiai-C0001-implement-audit
+    write_scope: [v11 preregistration, v10 review response, drafting completion, state, human review queue]
+    status: queued
+    expected_outputs: [self-contained v11, B1-B9 response, reachable fixtures, G_impl, G_b1]
+    acceptance_test: v9/v10 unchanged; no cross-reference-only binding rules; counts reconcile; diff check; commit/push/remote verification
+    prior_task: C0001-T010-REVIEW
   - task_id: C0001-T009
     track: scientific
     role: research-engineer / scientific-writer
@@ -47,7 +58,7 @@ active_tasks:
     branch: ai/C0001/research-engineer/implement-metric-audit
     worktree: /tmp/lansr-multiai-C0001-implement-audit
     write_scope: [v10 preregistration draft, v9-to-v10 change table, drafting completion]
-    status: ready_for_independent_review
+    status: blocked_by_v10_closure_review
     started_at: 2026-09-14T04:00:00Z
     completed_at: 2026-09-14T04:30:00Z
     fallback: Claude Code write attempts 1-2 produced no file edits; Cursor authorized fallback
@@ -267,6 +278,8 @@ completed_tasks:
     integration_commit: 47d7459
     result: four C0001 evidence and preregistration draft artifacts persisted
 open_findings:
+  - v10 independent Claude closure review BLOCKED freeze on B1-B9: silent simplifier fallback, unfrozen Q4 serialization, unproven reachability, incomplete terminal/control taxonomy, missing G_impl/G_b1, fixture unit type, bounded non-independence, non-self-contained binding text, and ambiguous stratum token parsing.
+  - Gemini v10 bulk audit produced no result because command permission was auto-denied; exit 0 is not PASS.
   - Frozen v9 is immutable. v10 draft complete (audit_id c0001_metric_identifiability_audit_v10; confirmatory 27636 calls). Independent methodology review and freeze pending. Full audit prohibited until v10 freeze.
   - Claude Code made two write attempts on C0001-T009 with no file edits; Cursor fallback produced v10 deliverables.
   - R5 implementation is blocked on F1-F8 in implementation_review_round5.md. The focused 51-test PASS includes assertions of the broken E1 outcome and is not an acceptance signal.
@@ -281,11 +294,9 @@ retries:
   C0001-T003: 1
 
 next_action: >
-  Run independent methodology review on preregistration_draft_v10.md (reachable fixtures,
-  Q4 non-circularity, 27636/30276 recount, G_q4ref). Close review findings; freeze v10
-  at exact path and SHA256 only after PASS. Then implement F1-F8 against frozen v10 and
-  bounded smoke_r6. Do not run full confirmatory audit before v10 freeze and post-freeze
-  implementation review. C0001-T006-R5 remains blocked until v10 freeze.
+  Delegate C0001-T010 to Cursor on the isolated task worktree. Produce and push
+  self-contained preregistration v11 plus B1-B9 response, then obtain independent
+  closure PASS before freezing. Do not edit implementation or run the full audit.
 
 last_checkpoint_utc: 2026-09-14T04:30:00Z
 ```
