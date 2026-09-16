@@ -7,25 +7,26 @@ Update it before a parent session ends.
 campaign: GPU_RUNmultiAI
 status: active
 current_cycle: C0001
-current_stage: PREREGISTRATION_V16_READY_FOR_TARGETED_REVIEW
+current_stage: PREREGISTRATION_V16_FROZEN_IMPLEMENTATION_QUEUED
 branch: ai/C0001/research-engineer/implement-metric-audit
-observed_commit: 682fbed997388edf5be42e6dcfe9ea01a3056f2a
+observed_commit: 249c82ee0ae93d39a23f90c17d8eeec46468ad58
 base_commit: d4fef3f703cd3ef476529d110930aa34962fa2b0
 remote_branch: ai/C0001/research-engineer/implement-metric-audit
-remote_commit: 682fbed997388edf5be42e6dcfe9ea01a3056f2a
-remote_verification_scope: content_commit_verified
+remote_commit: 249c82ee0ae93d39a23f90c17d8eeec46468ad58
+remote_verification_scope: reviewed_tip_before_freeze_record_commit
 last_push_attempt_utc: null
 last_push_error: null
 binding_plan:
-  path: GPU_RUNmultiAI/cycles/C0001/preregistration_draft_v9.md
-  version: v9
-  audit_id: c0001_metric_identifiability_audit_v9
-  sha256: 60cfed79780c6b027192a3da14e69416d72090e0a89dddd22248b0f00f50cf00
-  source_commit: 894aa4cb0219cd92e4e0659e810177f9f6753ffb
-  freeze_record: GPU_RUNmultiAI/cycles/C0001/preregistration_v9_freeze_record.md
-  closure_review: GPU_RUNmultiAI/cycles/C0001/preregistration_v9_closure_review.md
+  path: GPU_RUNmultiAI/cycles/C0001/preregistration_draft_v16.md
+  version: v16
+  audit_id: c0001_metric_identifiability_audit_v16
+  sha256: 67017f5c8bac861664fc867b70cf229d43be3d052d266ffd0d575e20e6c12078
+  source_commit: 682fbed997388edf5be42e6dcfe9ea01a3056f2a
+  reviewed_tip: 249c82ee0ae93d39a23f90c17d8eeec46468ad58
+  freeze_record: GPU_RUNmultiAI/cycles/C0001/preregistration_v16_freeze_record.md
+  closure_review: GPU_RUNmultiAI/cycles/C0001/preregistration_v16_independent_review.md
   closure_verdict: PASS
-  frozen_at_utc: 2026-09-13T08:06:24Z
+  frozen_at_utc: 2026-09-16T01:06:24Z
 
 hard_stop: false
 hard_stop_reason: null
@@ -38,7 +39,7 @@ tracks:
   scientific:
     status: active
     current_cycle: C0001
-    stage: PREREGISTRATION_V16_READY_FOR_TARGETED_REVIEW
+    stage: PREREGISTRATION_V16_FROZEN_IMPLEMENTATION_QUEUED
 
 active_tasks:
   - task_id: C0001-T015-REVIEW
@@ -48,11 +49,12 @@ active_tasks:
     branch: ai/C0001/research-engineer/implement-metric-audit
     worktree: /tmp/lansr-multiai-C0001-implement-audit
     write_scope: [targeted v16 closure review only]
-    status: queued
-    reviewed_commit: 682fbed997388edf5be42e6dcfe9ea01a3056f2a
+    status: completed_pass
+    reviewed_commit: 249c82ee0ae93d39a23f90c17d8eeec46468ad58
     reviewed_plan_sha256: 67017f5c8bac861664fc867b70cf229d43be3d052d266ffd0d575e20e6c12078
     expected_outputs: [v16 closure verdict PASS or BLOCK on R15-1..R15-2]
     acceptance_test: read-only review of v16 changed sections; v9-v15 bytes unchanged; no freeze without PASS
+    result: v16 PASS; freeze authorized
     prior_task: C0001-T015
   - task_id: C0001-T014-REVIEW
     track: scientific
@@ -460,6 +462,7 @@ completed_tasks:
     integration_commit: 47d7459
     result: four C0001 evidence and preregistration draft artifacts persisted
 open_findings:
+  - v16 is frozen at SHA256 67017f5c8bac861664fc867b70cf229d43be3d052d266ffd0d575e20e6c12078. Runtime implementation and G_contract/G_impl evidence are now authorized; full audit remains prohibited.
   - v16 draft ready for targeted independent review on R15-1 and R15-2 closure.
   - v15 targeted review BLOCKED freeze on guard-bootstrap ordering/ownership and two stale references; v16 surgical revision drafted.
   - `guard_bootstrap.py` is post-freeze before G_contract evaluation; inventory lists it but file may not exist pre-freeze.
@@ -484,9 +487,9 @@ retries:
   C0001-T003: 1
 
 next_action: >
-  Delegate C0001-T015-REVIEW for targeted v16 closure on R15-1 and R15-2. Freeze
-  only after PASS; guard_bootstrap.py implementation remains post-freeze before
-  G_contract.
+  Persist and push the v16 freeze record, integrate preregistration artifacts to
+  the research branch, then delegate post-freeze G_contract + G_impl repairs,
+  bounded smoke, and independent implementation review. No full audit yet.
 
 last_checkpoint_utc: 2026-09-16T10:05:00Z
 ```
