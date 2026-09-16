@@ -6,10 +6,12 @@ import os
 import time
 from pathlib import Path
 
+from gpu_runmultiai.constants import ELAPSED_WALL_CEILING_SEC, OUTPUT_DIR_BYTE_CEILING
 from gpu_runmultiai.invariants import ResourceCeilingError
 
-CPU_WALL_LIMIT_SEC = 4 * 3600
-DISK_LIMIT_BYTES = 1 * 1024 * 1024 * 1024
+BYTE_CONVENTION = "decimal_gb"
+CPU_WALL_LIMIT_SEC = ELAPSED_WALL_CEILING_SEC
+DISK_LIMIT_BYTES = OUTPUT_DIR_BYTE_CEILING
 
 
 class ResourceMonitor:
@@ -20,15 +22,18 @@ class ResourceMonitor:
     def elapsed_sec(self) -> float:
         return time.monotonic() - self._start
 
+    def dir_bytes(self) -> int:
+        return _directory_size_bytes(self._output_dir)
+
     def assert_within_limits(self) -> None:
         if self.elapsed_sec() > CPU_WALL_LIMIT_SEC:
             raise ResourceCeilingError(
-                f"CPU wall-time ceiling exceeded: {self.elapsed_sec():.1f}s > {CPU_WALL_LIMIT_SEC}s"
+                f"elapsed wall ceiling exceeded: {self.elapsed_sec():.1f}s > {CPU_WALL_LIMIT_SEC}s"
             )
-        usage = _directory_size_bytes(self._output_dir)
+        usage = self.dir_bytes()
         if usage > DISK_LIMIT_BYTES:
             raise ResourceCeilingError(
-                f"disk ceiling exceeded: {usage} bytes > {DISK_LIMIT_BYTES} bytes under {self._output_dir}"
+                f"output directory byte ceiling exceeded: {usage} bytes > {DISK_LIMIT_BYTES} bytes under {self._output_dir}"
             )
 
 

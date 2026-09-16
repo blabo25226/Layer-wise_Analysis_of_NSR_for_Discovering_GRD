@@ -115,7 +115,7 @@ class CallLogger:
             if self.descriptive_total() >= expected_descriptive_calls():
                 raise AuditInvariantError("G1 FAIL: descriptive call ceiling reached before execution")
             if self.total() >= FULL_RUN_CALL_CEILING:
-                raise AuditInvariantError("G1 FAIL: full-run call ceiling reached before execution")
+                raise AuditInvariantError("G_grand FAIL: grand call ceiling reached before execution")
         else:
             if self.confirmatory_total() >= CONFIRMATORY_CALL_CEILING:
                 raise AuditInvariantError("G1 FAIL: confirmatory call ceiling reached before execution")
@@ -231,5 +231,5 @@ class CallLogger:
             full_total = self.total()
             if full_total > FULL_RUN_CALL_CEILING:
                 raise AuditInvariantError(
-                    f"G1 FAIL: full-run calls {full_total} exceed ceiling {FULL_RUN_CALL_CEILING}"
+                    f"G_grand FAIL: grand calls {full_total} exceed ceiling {FULL_RUN_CALL_CEILING}"
                 )

@@ -34,14 +34,11 @@ ALL_OPERATORS: dict[str, int] = {
     "pow3": 1,
     "id": 1,
     "pow": 2,
-    "idiv": 2,
-    "mod": 2,
 }
 
 SYMPY_OPERATORS = {
     sp.Add: "add",
     sp.Mul: "mul",
-    sp.Mod: "mod",
     sp.Pow: "pow",
     sp.Abs: "abs",
     sp.sign: "sign",
@@ -123,10 +120,6 @@ def write_infix(token: str, args: list[str]) -> str:
         return f"({args[0]})**3"
     if token in {"sqrt", "log", "exp", "sin", "arcsin", "cos", "arccos", "tan", "arctan"}:
         return f"{token}({args[0]})"
-    if token == "idiv":
-        return f"idiv({args[0]},{args[1]})"
-    if token == "mod":
-        return f"({args[0]})%({args[1]})"
     raise InvalidPrefixExpression(f"unknown operator token for write_infix: {token}")
 
 

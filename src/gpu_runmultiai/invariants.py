@@ -29,3 +29,19 @@ class CorpusGateError(AuditInvariantError):
 
 class ScalerGateError(AuditInvariantError):
     """G0 scaler assertion failed before primary audit work."""
+
+
+class EligibilityGateError(AuditInvariantError):
+    """G_eligibility precondition failed before registration."""
+
+
+class StratumGateError(AuditInvariantError):
+    """G_stratum precondition failed before pair processing."""
+
+
+class ExponentTokenError(AuditInvariantError):
+    """Exponent notation in numeric leaf requires global abort."""
+
+
+class GateAbortError(AuditInvariantError):
+    """Validity gate with abort disposition failed."""
