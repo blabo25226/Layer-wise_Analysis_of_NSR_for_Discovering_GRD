@@ -7,13 +7,13 @@ Update it before a parent session ends.
 campaign: GPU_RUNmultiAI
 status: active
 current_cycle: C0001
-current_stage: PREREGISTRATION_V15_REVISION_QUEUED
+current_stage: PREREGISTRATION_V15_READY_FOR_TARGETED_REVIEW
 branch: ai/C0001/research-engineer/implement-metric-audit
-observed_commit: a296ffd67cff8ea71530ee234e9d04581f79b9f1
+observed_commit: ff4bac73b54fe0535a29c49615399ecad4f0bc57
 base_commit: d4fef3f703cd3ef476529d110930aa34962fa2b0
 remote_branch: ai/C0001/research-engineer/implement-metric-audit
-remote_commit: a296ffd67cff8ea71530ee234e9d04581f79b9f1
-remote_verification_scope: reviewed_tip_before_review_record_commit
+remote_commit: ff4bac73b54fe0535a29c49615399ecad4f0bc57
+remote_verification_scope: pending_content_commit_push
 last_push_attempt_utc: null
 last_push_error: null
 binding_plan:
@@ -38,19 +38,20 @@ tracks:
   scientific:
     status: active
     current_cycle: C0001
-    stage: PREREGISTRATION_V15_REVISION_QUEUED
+    stage: PREREGISTRATION_V15_READY_FOR_TARGETED_REVIEW
 
 active_tasks:
-  - task_id: C0001-T014
+  - task_id: C0001-T014-REVIEW
     track: scientific
-    role: repo-operator / scientific-document-implementer
-    worker: Cursor Agent
+    role: independent reviewer (Claude reproducibility-auditor / scientific-critic)
+    worker: Claude Code + Codex independent subagent
     branch: ai/C0001/research-engineer/implement-metric-audit
     worktree: /tmp/lansr-multiai-C0001-implement-audit
+    write_scope: [targeted v15 closure review only]
     status: queued
-    expected_outputs: [v15 narrow closure of R14-1..R14-5]
-    acceptance_test: n-ary/parser/guard-bootstrap/schema/cleanup consistency; two commits max; push parity
-    prior_task: C0001-T013-REVIEW
+    expected_outputs: [v15 closure verdict PASS or BLOCK on R14-1..R14-5]
+    acceptance_test: read-only review of v15 changed sections; v9-v14 bytes unchanged; no freeze without PASS
+    prior_task: C0001-T014
   - task_id: C0001-T013-REVIEW
     track: scientific
     role: independent reviewer (Claude reproducibility-auditor / scientific-critic)
@@ -253,6 +254,24 @@ active_tasks:
     reviewer_diff_assertion: true
     evidence_packet: GPU_RUNmultiAI/cycles/C0001/implementation_handoff.md
 completed_tasks:
+  - task_id: C0001-T014
+    track: scientific
+    role: repo-operator / scientific-document-implementer
+    worker: Cursor Agent
+    branch: ai/C0001/research-engineer/implement-metric-audit
+    worktree: /tmp/lansr-multiai-C0001-implement-audit
+    status: completed
+    started_at: 2026-09-16T09:49:00Z
+    completed_at: 2026-09-16T09:49:00Z
+    content_source_commit: ff4bac73b54fe0535a29c49615399ecad4f0bc57
+    deliverables:
+      - GPU_RUNmultiAI/cycles/C0001/preregistration_draft_v15.md
+      - GPU_RUNmultiAI/cycles/C0001/preregistration_v14_review_response.md
+      - GPU_RUNmultiAI/cycles/C0001/preregistration_v15_drafting_completion.md
+    plan_sha256: dd986ab519eb3097b0978368482b02fc9e94f5514f89c2ad35e56d6870d8ecf2
+    expected_outputs: [v15 narrow closure of R14-1..R14-5]
+    acceptance_test: n-ary/parser/guard-bootstrap/schema/cleanup consistency; two commits max; push parity
+    prior_task: C0001-T013-REVIEW
   - task_id: C0001-T013
     track: scientific
     role: repo-operator / scientific-document-implementer
@@ -405,8 +424,8 @@ completed_tasks:
     integration_commit: 47d7459
     result: four C0001 evidence and preregistration draft artifacts persisted
 open_findings:
-  - v14 targeted independent review BLOCKED freeze. v15 narrow revision queued for R14-1 through R14-5.
-  - v14 source inventory, hash-binding timing, counts, and §6.1 fixtures passed; duplicate n-ary text, parser leaf semantics, guard bootstrap, and three artifact schemas remain.
+  - v15 draft ready for targeted independent review on R14-1 through R14-5 closure.
+  - `guard_bootstrap.py` is a post-freeze G_contract implementation requirement; inventory lists it but file may not exist pre-freeze.
   - G_contract and F1-F8 implementation acceptance still pending post-freeze.
   - v12 remains unfrozen historical draft only (BLOCK verdict preserved).
   - v11 independent closure review BLOCKED freeze (historical). v11 remains unfrozen historical draft only.
@@ -428,10 +447,10 @@ retries:
   C0001-T003: 1
 
 next_action: >
-  Delegate C0001-T014 for a narrow v15 revision, push with at most two commits,
-  then independently review R14-1 through R14-5. Freeze only after PASS.
+  Run targeted independent closure review on v15 R14-1 through R14-5.
+  Freeze only after PASS. Implement guard_bootstrap.py and F1-F8 post-freeze.
 
-last_checkpoint_utc: 2026-09-16T01:00:00Z
+last_checkpoint_utc: 2026-09-16T09:49:00Z
 ```
 
 ## Notes
