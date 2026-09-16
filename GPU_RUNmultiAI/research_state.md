@@ -9,7 +9,7 @@ status: active
 current_cycle: C0001
 current_stage: PREREGISTRATION_V16_IMPLEMENTATION_COMPLETE_PENDING_REVIEW
 branch: ai/C0001/research-engineer/implement-metric-audit
-observed_commit: pending_push_after_T016_fixes
+observed_commit: ecf6a05
 base_commit: d4fef3f703cd3ef476529d110930aa34962fa2b0
 remote_branch: ai/C0001/research-engineer/implement-metric-audit
 remote_commit: c12f025e073829ee1148749cfaddbe294b10190b
