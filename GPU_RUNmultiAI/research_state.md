@@ -7,24 +7,27 @@ Update it before a parent session ends.
 campaign: GPU_RUNmultiAI
 status: active
 current_cycle: C0001
-current_stage: IMPLEMENTATION_QUEUED
+current_stage: PREREGISTRATION_V16_FROZEN_IMPLEMENTATION_QUEUED
 branch: 20260912_multiAI_research
-observed_commit: 441c3768cac0e2128fe196fea7b0caadfdde7a76
+observed_commit: b598cc3c6955f1c2fa071cb49eef034b2a4719a4
 base_commit: d4fef3f703cd3ef476529d110930aa34962fa2b0
 remote_branch: 20260912_multiAI_research
 remote_commit: 441c3768cac0e2128fe196fea7b0caadfdde7a76
 last_push_attempt_utc: 2026-09-13T08:10:11Z
 last_push_error: null
 binding_plan:
-  path: GPU_RUNmultiAI/cycles/C0001/preregistration_draft_v9.md
-  version: v9
-  audit_id: c0001_metric_identifiability_audit_v9
-  sha256: 60cfed79780c6b027192a3da14e69416d72090e0a89dddd22248b0f00f50cf00
-  source_commit: 894aa4cb0219cd92e4e0659e810177f9f6753ffb
-  freeze_record: GPU_RUNmultiAI/cycles/C0001/preregistration_v9_freeze_record.md
-  closure_review: GPU_RUNmultiAI/cycles/C0001/preregistration_v9_closure_review.md
+  path: GPU_RUNmultiAI/cycles/C0001/preregistration_draft_v16.md
+  version: v16
+  audit_id: c0001_metric_identifiability_audit_v16
+  sha256: 67017f5c8bac861664fc867b70cf229d43be3d052d266ffd0d575e20e6c12078
+  source_commit: 682fbed997388edf5be42e6dcfe9ea01a3056f2a
+  reviewed_tip: 249c82ee0ae93d39a23f90c17d8eeec46468ad58
+  freeze_commit: b598cc3c6955f1c2fa071cb49eef034b2a4719a4
+  freeze_record: GPU_RUNmultiAI/cycles/C0001/preregistration_v16_freeze_record.md
+  freeze_push_verification: GPU_RUNmultiAI/cycles/C0001/preregistration_v16_freeze_push_verification.md
+  closure_review: GPU_RUNmultiAI/cycles/C0001/preregistration_v16_independent_review.md
   closure_verdict: PASS
-  frozen_at_utc: 2026-09-13T08:06:24Z
+  frozen_at_utc: 2026-09-16T01:06:24Z
 
 hard_stop: false
 hard_stop_reason: null
@@ -37,32 +40,32 @@ tracks:
   scientific:
     status: active
     current_cycle: C0001
-    stage: IMPLEMENTATION_QUEUED
+    stage: PREREGISTRATION_V16_FROZEN_IMPLEMENTATION_QUEUED
 
 active_tasks:
-  - task_id: C0001-T006
+  - task_id: C0001-T016
     track: scientific
     role: research-engineer / repo-operator
     worker: Cursor Agent
     branch: ai/C0001/research-engineer/implement-metric-audit
     worktree: /tmp/lansr-multiai-C0001-implement-audit
-    write_scope: [src/gpu_runmultiai, frozen CLI, focused tests, implementation completion, state, task board, MANIFEST.sha256]
-    status: planned
-    started_at: 2026-09-13T08:10:11Z
+    write_scope: [frozen 82-path runtime inventory, focused tests, G_contract/G_impl evidence, bounded v16 smoke, implementation completion]
+    status: queued
+    started_at: null
     completed_at: null
-    expected_outputs: [audit implementation, CLI, tests, bounded smoke, completion record]
+    expected_outputs: [F1/F2/F4-F8, G_contract, G_impl, reachability evidence, bounded v16 smoke]
     deliverables:
       - src/gpu_runmultiai/
       - scripts/phases/gpu_runmultiai_c0001_metric_audit.py
       - tests/test_gpu_runmultiai_c0001_metric_audit.py
-      - GPU_RUNmultiAI/cycles/C0001/implementation_completion.md
-    acceptance_test: frozen SHA; fixtures; corpus/index; decision; call/resume; sealed guard; controls; compileall; focused pytest; diff check
+      - GPU_RUNmultiAI/cycles/C0001/implementation_completion_v16.md
+    acceptance_test: v16 SHA; compileall; focused pytest; G_contract/G_impl; fresh bounded smoke; diff check; push parity
     retry_count: 0
     fallback: Claude Sonnet research-engineer; Codex PI conflict resolution only
     implementer_identity: Cursor Agent
     independent_reviewer_identity: Claude reproducibility-auditor or Codex methodological subagent fallback
     reviewer_diff_assertion: true
-    evidence_packet: GPU_RUNmultiAI/cycles/C0001/implementation_handoff.md
+    evidence_packet: GPU_RUNmultiAI/cycles/C0001/implementation_v16_handoff.md
 completed_tasks:
   - task_id: C0001-T005
     track: scientific
@@ -161,6 +164,8 @@ completed_tasks:
     integration_commit: 47d7459
     result: four C0001 evidence and preregistration draft artifacts persisted
 open_findings:
+  - v16 preregistration is frozen at SHA256 67017f5c8bac861664fc867b70cf229d43be3d052d266ffd0d575e20e6c12078 after Claude, Codex subagent, and PI PASS closure.
+  - Full audit remains prohibited until post-freeze G_contract/G_impl, reachability evidence, accepted 82-path hashes, bounded smoke, and independent implementation review PASS.
   - Eight pre-existing GPU_RUN5 worktree records are prunable; they are unrelated to C0000 and were left untouched.
   - Gemini headless filesystem access soft-denies read_file/ListDir and can exit 0 without producing an artifact.
   - Claude critic raised a possible rescaling/exact-skeleton non-invariance; an exploratory algebraically equivalent formula check reproduced a false negative, but the actual pipeline round-trip remains untested.
@@ -171,10 +176,10 @@ retries:
   C0001-T003: 1
 
 next_action: >
-  Create the C0001-T006 isolated worktree from the verified remote checkpoint and dispatch Cursor with
-  implementation_handoff.md. Do not run the full confirmatory audit before independent code/reproducibility review.
+  Dispatch C0001-T016 in the existing isolated worktree using implementation_v16_handoff.md.
+  Do not run the full confirmatory audit before independent implementation and reproducibility review.
 
-last_checkpoint_utc: 2026-09-13T08:10:11Z
+last_checkpoint_utc: 2026-09-16T01:06:24Z
 ```
 
 ## Notes
