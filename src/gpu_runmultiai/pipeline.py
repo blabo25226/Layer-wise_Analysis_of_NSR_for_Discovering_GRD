@@ -22,6 +22,7 @@ from gpu_runmultiai.constants import (
 from gpu_runmultiai.ids import component_id_for, negative_id_for, pair_id_for
 from gpu_run4.ted import time_limit
 from gpu_runmultiai.invariants import AuditInvariantError
+from gpu_runmultiai.quantization import assign_quantization_stratum
 from gpu_runmultiai.odeformer_runtime import (
     ODEFormerUnavailable,
     build_identity_scaler,
@@ -54,6 +55,45 @@ from gpu_runmultiai.rewrites import (
 )
 from gpu_runmultiai.q4_reference import C_Q4_FIXTURES, Q4ContractError, audit_q4_decimal_round_reference, evaluate_c_q4_fixture
 from gpu_runmultiai.strata import component_stratum, is_linear_component, is_strict_hill_component
+from gpu_runmultiai.constants import ORACLE_X_GRID
+
+
+def _compute_original_vs_q4_numeric_max_abs_error(
+    truth_infix: str,
+    q4_emitted_infix: str | None,
+    *,
+    dimension: int,
+) -> float | None:
+    if not q4_emitted_infix:
+        return None
+    import itertools
+
+    import sympy as sp
+
+    from gpu_runmultiai.oracle import audit_parse_infix_component
+
+    truth_tree = audit_parse_infix_component(truth_infix)
+    q4_tree = audit_parse_infix_component(q4_emitted_infix)
+    if truth_tree is None or q4_tree is None:
+        return None
+    from gpu_runmultiai.oracle import _collect_variable_names_from_tree, _sympy_expr_from_component
+
+    var_names = sorted(
+        set(_collect_variable_names_from_tree(truth_tree) + _collect_variable_names_from_tree(q4_tree)),
+        key=lambda name: int(name.split("_")[1]),
+    )
+    symbols = {name: sp.Symbol(name, real=True) for name in var_names[:dimension]}
+    truth_expr = _sympy_expr_from_component(truth_tree, symbols)
+    q4_expr = _sympy_expr_from_component(q4_tree, symbols)
+    if truth_expr is None or q4_expr is None:
+        return None
+    max_error = 0.0
+    for values in itertools.product(ORACLE_X_GRID, repeat=len(symbols)):
+        mapping = {symbols[name]: value for name, value in zip(symbols, values)}
+        truth_val = float(truth_expr.subs(mapping))
+        q4_val = float(q4_expr.subs(mapping))
+        max_error = max(max_error, abs(truth_val - q4_val))
+    return max_error
 
 
 def _q4_component_prefix(q4_prefix_raw: str, component_idx: int) -> str:
@@ -145,7 +185,36 @@ def registration_rows(
             unit_id=component_id,
             executor=_truth_row,
         )
-        truth_rows.append(truth_row)
+        stratum_layer = {
+            "strict_hill": "strict_hill_primary",
+            "non_strict_hill": "non_strict_hill_secondary",
+            "linear": "linear_control",
+        }[component_stratum(record["family"], component_idx)]
+
+        def _quantization_row():
+            return {
+                "component_id": component_id,
+                "quantization_stratum": assign_quantization_stratum(truth_prefix),
+            }
+
+        quantization_row = _cached_call(
+            call_logger,
+            stage_cache,
+            cache_path,
+            primitive="quantization_stratum_assign",
+            condition="registration",
+            stage="quantization",
+            unit_type="component",
+            unit_id=component_id,
+            executor=_quantization_row,
+        )
+        truth_rows.append(
+            {
+                **truth_row,
+                "eligibility_layer": stratum_layer,
+                "quantization_stratum": quantization_row["quantization_stratum"],
+            }
+        )
 
         def _rewrite_row():
             rewrite = rewrite_registration(
@@ -301,11 +370,8 @@ def _execute_chain(
     try:
         env = get_env()
         if use_identity:
-            import numpy as np
-
             prefixes = truth_system_prefixes(record)
-            scaler, _ = build_production_scaler(1.0, int(record["dimension"]))
-            identity_scale = np.ones(int(record["dimension"]), dtype=float)
+            scaler, _ = build_identity_scaler(int(record["dimension"]))
         else:
             prefixes = replace_component_prefixes(record, component_idx, rewrite_row["rewrite_prefix"])
             scaler, _ = build_production_scaler(float(scale), int(record["dimension"]))
@@ -325,14 +391,7 @@ def _execute_chain(
         e0_prefix_raw = "|".join(tree_to_prefix_list(e0_tree))
         e0_infix = tree_to_system_infix(e0_tree)
         current_stage = "E1"
-        if use_identity:
-            import numpy as np
-
-            identity_scale = np.ones(int(record["dimension"]), dtype=float)
-            e1_tree = scaler.rescale_function(env, e0_tree, 1.0, 0.0, identity_scale)
-            rescale_incomplete = e1_tree is e0_tree
-        else:
-            e1_tree, rescale_incomplete = rescale_system(env, scaler, e0_tree)
+        e1_tree, rescale_incomplete = rescale_system(env, scaler, e0_tree)
         _cached_call(
             call_logger,
             stage_cache,
@@ -469,7 +528,8 @@ def _execute_chain(
                     ),
                 )
             e2_infix = simplified["infix"]
-            e2_prefix_raw = simplified.get("prefix") or "|".join(tree_to_prefix_list(e1_tree))
+            child_prefix = simplified.get("prefix")
+            e2_prefix_raw = child_prefix if child_prefix else None
             e2_status = "completed"
             if run_oracles:
                 def _run_e2_oracle():
@@ -502,13 +562,28 @@ def _execute_chain(
                     status_for_result=lambda row: "completed" if row["completed"] else "failed",
                 )
         e2_identity_fallback_candidate = False
-        if run_oracles and not skip_simplifier and e2_prefix_raw == e1_prefix_raw:
+        if (
+            run_oracles
+            and not skip_simplifier
+            and e2_prefix_raw is not None
+            and e2_prefix_raw == e1_prefix_raw
+        ):
             import sympy as sp
 
-            e1_sympy = prefix_to_infix_component(e1_component_prefix)
-            e1_expr = sp.sympify(e1_sympy)
-            q4_expr = sp.sympify(q4_sympy_expr_canonical or "0")
-            e2_identity_fallback_candidate = sp.simplify(sp.expand(e1_expr - q4_expr)) != 0
+            from gpu_run4.ted import time_limit
+
+            local_dict = {"x_0": sp.Symbol("x_0", real=True)}
+            with time_limit(1.0):
+                e1_expr = sp.sympify(prefix_to_infix_component(e1_component_prefix), locals=local_dict)
+                q4_expr = sp.sympify(q4_sympy_expr_canonical or "0", locals=local_dict)
+                e2_identity_fallback_candidate = sp.simplify(sp.expand(e1_expr - q4_expr)) != 0
+        q4_numeric_error = None
+        if q4_completed and q4_emitted_infix:
+            q4_numeric_error = _compute_original_vs_q4_numeric_max_abs_error(
+                truth_component,
+                q4_emitted_infix,
+                dimension=int(record["dimension"]),
+            )
         score_infix = e2_infix if not skip_simplifier else e1_infix
         classified = classify_formula(score_infix)
         parse_valid = bool(classified["valid"])
@@ -585,6 +660,8 @@ def _execute_chain(
             q4_sympy_expr_canonical=q4_sympy_expr_canonical,
             q4_construction_failure_reason=q4_failure_reason,
             e2_identity_fallback_candidate=e2_identity_fallback_candidate,
+            original_vs_q4_numeric_max_abs_error=q4_numeric_error,
+            quantization_stratum=assign_quantization_stratum(truth_prefix),
             canonical_exact=metrics.get("canonical_exact"),
             exponent_aware_skeleton_exact=metrics.get("exponent_aware_skeleton_exact"),
             formula_metrics_valid=metrics.get("formula_metrics_valid"),

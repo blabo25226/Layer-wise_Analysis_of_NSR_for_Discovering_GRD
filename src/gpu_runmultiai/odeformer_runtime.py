@@ -38,7 +38,13 @@ class IdentityScaler:
         return (1.0, 0.0, scale)
 
     def rescale_function(self, env, tree, a_t, b_t, scale):
-        return tree
+        prefixes = tree_to_prefix_list(tree)
+        full_prefix: list[str] = []
+        for index, part in enumerate(prefixes):
+            if index:
+                full_prefix.append("|")
+            full_prefix.extend(part.split(","))
+        return env.word_to_infix(full_prefix, is_float=False, str_array=False)
 
 
 def require_odeformer() -> None:
@@ -183,11 +189,8 @@ def forward_scale_system(env: Any, tree: Any, scaler: Any) -> Any:
 
 def rescale_system(env: Any, scaler: Any, tree: Any) -> tuple[Any, bool]:
     a_t, b_t, scale = scaler.get_params()
-    nodes = tree.prefix().split("|") if hasattr(tree, "prefix") else []
-    if len(nodes) > len(scale):
-        return tree, True
     rescaled = scaler.rescale_function(env, tree, a_t, b_t, scale)
-    return rescaled, False
+    return rescaled, rescaled is tree
 
 
 def simplify_tree_subprocess(

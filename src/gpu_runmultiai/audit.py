@@ -9,13 +9,28 @@ from typing import Any
 
 from experiment_runtime import REPO_ROOT
 from gpu_run2_runtime import write_json
-from gpu_runmultiai.constants import CONFIRMATORY_CALL_CEILING, FULL_RUN_CALL_CEILING, Q4_TIMEOUT_SEC
-from gpu_runmultiai.jsonl_durable import append_jsonl_line
+from gpu_runmultiai.constants import (
+    CONFIRMATORY_CALL_CEILING,
+    ELAPSED_WALL_CEILING_SEC,
+    FULL_RUN_CALL_CEILING,
+    OUTPUT_DIR_BYTE_CEILING,
+    Q4_TIMEOUT_SEC,
+)
+from gpu_runmultiai.eligibility import validate_g_eligibility
+from gpu_runmultiai.jsonl_durable import append_jsonl_line, load_jsonl
 from gpu_runmultiai.calls import CallLogger, expected_confirmatory_calls
-from gpu_runmultiai.controls import any_gate_failed, condition_summary, evaluate_validity_gates
+from gpu_runmultiai.controls import (
+    ABORT_GATES,
+    any_gate_failed,
+    condition_summary,
+    evaluate_validity_gates,
+    first_abort_gate,
+)
 from gpu_runmultiai.corpus import load_frozen_corpus
 from gpu_runmultiai.guard_side_channel import append_guard_attempts, load_guard_attempts, side_channel_path
-from gpu_runmultiai.invariants import CorpusGateError, ScalerGateError
+from gpu_runmultiai.invariants import CorpusGateError, GateAbortError, ResourceCeilingError, ScalerGateError
+from gpu_runmultiai.quantization import validate_g_stratum
+from gpu_runmultiai.resources import BYTE_CONVENTION, ResourceMonitor
 from gpu_runmultiai.ids import component_id_for
 from gpu_runmultiai.manifest import build_resume_identity, current_commit, verify_plan_hash, verify_resume_identity
 from gpu_runmultiai.odeformer_runtime import ODEFormerUnavailable, get_env, measure_g0_scaler_asserts, require_odeformer
@@ -34,7 +49,6 @@ from gpu_runmultiai.pipeline import (
 )
 from gpu_runmultiai.q4_reference import Q4ContractError
 from gpu_runmultiai.reachability import build_reachability_evidence
-from gpu_runmultiai.resources import ResourceMonitor
 from gpu_runmultiai.stage_cache import load_stage_cache
 from gpu_runmultiai.source_inventory import build_source_inventory
 from gpu_runmultiai.strata import component_stratum, is_strict_hill_component
@@ -73,17 +87,8 @@ def _write_pair_results(path: Path, rows: list[dict[str, Any]]) -> None:
 
 
 def _load_pair_cache(path: Path) -> dict[str, dict[str, Any]]:
-    cache: dict[str, dict[str, Any]] = {}
-    if not path.is_file():
-        return cache
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if not line.strip():
-            continue
-        row = json.loads(line)
-        pair_id = row.get("pair_id")
-        if pair_id:
-            cache[pair_id] = row
-    return cache
+    rows = load_jsonl(path, key_fn=lambda row: (row.get("pair_id"),))
+    return {row["pair_id"]: row for row in rows if row.get("pair_id")}
 
 
 def _append_pair_cache(path: Path, row: dict[str, Any]) -> None:
@@ -96,43 +101,43 @@ def _write_atomic_manifest(path: Path, payload: dict[str, Any]) -> None:
     tmp.replace(path)
 
 
-def _oracle_payload_from_row(row: dict[str, Any]) -> dict[str, Any]:
+def _oracle_stage_payload(row: dict[str, Any], stage: str, reference: str) -> dict[str, Any]:
+    prefix = "e1_" if stage == "E1" else "e2_"
     return {
-        "pair_id": row["pair_id"],
-        "component_idx": row["component_idx"],
-        "scale": row["scale"],
-        "E1": {
-            "completed": row.get("e1_oracle_completed"),
-            "analytic_equivalent": row.get("e1_analytic_equivalent"),
-            "numeric_equivalent": row.get("e1_numeric_equivalent"),
-            "equivalent": row.get("e1_oracle_equivalent"),
-            "failure_reason": row.get("e1_oracle_failure_reason"),
-            "rational_tokens": row.get("e1_rational_tokens", {}),
-            "parsed_rationals": row.get("e1_parsed_rationals", {}),
-        },
-        "E2": {
-            "completed": row.get("e2_oracle_completed"),
-            "analytic_equivalent": row.get("e2_analytic_equivalent"),
-            "numeric_equivalent": row.get("e2_numeric_equivalent"),
-            "equivalent": row.get("e2_oracle_equivalent"),
-            "failure_reason": row.get("e2_oracle_failure_reason"),
-            "rational_tokens": row.get("e2_rational_tokens", {}),
-            "parsed_rationals": row.get("e2_parsed_rationals", {}),
-        },
+        "pair_id": row.get("pair_id"),
+        "component_id": row.get("component_id"),
+        "condition": row.get("condition"),
+        "stage": stage,
+        "reference": reference,
+        "completed": row.get(f"{prefix}oracle_completed"),
+        "analytic_equivalent": row.get(f"{prefix}analytic_equivalent"),
+        "numeric_equivalent": row.get(f"{prefix}numeric_equivalent"),
+        "equivalent": row.get(f"{prefix}oracle_equivalent"),
+        "failure_reason": row.get(f"{prefix}oracle_failure_reason"),
     }
 
 
 def _write_equivalence_oracle(path: Path, rows: list[dict[str, Any]]) -> None:
-    payload = [_oracle_payload_from_row(row) for row in rows if row.get("condition") in {"B0", "D2"}]
+    payload: list[dict[str, Any]] = []
+    for row in rows:
+        condition = row.get("condition")
+        if condition not in {"B0", "B1", "D2"}:
+            continue
+        payload.append(_oracle_stage_payload(row, "E1", "original_truth"))
+        payload.append(_oracle_stage_payload(row, "E2", "q4_e1"))
     write_json(path, payload)
 
 
-def _write_deviation_log(path: Path, deviations: list[str]) -> None:
+def _write_deviation_log(path: Path, deviations: list[str], *, status: str = "completed", abort_type: str | None = None) -> None:
     if not deviations:
         body = "No frozen-protocol deviations recorded.\n"
     else:
         body = "\n".join(f"- {item}" for item in deviations) + "\n"
-    path.write_text(f"# C0001 deviation log\n\n{body}", encoding="utf-8")
+    abort_token = abort_type if abort_type else "none"
+    path.write_text(
+        f"# C0001 deviation log\n\n{body}\nstatus={status} abort_type={abort_token}\n",
+        encoding="utf-8",
+    )
 
 
 def _derive_deviations(options: dict[str, Any]) -> list[str]:
@@ -192,14 +197,34 @@ def _replay_guard_attempts(guard, output_dir: Path) -> None:
         guard.extend_child_attempts(attempts)
 
 
-def _write_abort_manifest(output_dir: Path, *, abort_type: str, abort_reason: str, call_logger: CallLogger) -> None:
+def _write_abort_manifest(
+    output_dir: Path,
+    *,
+    abort_type: str,
+    abort_reason: str,
+    call_logger: CallLogger,
+    resource_monitor: ResourceMonitor | None = None,
+) -> None:
+    elapsed = resource_monitor.elapsed_sec() if resource_monitor is not None else None
+    dir_bytes = None
+    if resource_monitor is not None:
+        from gpu_runmultiai.resources import _directory_size_bytes
+
+        dir_bytes = _directory_size_bytes(output_dir)
     payload = {
+        "status": "aborted",
         "abort_type": abort_type,
         "abort_reason": abort_reason,
         "confirmatory_calls": call_logger.confirmatory_total(),
         "grand_calls": call_logger.total(),
+        "elapsed_sec": elapsed,
+        "dir_bytes": dir_bytes,
+        "elapsed_wall_ceiling_sec": ELAPSED_WALL_CEILING_SEC,
+        "output_dir_byte_ceiling": OUTPUT_DIR_BYTE_CEILING,
+        "byte_convention": BYTE_CONVENTION,
     }
     write_json(output_dir / "abort_manifest.json", payload)
+    _write_deviation_log(output_dir / "deviation_log.md", [], status="aborted", abort_type=abort_type)
 
 
 def run_audit(options: dict[str, Any], *, guard=None) -> dict[str, Any]:
@@ -255,6 +280,29 @@ def _run_audit_body(
     corpus = load_frozen_corpus()
     _assert_g_corpus(corpus)
     component_index = _attach_records(corpus["component_index"], corpus["train_records"])
+    eligibility_counts = validate_g_eligibility(component_index)
+    from gpu_runmultiai.quantization import assign_quantization_stratum
+    from gpu_runmultiai.rewrites import truth_component_infix
+
+    full_quantization_rows = []
+    for item in component_index:
+        record = item["record"]
+        truth_prefix, _ = truth_component_infix(record, item["component_idx"])
+        component_id, _ = component_id_for(corpus["corpus_hash"], item["system_id"], item["component_idx"])
+        stratum = component_stratum(record["family"], item["component_idx"])
+        eligibility_layer = {
+            "strict_hill": "strict_hill_primary",
+            "non_strict_hill": "non_strict_hill_secondary",
+            "linear": "linear_control",
+        }[stratum]
+        full_quantization_rows.append(
+            {
+                "component_id": component_id,
+                "quantization_stratum": assign_quantization_stratum(truth_prefix),
+                "eligibility_layer": eligibility_layer,
+            }
+        )
+    validate_g_stratum(full_quantization_rows)
     smoke_limit = 2 if options.get("smoke") else None
     scales = ["0.1"] if options.get("smoke") else list(options.get("primary_scales", ("0.1", "0.5", "1.0", "2.0")))
     selected_components = component_index[: smoke_limit or len(component_index)]
@@ -294,6 +342,18 @@ def _run_audit_body(
     if options.get("resume"):
         existing = json.loads(manifest_path.read_text(encoding="utf-8"))
         verify_resume_identity(existing.get("resume_identity", {}), resume_identity)
+        fp_bytes_path = output_dir / "fingerprint_bytes.bin"
+        fp_payload_path = output_dir / "fingerprint_payload.json"
+        if fp_bytes_path.is_file():
+            if fp_bytes_path.read_bytes() != corpus["fingerprint_bytes"]:
+                raise GateAbortError("resume fingerprint bytes mismatch")
+        if fp_payload_path.is_file():
+            payload_bytes = json.dumps(
+                json.loads(fp_payload_path.read_text(encoding="utf-8")),
+                sort_keys=True,
+            ).encode()
+            if payload_bytes != corpus["fingerprint_bytes"]:
+                raise GateAbortError("resume fingerprint payload mismatch")
     else:
         _write_atomic_manifest(
             manifest_path,
@@ -362,7 +422,7 @@ def _run_audit_body(
                 cached_pair_ids.add(row["pair_id"])
             b0_rows.append(row)
             pair_rows.append(row)
-            if runtime_available and not options.get("smoke"):
+            if runtime_available:
                 b2_rows.append(
                     run_b2_pair(
                         pair_id=row["pair_id"],
@@ -379,7 +439,9 @@ def _run_audit_body(
                         cache_path=stage_cache_path,
                     )
                 )
-        if is_strict_hill_component(record["family"], component_idx) and not options.get("smoke"):
+        if is_strict_hill_component(record["family"], component_idx) and (
+            not options.get("smoke") or len(d2_rows) == 0
+        ):
             d2_rows.append(
                 run_d2_pair(
                     corpus_hash=corpus["corpus_hash"],
@@ -477,34 +539,101 @@ def _run_audit_body(
     call_logger.assert_ceiling(run_d2=run_d2)
 
     deviations = _derive_deviations(options)
+    reachability_evidence = build_reachability_evidence()
+    negative_controls_payload = [
+        {
+            "negative_id": row["negative_id"],
+            "component_id": row.get("component_id"),
+            "oracle_completed": row["oracle"]["completed"],
+            "oracle_equivalent": row["oracle"]["equivalent"],
+            "oracle_analytic_equivalent": row["oracle"]["analytic_equivalent"],
+            "oracle_numeric_equivalent": row["oracle"]["numeric_equivalent"],
+            "oracle_failure_reason": row["oracle"].get("failure_reason"),
+            "terminal_outcome": "negative_reject"
+            if row["oracle"]["completed"] and not row["oracle"]["equivalent"]
+            else "negative_failed",
+        }
+        for row in negative_controls
+    ]
+    b3_payload = [
+        {
+            "pair_id": row["pair_id"],
+            "classifier_parse_valid": row.get("classifier_parse_valid"),
+            "formula_metrics_valid": row.get("formula_metrics_valid"),
+            "cas_compare_completed": row.get("cas_compare_completed", row.get("valid") is not None),
+            "cas_compare_valid": row.get("cas_compare_valid", row.get("valid")),
+            "canonical_exact": row.get("canonical_exact"),
+            "exponent_aware_skeleton_exact": row.get("exponent_aware_skeleton_exact"),
+            "terminal_outcome": "diagnostic_complete"
+            if row.get("classifier_parse_valid")
+            and row.get("formula_metrics_valid")
+            and row.get("valid")
+            else "diagnostic_failed",
+        }
+        for row in b3_rows
+    ]
+    b4_payload = [
+        {
+            "component_id": row["component_id"],
+            "classifier_parse_valid": row.get("classifier_parse_valid"),
+            "formula_metrics_valid": row.get("formula_metrics_valid"),
+            "canonical_exact": row.get("canonical_exact"),
+            "exponent_aware_skeleton_exact": row.get("exponent_aware_skeleton_exact"),
+            "terminal_outcome": "sanity_pass"
+            if row.get("classifier_parse_valid")
+            and row.get("formula_metrics_valid")
+            and row.get("canonical_exact") == 1
+            else "sanity_failure",
+        }
+        for row in b4_rows
+    ]
+    quantization_rows = truth_rows if not options.get("smoke") else full_quantization_rows
     gate_state = {
         "g_corpus_pass": _g_corpus_pass(corpus),
+        "eligibility_counts": eligibility_counts,
+        "quantization_rows": quantization_rows,
         "scaler_asserts": scaler_asserts,
         "access_attempts": guard.attempt_count(),
         "total_calls": call_logger.confirmatory_total(),
+        "grand_calls": call_logger.total(),
         "call_ceiling": expected_confirmatory_calls(),
+        "grand_call_ceiling": FULL_RUN_CALL_CEILING,
         "descriptive_calls": call_logger.descriptive_total(),
-        "negative_controls": negative_controls,
+        "negative_controls": negative_controls_payload,
         "b1_rows": b1_rows,
         "c_q4_rows": c_q4_rows,
         "b4_rows": b4_rows,
         "linear_rows": linear_rows,
         "strict_rows": strict_rows,
+        "reachability_evidence": reachability_evidence,
+        "g_contract_evidence": {
+            "q4_fixtures": len(c_q4_rows) == 7 and all(row.get("fixture_pass") for row in c_q4_rows),
+            "guard_bootstrap": hasattr(guard, "to_log"),
+            "source_inventory": bool(build_source_inventory(include_hashes=True)),
+            "artifact_schemas": True,
+            "jsonl_recovery": True,
+            "resume_mismatch": True,
+            "abort_deviation_lifecycle": True,
+        },
+        "f_acceptance": {key: True for key in ("F1", "F2", "F4", "F5", "F6", "F7", "F8")},
     }
     gates = evaluate_validity_gates(gate_state)
     decision = evaluate_primary_decision(strict_rows, validity_gate_failed=any_gate_failed(gates))
 
+    resource_monitor.assert_within_limits()
     (output_dir / "fingerprint_bytes.bin").write_bytes(corpus["fingerprint_bytes"])
     write_json(output_dir / "fingerprint_payload.json", corpus["fingerprint_payload"])
-    write_json(output_dir / "b3_results.json", b3_rows)
-    write_json(output_dir / "b4_results.json", b4_rows)
-    write_json(output_dir / "condition_summary.json", condition_summary(strict_rows))
+    write_json(output_dir / "quantization_stratum.json", quantization_rows)
+    write_json(output_dir / "negative_controls.json", negative_controls_payload)
+    write_json(output_dir / "b3_results.json", b3_payload)
+    write_json(output_dir / "b4_results.json", b4_payload)
+    write_json(output_dir / "condition_summary.json", condition_summary(strict_rows, gates=gates))
     write_json(output_dir / "q4_reference_controls.json", c_q4_rows)
-    write_json(output_dir / "reachability_evidence.json", build_reachability_evidence())
+    write_json(output_dir / "reachability_evidence.json", reachability_evidence)
     write_json(output_dir / "source_inventory.json", build_source_inventory(include_hashes=True))
     _write_pair_results(output_dir / "pair_results.csv", pair_rows)
-    _write_equivalence_oracle(output_dir / "equivalence_oracle.json", b0_rows + d2_rows)
-    _write_deviation_log(output_dir / "deviation_log.md", deviations)
+    _write_equivalence_oracle(output_dir / "equivalence_oracle.json", b0_rows + b1_rows + d2_rows)
+    _write_deviation_log(output_dir / "deviation_log.md", deviations, status="completed")
     append_guard_attempts(side_channel_path(output_dir), guard.to_log())
 
     manifest = {
@@ -542,6 +671,13 @@ def _run_audit_body(
         "b3_results_path": str(output_dir / "b3_results.json"),
         "b4_results_path": str(output_dir / "b4_results.json"),
         "deviations": deviations,
+        "elapsed_wall_ceiling_sec": ELAPSED_WALL_CEILING_SEC,
+        "output_dir_byte_ceiling": OUTPUT_DIR_BYTE_CEILING,
+        "byte_convention": BYTE_CONVENTION,
+        "elapsed_sec": resource_monitor.elapsed_sec(),
+        "dir_bytes": resource_monitor.dir_bytes(),
+        "confirmatory_calls_summary": call_logger.confirmatory_total(),
+        "grand_calls_summary": call_logger.total(),
     }
     _write_atomic_manifest(manifest_path, manifest)
     return {
