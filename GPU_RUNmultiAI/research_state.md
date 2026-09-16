@@ -7,13 +7,13 @@ Update it before a parent session ends.
 campaign: GPU_RUNmultiAI
 status: active
 current_cycle: C0001
-current_stage: PREREGISTRATION_V14_DRAFTED_PENDING_REVIEW
+current_stage: PREREGISTRATION_V15_REVISION_QUEUED
 branch: ai/C0001/research-engineer/implement-metric-audit
-observed_commit: ac2e644875cadb21d90bd42405b34701c35f7b61
+observed_commit: a296ffd67cff8ea71530ee234e9d04581f79b9f1
 base_commit: d4fef3f703cd3ef476529d110930aa34962fa2b0
 remote_branch: ai/C0001/research-engineer/implement-metric-audit
-remote_commit: ac2e644875cadb21d90bd42405b34701c35f7b61
-remote_verification_scope: pending_T013_content_push
+remote_commit: a296ffd67cff8ea71530ee234e9d04581f79b9f1
+remote_verification_scope: reviewed_tip_before_review_record_commit
 last_push_attempt_utc: null
 last_push_error: null
 binding_plan:
@@ -38,9 +38,19 @@ tracks:
   scientific:
     status: active
     current_cycle: C0001
-    stage: PREREGISTRATION_V14_DRAFTED_PENDING_REVIEW
+    stage: PREREGISTRATION_V15_REVISION_QUEUED
 
 active_tasks:
+  - task_id: C0001-T014
+    track: scientific
+    role: repo-operator / scientific-document-implementer
+    worker: Cursor Agent
+    branch: ai/C0001/research-engineer/implement-metric-audit
+    worktree: /tmp/lansr-multiai-C0001-implement-audit
+    status: queued
+    expected_outputs: [v15 narrow closure of R14-1..R14-5]
+    acceptance_test: n-ary/parser/guard-bootstrap/schema/cleanup consistency; two commits max; push parity
+    prior_task: C0001-T013-REVIEW
   - task_id: C0001-T013-REVIEW
     track: scientific
     role: independent reviewer (Claude reproducibility-auditor / scientific-critic)
@@ -48,7 +58,10 @@ active_tasks:
     branch: ai/C0001/research-engineer/implement-metric-audit
     worktree: /tmp/lansr-multiai-C0001-implement-audit
     write_scope: [targeted v14 closure review only]
-    status: queued
+    status: completed_block
+    reviewed_commit: a296ffd67cff8ea71530ee234e9d04581f79b9f1
+    reviewed_plan_sha256: 0650d7a5e2af666c2036ee96a8b5137e9d325aac3ac70d076244ac2f1f74968c
+    result: v14 BLOCK; R14-1 through R14-5 recorded; revise to v15
     expected_outputs: [v14 closure verdict PASS or BLOCK on R13-1..R13-6]
     acceptance_test: read-only review of v14 changed sections; v9-v13 bytes unchanged; no freeze without PASS
     prior_task: C0001-T013
@@ -392,7 +405,8 @@ completed_tasks:
     integration_commit: 47d7459
     result: four C0001 evidence and preregistration draft artifacts persisted
 open_findings:
-  - v14 targeted independent closure review queued (R13-1 through R13-6). v14 is drafted and unfrozen. Full audit remains prohibited.
+  - v14 targeted independent review BLOCKED freeze. v15 narrow revision queued for R14-1 through R14-5.
+  - v14 source inventory, hash-binding timing, counts, and §6.1 fixtures passed; duplicate n-ary text, parser leaf semantics, guard bootstrap, and three artifact schemas remain.
   - G_contract and F1-F8 implementation acceptance still pending post-freeze.
   - v12 remains unfrozen historical draft only (BLOCK verdict preserved).
   - v11 independent closure review BLOCKED freeze (historical). v11 remains unfrozen historical draft only.
@@ -414,9 +428,8 @@ retries:
   C0001-T003: 1
 
 next_action: >
-  Run targeted independent closure review on v14 (R13-1 through R13-6).
-  Freeze only after PASS. Then implement F1-F8 + G_contract acceptance before
-  bounded smoke or full audit.
+  Delegate C0001-T014 for a narrow v15 revision, push with at most two commits,
+  then independently review R14-1 through R14-5. Freeze only after PASS.
 
 last_checkpoint_utc: 2026-09-16T01:00:00Z
 ```
