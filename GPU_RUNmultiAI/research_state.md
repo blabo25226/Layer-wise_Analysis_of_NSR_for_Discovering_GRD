@@ -7,13 +7,13 @@ Update it before a parent session ends.
 campaign: GPU_RUNmultiAI
 status: active
 current_cycle: C0001
-current_stage: PREREGISTRATION_V15_READY_FOR_TARGETED_REVIEW
+current_stage: PREREGISTRATION_V16_REVISION_QUEUED
 branch: ai/C0001/research-engineer/implement-metric-audit
-observed_commit: ecfc5159a0fd4dd6d2b68e91115fc6a69455a172
+observed_commit: 7201e874d51f202e34fd581de9f8196ab7dc3446
 base_commit: d4fef3f703cd3ef476529d110930aa34962fa2b0
 remote_branch: ai/C0001/research-engineer/implement-metric-audit
-remote_commit: ecfc5159a0fd4dd6d2b68e91115fc6a69455a172
-remote_verification_scope: content_commit_only_no_completion_tip_chase
+remote_commit: 7201e874d51f202e34fd581de9f8196ab7dc3446
+remote_verification_scope: reviewed_tip_before_review_record_commit
 last_push_attempt_utc: null
 last_push_error: null
 binding_plan:
@@ -38,9 +38,19 @@ tracks:
   scientific:
     status: active
     current_cycle: C0001
-    stage: PREREGISTRATION_V15_READY_FOR_TARGETED_REVIEW
+    stage: PREREGISTRATION_V16_REVISION_QUEUED
 
 active_tasks:
+  - task_id: C0001-T015
+    track: scientific
+    role: repo-operator / scientific-document-implementer
+    worker: Cursor Agent
+    branch: ai/C0001/research-engineer/implement-metric-audit
+    worktree: /tmp/lansr-multiai-C0001-implement-audit
+    status: queued
+    expected_outputs: [v16 surgical closure of R15-1..R15-2]
+    acceptance_test: executable bootstrap ownership and stale refs; two commits max; push parity
+    prior_task: C0001-T014-REVIEW
   - task_id: C0001-T014-REVIEW
     track: scientific
     role: independent reviewer (Claude reproducibility-auditor / scientific-critic)
@@ -48,7 +58,10 @@ active_tasks:
     branch: ai/C0001/research-engineer/implement-metric-audit
     worktree: /tmp/lansr-multiai-C0001-implement-audit
     write_scope: [targeted v15 closure review only]
-    status: queued
+    status: completed_block
+    reviewed_commit: 7201e874d51f202e34fd581de9f8196ab7dc3446
+    reviewed_plan_sha256: dd986ab519eb3097b0978368482b02fc9e94f5514f89c2ad35e56d6870d8ecf2
+    result: v15 BLOCK; R15-1 and R15-2 recorded; revise to v16
     expected_outputs: [v15 closure verdict PASS or BLOCK on R14-1..R14-5]
     acceptance_test: read-only review of v15 changed sections; v9-v14 bytes unchanged; no freeze without PASS
     prior_task: C0001-T014
@@ -424,6 +437,7 @@ completed_tasks:
     integration_commit: 47d7459
     result: four C0001 evidence and preregistration draft artifacts persisted
 open_findings:
+  - v15 targeted review BLOCKED freeze on guard-bootstrap ordering/ownership and two stale references; v16 surgical revision queued.
   - v15 draft ready for targeted independent review on R14-1 through R14-5 closure.
   - `guard_bootstrap.py` is a post-freeze G_contract implementation requirement; inventory lists it but file may not exist pre-freeze.
   - G_contract and F1-F8 implementation acceptance still pending post-freeze.
@@ -447,8 +461,8 @@ retries:
   C0001-T003: 1
 
 next_action: >
-  Run targeted independent closure review on v15 R14-1 through R14-5.
-  Freeze only after PASS. Implement guard_bootstrap.py and F1-F8 post-freeze.
+  Delegate C0001-T015 for surgical v16, push, then independently review R15-1
+  and R15-2. Freeze only after PASS; implementation remains post-freeze.
 
 last_checkpoint_utc: 2026-09-16T09:49:00Z
 ```
