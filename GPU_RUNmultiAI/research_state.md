@@ -7,13 +7,13 @@ Update it before a parent session ends.
 campaign: GPU_RUNmultiAI
 status: active
 current_cycle: C0001
-current_stage: PREREGISTRATION_V16_REVISION_QUEUED
+current_stage: PREREGISTRATION_V16_READY_FOR_TARGETED_REVIEW
 branch: ai/C0001/research-engineer/implement-metric-audit
-observed_commit: 7201e874d51f202e34fd581de9f8196ab7dc3446
+observed_commit: a6a869d5d6f729bb09b53502c88250c701c5269f
 base_commit: d4fef3f703cd3ef476529d110930aa34962fa2b0
 remote_branch: ai/C0001/research-engineer/implement-metric-audit
-remote_commit: 7201e874d51f202e34fd581de9f8196ab7dc3446
-remote_verification_scope: reviewed_tip_before_review_record_commit
+remote_commit: a6a869d5d6f729bb09b53502c88250c701c5269f
+remote_verification_scope: content_commit_pending_push
 last_push_attempt_utc: null
 last_push_error: null
 binding_plan:
@@ -38,7 +38,7 @@ tracks:
   scientific:
     status: active
     current_cycle: C0001
-    stage: PREREGISTRATION_V16_REVISION_QUEUED
+    stage: PREREGISTRATION_V16_READY_FOR_TARGETED_REVIEW
 
 active_tasks:
   - task_id: C0001-T015
@@ -47,7 +47,9 @@ active_tasks:
     worker: Cursor Agent
     branch: ai/C0001/research-engineer/implement-metric-audit
     worktree: /tmp/lansr-multiai-C0001-implement-audit
-    status: queued
+    status: in_progress
+    started_at: 2026-09-16T10:00:00Z
+    content_source_commit: a6a869d5d6f729bb09b53502c88250c701c5269f
     expected_outputs: [v16 surgical closure of R15-1..R15-2]
     acceptance_test: executable bootstrap ownership and stale refs; two commits max; push parity
     prior_task: C0001-T014-REVIEW
@@ -437,9 +439,9 @@ completed_tasks:
     integration_commit: 47d7459
     result: four C0001 evidence and preregistration draft artifacts persisted
 open_findings:
-  - v15 targeted review BLOCKED freeze on guard-bootstrap ordering/ownership and two stale references; v16 surgical revision queued.
-  - v15 draft ready for targeted independent review on R14-1 through R14-5 closure.
-  - `guard_bootstrap.py` is a post-freeze G_contract implementation requirement; inventory lists it but file may not exist pre-freeze.
+  - v16 draft ready for targeted independent review on R15-1 and R15-2 closure.
+  - v15 targeted review BLOCKED freeze on guard-bootstrap ordering/ownership and two stale references; v16 surgical revision drafted.
+  - `guard_bootstrap.py` is post-freeze before G_contract evaluation; inventory lists it but file may not exist pre-freeze.
   - G_contract and F1-F8 implementation acceptance still pending post-freeze.
   - v12 remains unfrozen historical draft only (BLOCK verdict preserved).
   - v11 independent closure review BLOCKED freeze (historical). v11 remains unfrozen historical draft only.
@@ -461,10 +463,10 @@ retries:
   C0001-T003: 1
 
 next_action: >
-  Delegate C0001-T015 for surgical v16, push, then independently review R15-1
-  and R15-2. Freeze only after PASS; implementation remains post-freeze.
+  Targeted independent closure review on v16 R15-1 and R15-2. Freeze only after
+  PASS; guard_bootstrap.py implementation remains post-freeze before G_contract.
 
-last_checkpoint_utc: 2026-09-16T09:49:00Z
+last_checkpoint_utc: 2026-09-16T10:00:00Z
 ```
 
 ## Notes
