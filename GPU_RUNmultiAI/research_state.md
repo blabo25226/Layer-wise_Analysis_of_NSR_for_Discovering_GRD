@@ -7,13 +7,13 @@ Update it before a parent session ends.
 campaign: GPU_RUNmultiAI
 status: active
 current_cycle: C0001
-current_stage: PREREGISTRATION_V16_FROZEN_IMPLEMENTATION_QUEUED
+current_stage: PREREGISTRATION_V16_IMPLEMENTATION_COMPLETE_PENDING_REVIEW
 branch: ai/C0001/research-engineer/implement-metric-audit
-observed_commit: 249c82ee0ae93d39a23f90c17d8eeec46468ad58
+observed_commit: pending_push_after_T016_fixes
 base_commit: d4fef3f703cd3ef476529d110930aa34962fa2b0
 remote_branch: ai/C0001/research-engineer/implement-metric-audit
-remote_commit: 249c82ee0ae93d39a23f90c17d8eeec46468ad58
-remote_verification_scope: reviewed_tip_before_freeze_record_commit
+remote_commit: c12f025e073829ee1148749cfaddbe294b10190b
+remote_verification_scope: pending_post_T016_fix_push
 last_push_attempt_utc: null
 last_push_error: null
 binding_plan:
@@ -39,7 +39,7 @@ tracks:
   scientific:
     status: active
     current_cycle: C0001
-    stage: PREREGISTRATION_V16_FROZEN_IMPLEMENTATION_QUEUED
+    stage: PREREGISTRATION_V16_IMPLEMENTATION_COMPLETE_PENDING_REVIEW
 
 active_tasks:
   - task_id: C0001-T016
@@ -48,10 +48,14 @@ active_tasks:
     worker: Cursor Agent
     branch: ai/C0001/research-engineer/implement-metric-audit
     worktree: /tmp/lansr-multiai-C0001-implement-audit
-    status: queued
+    status: completed_pending_independent_review
     write_scope: [frozen 82-path runtime inventory, focused tests, v16 smoke/evidence, implementation completion]
     expected_outputs: [F1/F2/F4-F8, G_contract, G_impl, reachability evidence, bounded v16 smoke]
     acceptance_test: frozen plan hash; compileall; focused pytest; G_contract/G_impl; fresh smoke; diff check; push parity
+    deliverables:
+      - GPU_RUNmultiAI/cycles/C0001/implementation_completion_v16.md
+      - GPU_RUNmultiAI/cycles/C0001/runs/c0001_metric_identifiability_audit_v16_smoke/
+    result: v16 post-freeze implementation complete; 61 focused pytest PASS on Python 3.10; full audit prohibited
     prior_task: C0001-T015-REVIEW
   - task_id: C0001-T015-REVIEW
     track: scientific
@@ -477,12 +481,12 @@ open_findings:
   - v16 draft ready for targeted independent review on R15-1 and R15-2 closure.
   - v15 targeted review BLOCKED freeze on guard-bootstrap ordering/ownership and two stale references; v16 surgical revision drafted.
   - `guard_bootstrap.py` is post-freeze before G_contract evaluation; inventory lists it but file may not exist pre-freeze.
-  - G_contract and F1-F8 implementation acceptance still pending post-freeze.
+  - G_contract and F1-F8 implementation acceptance completed in C0001-T016; independent implementation review pending.
   - v12 remains unfrozen historical draft only (BLOCK verdict preserved).
   - v11 independent closure review BLOCKED freeze (historical). v11 remains unfrozen historical draft only.
   - PI ruled reachability_evidence.json is a post-freeze G_impl artifact, not a pre-freeze file.
-  - REACH-UNS-1 constructive 1,320-row synthetic proof artifact not yet generated (G_impl implementation evidence pending).
-  - F1-F8 implementation repairs still blocked; G_impl requires post-freeze code acceptance.
+  - REACH-SUP-1 / REACH-UNS-1 reachability evidence generated via `build_reachability_evidence()` tests and smoke artifact.
+  - F1-F8 post-freeze repairs implemented; full 27,637-call audit remains prohibited until independent review PASS.
   - Gemini v10 bulk audit produced no result because command permission was auto-denied; exit 0 is not PASS.
   - Frozen v9 is immutable. v10 draft remains unfrozen historical draft only.
   - Claude Code made two write attempts on C0001-T009 with no file edits; Cursor fallback produced v10 deliverables.

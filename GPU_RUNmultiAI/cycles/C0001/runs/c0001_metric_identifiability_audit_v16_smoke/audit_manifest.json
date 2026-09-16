@@ -107,7 +107,7 @@
     },
     {
       "path": "src/gpu_runmultiai/odeformer_runtime.py",
-      "sha256": "cc86f5f56a648d61490955fa93d26e337ad0156d67b2e4e7a4c644ac1d989c46"
+      "sha256": "ac554ceceee828b105cbaa9c02354ef37b1921f637cbeec2ab92b8e0aad359fc"
     },
     {
       "path": "src/gpu_runmultiai/oracle.py",
@@ -119,11 +119,11 @@
     },
     {
       "path": "src/gpu_runmultiai/pipeline.py",
-      "sha256": "4f65c32712b0895de2207006fc4895042b62f4fd9cf72f803b64fb87f1fdbe75"
+      "sha256": "e5521b69aabb330eb95f093441989a1b0d90ab9147e6ff97a62e99a4f4abf393"
     },
     {
       "path": "src/gpu_runmultiai/q4_reference.py",
-      "sha256": "e56e01c239b89dcc832e0a07016ebe13d39275b0137bb2db39217aab5625cad0"
+      "sha256": "5514de478712d0f49c47800db73b2c3a3a4007e3e0cd8e374a34d3ff58fef784"
     },
     {
       "path": "src/gpu_runmultiai/reachability.py",
@@ -350,10 +350,10 @@
       "sha256": "6a60e0a367b419ac25194db594de0a457d9b756bb13a0117d6732c90f050917b"
     }
   ],
-  "commit": "08b75ccac6c4f9b1656e29220f2ae86e66629bd9",
+  "commit": "e483c788885e32f8248a52a23c79b9b7508f7c7f",
   "resume_identity": {
     "audit_id": "c0001_metric_identifiability_audit_v16",
-    "commit": "08b75ccac6c4f9b1656e29220f2ae86e66629bd9",
+    "commit": "e483c788885e32f8248a52a23c79b9b7508f7c7f",
     "plan_hash": "67017f5c8bac861664fc867b70cf229d43be3d052d266ffd0d575e20e6c12078",
     "audit_script_hash": "e530f3f01578221c95dd7634c9d923959913d41c31a4f5e3b9e1ecf0002e33cb",
     "config_hash": "2ffee235ff1403ce62961cdd35e022c01fa56b2772785f81f60e08e009d006d2",
@@ -460,7 +460,7 @@
       },
       {
         "path": "src/gpu_runmultiai/odeformer_runtime.py",
-        "sha256": "cc86f5f56a648d61490955fa93d26e337ad0156d67b2e4e7a4c644ac1d989c46"
+        "sha256": "ac554ceceee828b105cbaa9c02354ef37b1921f637cbeec2ab92b8e0aad359fc"
       },
       {
         "path": "src/gpu_runmultiai/oracle.py",
@@ -472,11 +472,11 @@
       },
       {
         "path": "src/gpu_runmultiai/pipeline.py",
-        "sha256": "4f65c32712b0895de2207006fc4895042b62f4fd9cf72f803b64fb87f1fdbe75"
+        "sha256": "e5521b69aabb330eb95f093441989a1b0d90ab9147e6ff97a62e99a4f4abf393"
       },
       {
         "path": "src/gpu_runmultiai/q4_reference.py",
-        "sha256": "e56e01c239b89dcc832e0a07016ebe13d39275b0137bb2db39217aab5625cad0"
+        "sha256": "5514de478712d0f49c47800db73b2c3a3a4007e3e0cd8e374a34d3ff58fef784"
       },
       {
         "path": "src/gpu_runmultiai/reachability.py",
@@ -898,13 +898,13 @@
     "simplifier_subprocess_timeout_sec": 5.0,
     "cas_timeout_sec": 60.0,
     "dependency_versions": {
-      "python": "3.14.6",
-      "numpy": "2.5.3",
-      "scipy": "1.18.1",
+      "python": "3.10.20",
+      "numpy": "2.2.6",
+      "scipy": "1.15.3",
       "os": "Linux-7.0.0-31-generic-x86_64-with-glibc2.43",
       "cpu": "x86_64",
-      "sympy": "1.14.0",
-      "torch": "missing"
+      "sympy": "1.13.1",
+      "torch": "2.5.1+cu124"
     },
     "environment": {
       "LANSR_TED_TIMEOUT_SEC": "10",
@@ -3583,7 +3583,7 @@
   "access_guard_attempts": [],
   "validity_gates": {
     "G_corpus": true,
-    "G0": false,
+    "G0": true,
     "G4": true,
     "G1": true,
     "G_n1": false,
@@ -3598,12 +3598,18 @@
   },
   "primary_decision": "H0001 undecidable",
   "status": "completed",
-  "confirmatory_calls": 19,
+  "confirmatory_calls": 51,
   "descriptive_calls": 0,
-  "primitive_completion_rate": 0.0006874841697724066,
+  "primitive_completion_rate": 0.001845352245178565,
   "b3_rows": 2,
   "non_strict_rows": 0,
-  "scaler_asserts_measured": {},
+  "scaler_asserts_measured": {
+    "time_scale": 9,
+    "time_shift": 1,
+    "a_t": 0.9,
+    "b_t": 1.0,
+    "rescale_features": true
+  },
   "oracle_timeout_sec": 30.0,
   "simplifier_subprocess_timeout_sec": 5.0,
   "cas_timeout_sec": 60.0,
