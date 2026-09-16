@@ -7,7 +7,7 @@ import subprocess
 from typing import Any
 
 from evaluation.gpu_run5_structure import classify_formula
-from gpu_run4.formulas import compare_formulas
+from gpu_run4.formulas import compare_formulas, split_components
 from gpu_run5.evaluation import formula_metrics
 
 from gpu_runmultiai.constants import (
@@ -16,6 +16,7 @@ from gpu_runmultiai.constants import (
     IDENTITY_REWRITE_ID,
     IDENTITY_SCALE,
     N1_COUNT,
+    Q4_TIMEOUT_SEC,
     TRUTH_COPY_REWRITE_ID,
 )
 from gpu_runmultiai.ids import component_id_for, negative_id_for, pair_id_for
@@ -51,7 +52,13 @@ from gpu_runmultiai.rewrites import (
     rewrite_registration,
     truth_component_infix,
 )
+from gpu_runmultiai.q4_reference import C_Q4_FIXTURES, Q4ContractError, audit_q4_decimal_round_reference, evaluate_c_q4_fixture
 from gpu_runmultiai.strata import component_stratum, is_linear_component, is_strict_hill_component
+
+
+def _q4_component_prefix(q4_prefix_raw: str, component_idx: int) -> str:
+    parts = split_components(q4_prefix_raw)
+    return parts[component_idx] if component_idx < len(parts) else q4_prefix_raw
 
 
 def _cached_call(
@@ -245,6 +252,7 @@ def _execute_chain(
     skip_simplifier: bool,
     run_oracles: bool,
     oracle_timeout_sec: float,
+    q4_timeout_sec: float,
     simplifier_timeout_sec: float,
     call_logger,
     condition: str,
@@ -293,8 +301,11 @@ def _execute_chain(
     try:
         env = get_env()
         if use_identity:
+            import numpy as np
+
             prefixes = truth_system_prefixes(record)
-            scaler, _ = build_identity_scaler(int(record["dimension"]))
+            scaler, _ = build_production_scaler(1.0, int(record["dimension"]))
+            identity_scale = np.ones(int(record["dimension"]), dtype=float)
         else:
             prefixes = replace_component_prefixes(record, component_idx, rewrite_row["rewrite_prefix"])
             scaler, _ = build_production_scaler(float(scale), int(record["dimension"]))
@@ -314,7 +325,14 @@ def _execute_chain(
         e0_prefix_raw = "|".join(tree_to_prefix_list(e0_tree))
         e0_infix = tree_to_system_infix(e0_tree)
         current_stage = "E1"
-        e1_tree, rescale_incomplete = rescale_system(env, scaler, e0_tree)
+        if use_identity:
+            import numpy as np
+
+            identity_scale = np.ones(int(record["dimension"]), dtype=float)
+            e1_tree = scaler.rescale_function(env, e0_tree, 1.0, 0.0, identity_scale)
+            rescale_incomplete = e1_tree is e0_tree
+        else:
+            e1_tree, rescale_incomplete = rescale_system(env, scaler, e0_tree)
         _cached_call(
             call_logger,
             stage_cache,
@@ -339,11 +357,38 @@ def _execute_chain(
             )
         e1_prefix_raw = "|".join(tree_to_prefix_list(e1_tree))
         e1_infix = tree_to_system_infix(e1_tree)
+        e1_component_prefix = tree_to_prefix_list(e1_tree)[component_idx]
+
+        def _run_q4():
+            q4_prefix = e1_component_prefix
+            return audit_q4_decimal_round_reference(
+                q4_prefix,
+                dimension=int(record["dimension"]),
+                timeout_sec=q4_timeout_sec,
+            ).as_dict()
+
+        q4_result = _cached_call(
+            call_logger,
+            stage_cache,
+            cache_path,
+            primitive="q4_decimal_round_reference",
+            condition=condition,
+            stage="Q4",
+            unit_type="pair" if condition != "B1" else "pair",
+            unit_id=pair_id,
+            executor=_run_q4,
+            status_for_result=lambda row: "completed" if row["q4_construction_completed"] else "failed",
+        )
+        q4_completed = bool(q4_result.get("q4_construction_completed"))
+        q4_emitted_infix = q4_result.get("q4_emitted_infix")
+        q4_emitted_prefix = q4_result.get("q4_emitted_prefix")
+        q4_sympy_expr_canonical = q4_result.get("q4_sympy_expr_canonical")
+        q4_failure_reason = q4_result.get("q4_construction_failure_reason")
+
         e1_oracle = {"completed": False, "equivalent": False}
         e2_oracle = {"completed": False, "equivalent": False}
         if run_oracles:
             def _run_e1_oracle():
-                e1_component_prefix = tree_to_prefix_list(e1_tree)[component_idx]
                 return oracle_single_component(
                     truth_component,
                     e1_infix,
@@ -356,7 +401,7 @@ def _execute_chain(
             e1_oracle = _cached_call(
                 call_logger,
                 stage_cache,
-                cache_path,
+            cache_path,
                 primitive="oracle_equivalence",
                 condition=_oracle_call_condition(condition, "E1"),
                 stage="E1",
@@ -365,9 +410,24 @@ def _execute_chain(
                 executor=_run_e1_oracle,
                 status_for_result=lambda row: "completed" if row["completed"] else "failed",
             )
+        if not q4_completed:
+            return build_outcome_row(
+                **base,
+                execution_failure=True,
+                q4_construction_completed=False,
+                q4_construction_failure_reason=q4_failure_reason,
+                e0_status="completed",
+                e1_status="completed",
+                e0_prefix_raw=e0_prefix_raw,
+                e1_prefix_raw=e1_prefix_raw,
+                e0_infix=e0_infix,
+                e1_infix=e1_infix,
+                **_stage_flags(e1_oracle=e1_oracle if run_oracles else None),
+            )
         e2_infix = e1_infix
         e2_prefix_raw = e1_prefix_raw
         e2_status = "skipped"
+        e2_identity_fallback_candidate = False
         current_stage = "E2"
         if not skip_simplifier:
             def _run_simplifier():
@@ -411,16 +471,17 @@ def _execute_chain(
                 def _run_e2_oracle():
                     prefix_blob = simplified.get("prefix") or ""
                     e2_component_prefix = (
-                        prefix_blob.split("|")[component_idx]
+                        split_components(prefix_blob)[component_idx]
                         if prefix_blob
                         else tree_to_prefix_list(e1_tree)[component_idx]
                     )
+                    q4_component_prefix = _q4_component_prefix(q4_emitted_prefix or "", component_idx)
                     return oracle_single_component(
-                        truth_component,
+                        q4_emitted_infix or "",
                         e2_infix,
                         candidate_component_idx=component_idx,
                         timeout_sec=oracle_timeout_sec,
-                        truth_component_prefix=truth_prefix,
+                        truth_component_prefix=q4_component_prefix,
                         candidate_component_prefix=e2_component_prefix,
                     ).as_dict()
 
@@ -436,6 +497,14 @@ def _execute_chain(
                     executor=_run_e2_oracle,
                     status_for_result=lambda row: "completed" if row["completed"] else "failed",
                 )
+        e2_identity_fallback_candidate = False
+        if run_oracles and not skip_simplifier and e2_prefix_raw == e1_prefix_raw:
+            import sympy as sp
+
+            e1_sympy = prefix_to_infix_component(e1_component_prefix)
+            e1_expr = sp.sympify(e1_sympy)
+            q4_expr = sp.sympify(q4_sympy_expr_canonical or "0")
+            e2_identity_fallback_candidate = sp.simplify(sp.expand(e1_expr - q4_expr)) != 0
         score_infix = e2_infix if not skip_simplifier else e1_infix
         classified = classify_formula(score_infix)
         parse_valid = bool(classified["valid"])
@@ -472,12 +541,14 @@ def _execute_chain(
         flags = _stage_flags(
             construction_incomplete=False,
             execution_failure=not parse_valid
+            or e2_identity_fallback_candidate
             or (
                 run_oracles
                 and not (e1_oracle.get("completed") and (skip_simplifier or e2_oracle.get("completed")))
             ),
             semantic_drift=bool(
                 run_oracles
+                and not e2_identity_fallback_candidate
                 and (
                     (e1_oracle.get("completed") and not e1_oracle.get("equivalent"))
                     or (
@@ -505,11 +576,18 @@ def _execute_chain(
             e0_status="completed",
             e1_status="completed",
             e2_status=e2_status,
+            q4_construction_completed=q4_completed,
+            q4_emitted_infix=q4_emitted_infix,
+            q4_sympy_expr_canonical=q4_sympy_expr_canonical,
+            q4_construction_failure_reason=q4_failure_reason,
+            e2_identity_fallback_candidate=e2_identity_fallback_candidate,
             canonical_exact=metrics.get("canonical_exact"),
             exponent_aware_skeleton_exact=metrics.get("exponent_aware_skeleton_exact"),
             formula_metrics_valid=metrics.get("formula_metrics_valid"),
             **flags,
         )
+    except Q4ContractError:
+        raise
     except AuditInvariantError:
         raise
     except (ODEFormerUnavailable, ValueError, TypeError, IndexError, json.JSONDecodeError, subprocess.TimeoutExpired) as exc:
@@ -549,6 +627,7 @@ def run_b0_pair(
     scale: str,
     rewrite_row: dict[str, Any],
     oracle_timeout_sec: float,
+    q4_timeout_sec: float,
     simplifier_timeout_sec: float,
     call_logger,
     runtime_available: bool,
@@ -570,6 +649,7 @@ def run_b0_pair(
         skip_simplifier=False,
         run_oracles=True,
         oracle_timeout_sec=oracle_timeout_sec,
+        q4_timeout_sec=q4_timeout_sec,
         simplifier_timeout_sec=simplifier_timeout_sec,
         call_logger=call_logger,
         condition="B0",
@@ -590,6 +670,7 @@ def run_b1_pair(
     record: dict[str, Any],
     component_idx: int,
     oracle_timeout_sec: float,
+    q4_timeout_sec: float,
     simplifier_timeout_sec: float,
     call_logger,
     runtime_available: bool,
@@ -615,8 +696,9 @@ def run_b1_pair(
         rewrite_row={"rewrite_id": IDENTITY_REWRITE_ID, "valid": True},
         use_identity=True,
         skip_simplifier=False,
-        run_oracles=False,
+        run_oracles=True,
         oracle_timeout_sec=oracle_timeout_sec,
+        q4_timeout_sec=q4_timeout_sec,
         simplifier_timeout_sec=simplifier_timeout_sec,
         call_logger=call_logger,
         condition="B1",
@@ -633,20 +715,25 @@ def run_b1_pair(
 
 def run_b2_pair(
     *,
-    b0_row: dict[str, Any],
+    pair_id: str,
+    component_id: str,
+    system_id: str,
+    component_idx: int,
+    scale: str,
+    rewrite_id: str,
+    stratum: str,
+    e1_infix: str,
     record: dict[str, Any],
     call_logger,
     stage_cache: dict[str, Any] | None = None,
     cache_path=None,
     result_cache: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    pair_id = b0_row["pair_id"]
     if result_cache is not None and pair_id in result_cache:
         return result_cache[pair_id]
-    component_idx = b0_row["component_idx"]
     stage_cache = stage_cache or {}
     try:
-        score_infix = b0_row.get("e1_infix") or ""
+        score_infix = e1_infix or ""
 
         def _classify():
             classified = classify_formula(score_infix)
@@ -681,34 +768,39 @@ def run_b2_pair(
             executor=lambda: _component_metrics(record, score_infix, component_idx),
             status_for_result=lambda row: "completed" if row["formula_metrics_valid"] else "failed",
         )
-        row = dict(b0_row)
-        row.update(
-            {
-                "condition": "B2",
-                "classifier_parse_valid": parse_valid,
-                "classifier_parse_failure_reason": parse_reason,
-                "hill_form": hill_form,
-                "canonical_exact": metrics.get("canonical_exact"),
-                "exponent_aware_skeleton_exact": metrics.get("exponent_aware_skeleton_exact"),
-                "formula_metrics_valid": metrics.get("formula_metrics_valid"),
-            }
+        row = build_outcome_row(
+            condition="B2",
+            pair_id=pair_id,
+            component_id=component_id,
+            system_id=system_id,
+            component_idx=component_idx,
+            scale=scale,
+            rewrite_id=rewrite_id,
+            stratum=stratum,
+            e1_infix=e1_infix,
+            classifier_parse_valid=parse_valid,
+            classifier_parse_failure_reason=parse_reason,
+            hill_form=hill_form,
+            canonical_exact=metrics.get("canonical_exact"),
+            exponent_aware_skeleton_exact=metrics.get("exponent_aware_skeleton_exact"),
+            formula_metrics_valid=metrics.get("formula_metrics_valid"),
+            execution_failure=not parse_valid,
+            e1_status="completed",
         )
-        row = build_outcome_row(**row)
     except AuditInvariantError:
         raise
     except Exception as exc:
         row = build_outcome_row(
             condition="B2",
-            pair_id=b0_row.get("pair_id"),
-            component_id=b0_row.get("component_id"),
-            system_id=b0_row.get("system_id"),
-            component_idx=b0_row.get("component_idx"),
-            scale=b0_row.get("scale"),
-            rewrite_id=b0_row.get("rewrite_id"),
-            stratum=b0_row.get("stratum"),
+            pair_id=pair_id,
+            component_id=component_id,
+            system_id=system_id,
+            component_idx=component_idx,
+            scale=scale,
+            rewrite_id=rewrite_id,
+            stratum=stratum,
             execution_failure=True,
             failure_reason=type(exc).__name__,
-            e0_status=b0_row.get("e0_status"),
             e1_status="execution_failure",
         )
     if result_cache is not None:
@@ -849,7 +941,11 @@ def run_negative_controls(
 
 
 def select_b3_pairs(pair_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    strict = [row for row in pair_rows if row.get("stratum") == "strict_hill" and row.get("condition") == "B0"]
+    strict = [
+        row
+        for row in pair_rows
+        if row.get("eligibility_layer") == "strict_hill_primary" and row.get("condition") == "B0"
+    ]
     ordered = sorted(strict, key=lambda row: row["pair_id"].split(":", 1)[1])
     return ordered[:B3_PAIR_COUNT]
 
@@ -910,9 +1006,10 @@ def run_b3_pairs(
 
         try:
             def _compare():
-                try:
-                    pred = extract_component_infix(pred_system, component_idx) if " | " in pred_system else pred_system
-                except IndexError:
+                parts = split_components(pred_system)
+                if component_idx < len(parts):
+                    pred = extract_component_infix("|".join(parts), component_idx)
+                else:
                     pred = pred_system
                 with time_limit(CAS_TIMEOUT_SEC):
                     return compare_formulas(truth, pred, skip_cas=False)
@@ -947,6 +1044,7 @@ def run_d2_pair(
     component_idx: int,
     rewrite_row: dict[str, Any],
     oracle_timeout_sec: float,
+    q4_timeout_sec: float,
     simplifier_timeout_sec: float,
     call_logger,
     runtime_available: bool,
@@ -974,6 +1072,7 @@ def run_d2_pair(
         skip_simplifier=False,
         run_oracles=True,
         oracle_timeout_sec=oracle_timeout_sec,
+        q4_timeout_sec=q4_timeout_sec,
         simplifier_timeout_sec=simplifier_timeout_sec,
         call_logger=call_logger,
         condition="D2",
@@ -986,3 +1085,34 @@ def run_d2_pair(
     if pair_cache is not None:
         pair_cache[pair_id] = row
     return row
+
+
+def run_c_q4_fixtures(
+    *,
+    call_logger,
+    q4_timeout_sec: float = Q4_TIMEOUT_SEC,
+    stage_cache: dict[str, Any] | None = None,
+    cache_path=None,
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    stage_cache = stage_cache or {}
+    for fixture in C_Q4_FIXTURES:
+        fixture_id = fixture["fixture_id"]
+
+        def _executor(current_fixture=fixture):
+            return evaluate_c_q4_fixture(current_fixture, timeout_sec=q4_timeout_sec)
+
+        row = _cached_call(
+            call_logger,
+            stage_cache,
+            cache_path,
+            primitive="q4_decimal_round_reference",
+            condition="C_q4",
+            stage="Q4",
+            unit_type="fixture",
+            unit_id=fixture_id,
+            executor=_executor,
+            status_for_result=lambda payload: "completed" if payload.get("fixture_pass") else "failed",
+        )
+        rows.append(row)
+    return rows

@@ -25,13 +25,16 @@ from gpu_runmultiai.constants import (
     AUDIT_REWRITE_SEED,
     AUDIT_TRAJECTORY_SEED,
     CAS_TIMEOUT_SEC,
+    CONFIRMATORY_CALL_CEILING,
     FROZEN_ENV_VARS,
+    FULL_RUN_CALL_CEILING,
     ORACLE_TIMEOUT_SEC,
     PLAN_PATH,
     PLAN_SHA256,
+    Q4_TIMEOUT_SEC,
     SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
-    SOURCE_HASH_PATHS,
 )
+from gpu_runmultiai.source_inventory import build_source_inventory
 
 
 def verify_plan_hash() -> str:
@@ -43,8 +46,8 @@ def verify_plan_hash() -> str:
     return digest
 
 
-def source_hashes() -> dict[str, str]:
-    return {str(path.relative_to(REPO_ROOT)): sha256_file(path) for path in SOURCE_HASH_PATHS}
+def source_hashes() -> list[dict[str, str]]:
+    return build_source_inventory(include_hashes=True)
 
 
 def audit_script_hash(script_path: Path) -> str:
@@ -122,7 +125,7 @@ def build_resume_identity(
         "commit": commit,
         "plan_hash": verify_plan_hash(),
         "audit_script_hash": audit_script_hash(audit_script_path),
-        "config_hash": sha256_file(SOURCE_HASH_PATHS[-1]),
+        "config_hash": sha256_file(REPO_ROOT / "configs/gpu_run5/base.yaml"),
         "source_hashes": source_hashes(),
         "corpus_hash": corpus_hash,
         "fingerprint_payload_path": fingerprint_payload_path,
@@ -138,6 +141,7 @@ def build_resume_identity(
         "primitive_table": PRIMITIVE_TABLE,
         "cli_args_normalized": normalize_cli_args(cli_args),
         "oracle_timeout_sec": float(cli_args.get("oracle_timeout_sec", ORACLE_TIMEOUT_SEC)),
+        "q4_timeout_sec": float(cli_args.get("q4_timeout_sec", Q4_TIMEOUT_SEC)),
         "simplifier_subprocess_timeout_sec": float(
             cli_args.get("simplifier_subprocess_timeout_sec", SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC)
         ),
@@ -145,7 +149,8 @@ def build_resume_identity(
         "dependency_versions": dependency_versions(),
         "environment": frozen_environment(),
         "runtime_provenance": runtime_provenance(),
-        "confirmatory_call_ceiling": expected_confirmatory_calls(),
+        "confirmatory_call_ceiling": CONFIRMATORY_CALL_CEILING,
+        "grand_call_ceiling": FULL_RUN_CALL_CEILING,
     }
 
 
@@ -165,8 +170,11 @@ def verify_resume_identity(existing: dict[str, Any], current: dict[str, Any]) ->
         "primitive_table",
         "cli_args_normalized",
         "oracle_timeout_sec",
+        "q4_timeout_sec",
         "simplifier_subprocess_timeout_sec",
         "cas_timeout_sec",
+        "confirmatory_call_ceiling",
+        "grand_call_ceiling",
         "dependency_versions",
         "environment",
         "runtime_provenance",

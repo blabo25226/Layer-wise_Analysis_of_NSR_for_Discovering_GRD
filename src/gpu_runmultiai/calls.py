@@ -10,14 +10,17 @@ from typing import Any, Callable
 
 from gpu_runmultiai.constants import CONFIRMATORY_CALL_CEILING, FULL_RUN_CALL_CEILING
 from gpu_runmultiai.invariants import AuditInvariantError
+from gpu_runmultiai.jsonl_durable import append_jsonl_line, load_jsonl, truncate_partial_suffix
 
 DESCRIPTIVE_CONDITIONS = frozenset({"D2"})
 
 PRIMITIVE_TABLE: list[dict[str, Any]] = [
     {"id": "P1", "primitive": "truth_register_classify", "condition": "registration", "units": 510},
     {"id": "P2", "primitive": "rewrite_oracle_precheck", "condition": "registration", "units": 510},
+    {"id": "P12", "primitive": "quantization_stratum_assign", "condition": "registration", "units": 510},
     {"id": "P3", "primitive": "e0_analytic_construct", "condition": "B0", "units": 2040},
     {"id": "P5", "primitive": "scaler_rescale_function", "condition": "B0", "units": 2040},
+    {"id": "P11", "primitive": "q4_decimal_round_reference", "condition": "B0", "units": 2040},
     {"id": "P6", "primitive": "simplifier_subprocess", "condition": "B0", "units": 2040},
     {"id": "P7", "primitive": "oracle_equivalence", "condition": "B0_E2", "units": 2040},
     {"id": "P7", "primitive": "oracle_equivalence", "condition": "B0_E1", "units": 2040},
@@ -25,13 +28,17 @@ PRIMITIVE_TABLE: list[dict[str, Any]] = [
     {"id": "P9", "primitive": "formula_metrics_pair", "condition": "B0", "units": 2040},
     {"id": "P4", "primitive": "e0_identity_construct", "condition": "B1", "units": 510},
     {"id": "P5", "primitive": "scaler_rescale_function", "condition": "B1", "units": 510},
+    {"id": "P11", "primitive": "q4_decimal_round_reference", "condition": "B1", "units": 510},
     {"id": "P6", "primitive": "simplifier_subprocess", "condition": "B1", "units": 510},
+    {"id": "P7", "primitive": "oracle_equivalence", "condition": "B1_E2", "units": 510},
+    {"id": "P7", "primitive": "oracle_equivalence", "condition": "B1_E1", "units": 510},
     {"id": "P8", "primitive": "classify_component_flags", "condition": "B1", "units": 510},
     {"id": "P9", "primitive": "formula_metrics_pair", "condition": "B1", "units": 510},
     {"id": "P8", "primitive": "classify_component_flags", "condition": "B2", "units": 2040},
     {"id": "P9", "primitive": "formula_metrics_pair", "condition": "B2", "units": 2040},
     {"id": "P8", "primitive": "classify_component_flags", "condition": "B4", "units": 510},
     {"id": "P9", "primitive": "formula_metrics_pair", "condition": "B4", "units": 510},
+    {"id": "P11", "primitive": "q4_decimal_round_reference", "condition": "C_q4", "units": 7},
     {"id": "P10", "primitive": "compare_formulas_cas", "condition": "B3", "units": 500},
     {"id": "P7", "primitive": "oracle_equivalence", "condition": "N1", "units": 100},
 ]
@@ -63,16 +70,23 @@ class CallLogger:
         self.rows: list[dict[str, Any]] = []
         self._keys: set[tuple[str, str, str, str, str]] = set()
         self.skip_duplicates: bool = False
+        if path is not None and path.is_file():
+            truncate_partial_suffix(path)
 
     @classmethod
     def load(cls, path: Path) -> "CallLogger":
         logger = cls(path)
-        if not path.is_file():
-            return logger
-        for line in path.read_text(encoding="utf-8").splitlines():
-            if not line.strip():
-                continue
-            row = json.loads(line)
+        loaded = load_jsonl(
+            path,
+            key_fn=lambda row: (
+                row["primitive"],
+                row["condition"],
+                row["stage"],
+                row["unit_type"],
+                row["unit_id"],
+            ),
+        )
+        for row in loaded:
             key = CallKey(
                 row["primitive"],
                 row["condition"],
@@ -80,8 +94,6 @@ class CallLogger:
                 row["unit_type"],
                 row["unit_id"],
             ).as_tuple()
-            if key in logger._keys:
-                raise AuditInvariantError(f"duplicate counted call in call_log: {key}")
             logger._keys.add(key)
             logger.rows.append(row)
         return logger
@@ -123,7 +135,6 @@ class CallLogger:
         status_for_result: Callable[[Any], str] | None = None,
         rewrite_id_for_result: Callable[[Any], str | None] | None = None,
     ) -> tuple[bool, Any]:
-        """Pre-execution dedup: skip executor when the 5-tuple key already exists."""
         if self.is_recorded(
             primitive=primitive,
             condition=condition,
@@ -199,9 +210,7 @@ class CallLogger:
             row["rewrite_id"] = rewrite_id
         self.rows.append(row)
         if self.path is not None:
-            with self.path.open("a", encoding="utf-8") as handle:
-                handle.write(json.dumps(row, sort_keys=True) + "\n")
-                handle.flush()
+            append_jsonl_line(self.path, row)
 
     def confirmatory_total(self) -> int:
         return sum(1 for row in self.rows if row["condition"] not in DESCRIPTIVE_CONDITIONS)

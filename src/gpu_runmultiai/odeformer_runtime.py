@@ -134,14 +134,23 @@ def measure_g0_scaler_asserts(dimension: int, *, scale: float = 0.1) -> dict[str
     return asserts
 
 
+def _production_decimal_token(value: float) -> str:
+    return str(float(value))
+
+
+def _rational_reciprocal_factor_prefix(numerator_token: str, denominator_token: str) -> list[str]:
+    """Emit mul,numer,pow,denom,-1 instead of a rounded decimal quotient."""
+    return ["mul", numerator_token, "pow", denominator_token, "-1"]
+
+
 def _substitute_variables_forward(prefix: list[str], scale: np.ndarray) -> list[str]:
     idx = 0
     while idx < len(prefix):
         token = prefix[idx]
         if token.startswith("x_"):
             dim = int(token.split("_")[1])
-            s_j = str(float(scale[dim]))
-            prefix = prefix[:idx] + ["div", token, s_j] + prefix[idx + 1 :]
+            scale_token = _production_decimal_token(float(scale[dim]))
+            prefix = prefix[:idx] + ["div", token, scale_token] + prefix[idx + 1 :]
             idx += 3
         else:
             idx += 1
@@ -155,12 +164,14 @@ def forward_scale_system(env: Any, tree: Any, scaler: Any) -> Any:
     nodes = tree.prefix().split("|") if hasattr(tree, "prefix") else []
     if len(nodes) > len(scale_arr):
         raise ValueError("forward scale dimension mismatch")
+    a_t_token = _production_decimal_token(float(a_t))
     rebuilt: list[str] = []
     for index, node_str in enumerate(nodes):
         prefix = [token for token in node_str.split(",") if token]
         prefix = _substitute_variables_forward(prefix, scale_arr)
-        factor = str(float(scale_arr[index]) / float(a_t))
-        scaled_prefix = ["mul", factor] + prefix
+        scale_token = _production_decimal_token(float(scale_arr[index]))
+        factor_prefix = _rational_reciprocal_factor_prefix(scale_token, a_t_token)
+        scaled_prefix = factor_prefix + prefix
         rebuilt.append(",".join(scaled_prefix))
     full_prefix: list[str] = []
     for index, part in enumerate(rebuilt):

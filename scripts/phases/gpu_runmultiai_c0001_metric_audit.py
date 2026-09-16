@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Frozen CLI entry point for C0001 metric-identifiability audit v9."""
+"""Frozen CLI entry point for C0001 metric-identifiability audit v16."""
 
 from __future__ import annotations
 
@@ -9,27 +9,26 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
-
-from gpu_runmultiai.audit import run_audit
-from gpu_runmultiai.constants import (
-    AUDIT_CAS_SUBSET_SEED,
-    AUDIT_DATA_SEED,
-    AUDIT_ID,
-    AUDIT_NEGATIVE_SEED,
-    AUDIT_REWRITE_SEED,
-    AUDIT_TRAJECTORY_SEED,
-    CAS_TIMEOUT_SEC,
-    FROZEN_ENV_VARS,
-    ORACLE_TIMEOUT_SEC,
-    PRIMARY_SCALES,
-    SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
-)
-from gpu_runmultiai.manifest import verify_plan_hash
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="C0001 metric-identifiability audit v9")
+    from gpu_runmultiai.constants import (
+        AUDIT_CAS_SUBSET_SEED,
+        AUDIT_DATA_SEED,
+        AUDIT_ID,
+        AUDIT_NEGATIVE_SEED,
+        AUDIT_REWRITE_SEED,
+        AUDIT_TRAJECTORY_SEED,
+        CAS_TIMEOUT_SEC,
+        ORACLE_TIMEOUT_SEC,
+        PRIMARY_SCALES,
+        Q4_TIMEOUT_SEC,
+        SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
+    )
+
+    parser = argparse.ArgumentParser(description="C0001 metric-identifiability audit v16")
     parser.add_argument("--audit-id", default=AUDIT_ID)
     parser.add_argument("--output-dir", required=True)
     parser.add_argument("--audit-data-seed", type=int, default=AUDIT_DATA_SEED)
@@ -39,6 +38,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--audit-cas-subset-seed", type=int, default=AUDIT_CAS_SUBSET_SEED)
     parser.add_argument("--allow-cpu", action="store_true")
     parser.add_argument("--oracle-timeout-sec", type=float, default=ORACLE_TIMEOUT_SEC)
+    parser.add_argument("--q4-timeout-sec", type=float, default=Q4_TIMEOUT_SEC)
     parser.add_argument("--simplifier-subprocess-timeout-sec", type=float, default=SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC)
     parser.add_argument("--cas-timeout-sec", type=float, default=CAS_TIMEOUT_SEC)
     parser.add_argument("--fail-if-exists", action="store_true")
@@ -48,6 +48,15 @@ def parse_args() -> argparse.Namespace:
 
 
 def _validate_frozen_seeds(args: argparse.Namespace) -> None:
+    from gpu_runmultiai.constants import (
+        AUDIT_CAS_SUBSET_SEED,
+        AUDIT_DATA_SEED,
+        AUDIT_ID,
+        AUDIT_NEGATIVE_SEED,
+        AUDIT_REWRITE_SEED,
+        AUDIT_TRAJECTORY_SEED,
+    )
+
     if args.audit_id != AUDIT_ID:
         raise SystemExit(f"audit-id must be {AUDIT_ID}")
     if args.audit_data_seed != AUDIT_DATA_SEED:
@@ -63,6 +72,7 @@ def _validate_frozen_seeds(args: argparse.Namespace) -> None:
 
 
 def _validate_frozen_environment() -> None:
+    from gpu_runmultiai.constants import FROZEN_ENV_VARS
     from gpu_runmultiai.invariants import FrozenEnvironmentError
 
     for key, value in FROZEN_ENV_VARS.items():
@@ -74,6 +84,19 @@ def _validate_frozen_environment() -> None:
 
 
 def main() -> int:
+    from scripts.phases.guard_bootstrap import install_guard_from_entry
+
+    from gpu_runmultiai.audit import run_audit
+    from gpu_runmultiai.constants import (
+        CAS_TIMEOUT_SEC,
+        FROZEN_ENV_VARS,
+        ORACLE_TIMEOUT_SEC,
+        PRIMARY_SCALES,
+        Q4_TIMEOUT_SEC,
+        SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
+    )
+    from gpu_runmultiai.manifest import verify_plan_hash
+
     for key, value in FROZEN_ENV_VARS.items():
         if key not in os.environ:
             os.environ[key] = value
@@ -83,12 +106,15 @@ def main() -> int:
     _validate_frozen_seeds(args)
     if args.oracle_timeout_sec != ORACLE_TIMEOUT_SEC:
         raise SystemExit(f"oracle-timeout-sec must be {ORACLE_TIMEOUT_SEC}")
+    if args.q4_timeout_sec != Q4_TIMEOUT_SEC:
+        raise SystemExit(f"q4-timeout-sec must be {Q4_TIMEOUT_SEC}")
     if args.simplifier_subprocess_timeout_sec != SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC:
         raise SystemExit(
             f"simplifier-subprocess-timeout-sec must be {SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC}"
         )
     if args.cas_timeout_sec != CAS_TIMEOUT_SEC:
         raise SystemExit(f"cas-timeout-sec must be {CAS_TIMEOUT_SEC}")
+    guard = install_guard_from_entry(__file__)
     options = {
         "audit_id": args.audit_id,
         "output_dir": args.output_dir,
@@ -99,6 +125,7 @@ def main() -> int:
         "audit_cas_subset_seed": args.audit_cas_subset_seed,
         "allow_cpu": args.allow_cpu,
         "oracle_timeout_sec": args.oracle_timeout_sec,
+        "q4_timeout_sec": args.q4_timeout_sec,
         "simplifier_subprocess_timeout_sec": args.simplifier_subprocess_timeout_sec,
         "cas_timeout_sec": args.cas_timeout_sec,
         "fail_if_exists": args.fail_if_exists,
@@ -106,7 +133,7 @@ def main() -> int:
         "smoke": args.smoke,
         "primary_scales": PRIMARY_SCALES,
     }
-    run_audit(options)
+    run_audit(options, guard=guard)
     return 0
 
 

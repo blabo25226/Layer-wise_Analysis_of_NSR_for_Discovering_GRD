@@ -9,8 +9,9 @@ from typing import Any
 
 from experiment_runtime import REPO_ROOT
 from gpu_run2_runtime import write_json
+from gpu_runmultiai.constants import CONFIRMATORY_CALL_CEILING, FULL_RUN_CALL_CEILING, Q4_TIMEOUT_SEC
+from gpu_runmultiai.jsonl_durable import append_jsonl_line
 from gpu_runmultiai.calls import CallLogger, expected_confirmatory_calls
-from gpu_runmultiai.config_paths import output_root_abs
 from gpu_runmultiai.controls import any_gate_failed, condition_summary, evaluate_validity_gates
 from gpu_runmultiai.corpus import load_frozen_corpus
 from gpu_runmultiai.guard_side_channel import append_guard_attempts, load_guard_attempts, side_channel_path
@@ -26,14 +27,17 @@ from gpu_runmultiai.pipeline import (
     run_b2_pair,
     run_b3_pairs,
     run_b4_row,
+    run_c_q4_fixtures,
     run_d2_pair,
     run_negative_controls,
     select_b3_pairs,
 )
+from gpu_runmultiai.q4_reference import Q4ContractError
+from gpu_runmultiai.reachability import build_reachability_evidence
 from gpu_runmultiai.resources import ResourceMonitor
-from gpu_runmultiai.sealed_guard import SealedPathGuard
 from gpu_runmultiai.stage_cache import load_stage_cache
-from gpu_runmultiai.strata import is_strict_hill_component
+from gpu_runmultiai.source_inventory import build_source_inventory
+from gpu_runmultiai.strata import component_stratum, is_strict_hill_component
 
 
 def _attach_records(component_index: list[dict[str, Any]], train_records: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -83,9 +87,7 @@ def _load_pair_cache(path: Path) -> dict[str, dict[str, Any]]:
 
 
 def _append_pair_cache(path: Path, row: dict[str, Any]) -> None:
-    with path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(row, sort_keys=True) + "\n")
-        handle.flush()
+    append_jsonl_line(path, row)
 
 
 def _write_atomic_manifest(path: Path, payload: dict[str, Any]) -> None:
@@ -184,13 +186,23 @@ def _assert_g0(sample_dimension: int, *, scale: float) -> dict[str, Any]:
     return asserts
 
 
-def _replay_guard_attempts(guard: SealedPathGuard, output_dir: Path) -> None:
+def _replay_guard_attempts(guard, output_dir: Path) -> None:
     attempts = load_guard_attempts(side_channel_path(output_dir))
     if attempts:
         guard.extend_child_attempts(attempts)
 
 
-def run_audit(options: dict[str, Any]) -> dict[str, Any]:
+def _write_abort_manifest(output_dir: Path, *, abort_type: str, abort_reason: str, call_logger: CallLogger) -> None:
+    payload = {
+        "abort_type": abort_type,
+        "abort_reason": abort_reason,
+        "confirmatory_calls": call_logger.confirmatory_total(),
+        "grand_calls": call_logger.total(),
+    }
+    write_json(output_dir / "abort_manifest.json", payload)
+
+
+def run_audit(options: dict[str, Any], *, guard=None) -> dict[str, Any]:
     verify_plan_hash()
     output_dir = Path(options["output_dir"]).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -206,18 +218,36 @@ def run_audit(options: dict[str, Any]) -> dict[str, Any]:
         if not options.get("smoke"):
             raise
 
-    guard = SealedPathGuard(output_root_abs=output_root_abs())
-    guard.install()
+    installed_fallback = False
+    if guard is None:
+        from gpu_runmultiai.config_paths import output_root_abs
+        from gpu_runmultiai.sealed_guard import SealedPathGuard
+
+        guard = SealedPathGuard(output_root_abs=output_root_abs())
+        guard.install()
+        installed_fallback = True
+
     try:
         return _run_audit_body(options, output_dir, guard, runtime_available=runtime_available)
+    except Q4ContractError as exc:
+        _write_abort_manifest(
+            output_dir,
+            abort_type="Q4ContractError",
+            abort_reason=str(exc),
+            call_logger=CallLogger.load(output_dir / "call_log.jsonl")
+            if (output_dir / "call_log.jsonl").is_file()
+            else CallLogger(),
+        )
+        raise
     finally:
-        guard.restore()
+        if installed_fallback:
+            guard.restore()
 
 
 def _run_audit_body(
     options: dict[str, Any],
     output_dir: Path,
-    guard: SealedPathGuard,
+    guard: Any,
     *,
     runtime_available: bool,
 ) -> dict[str, Any]:
@@ -275,6 +305,7 @@ def _run_audit_body(
         )
 
     oracle_timeout_sec = float(options["oracle_timeout_sec"])
+    q4_timeout_sec = float(options.get("q4_timeout_sec", Q4_TIMEOUT_SEC))
     simplifier_timeout_sec = float(options.get("simplifier_subprocess_timeout_sec", 5.0))
 
     registration_truth_path = output_dir / "registration_truth.json"
@@ -317,6 +348,7 @@ def _run_audit_body(
                 scale=scale,
                 rewrite_row=rewrite_row,
                 oracle_timeout_sec=oracle_timeout_sec,
+                q4_timeout_sec=q4_timeout_sec,
                 simplifier_timeout_sec=simplifier_timeout_sec,
                 call_logger=call_logger,
                 runtime_available=runtime_available,
@@ -333,7 +365,14 @@ def _run_audit_body(
             if runtime_available and not options.get("smoke"):
                 b2_rows.append(
                     run_b2_pair(
-                        b0_row=row,
+                        pair_id=row["pair_id"],
+                        component_id=row["component_id"],
+                        system_id=row["system_id"],
+                        component_idx=row["component_idx"],
+                        scale=row["scale"],
+                        rewrite_id=row["rewrite_id"],
+                        stratum=component_stratum(record["family"], component_idx),
+                        e1_infix=row.get("e1_infix") or "",
                         record=record,
                         call_logger=call_logger,
                         stage_cache=stage_cache,
@@ -348,6 +387,7 @@ def _run_audit_body(
                     component_idx=component_idx,
                     rewrite_row=rewrite_row,
                     oracle_timeout_sec=oracle_timeout_sec,
+                    q4_timeout_sec=q4_timeout_sec,
                     simplifier_timeout_sec=simplifier_timeout_sec,
                     call_logger=call_logger,
                     runtime_available=runtime_available,
@@ -362,6 +402,7 @@ def _run_audit_body(
             record=record,
             component_idx=component_idx,
             oracle_timeout_sec=oracle_timeout_sec,
+            q4_timeout_sec=q4_timeout_sec,
             simplifier_timeout_sec=simplifier_timeout_sec,
             call_logger=call_logger,
             runtime_available=runtime_available,
@@ -409,6 +450,13 @@ def _run_audit_body(
         else []
     )
 
+    c_q4_rows = run_c_q4_fixtures(
+        call_logger=call_logger,
+        q4_timeout_sec=q4_timeout_sec,
+        stage_cache=stage_cache,
+        cache_path=stage_cache_path,
+    )
+
     linear_rows = []
     non_strict_rows = []
     for row in b0_rows:
@@ -419,12 +467,12 @@ def _run_audit_body(
             "hill_form": row.get("hill_form"),
             "canonical_exact": row.get("canonical_exact"),
         }
-        if row.get("stratum") == "linear":
+        if row.get("eligibility_layer") == "linear_control":
             linear_rows.append(control_row)
-        if row.get("stratum") == "non_strict_hill":
+        if row.get("eligibility_layer") == "non_strict_hill_secondary":
             non_strict_rows.append(control_row)
 
-    strict_rows = [row for row in b0_rows if row.get("stratum") == "strict_hill"]
+    strict_rows = [row for row in b0_rows if row.get("eligibility_layer") == "strict_hill_primary"]
     run_d2 = bool(d2_rows)
     call_logger.assert_ceiling(run_d2=run_d2)
 
@@ -437,6 +485,8 @@ def _run_audit_body(
         "call_ceiling": expected_confirmatory_calls(),
         "descriptive_calls": call_logger.descriptive_total(),
         "negative_controls": negative_controls,
+        "b1_rows": b1_rows,
+        "c_q4_rows": c_q4_rows,
         "b4_rows": b4_rows,
         "linear_rows": linear_rows,
         "strict_rows": strict_rows,
@@ -449,14 +499,21 @@ def _run_audit_body(
     write_json(output_dir / "b3_results.json", b3_rows)
     write_json(output_dir / "b4_results.json", b4_rows)
     write_json(output_dir / "condition_summary.json", condition_summary(strict_rows))
-    write_json(output_dir / "negative_controls.json", negative_controls)
+    write_json(output_dir / "q4_reference_controls.json", c_q4_rows)
+    write_json(output_dir / "reachability_evidence.json", build_reachability_evidence())
+    write_json(output_dir / "source_inventory.json", build_source_inventory(include_hashes=True))
     _write_pair_results(output_dir / "pair_results.csv", pair_rows)
     _write_equivalence_oracle(output_dir / "equivalence_oracle.json", b0_rows + d2_rows)
     _write_deviation_log(output_dir / "deviation_log.md", deviations)
     append_guard_attempts(side_channel_path(output_dir), guard.to_log())
 
     manifest = {
+        "plan_hash": verify_plan_hash(),
         "audit_id": resume_identity["audit_id"],
+        "confirmatory_call_ceiling": CONFIRMATORY_CALL_CEILING,
+        "grand_call_ceiling": FULL_RUN_CALL_CEILING,
+        "q4_timeout_sec": q4_timeout_sec,
+        "source_hashes": build_source_inventory(include_hashes=True),
         "commit": commit,
         "resume_identity": resume_identity,
         "corpus_hash": corpus["corpus_hash"],

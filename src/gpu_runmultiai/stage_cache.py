@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from gpu_runmultiai.invariants import StageCacheSerializationError
+from gpu_runmultiai.jsonl_durable import append_jsonl_line, load_jsonl, truncate_partial_suffix
 
 
 def cache_key(
@@ -22,12 +22,8 @@ def cache_key(
 
 def load_stage_cache(path: Path) -> dict[str, Any]:
     cache: dict[str, Any] = {}
-    if not path.is_file():
-        return cache
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if not line.strip():
-            continue
-        row = json.loads(line)
+    rows = load_jsonl(path, key_fn=lambda row: (row.get("cache_key"),))
+    for row in rows:
         key = row.get("cache_key")
         if key:
             cache[key] = row.get("payload")
@@ -36,12 +32,12 @@ def load_stage_cache(path: Path) -> dict[str, Any]:
 
 def append_stage_cache(path: Path, *, cache_key_value: str, payload: Any) -> None:
     try:
-        encoded = json.dumps({"cache_key": cache_key_value, "payload": payload}, sort_keys=True)
+        encoded_payload = payload
+        json.dumps({"cache_key": cache_key_value, "payload": encoded_payload}, sort_keys=True)
     except (TypeError, ValueError) as exc:
+        from gpu_runmultiai.invariants import StageCacheSerializationError
+
         raise StageCacheSerializationError(
             f"stage cache payload is not JSON-serializable for {cache_key_value}: {exc}"
         ) from exc
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as handle:
-        handle.write(encoded + "\n")
-        handle.flush()
+    append_jsonl_line(path, {"cache_key": cache_key_value, "payload": payload})

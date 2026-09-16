@@ -12,7 +12,7 @@ from typing import Any
 import sympy as sp
 
 from gpu_run4.formulas import split_components, tree_to_infix
-from gpu_run4.ted import BINARY_OPS, UNARY_OPS, Tree, prefix_to_tree
+from gpu_run4.ted import BINARY_OPS, UNARY_OPS, Tree, prefix_to_tree, tree_to_prefix
 
 from gpu_runmultiai.constants import ORACLE_ATOL, ORACLE_RTOL, ORACLE_T_GRID, ORACLE_X_GRID
 
@@ -96,26 +96,55 @@ def _tree_with_rational_leaves(tree: Tree | None) -> Tree | None:
     return (label, rebuilt)
 
 
-def _normalize_prefix_tokens(tokens: list[str]) -> list[str]:
-    normalized: list[str] = []
-    index = 0
-    while index < len(tokens):
-        token = tokens[index]
-        if token == "pow4" and index + 1 < len(tokens):
-            normalized.extend(["pow", tokens[index + 1], "4"])
-            index += 2
-            continue
-        if token == "pow2" and index + 1 < len(tokens):
-            normalized.extend(["pow", tokens[index + 1], "2"])
-            index += 2
-            continue
-        if token == "pow3" and index + 1 < len(tokens):
-            normalized.extend(["pow", tokens[index + 1], "3"])
-            index += 2
-            continue
-        normalized.append(token)
-        index += 1
-    return normalized
+ORACLE_OPERATOR_ARITY: dict[str, int] = {
+    "add": 2,
+    "sub": 2,
+    "mul": 2,
+    "div": 2,
+    "pow": 2,
+    "abs": 1,
+    "inv": 1,
+    "sqrt": 1,
+    "log": 1,
+    "exp": 1,
+    "sin": 1,
+    "arcsin": 1,
+    "cos": 1,
+    "arccos": 1,
+    "tan": 1,
+    "arctan": 1,
+    "pow2": 1,
+    "pow3": 1,
+    "pow4": 1,
+    "id": 1,
+    "neg": 1,
+}
+
+
+def _parse_prefix_subtree(tokens: list[str], index: int = 0) -> tuple[Tree | None, int]:
+    if index >= len(tokens):
+        return None, index
+    token = tokens[index]
+    if token in ORACLE_OPERATOR_ARITY:
+        children: list[Tree] = []
+        next_index = index + 1
+        for _ in range(ORACLE_OPERATOR_ARITY[token]):
+            child, next_index = _parse_prefix_subtree(tokens, next_index)
+            if child is None:
+                return None, index
+            children.append(child)
+        return (token, tuple(children)), next_index
+    return (token, ()), index + 1
+
+
+def _normalize_prefix_tokens(tokens: list[str]) -> list[str] | None:
+    tree, remainder = _parse_prefix_subtree(tokens, 0)
+    if tree is None or remainder != len(tokens):
+        return None
+    normalized = _normalize_operator_tree(tree)
+    if normalized is None:
+        return None
+    return tree_to_prefix(normalized)
 
 
 def audit_parse_prefix_component(prefix: str | list[str]) -> Tree | None:
@@ -123,8 +152,10 @@ def audit_parse_prefix_component(prefix: str | list[str]) -> Tree | None:
         tokens = [tok for tok in prefix.split(",") if tok]
     else:
         tokens = [str(tok) for tok in prefix if str(tok)]
-    tokens = _normalize_prefix_tokens(tokens)
-    tree = prefix_to_tree(tokens)
+    normalized = _normalize_prefix_tokens(tokens)
+    if normalized is None:
+        return None
+    tree = prefix_to_tree(normalized)
     return _tree_with_rational_leaves(tree)
 
 

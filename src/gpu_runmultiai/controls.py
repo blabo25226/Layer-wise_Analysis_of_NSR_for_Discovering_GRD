@@ -60,6 +60,16 @@ def gate_inc(strict_rows: list[dict[str, Any]], max_rate: float = 0.05) -> bool:
     return incomplete / 1320 <= max_rate
 
 
+def gate_b1(rows: list[dict[str, Any]]) -> bool:
+    return len(rows) == 510 and all(
+        row.get("outcome_category") in {"control_pass", "control_failure"} for row in rows
+    )
+
+
+def gate_q4ref(rows: list[dict[str, Any]]) -> bool:
+    return len(rows) == 7 and all(row.get("fixture_pass") for row in rows)
+
+
 def evaluate_validity_gates(state: dict[str, Any]) -> dict[str, bool]:
     return {
         "G_corpus": bool(state.get("g_corpus_pass")),
@@ -67,7 +77,9 @@ def evaluate_validity_gates(state: dict[str, Any]) -> dict[str, bool]:
         "G4": gate_g4(int(state.get("access_attempts", 0))),
         "G1": gate_g1(int(state.get("total_calls", 0)), int(state.get("call_ceiling", 0))),
         "G_n1": gate_n1(state.get("negative_controls", [])),
+        "G_b1": gate_b1(state.get("b1_rows", [])),
         "G_b4": gate_b4(state.get("b4_rows", [])),
+        "G_q4ref": gate_q4ref(state.get("c_q4_rows", [])),
         "G_ctrl_cov": gate_ctrl_cov(state.get("linear_rows", [])),
         "G_ctrl_fp": gate_ctrl_fp(state.get("linear_rows", [])),
         "G_ctrl_lin": gate_ctrl_lin(state.get("linear_rows", [])),
