@@ -1,0 +1,14 @@
+{
+  "package": "ai_book",
+  "version": "v1",
+  "purpose": "Multi-AI autonomous research OS for GPU_RUNmultiAI",
+  "file_count_before_manifest": 148,
+  "canonical_root": ".agent",
+  "campaign_root": "GPU_RUNmultiAI",
+  "providers": [
+    "codex",
+    "claude",
+    "cursor",
+    "gemini/antigravity"
+  ]
+}
