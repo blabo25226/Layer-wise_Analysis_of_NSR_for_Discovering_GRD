@@ -413,7 +413,6 @@ def _execute_chain(
         if not q4_completed:
             return build_outcome_row(
                 **base,
-                execution_failure=True,
                 q4_construction_completed=False,
                 q4_construction_failure_reason=q4_failure_reason,
                 e0_status="completed",
@@ -422,7 +421,10 @@ def _execute_chain(
                 e1_prefix_raw=e1_prefix_raw,
                 e0_infix=e0_infix,
                 e1_infix=e1_infix,
-                **_stage_flags(e1_oracle=e1_oracle if run_oracles else None),
+                **_stage_flags(
+                    execution_failure=True,
+                    e1_oracle=e1_oracle if run_oracles else None,
+                ),
             )
         e2_infix = e1_infix
         e2_prefix_raw = e1_prefix_raw
@@ -454,7 +456,6 @@ def _execute_chain(
             if not simplified.get("ok"):
                 return build_outcome_row(
                     **base,
-                    execution_failure=True,
                     e0_status="completed",
                     e1_status="completed",
                     e2_status="execution_failure",
@@ -462,7 +463,10 @@ def _execute_chain(
                     e1_prefix_raw=e1_prefix_raw,
                     e0_infix=e0_infix,
                     e1_infix=e1_infix,
-                    **_stage_flags(e1_oracle=e1_oracle if run_oracles else None),
+                    **_stage_flags(
+                        execution_failure=True,
+                        e1_oracle=e1_oracle if run_oracles else None,
+                    ),
                 )
             e2_infix = simplified["infix"]
             e2_prefix_raw = simplified.get("prefix") or "|".join(tree_to_prefix_list(e1_tree))

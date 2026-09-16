@@ -554,10 +554,9 @@ def test_e0_e1_round_trip_primary_scales(scale):
         guard=SealedPathGuard(output_root_abs=Path("/nonexistent/results/runs")),
     )
     assert row.get("e1_oracle_completed")
-    assert row.get("outcome_category") in {"preserved", "semantic_drift", "execution_failure", "construction_incomplete"}
-    if row.get("e1_oracle_completed") and row.get("e1_oracle_equivalent"):
-        assert row.get("e1_analytic_equivalent") is True
-        assert row.get("e1_numeric_equivalent") is True
+    assert row.get("e1_analytic_equivalent") is True
+    assert row.get("e1_numeric_equivalent") is True
+    assert row.get("e1_oracle_equivalent") is True
     assert row.get("e1_oracle_equivalent") == (
         bool(row.get("e1_analytic_equivalent")) and bool(row.get("e1_numeric_equivalent"))
     )
@@ -623,12 +622,13 @@ def test_live_d2_pair_counts_descriptive_only():
         guard=SealedPathGuard(output_root_abs=Path("/nonexistent/results/runs")),
     )
     assert logger.confirmatory_total() == before_confirmatory
-    assert logger.descriptive_total() == before_descriptive + 7
+    assert logger.descriptive_total() == before_descriptive + 8
     d2_calls = [row for row in logger.rows if row["condition"] == "D2"]
-    assert len(d2_calls) == 7
+    assert len(d2_calls) == 8
     assert {row["primitive"] for row in d2_calls} == {
         "e0_analytic_construct",
         "scaler_rescale_function",
+        "q4_decimal_round_reference",
         "simplifier_subprocess",
         "oracle_equivalence",
         "classify_component_flags",
@@ -1072,3 +1072,42 @@ def test_reachability_evidence_supported_and_unsupported():
     by_id = {row["fixture_id"]: row for row in rows}
     assert by_id["REACH-UNS-1"]["passed"] is True
     assert by_id["REACH-SUP-1"]["passed"] is True
+
+
+def test_g_contract_artifact_schema_round_trip(tmp_path):
+    from gpu_runmultiai.pipeline import run_c_q4_fixtures
+    from gpu_run2_runtime import write_json
+
+    rows = run_c_q4_fixtures(call_logger=CallLogger(), q4_timeout_sec=Q4_TIMEOUT_SEC)
+    path = tmp_path / "q4_reference_controls.json"
+    write_json(path, rows)
+    loaded = json.loads(path.read_text(encoding="utf-8"))
+    assert len(loaded) == 7
+    required = {
+        "fixture_id",
+        "e1_prefix_input",
+        "q4_construction_completed",
+        "q4_emitted_prefix",
+        "fixture_pass",
+        "terminal_outcome",
+    }
+    assert required.issubset(loaded[0].keys())
+
+
+def test_g_contract_abort_and_deviation_lifecycle(tmp_path):
+    from gpu_runmultiai.audit import _write_abort_manifest, _write_deviation_log
+
+    call_logger = CallLogger()
+    _write_abort_manifest(
+        tmp_path,
+        abort_type="Q4ContractError",
+        abort_reason="dialect violation",
+        call_logger=call_logger,
+    )
+    abort = json.loads((tmp_path / "abort_manifest.json").read_text(encoding="utf-8"))
+    assert abort["abort_type"] == "Q4ContractError"
+    assert "abort_reason" in abort
+    assert "confirmatory_calls" in abort
+    _write_deviation_log(tmp_path / "deviation_log.md", ["bounded smoke run"])
+    body = (tmp_path / "deviation_log.md").read_text(encoding="utf-8")
+    assert "bounded smoke run" in body

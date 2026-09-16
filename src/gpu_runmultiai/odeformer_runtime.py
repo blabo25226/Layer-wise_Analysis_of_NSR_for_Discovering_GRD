@@ -171,7 +171,7 @@ def forward_scale_system(env: Any, tree: Any, scaler: Any) -> Any:
         prefix = _substitute_variables_forward(prefix, scale_arr)
         scale_token = _production_decimal_token(float(scale_arr[index]))
         factor_prefix = _rational_reciprocal_factor_prefix(scale_token, a_t_token)
-        scaled_prefix = factor_prefix + prefix
+        scaled_prefix = ["mul"] + factor_prefix + prefix
         rebuilt.append(",".join(scaled_prefix))
     full_prefix: list[str] = []
     for index, part in enumerate(rebuilt):

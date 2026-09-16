@@ -237,10 +237,10 @@ def audit_q4_decimal_round_reference(
             infix = prefix_to_sympy_infix(e1_prefix)
             local_dict = frozen_q4_local_dict(dimension)
             expr = parse_expr(infix, evaluate=True, local_dict=local_dict)
-            if not expr.is_finite:
+            if expr.is_finite is False:
                 return Q4Result(False, q4_construction_failure_reason="NonFinite")
             rounded = audit_round_float_atoms(expr, decimals=4)
-            if not rounded.is_finite:
+            if rounded.is_finite is False:
                 return Q4Result(False, q4_construction_failure_reason="NonFinite")
             emitted_prefix = ",".join(audit_sympy_to_prefix(rounded))
             emitted_infix = prefix_to_sympy_infix(emitted_prefix)
