@@ -1,0 +1,24 @@
+[
+  {
+    "negative_id": "negative_sha256:018140b909eb51b287b5852aa6ff8856f24817d2102519d8983fa613998078e1",
+    "component_id": "component_sha256:42451048769ac953bc6180f6560f216ac4b864c84eb34d60ca6eac15b6580b6a",
+    "oracle_completed": true,
+    "oracle_equivalent": false,
+    "oracle_analytic_equivalent": false,
+    "oracle_numeric_equivalent": false,
+    "oracle_failure_reason": null,
+    "partition_scope": "negative_control",
+    "terminal_outcome": "negative_reject"
+  },
+  {
+    "negative_id": "negative_sha256:02490f2efa92ea5c9b2027d59f8239ed64cc32da1d27280f2426c7860fa4be73",
+    "component_id": "component_sha256:3392d2cb81b6d091fa4b7955cac7363bb08d18ecbc0b8d60da4b1eba37833ce5",
+    "oracle_completed": true,
+    "oracle_equivalent": false,
+    "oracle_analytic_equivalent": false,
+    "oracle_numeric_equivalent": false,
+    "oracle_failure_reason": null,
+    "partition_scope": "negative_control",
+    "terminal_outcome": "negative_reject"
+  }
+]

@@ -1,0 +1,2552 @@
+[
+  {
+    "component_id": "component_sha256:9c74179cb95b9c59c1172cee61c7c7c0c5547aacb8647faf7c30cfd2823e7fba",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:40d04b01e7906d32d19b82edd08aa4a4ce16ea920f781efaeedf4d54d9d0d30f",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:936e8f1497bff8b07c5afec71c00e86e2d1f4b28576c3edf7438591bb1463f9f",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:cf6b580e71ce901c5e85461391acad80b1a0a4db68cc9b54c26e1a911e0e43b9",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:9021df4798282189374df26804570aa8248caefa78c4957c20ff49143f7cb35a",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:be02670fc597b9f2a7d2458e3d52cb3c670b7aa1cc67b543be00c1ef36b4cf73",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:a27c001f6fc5d8f8d29a1381168f8064b1a483c7c966ed51a9774a3f8afec281",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:f0efd8c918b48fdf9f7a83d181ec939966736373dc117eec6a3a8580d56a76b2",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:2b8f435c621ec6418f1c3bd309c4aba019c4e4bd8733a728700bc264e8ae5128",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:c4d876c1e3ff9050148d5fe5e0f0da650992b2508eb64c36b80f658cfd70a470",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:89bc86d41b913578a081dcbffdb40002d8a5af4bb06e167d3ee5e1fa3b7ee6f6",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:92f93cf2a165dad624619dab9348b774a70bddbc3e8aa90f7ca9eb0889144953",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:b15cb385bc03986c91f497cd95957440aa43568b9756eb8fda6d3bf10c68781b",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:f97b4334341e10c7d751e6ba53c4d74083c00ecf613e9c784e9aa300d3d2c6b6",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:7a00cae950dfa3de55419fc0c8cf8b81418692f63a8dc5a0233d229ca0c5eb7e",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:879b7c99db155c3f43b9674e0651ac5d49000b6786e752556ce28b3122e01bb8",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:707c656c591b96f47e3aac3e8172bf5aa4198bd4bf84188764ce8a6f04fadf84",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:6f2d5452b9b7936d809bd8093556f6f63b948c927c8e788a3256da68ea6b06f1",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:b0304a46ea34f01c20c8ed8017bf5c097fe5961d0e61eca68ab29ce247ea5e7e",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:bb697a9fcf0dfbf172a95ac6b054514a8552cc32215794737275649e98dcc404",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:d7fa7211f19b31a9b6158fc46bb2bfdbe5483931493ce984d211706485237fdb",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:bc9d00e7b233d1de09308d846b65b59713b86742175b327c42725fe5590986d3",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:385e722cc11fd8d8f8b0a1f61af6d23c32a493369c563f91c71c572097d604fe",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:046f859312a94adc4a05d0b196bba0055dd65adf259e9f99e47d2eaa38c4e773",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:a055cda5f339be6b812b6a1f74408092be55ab7fb935a3cac6f814b2795270b5",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:95023108fc633e1f9ba58e13b5d393fe82c63962678b26eea048df8ee73e6de9",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:b3e63051b1f5d98cfa3202772feb16338602a696318241ad98072fecb131a55c",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:0e1cc575ef521522efad1d023d87511d3d8fb9ef74fbbed4045ba71c49a37294",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:2531a1a3e2cd784fd361f151e0e2e5fb3db2fdacc1bfbcf898d4eccd3ac70427",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:5e015dac2a3b8f92ea1da52d3b0b828e1c2a120158d52c8190939a349f54be83",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:4e852ba5d1d4defce1d9da03c39492f600c36cbf8aeac5cb07d281e2ba42636d",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:950472415430c18ca3c18e3465c6aeb93a4040b742a3f3508b73363de8883e08",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:022c47703d016c7736f14cf41e681a32344235fcb81f2cbf0d7209a8183b26d3",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:cdd58e093e03df662352a3f7a917d17b97e61e858b329ac1349fe2b7106e838d",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:61da50de78a9667569e9b32a9e761ef38659e0bc7088530d7a16db3f115c617d",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:a1817c1de2343459129b75d88563a12cb4ea1b199b0a6044b73aaaad65d36eee",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:35527c70ae5811e667ed465a863043322c0f4866e8a25f9a83f6f2795541bfc0",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:e18124f1b51bb4b7ccbd75d5c7fe33991009267abfddebbe7f8955bf43f064d6",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:afb8ab84910216388055346c4f1390c3d4bcf01146bcb1d6a94621241b656345",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:5310d04277e367b558d12192fc4c9a0bab5a5f7d1e574781c3fd48435f5f210e",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:3d22ab3d34bb0b09ff77d05d94638239048a1b7c8bb8da9abb5f136e1d3a3ae7",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:1f15b0a42e433752927051a973cb4a015d9f6d58515f70901eec1eaa4701539f",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:a7eda63ee83d52545c722b266c3f6a2782549039e52bd681e938daf09a5be494",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:1a5828e4ba6a23f324ec0902ffa0e2afb7504bcbdf7f3b082ad3524044a61d9a",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:af9243e90eccb50779eeeb7ff8058adb983679a82b1d3644d9821464c5506a67",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:6dfe4517f35914ec3da39b23a89a41db63ddb890287a87a21225900c265e54d8",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:15ff57dcf73bcbaa2da0f7730503a19513769e272552f2c12dbf49be3d4ab3a8",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:1ffe9fa9edeb6c728bb6e1d1e0c36d1c7d9b875243eeb1a868659f28622f3cdf",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:6bd9915f172a8536665e0e805cb9fb72bc99d876f1ab0656a3367c1ccde3ce8d",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:417c396ce642b71e95b5f99151d81f93fe424c352225f7bea2db3009079a048d",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:86507f1c7302453f54e85b878905e8168af83fdfad5bfe3987c0aec24c1a35ad",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:268b07df32e8a5de70015eb8454b16c0c14d3d228bdae06219055fb40119dd08",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:d6f9c1ab6e4885b31367327a4b2c607e709ca6c085aecd202b0529bbe00d5fdc",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:7877bcd7dbd6e678c17310670aab8b24bb12d12d5a761da4bef7afb70c3b9a86",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:6c6bfa5c7697873e9cc456d926963f7c215af9f0c7c005980510f5d7705fda04",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:9715c78cb479030d10305db7cc5e85c843ecb52a3b12a43743d8ac45f214e270",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:163aa2ef36ffb5c645f3063d8526d1bdaf741fb83d8eae8fcc7f86b0d27577b7",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:a1d10fa95371e8772017c255e74d6d6991c6ebb0827f2a3b6f7750f9e49e7a76",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:7db310792816f7e8066e876bd815615d7869863d641fa1a299e4e395a5523a17",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:f076dc29303d7acc3f26d9f2e7a35db3896034a04ecf92083c15520eac4c667f",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:7a293e2cd8d86ceb9f5de56f1813673f701f34a8f9189c32ef474041b0b2ee7c",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:bc08e62a693231678d94540dfcbec8a673c582b1416cde2efd40732326fc8c0c",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:d613c0e02ce4b6e3e9fb421400428587d4d45b26b559fff8a3c9a0f401d47a50",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:80c62cf3d96f292396a819c79577026b139dc6b91665e28d4a8ee5b6cfa10cff",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:f64edf6f6b194d9643e4affd8766248ca2eb57293929077d975c65e3c7c3228d",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:0081b563648807a56ebf406fee6afbc9a3ae1ade10355c0a6991ac908863a0c7",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:f3ac5c001d063d02d3b53a58fb395ef66f0d75f2da27a93ddc8ef80566651fd3",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:185f8e9b616c2a6b8fdfbed83121fa7e5a0d3f7646947975ea0be3565f370f34",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:3c4c4f0e4f28433c6e17b94af38d361c0e11fa4bc8e990d3752af299789ee753",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:079028d719d2b9cf84ec8145dc6fe1e9b4ee53e9da074881dea505d9b1be7db3",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:b708ac69e75f11f8ec824fd2ac9b991e1aba160ecc310cce5e13b29ff3510b21",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:5ffff18994bf3a43c2edd4608c5a89e6f64d33f89c708a8c8ceb577d84eb77ab",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:edc71754a0f0ead934838b3c1dca36f65d2a15e1ac444d672257aa4319aac319",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:3392d2cb81b6d091fa4b7955cac7363bb08d18ecbc0b8d60da4b1eba37833ce5",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:42451048769ac953bc6180f6560f216ac4b864c84eb34d60ca6eac15b6580b6a",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:eff39d579016d3119b9235b27210b0edb731122434c94601d7db91431cc9bb9c",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:befa9c4703bc6692aebef28774a3ac920351a4e7ab675350919ca96587f90ad6",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:0bb8ae3358b7fea8af5f812fd622e7545d0de7c4e454364fd8396b928592ead4",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:520a7b597dbc1fa0381c433cd7a162d4162c6e06d1b8726ab79098d60730442b",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:03b850342a243376e6ce14f759194e454b47fdcc6f92e8297893fe8ebb22267f",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:345ec2c45c7720065f6fde8d11da98559340807c540d09f8e7fa9b1a348e7a29",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:f5a66cf9f5bfd3f08e17422cc5d784186852e52482a20f4367ff62385f05f8b1",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:9f8128f1636778b250783afe462bedcb4b987b3bfe5c761c1a0410566a74b3a5",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:b0780860adca6d93e5909e946731cdc8af203717e5fbf0e321af14e169877065",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:60d2e516fcaae507a86b87d7295c17b6889e6be5dee751fa8343363f086e0a76",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:1d3488c8b11a6ff9d44ae3fd2954cbd741720200ec679be3abd9ee108fb0157b",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:698cadd91e652e845c0e0b371f4156a23b1d46b668765eb226fa128ba738880b",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:6938d757a696a3f5e0b878db6864be1e030d296358948c048934e6649ad9052d",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:aa51f93e17b97819507e5e75e1cfa172d10fd9dab9bbecf86f3603597cdec967",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:e9e17df9401eb9f7560eb3ada0e65a48b0a066c678ce2090bb0c5c13cc101c1d",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:0127d666352591a8fbc9418e8dfdc761927aa0d4fca15ce942c80b0188d85f56",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:e83bf53e215baf0d49af9b6a97c31a7905b9e6b4ae7dc5e915023d530e5b6c1f",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:e1e2b68ec6fc45140af433193c816513ac1d1a037d9ce49b66042f4b6d8b14f8",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:7a3fbde2b724baae24f98845ec9ee3915a2d3196207c9c506211f5fc460e0590",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:235c91171a77d01d94b401e601ab8b539c337a541c5f16d1319e2df27198d949",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:d4158734ea9b54e9deac52a40d4cd497b40fa8d0774ac824eb7b2dec855494bb",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:17cecf16fbbe1304f05de5f3b02806c4503789f9142a7c9ff9ee5b0778187cff",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:7775f5c4e62258783cc73bc3501a9eb7da6dfc0c1f9caa3d008189b671da0a7e",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:ce7bc56b3e98952b3b382585e0087b498fa032964fa567d30c666903ec77dd9a",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:4dc4c5dfcff5756f3fd39a703096a4164ad470e3f65de4091a489b700e937512",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:4cae88e572c9000c1010f63a317120dc1a83e7f87cf4bd9859d6e2e84602f333",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:3671973670be8409c07bf3bf7bc1c7c28ba19e2b5a7aa52bebdf3e8ac4a9b01e",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:f905c0fa43b0d3ebf34e178063e3d830b3d8cf565f8683456020391bc56390d4",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:7015da828797f2339157957b7736fe1ca982aa55b1b68728224bc99f90729b34",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:ba55d129da449e54c06fcf60d140a57835cdd028a6c01913f90083b8abe06557",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:103393e9f7becb277f988d07ffeffaabd34662647442cd36481ff932c5acf4f9",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:8094b8d3e5000ea7dc8e6fce8cab5c51bd32e0db5ca8130c0ab8505ec8e2e819",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:db7e13ce28f5cf2a20c7c5e7dfa52a0977e0da83acb2b768a50f7c1b77a67a8b",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:0f4ca310a07116486a22606131fdb1574d46d9df809e7babd479473434fefdde",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:a554c8b7d3c36dc02b469aec2560c3c7d82cb30ee98d7733cd8094b57ed6c757",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:ac14ffc45f5e58db57d51a2132fb3bfcee7ee6c3a67c5b3697110446e255a188",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:3691d9b0b1f3439b9747bc45baa553b2176b2ca2df12ab00954c0b4179c9919f",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:a3e443996d4badb2cce4fe0a0fac92074e9776aac22f3c5966d5aacbaf746bf6",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:ad63c957231be134a69496857cf276cf87a2c1864cee3189159cb33e66323e25",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:fecadfbc484bd8281d11858d6c3974663a2feb09324a5b7cf1e33ce5d1e23248",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:08688a9c4663617ea2c51257c6a349e7b7be9a2a1a631d9f3f10b45d6a08d96b",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:3a4482929a1e5984cacd0be6a089db8b3e9ab33ab4dc32ac17719d3fb773f5b5",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:32b957d59c16908f5f915b501de20cc19f8632bd6dad0a06fb8e23121b94ccf9",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:7c8f2d6a868c2d5aa8b998f3ed75b026f0fe14fd36e20a3155d8cc94bb88ba02",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:f6f700377c3c2a62b51c8e4f81422aa3ea6f9bfbb30f2fceaf4e19a0c3a10014",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:0070f97eb9c25486767c35d06395c1ab9e637928276072b0790c600a43668b34",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:9e0e4ffaf0e9d9452d8b4b7140686b51fcb0ba277c6314c0d1ae502f8ec2326e",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:6ef2c9b8bad9e23664fff71b315ce974c90b8dc8c2bd9e9604bc6097b40c1712",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:38e9b986252c0eccfb9c31eecd515542c5bdc54d4af52472eaffbccd3a971948",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:bedd4aca93f17821151da9baf69216fe68c8f1215226bc48306c635fbe849e62",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:192a522bcd93ddafa5990965464b176565d852293614f7330d274718000f2bd8",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:c91ce246c67d8e1f0519b664e4b4a2955c2e0fe714781b1986514fc76452f062",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:3ef747e6435a26ff8e766c100c26a222393ac8122f0196e2660ef5621f5a0448",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:61c5fca3b73d7d2ac76b24eda4062d87f34de26f56be743ec394986269f96756",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:96307d6cc0ddf09d4299d58b66b4fbeb91b8dadc29df8df6768d7496947f49e0",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:15cd74d46e6142018fd71eb7692fc3c7e864005031d5909e07b21b5fa29b997c",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:74fdcd167743c880e223aaa9bec6d62e1549174fff259820072fd899101b93d1",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:38a575e703fe5bed05642a7204d17cb0a258427a642d2dbc475453f3d0ff57a4",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:5e2ddd8b503e9819ad711918ceae1672dbc84536d331260d6399d03c0f7afa8d",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:46ea47c67c1c45b70eaa0b43e68f3ef8c966886738f35711f8dca53edded52eb",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:a61fc94f644543db63f173cf8a16b25a1090c0cfe9401526ef873267f8b48848",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:d5086dbf0d50783029cbfca52cfcb29a44ab480fd1e13bba6400f9469bc13c70",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:a580edeceff5857b383082bb825dfffe4a1af4e208b83c16b3c9b38cca81b5c0",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:a6fc47e7ad980fd0b894f662acb57957b5948f0d4d7faf3906a4db13884b879c",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:47543d912f34d20106a1dae1782ffc6686bf5461180d0d464cf90635b5f3a380",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:65a4461706d4f848066a07853bae225557a3eb80039df99956cf527a38c77a63",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:a855a1691026cbeac8f87a0a6ec84c2b69ff527f538a561a9cc0a7b5f011d462",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:66317090f626e96cc5801b04b66fb6fb302d90504bafc999a838847f2f762c23",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:74ca8f5795776254ef2bb8f6108320b7f5b7887854291b0d427fbbbee469a809",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:0b386d3c91580c0a20ae3595b56fcaf8bd3ea67bebbf5905dc30f71a1ad18e9d",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:0ce46733a47380246b594266db98ec3c15e08d6b69475fdff36615608219b7e3",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:20c075c1ee861521d40b142b595ac198a8ca3d4dffafa7d8fed1fe42ac18c471",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:03052fd18ed1c38d36a19bd902bd89e8fce023895dd8ddda8ca664b1e5ef2682",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:bd9e1e28fe2d9c499be6d2f2efadfd1da15c75f4e7883759e2287bc13b765232",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:f94738d0372231c39f0efa2dea7e089c9d45091664efb135f284272b6868041d",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:32ad5243d836b439e388bb6d371e91be1f67a351c1409c59d9d048b97e9cc16f",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:fe23498a650fe178331d7aaeaa70c8e17989b70ed16d99e82a30c5738f1a580e",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:2cb2fa7c2c605a29f55dff1f0c6ac9b38b4673b9137f27fdb9268c88b8da9004",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:a188d0b907c09e5c3f8807dddd6d2cd54226bd2010809ced93b0d57c9d28cd0c",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:8311c381c09ba3a7d9f8dd46225e23f8ce3e8af56a16fd7025b10262b75686f6",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:110c84ec135ee7810c5a5e6d4b33db0a40c91d7261f03393707a799ca938e4a7",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:b4cfcc8210633448c8ec3435759be69e864e20c02a0e228b1bcd0acc864a051c",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:e7012ea08a5476cb3c6dfdd41bdfcc3a0730b747966591be4d585aa082805dda",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:8d0b3b2f85c9369ee904770019cdf0a62fffdb13954cb8a9b411afb3c6e8ad07",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:aa517dc0350e828b445353078ccdfb405d4c9fb0f7ccfc8726876a164897af21",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:bcf66f80cdbd892628a2de5f39e514c49ddf8e951eaaaa057f4d4f510e54bc87",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:cd0d2329c4b775f48af1d140c604c2883a395b8a42910ff63e81b200782ad373",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:e5b3bb72cf6fb522a664b8d729c7d2c339f5cddcbd1c86d5ffd799188434d660",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:043dedbbebc40dcef307e983ae01a9425e0839ef266a5fdb63678fc9b3ada529",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:dbb4d77b5741073c69507a5d9e7432f02f6062c4118f0663151f14110e6dad20",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:800cefe8df13dbe84f88546a4df9eb4b5ee72706fa7c28e76ddd9e62509aaca9",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:8a8dee60b681a41fae79334150225380792d69748eb900095519cf66406d0cf4",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:ecc049db4242fadcd14e378571e4ade5e9ffc5a53da6c35a7213e4cf4b705392",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:e6a92e79781a1fb68d550cb9cd686bab763890db259375fe880f0611dcd1f8be",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:cc4a5d7fcf8ec0d37983ab32ed65d84655785981b4f6693ff4b28f987e02d3f4",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:83b2740b0f705fc69846a27517e1e28c8ac35a41721001f8c5bac0a555798db1",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:e33854c9f80264775919aedbf0b08fbff1edb863298ec81b7cee8fb2ade5c5b0",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:aa4786feb31be6e630efc783c7bb26f156e0aca4518d9ccf0791882896e863af",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:070fb9de6ab93817fd8a5e3f00aa39ff58b73ce73ea6fdccc70a235c0751a6ae",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:ba39df0800257bb11e74d55a0faeaba10e4b3d499171f03579cb567aab73b9a0",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:54a52d5d90c30534836e1c3e960cf87469e2e73155cc03b4a92d8d977a0eafa2",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:19b054a58d700b2de20acf7ad1a048c92a207f502e2496726bbbad78ab9693ba",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:f18cf76fd3b290625c3bcf88cea69970c27cddddf4d188aac98c5c98c30148a5",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:a1e3bf058f2410a74d8a9fffbdb526ba1e9d52a73916197774379aa30d5609a8",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:d50f0382560fc8260e3d9a80dee1601efec22f3eda93775b6f529324b297a8e4",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:4521d05244c8e252655dd51cc99fc154404dbdcd173dae1092d69b62de8c1200",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:c542d7736a2b464722d4be8f8fd29315718c2e98abf0fa951ae59033a12be656",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:14dcbb41030ad500a776838832a72bd1e7d0aafd8c591ce37d837bc552c6d1ce",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:bc480c5d677a7668508d8cf40df9b6777a7778667cc77f5f70f0bfda4b368eeb",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:b3afa68fa736b4f4dcb42108c9af9077ae528d97436bf1116940707888c250e0",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:9e1448f86a0ed6da98730fe6ae52fdfad65e308823d28a0a7958e100a30930d7",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:d3d7de5c0e7144ea7d14ff512797bb6285e6bd45f398c5ed1979273e28d1c325",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:9d3b744f9c08e070e48a9c6851ba83561d4b0e29afbd868ad54fe75e7e4ef46c",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:aa01e6c9f70d85ee6417769d7b6a3cd6e56b65e0b4dfef70d8735bd63291dc68",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:2ef708f36e01e469a86929bdc287c29593015122c023a185b9de0ad581aff019",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:d01f8eb69444d7b14de9aa458cbbaf1d1d8d02466cf18179df213f655e7ba87c",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:cb6adb303042cd37bd88c95053fd87beb18d591ea89032c33564d840631b489b",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:73ad7a7a99bc0ba15def5ce0b4bb352777651d8bb2cc9d54f6f414aad486b5eb",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:daab5670075f36b13cc37014e678c23843d5726e5a4a8a9bc40472b578f2be71",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:bfed1c622019ba79f714068dd66c77483fe8ee0d6b9b13d4ccdc3f3a3f496ac0",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:099b6859bd1b52222f8b5f3bc3a703def6320907cfee2a096576fe117f339f4f",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:20302014b0f0d205dbd56b73b39d6ba85302fb5566fc9d2552b3f6b0565d5cfa",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:cc07e02df93597a90a90731bce6ddfb5f6326a009b3d43228ec05561d6c49a21",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:963c75ceffc3775fa9cef371a2063026f3c3d297d4129606f78d5fed0340780c",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:5d424f3342a83f0b846551f202214b5e9d55c3e7e12dea3b9bd3a5c259161148",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:7e1bf98f6d6eaca22456f6677ac4d8ff4f248e1c6e2ab2a555af2d9e09994025",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:f89c9159b5e8184d366bbd1ca126af81ca6a9e7c52d163354ef785fa5f643736",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:02fd18800df63a5383a8100261fc6f146418cf81fa3f24195970d96cdfc71dd4",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:1435bf1bf82095fccbe6b12f922d5d769a41f9a919c8e46b4b9dd3c68e800202",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:f6a6c4d3871103a84b4f2232a622b369ed68ef4be0abae96a599a1b7e83fcc84",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:f98dcd189abe92171a404fb6bcde2bf4dd26d2c0f013ad28dd7cd4e18eda966a",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:970edc10c7382650a058fd4b5ccf307fc4c8e065dc9fa7dd2b98a90a3d520328",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:49259ebf242cceda2405b4995c6eac4fa826e06fe6d35ffd062ef478e11baaa5",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:36030fd93edd9ec9517b7ce89a2c55095c37e90f6620fe5f963b173a6c58aa5b",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:062590a2bfa08eb942c549c1c0d7413cf98debcf89241ec865cc3514bd6c43a5",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:ba173267e932d7a108a868199959a217539a25978a7687f5b396fc1181c3b155",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:62bbd1d09fb7ed1896a09579170f38f0f1668e201844a838057553b546538af1",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:9348ff7e1ade5d79bfa8b5de5fff479af248b7e89a609d450663a2cc9f92578c",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:4ab7d59cf4c55a545b6595f34cd55bd3156f14130be23b0d7ba9b713bea851ea",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:338c4c4d9baa051da44e585e22ff7e4de3076df6aa4c2168c39f323fe31c6b19",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:7e76ab70e455e7f1860af49d6855516d4a7107609fcb55ca1d78bcf6e1f8f9cd",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:f77d3ea3d210b2475bdc25a9ba8f929f04a0be446c2f85fd3482c49c960e9226",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:583ebf6d077a14b420b200c94a4e07be9d163d5ee8bc905634ba28df8cc71f25",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:8b2ca979e77da22e11f3ba15f2e12f0e74d8aeb919ddda7831a849fc97f4a6f0",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:25d778b68167fb57b63e6a5b0a0801d34381e3da1a11c2bfed0c12a8a1b0f6f8",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:c8133cb5e1103e9409201f851576a562fb12c9c5c6eed09b9fff65db54d6b76d",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:de73b141f77d164dc4dc823eab8569cf62888ff426901bf6443216a7b408aa45",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:6e70543f695244c0b2361dff5a098c5846fd363fadf8858f7122877797a9e9f7",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:553d67af5dcd274178ace01339e674e6df5c8ba478578cf60c37004d6332b9d3",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:a4ff0248efea7ebf9fa2f60c7b3d0c3533554fa93479fd83890aa97beef4424d",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:396146019f437d4971017d83c1fc06da04c498a4423f535556d35650f20bbeb0",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:ed66e4c838ba852b5b05133e10db9e04343f2150e803d95390688596af1429ff",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:ccd3b08764ad07778f13fc315a13eee98f8502239c549469ed22743ec0f056d0",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:cd785ea1da6b37460ed4b32d1897d0246d681c2d0d55a699162f844e221b576f",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:ff3b9e59587cd70b4b96f1027f7cf45662b3ec8b80cc4a64c3d07fc8bc29c86b",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:f481696e1ee02697ea8fad656bdfd7e8e22448686f610bd49b974453147e297b",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:95cc7ddb784b92d40906c79bdd474ee7af2fada83429b42d21e682d9914b1a3d",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:d34541c70a967f3e8bc86dc99c6f44e8a5deccc1977db6efd66c0fe6397216ff",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:2016da9e6d1dbf347618142bcf977ff2fea5085d9be4bdafc410a52fea9e8caf",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:75c6441e4ec524c0fc33a460e0e39a43d1a0868a777458f74997760200dd8462",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:0cde6448ea45ec0eeb1a41baae4eca3230389df2790d8fada9b3e5f2296b486b",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:a7ecd80ce0afbcf24f317476db817941cfa5439e5af7607d7ac97b68940dc23c",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:d0d8e8a5f3b58a9b0dd748f55f4a6fa6bd2075d4c680a48e1df1e778f5ef8c4f",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:07b07e88df2ec9e7beecb5536ea8cfb9780966b7c4863e8327c15818fdfc0c9c",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:8fb80553016e4184f8cee2980f97fd545f438e4080750b7efa6d346a576b3e0e",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:af0f23de15ceb7748182388f6f0d02d43015bf9103ceefc9d88c42552c75e8bd",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:1e3893faaaeed691764a154ef0c7d2f7d0da776345ff1271c4d3039d537f4100",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:488d20260d32605dbd7d170f8c3f952702edc81a8c1a4f1d8a911203925146a1",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:149aef235738ab4d83050ccec3db0d991627c4ef69307f91d6f2882a49c7f7ff",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:0612415784cf94e499cc9cd7247f9409733f44a9acb430da121c715e967c9d9f",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:1ba03896b4c12006c6642acc67d8dac2552ea54b4423839fe5ce90ae8345ba89",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:0a6cdcf9b2a99bdacab5497bcc898897ff9a321cd21631c253a48845bf7b32af",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:27ef7c5611f769aa09cf8a6abe14c87b2942c3aa465f6711068bc7c0b55d9065",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:3cd877978a9c25f9a3be1dbcb0c56473a8773f5845fb871f14c7db8d9169db3c",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:0840f084859f767d60e3713d9a66ea4d212c1fcba1e2d6c6b685e1a591007552",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:0fd57c697c8ceef8a225de00456cdb478cbace4a9af0ba3036c161e1e8a2c1b6",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:a3c656a6c526ddf5651205bc2922a46788e1a2537b6bec63138b6d81efa956a7",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:61bff2a444f4d07b344694cd171ee59fb12e1f467275cc6c72ee9f4a825f8656",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:0e60e47f324afa26160c667571f278bfb3025bd9895ce7cef7fc8895753e02a4",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:07274a076c482b9bb6272d14ff82a7b42ce88df1e24a1b723eda5023343528ed",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:a7d8e200c831e5901c8e95a4e211b77a27adee9ae727944f7951afe3c6309a5d",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:447fb58deed729185bb562f322b3d49f2f502e20a482b236535dd7192b102a00",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:ef521eb836dff29b7b27ab91a3cf0174919f0272ece2280a919dfaa53e3fc7b0",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:000e068f16091ae83585be2eaaf6e267111e3f85a85a92f135ad0ea9e46390c8",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:05ea372e4f77d5942b98a257b743c80c758d1ffedf1a1f0d1f4f7a8ff71ccca7",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:3f541670d3afca07a1a686f3b2f32e2c2de29d3c60fa1b1fb90b4e303113cc7d",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:aef747e131a9fa87fd0a0425f6797efed058d17d5d32d5964a5b8acf11eaefe2",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:36193ab3448c0aff5df6f0e943c317c20b22a0765b5eb85e2b75703814ff844f",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:80e68b781091c0cc8b700ac02f623e229760374e8a156d2e495ebe3a9ad20588",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:a950a905fa503d6f840b972223816bf3d33ea58ac62628b2344747ce45e710bd",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:c9d809cdea72c623be2c50f8f8fc42e50031b48b655d62d2d96931164367e670",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:5dc2f1c7b02ed4e69a4eeaeb1633b22ec55ba8d022720ce458cc8b13d4782efb",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:077dbf857bf2875cb3f089bed52a1af1244b8e08c632ae01ca1bd53b21913691",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:9de4863632c52ad243ba05c8c1d973f92220fbd618744444f4187f5088ee04ba",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:b3d45130d7ca7f819eddbcace31cc028d8e5c956e9a349222c6bbbd2f043055a",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:cf5f852180f538003d83a3df959cea0e0d7b1be68a728bbb70effa522f4cabc0",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:281331932aac938c48936fe034909e8894d8de0cc5c70b01525e280fdebfdb05",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:e3ff0dfc5c51fcbb48800e05221627ddd58cd2c9207d0e00e8806c1a5e63a793",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:5de25c6f378e290e13f4a92e04c8a9395ca1cad34b41319dd6b11b3cc2f3f524",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:b5555a706e3ecb5841502eee419fa9eae539821a05f6fb7c76b405d55c3dd37b",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:442a61e576240f702aac08948bdc5d7be99faa1bf94bc7859f7a5dd6b5bc580c",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:283354004c91409d0e781a31240552c5b1fe21fe6687a38fd5fb84b3a8a8af6f",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:5addc2a84cce44818868e78381ed93376259d6ac2b379439f6cae341110db5ef",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:e3d064a00fb32132ee8e4e4a6d34cc78bfd63ed65938e46ae2b9676ea613c488",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:593b87c20f341082bb3fe89a4881d0f255111c066251c87ba24dff61f45c0ec7",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:adf33a6ecb799561f10dc094ecaa60f17fc79851ea2213d3ddbbd2cba2cab6a3",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:9ae7934c5896fedf76192cd077e7698925ad6c0c22336a6dbc6067819d96dec1",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:8ff91f39a2c69903a77def8156fefb4552668f17cfcde6b254cc97f541ce6dcf",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:4713364a03298672fa1a884bc2b617b012a9a848cb737f0841c8dee15ad0dab6",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:f62d9eb61be1b0a26f5b14bb03442aefe596d5522aeb6a12b18497ae02c70697",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:ff05665b338f57e4e72bf7017c2b5b61d76fa9ba68a57eff3553be7d87e49c7f",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:8be632f4a773b660620bb7def21ba30458359c0b5bdef9dfd4c56f4f7a676b26",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:39ad8850e333b720831a0615edb1a2e175497fad48974f647748ea5cc1a3ad5b",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:604c2c6c74abc439129e8668f5b18dd36e4737aa728c34524babbdec50920e02",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:0b0270fa149e246afcbc9cdbf4e656a678c4cf4cfe6f7cff7e18f6a066aea5a8",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:1a2c8ec3c7acc286287019e6eb6f64a3fd88481423af5589e66eee0dc5bae74c",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:544fd547a9871d49a25cba9bf3ea585f4ddf2c59950ed6ccbbaaa8f560a433a3",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:b9fd7585e9897704f8357c6a6535ce5cf28c94b9d2899df044a07126e9be7682",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:2b4e1b76e765984ee8a67c5d2c36d74c0cb60211969baf04de21063c557c0325",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:8be3dafc6815fa2d57321041049f77f3c95fc47a9234d992a89a92fb3ed8e269",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:3da57712d4f5544fcb08f536e29f86100152c9e1b8399442f0f436dbed73bc21",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:72ce595db1e8ddaaad39699657aaf93e7b5080528e8672b8b43dcbb30c0a26f7",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:4faad9d67d9b34fd4bdcb6961f0f3a379854d18bed6347f05430f5f4d9a230de",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:0cd47522f8caa4596d863c1dc5be61f022f0d5661f0ec27f72399dd4b8e30cf5",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:babed336612b58afd81872f0a4f7b53039dba99cfa1ccfe68c8d1af21d5ab776",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:d9bc6687933cb7b8a312b905d612596b43368b30c2f3ee60c0b00b6e3eb2a104",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:a6c25137a4a38b8bac03232c31ad724526ba22cdb9d444b7e9aa81856c895da4",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:8e365e8d6d170dc0ed809bdf9596713d9fa749d8801ab09ccca6cf1e6481b793",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:2172b96f7dd8a60049951704eb15e4f4738f6b1f7a28bfa01577bc138f703926",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:a3727a014f6c076df5c89bacd0b08a2e770135ad8a7f6d7a6f1f7b3fd1fae63c",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:180d930902cc02d77c0bcd7c439e9a410a42ad616b0eef6bf5519cdddc4ae3bb",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:ea0fbf5c29a27d2b5b4695b3e1f0c2a9f5b0d96faa059d165acd9f9c6d1d5308",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:95492d742c1e79c636e7e9bcb43cbc78ef0945b41af758f691eb7ee671d46187",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:ba78145b28b256c3fa8e967a456d4637ecd4453244f47ede32672c0bd0a6e835",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:2549549bd04a19e94a986674528820496634a1a3f3aa42d537f8be888a8a7d51",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:a47c6586d682fec9ad968a175690300ccce53177c5dc9ddd75765146d7edf311",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:c8a69e3df43818e93e2ece780407d7add85dd8c999513fcce9d2ffa4192b5c86",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:e5b347b0f20f70d665b960f6e5f039d6725540a9aea0ad5170249dd99281adbb",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:535d801d427ad9810eb93cc4301a01193a32a01baa1181266479a945b34e9dca",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:066e34f09fcec63bc37627c3c4632c42e1e50777d8b0a1ef4213e136a553f3e3",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:bd7ccdaa2844603ccb68452af1cc04f85be72d19aae3e82c74b4927abe215351",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:b4bf8ab15cf908b972849cbc43dd790c84c1006a518f7bf32cfa85753d1f35dc",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:5a522ebd3087926c66b5b98334128a87a15c7fb20e8c7c5625f4600fbe13637d",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:b2470eca99e483e41aa8c0cedc160bdf878672f5981397ba170842c8b96e605c",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:3ddd6fd60b3ee7c09df64b7b6daa45ef311e26b0078f72ee4892e80d8e8de337",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:d0ee2b2864b0af768b41086e1768461f19722168f0a312e9833f7a4f1c61878e",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:5bba922c77a9af927044cb5c58534bec4b0c3592375b28953be1177d7fcca59f",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:58232a9a3038929a516d72efebd517d46a99c3a6907711c3d5841827570e1106",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:85d46066b42bb0fb690cafa450d275a62d226887f8deec69a643109395a1175b",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:bc73ddbef3d9194b9699cc4d74734a6a4903f1c1603c8cf3bd1379bbfc5bf5d6",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:14dacb14e9452984a70b9e04b22575b03aceedf5db2e05bb397b72351281077a",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:df651ca140db678e93360de26b69c4a568c62a4889b477ceb9a97426a89ab0ab",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:daec14863465f485a1e27588d64948dc602064bef86a08bcc6d18523ebe46a56",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:4b238a5803e767d9a4c31d4e7b2147e20227c593de6232d7ec1fe7ac6b6957ee",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:c6e377f216d118ffbdf1c19cd673876513b187c3e36987be9b16fdf01c1d9e95",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:76b57fef4cb6e7ade808d33539b53a10e75da0ebac79d493c8ad6389ba44197b",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:e75936717476f267ca5b7bf23a0b845e54850a3aa0286f4e134d7f0159721a0a",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:f41259ecffab2f5762afd3e9dd9dd06ec152f73165ddc16e2795c4b58bc2c0ca",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:ae972b447287055bf86308dc481ef8dbc7abb1c6127848f651e8ecaf4aaccde1",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:e574ddf9018edbf0766a976507de889916bb630afb23c9ee8a7218fd93330421",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:da2b2ef3102821445d7b3288bde30abafbee31d9d6aebe2f72e903a748bfcdf9",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:bc503dc4b322f35a709e5726bb60dc7903db3ca4c6c8145ebe70831d83c32530",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:667e2dd0a19f544ab2086635dec174b530abed3142a645a94c0dcd5055a80f19",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:ef1a3ce74a7fa9c25bf49e09ed64ed482b0ab88c1ffba1691d83735215a7c6f9",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:5cfe40b77c64b92ad60689b047d3f7ce84659b0964187ab7e60bbaee5a411ea3",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:315d9d9da3552002c6d293d2d32b9322915dad7e51dcc3bc16131587a0781082",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:be53ce259e4cc2bc83604df9685cf02f34d2b8fffcdcab5b3aba52e9f6be73d9",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:425ee00b712736a1a828f2f4516604d5f7fe148d6998ce17308628c7ac798a90",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:0532dc6c8319f6aa60390981367431fc09e1859357067b8c384cf08408714f27",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:bd6077caec2002435192ef17f2283de5e322da9a560c2adb002f6543a9a3bcaf",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:5735cdc38b522e32e7fbcbfcb96ab2f63c85199bd66a23257d3b0df162d73fd5",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:ad04659fee97559884d7de090b559ecc41bec9cf351c3930fd5d628254b08d6c",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:088c2eb24ff404091f26350a77e633ff741df1aa757d6a2bd3b43a94747ea493",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:79a6a8998c46eee003b8ada0a3866ee9a8bfa2f6157598997a1285f9cbfc7377",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:f567ab780db9e31acfb459f8b88811da7f4b7168987d529a5738c12affcdc16e",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:83265fea3137dab2ec6491817a505a29179679fe4e8b32d37b4133c35ff2efd3",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:21721a5a125fa527daf4c868b0b85bc2e52fd10895567731e50000c9f2f68d65",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:af7828953ad1f21121a77a3974588dc92dc882e8c73f2a9caca9a208a9088906",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:c898f93d4eb25893430518ea6b3af3567354da75215cd2dd26844596442991d7",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:4a1baae0953f854d4407d0056e1e830701721abf96b31eefff812e3a7169ad0d",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:8c70ac78794025fb06dc05f75885784152b3ee226337a919fd9b427c87912548",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:b674090ab90d30d732fc3b550b71130e948ef8ac43eec6888b53fc49abb2d964",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:522054ba89dda62d12b6d950fa7bc6952e22b63a489869987d1eeb25e86e8d77",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:f3a70445dfe10d7b33985c04a406e0eaf0596f2c14af9384622dd6d73c91fa45",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:097205459872d145dbbadfd4ee9e684765e03c39a60df1c6614033de3f162955",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:e52133a8de6ac514dedaee6146884febd7b65d010685096f142b9af5a7069648",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:b1d99d6354b748dfb2ac12d51882432925fe69a084f00a377f6198a81e471746",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:55912d40e4c26daac101b3a3d66feafe256634be7faf74286b7875aa1acdde13",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:a6920a7a946e252d3d71a66da715704cfa836a1a84d12d754a5a171e8e2eab8f",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:52028326feec167936e27f8ec808f9f3052c2471e5f9842266e6323642531419",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:84d4893faf0fb7deeff2a63f589bb1c0a70cc18ba257a12fc49bd03741e78f22",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:6aeb55e71cf078d18f9786e3236c587a11aaa6eed9634dda1680e63aa2271af8",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:877cdf90ee5f7c651275fe81b2a53394f553802e1a7322debb8c748f25b51a92",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:c1812d79cc9ca6ae5fee963d1071c48e8063eb9bcdb3a1760043b25c14feecb2",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:874d2ffec068c771bb247523e5f0a5adfbef36d61fae8e45ee8e1dd46749e628",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:d63ab463457ae5ffd2ec6fe53e50942156310870e225ab3c6325669fcef98eae",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:597e48e087f0cdaca0d579d571142f51a2f3cd039935b5aa440baf295baf9b2f",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:2f20cc019d8fdf0012e78201bbe43ff792b2fcf47ebcc3cd844dae7263aca3ff",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:e6ff695b44401b8d1ff34a8ad7b0f3f7ae2ef8f69f1ad6a68e3091074b6590ac",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:c8a00810471a341244014dad12f0a3e7eb896a2306cdf666409c5949e363d54b",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:80671c956de37ad69877be9af393cb12cd075119233e4d2740b7909e9b01d551",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:392eed1c9b3fd984959496120d692c9b8ae230ad2ff0a7c9ffbe952d521819f3",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:1da7fc822f76a83232e24cb1f70cfbe6fa32143b3bcdbd2dbd627335d33771c4",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:bcfae83e8710ce7af1bd6f0eaf0ff42bde2d635542ac46bf35c61cd28208d7c7",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:556977f67dafe9b5dc397fd60cb9f81e6069eb11e1825b9c7cf3dc8ce396aa97",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:17dc2aad44f63b24e80f1079f35972747297c214708afd78c862238ea817cb16",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:4f6ce1b1952c17f2d19b7699b6832dde13e066ca8243ed5f6d1653d47c1d4d40",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:59fb266fd2264a04e2ae6e03bdcd2121c874565e3bcbd4ad884739db31b6bb48",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:70f10c9e6b2ccc7e858409012784177c2bdf1d556c48f8696420b76b6d9d61c7",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:d75b23bf2738509a381be477bb58dcedc8f1281a26bc0cabeb6bf7efaf69fe6c",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:44793b25693a3427d16d310076ddcfe885bc86bb30adaf2c34873f35877a5656",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:d2d23265c14067369574e4571e68e67e830e311bd88b50a29304ed0966bfe843",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:cf8d6458925fe9d4ae204161204260bd6f798a8322eceb8c4ecf95adfbd70631",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:43e2e9e7d84017bb5697a9cd5a6c60f042acb303ee7b0556eb257f01a2c2b55d",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:297b72a9f20ad31a4ff316b243b65df9c9963099f7c476bbad654b20b11565fb",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:31ea51cbc61715e89cea67d461f2df1502c20a5139b4c50e8f586b8c24a509ab",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:9dbd43bd31008139845a36361ba631d255512e9d7dc0570b80ca8858417ec1c8",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:a6854759e4d827e0b29ec89dacc5022aaa1f29800ef4db224c78658151f8098e",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:58f3cf78469041390dc5f0fb4e4c7aa20ec523adbb6d2b4ec617184c48cdb339",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:7a69e44b35fd30466c366d6e4becc301495b07849c6642f16f3c92571679d0f2",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:e9ddd28d85b9fc3c83fda24da33346e28c4c1cfc910ef7e7f35f6cd86a4fab8d",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:95af1dc1837ace7f88713259efb3e5546ea97793b42a498a422a5261810e2d14",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:b4747f5e63ad2d94f693d7247a0d2db86150dae58b8237c63ebd10cc63820059",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:41987aaf54a264649be1d52de9712033107b0e5da2dd0b86dc2a988dea27a1a0",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:5cd911147e150081e66e00584551864fd90bc8911c3071c70f877242a631e41a",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:9ab22bf84147224e3f056ce3c9eca687efd88b3e0c5898e135a7f289d68d0b75",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:be356ff8049e9e409d3268e51c33bfe8f44eaf283aa419122e58b926e39c2de7",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:479027a2240f8be7625cb1112702f82544f92b31caa35cbb866149a674660974",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:6717dfff6a6e46169fa492d39f04bf60fc6350076f80a2524232fc214cb82f54",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:927429016983b5d8593bacd69dad17e99c380dd92f0a87c514c8374e5921fdbd",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:2b19d98753aebf44f48cb576747bece0977713bdb13836fed448173a0a965ca1",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:3d10aca0733335a9fff01fd9b9210a9ade2aeff21eba078318092e1c8eb3953a",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:58fb7b383387623b23da3d38c6a29c31bd823f112bc26c39d208ca0580590c20",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:5f08ebb414c6501f07359a99dd16aa0548d682b97001d7e1e0d88a623bb01237",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:91e8a5634d392a8deabf1e36708a0864f5a2fc28eff01327f323edfdbc6763ba",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:6ccb047ad11c9733a146d504b722e8bc7272c0c10ed29bc4989a3b38ab4ef52b",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:990852ed6ac3d7a7bc1530018e13a01bf89ec3d3281487d8e82a26832b09f8e7",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:9ccdaba6a587c46e157cdc903b3c37229c0fbf6a670914bfb4056c420a1b572d",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:fdfde8aff8a1f3322dac143860c341278c6fa539f1ed26d8542f18e233e3fb15",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:7f1c7827cfdfe50015e59da50b9a6e04466f33657bc205639f3c4d17d2744374",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:28629ad06e274f550f4ceb38c3004dd34450b30854ba210545e106e39c61b142",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:3c0a2fcd75323306783e61c35a2baa797478bb60707937e3dc1fdc955f688991",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:56bc25bc63162cdb7b134ae5f02f93272a2c1c8f4f0fcdef0e7575fb38fc4254",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:c699345226d0c0723c6995dcedacd1842583eee752a146ac4ba04e2cb0017854",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "strict_hill_primary"
+  },
+  {
+    "component_id": "component_sha256:6ab51e61b51ca8536553a789cde07c04cd6e130d1878ac6cadc9cfb2fbcc4b70",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:53c22549ea70b4578be8df6691b07a1b42cccdd69dc715cf24380c57d4485773",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:55d7dac0237c34b492f885b670878ac9cfd52708337b6b4a10deb5de237fe5d8",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:e934e0099f9ee682fe56473e4dd7c60d3a360f6c4f3106168a6581065c4f8233",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:e03f2e39e4b6632df0495f0a94b406f972a635a8907936b17e2dd3563f9e924b",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:64095926cf35d4921b3d8ed8f76efe8f5deb356f09a78d06492899f75e2d9c43",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:d605efa094e9f11c2579912cd4e58e45b3b52e6e3cdcae409af380108ca3776c",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:bf852d732b3241858c0656acfe9f3e2ca5509f2a6a58ec4ed02b075605e36a32",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:c9a378cd526b7fcda0653e2fb9740850988dea27497c901b8e158fc41b7382a9",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:1e3b045fa5c58280950f0966fe0c75cbd919d7a9bf3040115eb1b33cc452db30",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:41043a103cef73437c1da9b8142c8f98a9ba745b29a3e46053da553f0c27bd8c",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:4e517e826f015ab007768160b65d145c95e3cec466b60373fc41e1d8c733ff72",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:3b0cb357384d538e5ad4c7a51f3ed2f24ba30923a7c1e09418781b9a968d18df",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:58a2445320592cba7898a432bedb0a7e79bdb604f769c09bc4647e833ee11a44",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:8ce4c1813092fb34b4c3bb652d476c9d59dc6a6ce9a20d8eff7bfe87fbb30f48",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:4c027185e500ed2bc3e7c463c82a80fe3aa3be4bcc23b0e40cba4ac39df90d79",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:afb2d73d83b3b2e18cec66627203cf83e834e14afa8ae5bccb3ff39d4f50febb",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:4666eff8c985cf0a3bc302734ceca502139804a3293f986a7216f76763849b26",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:8bbd183826bc8114a47810c396a6fe4652a7b6a689128d769d7de457080c0826",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:e1c13029f5c1a75eadd739e49380d5fa2f69138e137b8a70ed2c74c4abcfae2d",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:17e6806ed59c8b7f9bc8b4c129d11c07b5c55dd6b17d805be579efb4af9da83c",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:302755f7f3401aa29eb16184b3a55f2f52cb948401f6463189d7aae51bf35b3b",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:d69049b198b24319c91fef221f82ff7b75f4192d3f79b0ce9b1213110171bac9",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:60eed07b89f46605845156690d490f40abb2475b9209c9c6507c8299b5dbab86",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:d350caba81c45fa72880820b19dd118bccbcc4540f43bfba555275b1500b8f82",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:c30e4e97faac9368580e99d8c7a34a5f4011767112fed3f0f808595d907c60f2",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:061387a4c9ad06bcab3468343c7f8fbaa475ec5f09f83bccca5384ca66e7c266",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:cd840ed01c8472aa9ec8d8ce045fc60af5ef2de57341ab80d75723589524985d",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:738e49ce01b03a46fdb8dae03b15860905bc641954d9933343320675099a591d",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:d1b9905b3bffdac3294c88f132619029087ce3865e2a4c4c2cf81d5ef3520476",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:769239ef0f6dffb92f5f0d331a8491474bf79e105359cce7f19fd103ec2cd321",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:ef03001ff3061d26810dd2356300aaadbf7103a9b526930a21f311e0df64ca88",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:b491caf844c47e69311bf8e248724279b03c69a33f62f2833f9af129d9b1cff3",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:6ff97ea7ddbab8d11b1927455a4710bc5541d619c2de0c57a0fdcf0ec5eb36aa",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:a071d2d856fd436b3bd97f93f7e06e9fa668f2dded8174e298f9febb359f912a",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:4394f84db76f78c0285757828a0297fb7c19825f37fee6846d995a71fdeaf80d",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:ec092f3d8b89d3459d14f83a35a5af8c443f55868fa1940ab396092adf26580c",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:8c617114233f272eadf068edb49854966dd62b8732b681daf1c522b9969b4d68",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:6a3637b270dcf8367c484b8cdcdcda91285279355dd5aaae1404a3afc1a4cf50",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:760543c9e3a2ab1e4e15cb8ba7c67df6ed1d138297f677908f26bcf7df33b1e3",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:6c961b7bcb0b588c05b295d01494c74beaafe75b5e7c26487c6ee8cdb948b251",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:0065bf31e5c9990b8ad303cbcfeab8b46e02b85308db9a77f75fcebd784beb90",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:ba02b47278de98d55086f32bd47a9a6d7105bef605ad56f1398726cb4c1ba525",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:1d3b99150d6ea93e8c3d72142ede71987d77904261c176d35c86af1aa4032a36",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:fb11895dd6d82372531999d78565032548a1d6e4408d1caa8464c47c6d8b1970",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:0ce45c438ba0b0d899041cf4602e5a90ce15716ce48f98443592a4ea79d36a75",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:a9b07e7fdfe860a0554d6c7ff4b6798103cae82d134ac32b369627b0d2ed8090",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:0a5e7febbabbdfcf6124f940d6b29233ce2548bbc63b605520e736a95412a775",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:1ef34397b1c6cf3e70e620fe9ce533b85ad7099d249f466ccdba95bb1a4a1fd7",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:25b6e54b567cf199dfa7dd9aa714a2805afcf255e9b09f4b1d7278645e3c0372",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:b6e245b5f8a3eb2252860b3ccb7eb32c1cba2ba477d45ea57d68ccd7ff48c680",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:ead7e3e99f2e10744f09743f58e8d489cc74d3e4bbbbb71ee0dcb1dbf693d820",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:827904cd90b6fc073ac5394225741c48528b0a2dbe19e94b8482bd3717be863f",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:2a989442eff9e71acf01b2fe748cc82b7fb7b2b1d80c51bc48311052aaaa388d",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:78ac7ca254526b9e89f05a68b184a4d8f96266ac9cf65a57f695edaf2021db8d",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:c7cf290b45919ec66e30e25cf22c7394fe389f06728fc9ed23aa1e6a2a0170b4",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:1103a957e3d5b32da0cf52477ada1f9af56b450a0eb3ac3a68fcbf9201adc6a2",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:a83fa95f7af3a9244515315bd37c5bec06b6956713ad9b71e0e5044b5e01c1ff",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:c3d40f21ea8119ceeded680c66ca0c7b2800041459bac904e8293dcde0fa85af",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:2df1e0407c60e06fedc1a7466f0c4f269663f1f4f70061b37051e256febfa079",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:cec745c7dc66d8a1ed434cc10cd54edf9ec3b1251598ea8c07c70b95f2d4aa7b",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:cc87b18b76b7f1f543ca1122f9786f6e5023e88dfa9c89f6cd09ebc29e9a84d6",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:b3af6e409d73a611f1775d300d96743a09565432d0adab7afebe581bb6b5855f",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:d0ffca8e96c375e74a295829659ea9733927fb91f9ff5ac59484e3af445870ec",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:fa3bb059a45fec74d7d13bb0ebda6a2f166e2b948300b9305e48781466a4b308",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:beaa0f75174c10ec7e900df29ba28bdfd31ddc2e48ec1859ce8846fb9cefaf67",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:8ad86e2724835b1cb68aae25472127359440dab490a95e9736117df4ea856ec6",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:3c595dc91d46ecb8e5639af24eefc858f3e3523c69bdf0634e73b62deac1e3a4",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:e07dad02d8e5ce1feee8a5a94c24fcb441b241d63a62a8d7b8904348a6c7b88c",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:a67eb126613c62e676f23e7430a784da47013fae80c204df79d7deec5e1d31b3",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:7420073e770da35a7b6d783681796bc15861957dcf63713f1a8c9ba3e6e8d12c",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:246cdb4dee26df208f80bff897034cd01d6f36348f1da4adeedcfdd237521a61",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:c119cac3407354c5aed35434f0039eab8eb338955d6867b2491060a3b4a50ce1",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:d3f314541f1a54ca20789e2ee5c1fb4423f78022bb101382fa4a85347588f07a",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:3dea07706b4333d054ad7533626eacc9f098d4cc14e710641b3cabe3b41c28df",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:47b9f6ae73ada7c01f2144f268ed5490096ca19c33d9d4e18420f1c5f8f68118",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:676858a5aa6646e533f25c54dcc1ab230ecee0de26ca501824799d86ca05a3b7",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:258c9d1ccf238cc6e610703599caec67f4e09301b6a7d43c6eace76685932065",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:4a49f121b8f0d33b0ac46e3ab69bf944545945b8b6c84d5166d45778c2b1a383",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:a3d3dd52860bf43fcbe71f9715273890b843c09f2b59fbcaad57c3018a825448",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:e056e2cd65ef77cd0cb15cc919cdbac1df899120f548019434bebef208bae7ee",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:54e7ff06ff37f9c2672240e9379144e147fdfb3976e6c3e99e2f907999fd2d70",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:32b26a9cac680055dffb1dfed4222914d4c1a9a7ffb5d38e25d9e2abb3f66ec9",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:5584fa722506ae8a7c20a8382ed2d8ef0ae03822491343e39592cb689eef6ecc",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:7ef1e6d0d7d43c3d5faf701e202aaff7844a089b9f1de77bf8e7cadcc2fe46a0",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:fdbeb5aa3381d5c221e41e4768c039bb5ce029994fa9fbe096dcbd5ec4e58ff3",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:ebbec08fe36bd028c9840299287c63e8a145ff32234e46be820ca3e1cd1d7dd2",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:b1cbe97cf8f38ae2764186272d78a8091f6ca4d4812274b8f7417cd7bbf533d5",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "non_strict_hill_secondary"
+  },
+  {
+    "component_id": "component_sha256:cb06f52d54b7e26c461109a62ca8af00b139547a8e67b090f5fba5368761735b",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:fa2b22d82369b10257127a531a725cb00e8146ca47fb409df3987e9fda5f9dce",
+    "quantization_stratum": "quantization_neutral",
+    "eligibility_layer": "linear_control"
+  },
+  {
+    "component_id": "component_sha256:de6af7d4a04d94fd6bc6e7a3030f449eac06b9ab34b18c8ddfb31031ce15aeef",
+    "quantization_stratum": "quantization_active",
+    "eligibility_layer": "non_strict_hill_secondary"
+  }
+]
