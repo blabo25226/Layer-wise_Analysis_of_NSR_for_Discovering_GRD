@@ -42,6 +42,17 @@ tracks:
     stage: PREREGISTRATION_V16_FROZEN_IMPLEMENTATION_QUEUED
 
 active_tasks:
+  - task_id: C0001-T016
+    track: scientific
+    role: research-engineer / repo-operator
+    worker: Cursor Agent
+    branch: ai/C0001/research-engineer/implement-metric-audit
+    worktree: /tmp/lansr-multiai-C0001-implement-audit
+    status: queued
+    write_scope: [frozen 82-path runtime inventory, focused tests, v16 smoke/evidence, implementation completion]
+    expected_outputs: [F1/F2/F4-F8, G_contract, G_impl, reachability evidence, bounded v16 smoke]
+    acceptance_test: frozen plan hash; compileall; focused pytest; G_contract/G_impl; fresh smoke; diff check; push parity
+    prior_task: C0001-T015-REVIEW
   - task_id: C0001-T015-REVIEW
     track: scientific
     role: independent reviewer (Claude reproducibility-auditor / scientific-critic)
@@ -487,9 +498,9 @@ retries:
   C0001-T003: 1
 
 next_action: >
-  Persist and push the v16 freeze record, integrate preregistration artifacts to
-  the research branch, then delegate post-freeze G_contract + G_impl repairs,
-  bounded smoke, and independent implementation review. No full audit yet.
+  Integrate frozen v16 preregistration artifacts to the research branch, then
+  delegate C0001-T016 post-freeze implementation, bounded smoke, and independent
+  implementation review. No full audit yet.
 
 last_checkpoint_utc: 2026-09-16T10:05:00Z
 ```
