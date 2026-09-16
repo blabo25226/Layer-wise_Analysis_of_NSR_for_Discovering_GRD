@@ -49,6 +49,10 @@ def rewrite_registration(
         "rewrite_prefix": rewrite_prefix,
         "rewrite_infix": rewrite_infix,
         "lexical_non_identity": lexical_non_identity,
+        # §12.8 registration_rewrites.json requires flat precheck fields.
+        "precheck_completed": bool(oracle.completed),
+        "precheck_equivalent": bool(oracle.equivalent),
+        "precheck_failure_reason": oracle.failure_reason,
         "oracle": oracle.as_dict(),
         "valid": valid,
     }

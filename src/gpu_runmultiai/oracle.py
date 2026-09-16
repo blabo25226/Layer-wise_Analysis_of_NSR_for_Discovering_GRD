@@ -117,7 +117,6 @@ ORACLE_OPERATOR_ARITY: dict[str, int] = {
     "pow3": 1,
     "pow4": 1,
     "id": 1,
-    "neg": 1,
 }
 
 
@@ -295,8 +294,6 @@ def _sympy_expr_from_component(tree: Tree | None, symbols: dict[str, sp.Symbol])
         return args[0] / args[1]
     if label == "pow":
         return args[0] ** args[1]
-    if label == "neg":
-        return -args[0]
     if label == "inv":
         return 1 / args[0]
     if label == "pow2":

@@ -47,6 +47,9 @@ ORACLE_X_GRID = (0.01, 0.1, 0.5, 1.0, 2.0)
 ORACLE_T_GRID = (0.0, 5.0, 10.0)
 
 MAX_REJECTION_RATE = 0.30
+# Largest system dimension present in the frozen corpus; the ODEFormer environment
+# must be able to decode x_0..x_{MAX_SYSTEM_DIMENSION-1}.
+MAX_SYSTEM_DIMENSION = 3
 EXPECTED_TRAIN_SYSTEMS = 240
 EXPECTED_COMPONENTS = 510
 EXPECTED_STRICT_HILL_COMPONENTS = 330

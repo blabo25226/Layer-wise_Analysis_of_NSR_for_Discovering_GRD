@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from gpu_runmultiai.outcomes import partition_counts
+from gpu_runmultiai.outcomes import partition_absolute_counts, partition_counts
 
 GATE_ORDER: tuple[str, ...] = (
     "G_corpus",
@@ -188,14 +188,24 @@ def first_abort_gate(gates: dict[str, bool]) -> str | None:
     return None
 
 
-def condition_summary(strict_rows: list[dict[str, Any]], *, gates: dict[str, bool] | None = None) -> dict[str, Any]:
+def condition_summary(
+    strict_rows: list[dict[str, Any]],
+    *,
+    gates: dict[str, bool] | None = None,
+    confirmatory_calls: int | None = None,
+    descriptive_calls: int | None = None,
+) -> dict[str, Any]:
+    """§12.8 condition_summary.json payload."""
     payload = {
         "denominator": 1320,
         "partition_rates": partition_counts(strict_rows, 1320),
+        "primary_partition_counts": partition_absolute_counts(strict_rows),
         "diagnostic_coverage_rate": sum(1 for row in strict_rows if row.get("is_fully_diagnostic")) / 1320,
         "terminal_coverage_rate": sum(
             1 for row in strict_rows if row.get("outcome_category") != "unknown"
         ) / 1320,
+        "confirmatory_calls": confirmatory_calls,
+        "descriptive_calls": descriptive_calls,
     }
     if gates is not None:
         payload["validity_gates"] = gates

@@ -1,22 +1,52 @@
-"""Reachability evidence builders for G_impl (preregistration v16 §3.8)."""
+"""Reachability evidence builders for G_impl (preregistration v16 §3.8).
+
+Every row is derived from an executed check: expression oracles, the real classifier,
+the production rescale early-return path, or a full pass through
+``evaluate_validity_gates`` + ``evaluate_primary_decision``.  No row asserts its own
+desired outcome.
+
+These calls are preflight fixtures and are excluded from the counted-call ledger (§8.1).
+"""
 
 from __future__ import annotations
 
 from typing import Any
 
 from evaluation.gpu_run5_structure import classify_formula
+
+from gpu_runmultiai.constants import (
+    CONFIRMATORY_CALL_CEILING,
+    FULL_RUN_CALL_CEILING,
+    Q4_TIMEOUT_SEC,
+)
+from gpu_runmultiai.controls import evaluate_validity_gates
 from gpu_runmultiai.outcomes import build_outcome_row, evaluate_primary_decision
 from gpu_runmultiai.oracle import oracle_equivalence, oracle_single_component
-from gpu_runmultiai.q4_reference import audit_q4_decimal_round_reference
+from gpu_runmultiai.q4_reference import audit_q4_decimal_round_reference, e1_not_equivalent_to_q4
+
+# G_contract and G_impl are evaluated from their own executable evidence in
+# `contract_evidence.py`; including them in a synthetic decision grid would make the
+# reachability fixture self-referential, so they are excluded here and reported.
+SELF_REFERENTIAL_GATES = ("G_contract", "G_impl")
+
+PRIMARY_PAIR_COUNT = 1320
 
 
 def _reachability_row(fixture_id: str, evidence_type: str, passed: bool, details: str) -> dict[str, Any]:
     return {
         "fixture_id": fixture_id,
         "evidence_type": evidence_type,
-        "passed": passed,
+        "passed": bool(passed),
         "details": details,
     }
+
+
+def _hill_form_from_classifier(infix: str) -> tuple[bool, bool]:
+    """Return (classifier_valid, hill_form) from the real production classifier."""
+    classified = classify_formula(infix)
+    if not classified["valid"] or not classified["component_flags"]:
+        return False, False
+    return True, bool(classified["component_flags"][0]["hill_form"])
 
 
 def _reach_sfn_1() -> dict[str, Any]:
@@ -30,21 +60,27 @@ def _reach_sfn_1() -> dict[str, Any]:
         candidate_component_idx=0,
         timeout_sec=30.0,
     )
-    classified = classify_formula(e2_readout)
-    hill_form = bool(classified["component_flags"][0]["hill_form"]) if classified["valid"] else True
-    passed = (
-        e1_oracle.completed
-        and e1_oracle.equivalent
-        and q4.q4_construction_completed
-        and e2_oracle.completed
-        and e2_oracle.equivalent
-        and not hill_form
+    classifier_valid, hill_form = _hill_form_from_classifier(e2_readout)
+    row = build_outcome_row(
+        condition="B0",
+        eligibility_layer="strict_hill_primary",
+        pair_id="pair_sha256:reach_sfn_1",
+        q4_construction_completed=q4.q4_construction_completed,
+        e1_oracle_completed=e1_oracle.completed,
+        e1_oracle_equivalent=e1_oracle.equivalent,
+        e2_oracle_completed=e2_oracle.completed,
+        e2_oracle_equivalent=e2_oracle.equivalent,
+        classifier_parse_valid=classifier_valid,
+        formula_metrics_valid=classifier_valid,
+        hill_form=hill_form,
     )
+    passed = row["outcome_category"] == "structural_false_negative"
     return _reachability_row(
         "REACH-SFN-1",
         "hand_algebraic",
         passed,
-        f"e1={e1_oracle.equivalent} q4={q4.q4_construction_completed} e2={e2_oracle.equivalent} hill={hill_form}",
+        f"outcome={row['outcome_category']} e1={e1_oracle.equivalent} "
+        f"q4={q4.q4_construction_completed} e2={e2_oracle.equivalent} hill={hill_form}",
     )
 
 
@@ -58,117 +94,245 @@ def _reach_preserved_1() -> dict[str, Any]:
         candidate_component_idx=0,
         timeout_sec=30.0,
     )
-    classified = classify_formula(truth)
-    hill_form = bool(classified["component_flags"][0]["hill_form"]) if classified["valid"] else False
-    passed = (
-        e1_oracle.completed
-        and e1_oracle.equivalent
-        and q4.q4_construction_completed
-        and e2_oracle.completed
-        and e2_oracle.equivalent
-        and hill_form
+    classifier_valid, hill_form = _hill_form_from_classifier(truth)
+    row = build_outcome_row(
+        condition="B0",
+        eligibility_layer="strict_hill_primary",
+        pair_id="pair_sha256:reach_preserved_1",
+        q4_construction_completed=q4.q4_construction_completed,
+        e1_oracle_completed=e1_oracle.completed,
+        e1_oracle_equivalent=e1_oracle.equivalent,
+        e2_oracle_completed=e2_oracle.completed,
+        e2_oracle_equivalent=e2_oracle.equivalent,
+        classifier_parse_valid=classifier_valid,
+        formula_metrics_valid=classifier_valid,
+        hill_form=hill_form,
     )
+    passed = row["outcome_category"] == "preserved"
     return _reachability_row(
         "REACH-PRESERVED-1",
         "hand_algebraic",
         passed,
-        f"e1={e1_oracle.equivalent} q4={q4.q4_construction_completed} e2={e2_oracle.equivalent} hill={hill_form}",
+        f"outcome={row['outcome_category']} e1={e1_oracle.equivalent} "
+        f"q4={q4.q4_construction_completed} e2={e2_oracle.equivalent} hill={hill_form}",
+    )
+
+
+def _synthetic_primary_rows(*, sfn_count: int) -> list[dict[str, Any]]:
+    """Synthetic decision grid: exactly 1,320 unique fully diagnostic strict-Hill pairs."""
+    rows: list[dict[str, Any]] = []
+    for index in range(PRIMARY_PAIR_COUNT):
+        hill_form = index >= sfn_count
+        rows.append(
+            build_outcome_row(
+                condition="B0",
+                eligibility_layer="strict_hill_primary",
+                partition_scope="primary",
+                pair_id=f"pair_sha256:{index:064x}",
+                q4_construction_completed=True,
+                e1_oracle_completed=True,
+                e1_oracle_equivalent=True,
+                e2_oracle_completed=True,
+                e2_oracle_equivalent=True,
+                classifier_parse_valid=True,
+                formula_metrics_valid=True,
+                rescale_incomplete=False,
+                e2_identity_fallback_candidate=False,
+                hill_form=hill_form,
+                quantization_stratum="quantization_neutral"
+                if index >= 184
+                else "quantization_active",
+            )
+        )
+    return rows
+
+
+def _synthetic_gate_state(primary_rows: list[dict[str, Any]]) -> dict[str, Any]:
+    from gpu_runmultiai.calls import expected_confirmatory_calls
+
+    quantization_rows = [
+        {
+            "component_id": f"component_sha256:{index:064x}",
+            "eligibility_layer": "strict_hill_primary",
+            "quantization_stratum": "quantization_active" if index < 46 else "quantization_neutral",
+        }
+        for index in range(330)
+    ]
+    b1_rows = [
+        build_outcome_row(
+            condition="B1",
+            eligibility_layer="strict_hill_primary",
+            pair_id=f"pair_sha256:b1{index:062x}",
+            q4_construction_completed=True,
+            e1_oracle_completed=True,
+            e1_oracle_equivalent=True,
+            e2_oracle_completed=True,
+            e2_oracle_equivalent=True,
+            classifier_parse_valid=True,
+            formula_metrics_valid=True,
+        )
+        for index in range(510)
+    ]
+    return {
+        "g_corpus_pass": True,
+        "eligibility_counts": {
+            "strict_hill": 330,
+            "non_strict_hill": 60,
+            "linear": 120,
+            "other": 0,
+        },
+        "quantization_rows": quantization_rows,
+        "scaler_asserts": {
+            "time_scale": 9,
+            "time_shift": 1,
+            "a_t": 0.9,
+            "b_t": 1.0,
+            "rescale_features": True,
+        },
+        "access_attempts": 0,
+        "total_calls": CONFIRMATORY_CALL_CEILING,
+        "call_ceiling": expected_confirmatory_calls(),
+        "grand_calls": FULL_RUN_CALL_CEILING,
+        "grand_call_ceiling": FULL_RUN_CALL_CEILING,
+        "descriptive_calls": FULL_RUN_CALL_CEILING - CONFIRMATORY_CALL_CEILING,
+        "negative_controls": [
+            {"oracle_completed": True, "oracle_equivalent": False} for _ in range(100)
+        ],
+        "b1_rows": b1_rows,
+        "c_q4_rows": [
+            {"fixture_id": f"q4_fixture_{index + 1:02d}", "fixture_pass": True}
+            for index in range(7)
+        ],
+        "b4_rows": [{"valid": True, "canonical_exact": 1} for _ in range(510)],
+        "linear_rows": [
+            {
+                "classifier_parse_valid": True,
+                "formula_metrics_valid": True,
+                "hill_form": False,
+                "canonical_exact": 1,
+            }
+            for _ in range(480)
+        ],
+        "strict_rows": primary_rows,
+    }
+
+
+def _decision_grid_row(fixture_id: str, *, sfn_count: int, expected_decision: str) -> dict[str, Any]:
+    primary_rows = _synthetic_primary_rows(sfn_count=sfn_count)
+    gates = evaluate_validity_gates(_synthetic_gate_state(primary_rows))
+    evaluated = {
+        name: value for name, value in gates.items() if name not in SELF_REFERENTIAL_GATES
+    }
+    failed = sorted(name for name, value in evaluated.items() if not value)
+    decision = evaluate_primary_decision(primary_rows, validity_gate_failed=bool(failed))
+    pair_ids = {row["pair_id"] for row in primary_rows}
+    diagnostic = sum(1 for row in primary_rows if row["is_fully_diagnostic"])
+    observed_sfn = sum(
+        1 for row in primary_rows if row["outcome_category"] == "structural_false_negative"
+    )
+    passed = (
+        not failed
+        and decision == expected_decision
+        and len(primary_rows) == PRIMARY_PAIR_COUNT
+        and len(pair_ids) == PRIMARY_PAIR_COUNT
+        and diagnostic == PRIMARY_PAIR_COUNT
+        and observed_sfn == sfn_count
+    )
+    return _reachability_row(
+        fixture_id,
+        "primary_decision_grid",
+        passed,
+        f"decision={decision} rows={len(primary_rows)} unique={len(pair_ids)} "
+        f"fully_diagnostic={diagnostic} sfn={observed_sfn} failed_gates={failed} "
+        f"excluded_self_referential_gates={list(SELF_REFERENTIAL_GATES)}",
     )
 
 
 def _reach_uns_1() -> dict[str, Any]:
-    unsupported_rows = [
-        {
-            "condition": "B0",
-            "eligibility_layer": "strict_hill_primary",
-            "pair_id": f"pair_sha256:{index:064x}",
-            "outcome_category": "preserved",
-            "is_fully_diagnostic": True,
-            "hill_form": True,
-        }
-        for index in range(1320)
-    ]
-    gates = {name: True for name in (
-        "G_corpus", "G_eligibility", "G_stratum", "G0", "G4", "G1", "G_grand",
-        "G_contract", "G_impl", "G_q4ref", "G_n1", "G_b1", "G_b4",
-        "G_ctrl_cov", "G_ctrl_fp", "G_ctrl_lin", "G_term", "G_inc",
-    )}
-    decision = evaluate_primary_decision(unsupported_rows, validity_gate_failed=False)
-    return _reachability_row(
-        "REACH-UNS-1",
-        "primary_decision_grid",
-        decision == "H0001 unsupported" and len(unsupported_rows) == 1320,
-        decision,
-    )
+    return _decision_grid_row("REACH-UNS-1", sfn_count=0, expected_decision="H0001 unsupported")
 
 
 def _reach_sup_1() -> dict[str, Any]:
-    supported_rows = [
-        {
-            "condition": "B0",
-            "eligibility_layer": "strict_hill_primary",
-            "pair_id": f"pair_sha256:{index:064x}",
-            "outcome_category": "preserved",
-            "is_fully_diagnostic": True,
-            "hill_form": True,
-        }
-        for index in range(1320)
-    ]
-    supported_rows[0] = {
-        **supported_rows[0],
-        "outcome_category": "structural_false_negative",
-        "hill_form": False,
-    }
-    decision = evaluate_primary_decision(supported_rows, validity_gate_failed=False)
-    return _reachability_row(
-        "REACH-SUP-1",
-        "primary_decision_grid",
-        decision == "H0001 supported",
-        decision,
-    )
+    return _decision_grid_row("REACH-SUP-1", sfn_count=1, expected_decision="H0001 supported")
 
 
 def _reach_drift_e2() -> dict[str, Any]:
+    """E2 not equivalent to Q4(E1) while E1 matches truth: derived from real oracle calls."""
+    truth = "x_0**2/(1+x_0**2)"
+    drifted_e2 = "x_0**2/(2+x_0**2)"
+    e1_oracle = oracle_equivalence(truth, truth, component_idx=0, timeout_sec=30.0)
+    q4 = audit_q4_decimal_round_reference("div,pow2,x_0,add,1,pow2,x_0")
+    e2_oracle = oracle_single_component(
+        q4.q4_emitted_infix or "",
+        drifted_e2,
+        candidate_component_idx=0,
+        timeout_sec=30.0,
+    )
+    classifier_valid, hill_form = _hill_form_from_classifier(drifted_e2)
     row = build_outcome_row(
         condition="B0",
-        semantic_drift=True,
-        e1_oracle_equivalent=True,
-        e2_oracle_equivalent=False,
-        e1_oracle_completed=True,
-        e2_oracle_completed=True,
-        classifier_parse_valid=True,
-        formula_metrics_valid=True,
-        hill_form=True,
+        eligibility_layer="strict_hill_primary",
+        pair_id="pair_sha256:reach_drift_e2",
+        q4_construction_completed=q4.q4_construction_completed,
+        e1_oracle_completed=e1_oracle.completed,
+        e1_oracle_equivalent=e1_oracle.equivalent,
+        e2_oracle_completed=e2_oracle.completed,
+        e2_oracle_equivalent=e2_oracle.equivalent,
+        classifier_parse_valid=classifier_valid,
+        formula_metrics_valid=classifier_valid,
+        hill_form=hill_form,
     )
     return _reachability_row(
         "REACH-DRIFT-E2",
         "synthetic",
         row["outcome_category"] == "semantic_drift",
-        row["outcome_category"],
+        f"outcome={row['outcome_category']} e2_completed={e2_oracle.completed} "
+        f"e2_equivalent={e2_oracle.equivalent}",
     )
 
 
 def _reach_q4fail_1() -> dict[str, Any]:
+    """Q4 construction failure produced by an arity-deficient E1 prefix."""
+    q4 = audit_q4_decimal_round_reference("mul,x_0", timeout_sec=Q4_TIMEOUT_SEC)
     row = build_outcome_row(
         condition="B0",
-        q4_construction_completed=False,
-        execution_failure=True,
+        eligibility_layer="strict_hill_primary",
+        pair_id="pair_sha256:reach_q4fail_1",
+        q4_construction_completed=q4.q4_construction_completed,
+        q4_construction_failure_reason=q4.q4_construction_failure_reason,
         classifier_parse_valid=True,
+        formula_metrics_valid=True,
     )
     return _reachability_row(
         "REACH-Q4FAIL-1",
         "synthetic",
-        row["outcome_category"] == "execution_failure",
-        row["outcome_category"],
+        row["outcome_category"] == "execution_failure" and not q4.q4_construction_completed,
+        f"outcome={row['outcome_category']} q4_completed={q4.q4_construction_completed} "
+        f"reason={q4.q4_construction_failure_reason}",
     )
 
 
 def _reach_ident_fallback_1() -> dict[str, Any]:
+    """E2 raw == E1 raw with E1 not equivalent to Q4(E1), computed by the §3.4.10 oracle."""
+    e1_prefix = "mul,0.33333,x_0"
+    q4 = audit_q4_decimal_round_reference(e1_prefix, timeout_sec=Q4_TIMEOUT_SEC)
+    fallback = e1_not_equivalent_to_q4(
+        e1_prefix,
+        q4.q4_sympy_expr_canonical,
+        dimension=1,
+        timeout_sec=Q4_TIMEOUT_SEC,
+    )
     row = build_outcome_row(
         condition="B0",
-        e2_identity_fallback_candidate=True,
-        execution_failure=True,
+        eligibility_layer="strict_hill_primary",
+        pair_id="pair_sha256:reach_ident_fallback_1",
+        q4_construction_completed=q4.q4_construction_completed,
+        e1_prefix_raw=e1_prefix,
+        e2_prefix_raw=e1_prefix,
+        e2_identity_fallback_candidate=fallback,
+        e1_oracle_completed=True,
         e1_oracle_equivalent=True,
+        e2_oracle_completed=True,
         e2_oracle_equivalent=True,
         classifier_parse_valid=True,
         formula_metrics_valid=True,
@@ -177,51 +341,92 @@ def _reach_ident_fallback_1() -> dict[str, Any]:
     return _reachability_row(
         "REACH-IDENT-FALLBACK-1",
         "synthetic",
-        row["outcome_category"] == "execution_failure",
-        row["outcome_category"],
+        row["outcome_category"] == "execution_failure" and fallback,
+        f"outcome={row['outcome_category']} fallback_candidate={fallback} "
+        f"q4_canonical={q4.q4_sympy_expr_canonical}",
     )
 
 
 def _reach_parse_1() -> dict[str, Any]:
+    """classifier_parse_valid=false taken from the real classifier on an unparseable readout."""
+    classifier_valid, hill_form = _hill_form_from_classifier("((")
     row = build_outcome_row(
         condition="B0",
-        classifier_parse_valid=False,
-        classifier_parse_failure_reason="ParseError",
+        eligibility_layer="strict_hill_primary",
+        pair_id="pair_sha256:reach_parse_1",
+        q4_construction_completed=True,
+        e1_oracle_completed=True,
         e1_oracle_equivalent=True,
+        e2_oracle_completed=True,
         e2_oracle_equivalent=True,
-        hill_form=False,
+        classifier_parse_valid=classifier_valid,
+        hill_form=hill_form,
     )
     return _reachability_row(
         "REACH-PARSE-1",
         "synthetic",
-        row["outcome_category"] == "execution_failure",
-        row["outcome_category"],
+        row["outcome_category"] == "execution_failure" and not classifier_valid,
+        f"outcome={row['outcome_category']} classifier_parse_valid={classifier_valid}",
     )
 
 
 def _reach_rescale_1() -> dict[str, Any]:
+    """rescale_incomplete from the production early return `rescaled_tree is input_tree` (§5.2)."""
+    from gpu_runmultiai.odeformer_runtime import (
+        build_identity_scaler,
+        decode_system_tree,
+        get_env,
+        rescale_system,
+    )
+
+    evidence = "live_production_rescale"
+    try:
+        env = get_env()
+        scaler, _ = build_identity_scaler(1)
+        # Two components against len(scale)=1 is §5.2 condition 1.
+        tree = decode_system_tree(env, ["x_0", "x_0"])
+        _, rescale_incomplete, proof = rescale_system(env, scaler, tree)
+        detail = (
+            f"proof={proof['rescale_callable_module']}.{proof['rescale_callable_qualname']} "
+            f"input_nodes={proof['input_node_count']} scale_len={len(proof['scale'])}"
+        )
+    except Exception as exc:  # evidence records its own failure instead of aborting
+        return _reachability_row(
+            "REACH-RESCALE-1",
+            "synthetic",
+            False,
+            f"production rescale early return not reached: {type(exc).__name__}: {exc}",
+        )
     row = build_outcome_row(
         condition="B0",
-        rescale_incomplete=True,
-        execution_failure=True,
+        eligibility_layer="strict_hill_primary",
+        pair_id="pair_sha256:reach_rescale_1",
+        rescale_incomplete=rescale_incomplete,
+        q4_construction_completed=True,
+        classifier_parse_valid=True,
+        formula_metrics_valid=True,
     )
     return _reachability_row(
         "REACH-RESCALE-1",
-        "synthetic",
-        row["outcome_category"] == "execution_failure",
-        row["outcome_category"],
+        evidence,
+        row["outcome_category"] == "execution_failure" and rescale_incomplete,
+        f"outcome={row['outcome_category']} rescale_incomplete={rescale_incomplete} {detail}",
+    )
+
+
+def _reach_pow_comp_1() -> dict[str, Any]:
+    pow_comp = audit_q4_decimal_round_reference("pow2,div,mul,10.0,x_0,10.0", timeout_sec=Q4_TIMEOUT_SEC)
+    return _reachability_row(
+        "REACH-POW-COMP-1",
+        "prefix_q4_construction",
+        pow_comp.q4_construction_completed,
+        pow_comp.q4_emitted_prefix or pow_comp.q4_construction_failure_reason or "",
     )
 
 
 def build_reachability_evidence() -> list[dict[str, Any]]:
-    pow_comp = audit_q4_decimal_round_reference("pow2,div,mul,10.0,x_0,10.0")
-    rows = [
-        _reachability_row(
-            "REACH-POW-COMP-1",
-            "prefix_q4_construction",
-            pow_comp.q4_construction_completed,
-            pow_comp.q4_emitted_prefix or pow_comp.q4_construction_failure_reason or "",
-        ),
+    return [
+        _reach_pow_comp_1(),
         _reach_sfn_1(),
         _reach_preserved_1(),
         _reach_uns_1(),
@@ -232,4 +437,3 @@ def build_reachability_evidence() -> list[dict[str, Any]]:
         _reach_parse_1(),
         _reach_rescale_1(),
     ]
-    return rows

@@ -53,7 +53,13 @@ from gpu_runmultiai.rewrites import (
     rewrite_registration,
     truth_component_infix,
 )
-from gpu_runmultiai.q4_reference import C_Q4_FIXTURES, Q4ContractError, audit_q4_decimal_round_reference, evaluate_c_q4_fixture
+from gpu_runmultiai.q4_reference import (
+    C_Q4_FIXTURES,
+    Q4ContractError,
+    audit_q4_decimal_round_reference,
+    e1_not_equivalent_to_q4,
+    evaluate_c_q4_fixture,
+)
 from gpu_runmultiai.strata import component_stratum, is_linear_component, is_strict_hill_component
 from gpu_runmultiai.constants import ORACLE_X_GRID
 
@@ -172,6 +178,7 @@ def registration_rows(
                 "truth_infix": truth_infix,
                 "classifier_parse_valid": bool(classified["valid"]),
                 "hill_form": bool(classified["component_flags"][0]["hill_form"]),
+                "component_flags": list(classified["component_flags"]),
             }
 
         truth_row = _cached_call(
@@ -391,7 +398,7 @@ def _execute_chain(
         e0_prefix_raw = "|".join(tree_to_prefix_list(e0_tree))
         e0_infix = tree_to_system_infix(e0_tree)
         current_stage = "E1"
-        e1_tree, rescale_incomplete = rescale_system(env, scaler, e0_tree)
+        e1_tree, rescale_incomplete, rescale_proof = rescale_system(env, scaler, e0_tree)
         _cached_call(
             call_logger,
             stage_cache,
@@ -401,7 +408,7 @@ def _execute_chain(
             stage="E1",
             unit_type="pair",
             unit_id=pair_id,
-            executor=lambda: (e1_tree, rescale_incomplete),
+            executor=lambda: rescale_proof,
             status_for_result=lambda _: "completed" if not rescale_incomplete else "failed",
         )
         if rescale_incomplete:
@@ -409,6 +416,7 @@ def _execute_chain(
                 **base,
                 execution_failure=True,
                 rescale_incomplete=True,
+                rescale_call_proof=rescale_proof,
                 e0_status="completed",
                 e1_status="execution_failure",
                 e0_prefix_raw=e0_prefix_raw,
@@ -474,6 +482,8 @@ def _execute_chain(
                 **base,
                 q4_construction_completed=False,
                 q4_construction_failure_reason=q4_failure_reason,
+                rescale_incomplete=False,
+                rescale_call_proof=rescale_proof,
                 e0_status="completed",
                 e1_status="completed",
                 e0_prefix_raw=e0_prefix_raw,
@@ -515,6 +525,8 @@ def _execute_chain(
             if not simplified.get("ok"):
                 return build_outcome_row(
                     **base,
+                    rescale_incomplete=False,
+                    rescale_call_proof=rescale_proof,
                     e0_status="completed",
                     e1_status="completed",
                     e2_status="execution_failure",
@@ -568,15 +580,14 @@ def _execute_chain(
             and e2_prefix_raw is not None
             and e2_prefix_raw == e1_prefix_raw
         ):
-            import sympy as sp
-
-            from gpu_run4.ted import time_limit
-
-            local_dict = {"x_0": sp.Symbol("x_0", real=True)}
-            with time_limit(1.0):
-                e1_expr = sp.sympify(prefix_to_infix_component(e1_component_prefix), locals=local_dict)
-                q4_expr = sp.sympify(q4_sympy_expr_canonical or "0", locals=local_dict)
-                e2_identity_fallback_candidate = sp.simplify(sp.expand(e1_expr - q4_expr)) != 0
+            # §2.2 / §3.4.10: raw E2==E1 alone is insufficient; require E1 not equivalent
+            # to Q4(E1) under the frozen local dictionary and frozen Q4 timeout.
+            e2_identity_fallback_candidate = e1_not_equivalent_to_q4(
+                e1_component_prefix,
+                q4_sympy_expr_canonical,
+                dimension=int(record["dimension"]),
+                timeout_sec=q4_timeout_sec,
+            )
         q4_numeric_error = None
         if q4_completed and q4_emitted_infix:
             q4_numeric_error = _compute_original_vs_q4_numeric_max_abs_error(
@@ -656,9 +667,12 @@ def _execute_chain(
             e1_status="completed",
             e2_status=e2_status,
             q4_construction_completed=q4_completed,
+            q4_emitted_prefix=q4_emitted_prefix,
             q4_emitted_infix=q4_emitted_infix,
             q4_sympy_expr_canonical=q4_sympy_expr_canonical,
             q4_construction_failure_reason=q4_failure_reason,
+            rescale_incomplete=False,
+            rescale_call_proof=rescale_proof,
             e2_identity_fallback_candidate=e2_identity_fallback_candidate,
             original_vs_q4_numeric_max_abs_error=q4_numeric_error,
             quantization_stratum=assign_quantization_stratum(truth_prefix),
@@ -794,6 +808,76 @@ def run_b1_pair(
     return row
 
 
+B2_INHERITED_E1_FIELDS = (
+    "construction_incomplete",
+    "q4_construction_completed",
+    "q4_emitted_prefix",
+    "q4_emitted_infix",
+    "q4_sympy_expr_canonical",
+    "q4_construction_failure_reason",
+    "rescale_incomplete",
+    "e1_oracle_completed",
+    "e1_oracle_equivalent",
+    "e1_analytic_equivalent",
+    "e1_numeric_equivalent",
+    "e1_oracle_failure_reason",
+    "e1_prefix_raw",
+    "e1_status",
+    "quantization_stratum",
+    "original_vs_q4_numeric_max_abs_error",
+)
+
+B2_FORBIDDEN_INHERITED_FIELDS = (
+    "e2_oracle_completed",
+    "e2_oracle_equivalent",
+    "e2_analytic_equivalent",
+    "e2_numeric_equivalent",
+    "e2_identity_fallback_candidate",
+    "e2_infix",
+    "e2_infix_pre_classifier",
+    "e2_prefix_raw",
+    "hill_form",
+    "classifier_parse_valid",
+    "formula_metrics_valid",
+    "canonical_exact",
+    "exponent_aware_skeleton_exact",
+    "outcome_category",
+)
+
+
+def _b2_identity_fields(
+    *,
+    pair_id: str,
+    component_id: str,
+    system_id: str,
+    component_idx: int,
+    scale: str,
+    rewrite_id: str,
+    stratum: str,
+) -> dict[str, Any]:
+    return {
+        "condition": "B2",
+        "pair_id": pair_id,
+        "component_id": component_id,
+        "system_id": system_id,
+        "component_idx": component_idx,
+        "scale": scale,
+        "rewrite_id": rewrite_id,
+        "stratum": stratum,
+    }
+
+
+def b2_inherited_e1_fields(b0_row: dict[str, Any]) -> dict[str, Any]:
+    """F7: carry only E1-stage / pre-simplifier fields from the originating B0 row."""
+    inherited = {
+        key: b0_row.get(key) for key in B2_INHERITED_E1_FIELDS if key in b0_row
+    }
+    leaked = sorted(set(inherited) & set(B2_FORBIDDEN_INHERITED_FIELDS))
+    if leaked:
+        raise AuditInvariantError(f"F7 FAIL: B2 inheritance leaked E2 fields {leaked}")
+    return inherited
+
+
 def run_b2_pair(
     *,
     pair_id: str,
@@ -806,6 +890,7 @@ def run_b2_pair(
     e1_infix: str,
     record: dict[str, Any],
     call_logger,
+    e1_fields: dict[str, Any] | None = None,
     stage_cache: dict[str, Any] | None = None,
     cache_path=None,
     result_cache: dict[str, dict[str, Any]] | None = None,
@@ -813,6 +898,10 @@ def run_b2_pair(
     if result_cache is not None and pair_id in result_cache:
         return result_cache[pair_id]
     stage_cache = stage_cache or {}
+    inherited = dict(e1_fields or {})
+    leaked = sorted(set(inherited) & set(B2_FORBIDDEN_INHERITED_FIELDS))
+    if leaked:
+        raise AuditInvariantError(f"F7 FAIL: B2 inheritance leaked E2 fields {leaked}")
     try:
         score_infix = e1_infix or ""
 
@@ -850,39 +939,46 @@ def run_b2_pair(
             status_for_result=lambda row: "completed" if row["formula_metrics_valid"] else "failed",
         )
         row = build_outcome_row(
-            condition="B2",
-            pair_id=pair_id,
-            component_id=component_id,
-            system_id=system_id,
-            component_idx=component_idx,
-            scale=scale,
-            rewrite_id=rewrite_id,
-            stratum=stratum,
-            e1_infix=e1_infix,
-            classifier_parse_valid=parse_valid,
-            classifier_parse_failure_reason=parse_reason,
-            hill_form=hill_form,
-            canonical_exact=metrics.get("canonical_exact"),
-            exponent_aware_skeleton_exact=metrics.get("exponent_aware_skeleton_exact"),
-            formula_metrics_valid=metrics.get("formula_metrics_valid"),
-            execution_failure=not parse_valid,
-            e1_status="completed",
+            **{
+                **_b2_identity_fields(
+                    pair_id=pair_id,
+                    component_id=component_id,
+                    system_id=system_id,
+                    component_idx=component_idx,
+                    scale=scale,
+                    rewrite_id=rewrite_id,
+                    stratum=stratum,
+                ),
+                **inherited,
+                "e1_status": inherited.get("e1_status") or "completed",
+                "e1_infix": e1_infix,
+                "classifier_parse_valid": parse_valid,
+                "classifier_parse_failure_reason": parse_reason,
+                "hill_form": hill_form,
+                "canonical_exact": metrics.get("canonical_exact"),
+                "exponent_aware_skeleton_exact": metrics.get("exponent_aware_skeleton_exact"),
+                "formula_metrics_valid": metrics.get("formula_metrics_valid"),
+            }
         )
     except AuditInvariantError:
         raise
     except Exception as exc:
         row = build_outcome_row(
-            condition="B2",
-            pair_id=pair_id,
-            component_id=component_id,
-            system_id=system_id,
-            component_idx=component_idx,
-            scale=scale,
-            rewrite_id=rewrite_id,
-            stratum=stratum,
-            execution_failure=True,
-            failure_reason=type(exc).__name__,
-            e1_status="execution_failure",
+            **{
+                **_b2_identity_fields(
+                    pair_id=pair_id,
+                    component_id=component_id,
+                    system_id=system_id,
+                    component_idx=component_idx,
+                    scale=scale,
+                    rewrite_id=rewrite_id,
+                    stratum=stratum,
+                ),
+                **inherited,
+                "execution_failure": True,
+                "failure_reason": type(exc).__name__,
+                "e1_status": "execution_failure",
+            }
         )
     if result_cache is not None:
         result_cache[pair_id] = row
@@ -977,6 +1073,7 @@ def run_negative_controls(
     *,
     oracle_timeout_sec: float,
     call_logger,
+    corpus_hash: str | None = None,
     stage_cache: dict[str, Any] | None = None,
     cache_path=None,
     limit: int = N1_COUNT,
@@ -1017,6 +1114,9 @@ def run_negative_controls(
             executor=_negative_row,
             status_for_result=lambda payload: "completed" if payload["valid"] else "failed",
         )
+        if corpus_hash is not None:
+            component_id, _ = component_id_for(corpus_hash, system_id, component_idx)
+            row = {**row, "component_id": component_id}
         rows.append(row)
     return rows
 
@@ -1049,6 +1149,42 @@ def run_b3_pairs(
         component_idx = int(row["component_idx"])
         truth = row.get("truth_infix") or ""
         pred_system = row.get("e2_infix_pre_classifier") or row.get("e2_infix") or ""
+
+        def _b3_payload(
+            *,
+            cas_compare_completed: bool,
+            cas_compare_valid: bool,
+            canonical_exact: Any,
+            failure_reason: str | None,
+        ) -> dict[str, Any]:
+            # §2.5.4: terminal is a conjunct of B0-row classifier/metric flags and the
+            # executed CAS result; `cas_compare_completed` reflects execution, not key presence.
+            classifier_parse_valid = bool(row.get("classifier_parse_valid"))
+            formula_metrics_valid = bool(row.get("formula_metrics_valid"))
+            diagnostic_complete = bool(
+                classifier_parse_valid
+                and formula_metrics_valid
+                and cas_compare_completed
+                and cas_compare_valid
+            )
+            return {
+                "pair_id": pair_id,
+                "component_id": row.get("component_id"),
+                "condition": "B3",
+                "partition_scope": "diagnostic",
+                "classifier_parse_valid": classifier_parse_valid,
+                "formula_metrics_valid": formula_metrics_valid,
+                "cas_compare_completed": cas_compare_completed,
+                "cas_compare_valid": bool(cas_compare_valid),
+                "canonical_exact": canonical_exact,
+                # Exponent-aware skeleton comes from the B0 formula_metrics call; the CAS
+                # comparison only contributes canonical/symbolic equivalence.
+                "exponent_aware_skeleton_exact": row.get("exponent_aware_skeleton_exact"),
+                "failure_reason": failure_reason,
+                "valid": bool(cas_compare_valid),
+                "terminal_outcome": "diagnostic_complete" if diagnostic_complete else "diagnostic_failed",
+            }
+
         def _record_failed_b3(failure_reason: str) -> dict[str, Any]:
             if not call_logger.is_recorded(
                 primitive="compare_formulas_cas",
@@ -1074,16 +1210,19 @@ def run_b3_pairs(
                     unit_type="pair",
                     unit_id=pair_id,
                 )
-                payload_cache = {"valid": False, "failure_reason": failure_reason}
+                payload_cache = {
+                    "cas_compare_completed": False,
+                    "failure_reason": failure_reason,
+                }
                 stage_cache[key] = payload_cache
                 if cache_path is not None:
                     append_stage_cache(cache_path, cache_key_value=key, payload=payload_cache)
-            return {
-                "pair_id": pair_id,
-                "valid": False,
-                "execution_failure": True,
-                "failure_reason": failure_reason,
-            }
+            return _b3_payload(
+                cas_compare_completed=False,
+                cas_compare_valid=False,
+                canonical_exact=None,
+                failure_reason=failure_reason,
+            )
 
         try:
             def _compare():
@@ -1093,9 +1232,10 @@ def run_b3_pairs(
                 else:
                     pred = pred_system
                 with time_limit(CAS_TIMEOUT_SEC):
-                    return compare_formulas(truth, pred, skip_cas=False)
+                    comparison = compare_formulas(truth, pred, skip_cas=False)
+                return {"cas_compare_completed": True, "comparison": comparison}
 
-            comparison = _cached_call(
+            cas_result = _cached_call(
                 call_logger,
                 stage_cache,
                 cache_path,
@@ -1105,9 +1245,25 @@ def run_b3_pairs(
                 unit_type="pair",
                 unit_id=pair_id,
                 executor=_compare,
-                status_for_result=lambda _: "completed",
+                status_for_result=lambda result: "completed"
+                if result.get("cas_compare_completed")
+                else "failed",
             )
-            payload = {"pair_id": pair_id, **comparison}
+            if not cas_result.get("cas_compare_completed"):
+                payload = _b3_payload(
+                    cas_compare_completed=False,
+                    cas_compare_valid=False,
+                    canonical_exact=None,
+                    failure_reason=cas_result.get("failure_reason"),
+                )
+            else:
+                comparison = cas_result.get("comparison", {})
+                payload = _b3_payload(
+                    cas_compare_completed=True,
+                    cas_compare_valid=bool(comparison.get("valid")),
+                    canonical_exact=comparison.get("canonical_exact"),
+                    failure_reason=comparison.get("failure_reason"),
+                )
         except AuditInvariantError:
             raise
         except Exception as exc:

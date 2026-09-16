@@ -45,3 +45,15 @@ class ExponentTokenError(AuditInvariantError):
 
 class GateAbortError(AuditInvariantError):
     """Validity gate with abort disposition failed."""
+
+
+class TerminalVocabularyError(AuditInvariantError):
+    """Row terminal outcome is illegal for its partition_scope (or `unknown`)."""
+
+
+class ContractEvidenceError(AuditInvariantError):
+    """G_contract or F-acceptance evidence could not be evaluated."""
+
+
+class ResumeIdentityError(AuditInvariantError):
+    """Resume identity, fingerprint artifact, or accepted closure hash mismatch."""

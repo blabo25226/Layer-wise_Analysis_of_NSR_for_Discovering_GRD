@@ -255,6 +255,31 @@ def audit_q4_decimal_round_reference(
         return Q4Result(False, q4_construction_failure_reason=type(exc).__name__)
 
 
+def e1_not_equivalent_to_q4(
+    e1_component_prefix: str,
+    q4_sympy_expr_canonical: str | None,
+    *,
+    dimension: int,
+    timeout_sec: float = 10.0,
+) -> bool:
+    """§3.4.10 canonical oracle: is E1 non-equivalent to Q4(E1) at SymPy expression level?
+
+    Uses the frozen Q4 local dictionary and the frozen external Q4 timeout; never the
+    production simplifier tree or E2.
+    """
+    if not q4_sympy_expr_canonical:
+        return False
+    local_dict = frozen_q4_local_dict(dimension)
+    with _q4_timeout(timeout_sec):
+        e1_expr = parse_expr(
+            prefix_to_sympy_infix(e1_component_prefix),
+            evaluate=True,
+            local_dict=local_dict,
+        )
+        q4_expr = parse_expr(q4_sympy_expr_canonical, evaluate=True, local_dict=local_dict)
+        return bool(sp.simplify(sp.expand(e1_expr - q4_expr)) != 0)
+
+
 C_Q4_FIXTURES: list[dict[str, Any]] = [
     {
         "fixture_id": "q4_fixture_01",

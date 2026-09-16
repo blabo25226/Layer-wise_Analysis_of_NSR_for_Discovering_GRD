@@ -14,37 +14,38 @@ import numpy as np
 from experiment_runtime import REPO_ROOT
 from gpu_run4.formulas import split_components
 
-from gpu_runmultiai.constants import SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC
+from gpu_runmultiai.constants import MAX_SYSTEM_DIMENSION, SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC
 from gpu_runmultiai.guard_side_channel import child_side_channel_path, load_guard_attempts
+from gpu_runmultiai.invariants import ScalerGateError
+
+PRODUCTION_SCALER_MODULE = "odeformer.model.utils_wrapper"
+PRODUCTION_RESCALE_QUALNAME = "Scaler.rescale_function"
+
+PRODUCTION_TIME_RANGE = [1, 10]
+PRODUCTION_TIME_GRID = (0.0, 10.0, 150)
+
+# B1 identity parameters (a_t=1, b_t=0, scale=1) expressed purely through the
+# production Scaler configuration: time_range=[0, 1] over t in [0, 1] gives
+# a_t = 1/(1-0) = 1 and b_t = 0, and a constant unit trajectory gives scale = 1.
+IDENTITY_TIME_RANGE = [0, 1]
+IDENTITY_TIME_GRID = (0.0, 1.0, 150)
+IDENTITY_TRAJECTORY_VALUE = 1.0
+
+_LAST_RESCALE_CALL_PROOF: dict[str, Any] = {}
 
 
 class ODEFormerUnavailable(RuntimeError):
     pass
 
 
-class IdentityScaler:
-    """Frozen B1 identity scaler parameters (s=1, a_t=1, b_t=0)."""
+def last_rescale_call_proof() -> dict[str, Any]:
+    """Proof hook: parameters and callable identity of the most recent rescale call."""
+    return dict(_LAST_RESCALE_CALL_PROOF)
 
-    def __init__(self, dimension: int) -> None:
-        self.dimension = dimension
-        self.time_scale = 1
-        self.time_shift = 0
-        self.rescale_features = True
-        self.traj_scale = np.ones(dimension, dtype=float)
-        self.feature_scale = 1
 
-    def get_params(self):
-        scale = self.feature_scale / self.traj_scale
-        return (1.0, 0.0, scale)
-
-    def rescale_function(self, env, tree, a_t, b_t, scale):
-        prefixes = tree_to_prefix_list(tree)
-        full_prefix: list[str] = []
-        for index, part in enumerate(prefixes):
-            if index:
-                full_prefix.append("|")
-            full_prefix.extend(part.split(","))
-        return env.word_to_infix(full_prefix, is_float=False, str_array=False)
+def production_rescale_callable_identity(scaler: Any) -> tuple[str | None, str | None]:
+    unbound = type(scaler).rescale_function
+    return getattr(unbound, "__module__", None), getattr(unbound, "__qualname__", None)
 
 
 def require_odeformer() -> None:
@@ -73,6 +74,11 @@ def get_env() -> Any:
     params.max_int = 10
     params.max_unary_depth = 6
     params.prob_prefactor = 0.0
+    # The frozen corpus contains 3-dimensional systems; the ODEFormer default
+    # (max_dimension=2) makes `x_2` undecodable, so §3.4.8 audit_word_to_infix
+    # would return None for every d=3 system. Decoded output for d<=2 systems is
+    # unchanged by this setting.
+    params.max_dimension = MAX_SYSTEM_DIMENSION
     return FunctionEnvironment(params)
 
 
@@ -104,34 +110,61 @@ def tree_to_prefix_list(tree: Any) -> list[str]:
     return [part.strip().strip(",") for part in raw.split("|") if part.strip().strip(",")]
 
 
-def build_production_scaler(s: float, dimension: int) -> tuple[Any, dict[str, Any]]:
+def _fit_production_scaler(
+    *,
+    time_range: list[int],
+    time_grid: tuple[float, float, int],
+    feature_value: float,
+    dimension: int,
+) -> tuple[Any, dict[str, Any]]:
     require_odeformer()
+    from gpu_run4_runtime import install_odeformer_path
+
+    install_odeformer_path()
     from odeformer.model.utils_wrapper import Scaler
 
-    time = np.linspace(0.0, 10.0, 150)
-    trajectory = np.full((150, dimension), s, dtype=float)
-    scaler = Scaler(time_range=[1, 10], feature_scale=1, rescale_features=True)
+    start, stop, points = time_grid
+    time = np.linspace(start, stop, points)
+    trajectory = np.full((points, dimension), feature_value, dtype=float)
+    scaler = Scaler(time_range=list(time_range), feature_scale=1, rescale_features=True)
     scaler.fit(time, trajectory)
     a_t, b_t, scale = scaler.get_params()
     asserts = {
         "time_scale": scaler.time_scale,
         "time_shift": scaler.time_shift,
-        "a_t": float(a_t),
-        "b_t": float(b_t),
+        # +0.0 normalises the signed zero SymPy/NumPy may produce for b_t.
+        "a_t": float(a_t) + 0.0,
+        "b_t": float(b_t) + 0.0,
         "rescale_features": bool(scaler.rescale_features),
+        "scale": [float(value) for value in np.asarray(scale, dtype=float).tolist()],
     }
     return scaler, asserts
 
 
-def build_identity_scaler(dimension: int) -> tuple[IdentityScaler, dict[str, Any]]:
-    scaler = IdentityScaler(dimension)
-    asserts = {
-        "time_scale": scaler.time_scale,
-        "time_shift": scaler.time_shift,
-        "a_t": 1.0,
-        "b_t": 0.0,
-        "rescale_features": bool(scaler.rescale_features),
-    }
+def build_production_scaler(s: float, dimension: int) -> tuple[Any, dict[str, Any]]:
+    return _fit_production_scaler(
+        time_range=PRODUCTION_TIME_RANGE,
+        time_grid=PRODUCTION_TIME_GRID,
+        feature_value=float(s),
+        dimension=dimension,
+    )
+
+
+def build_identity_scaler(dimension: int) -> tuple[Any, dict[str, Any]]:
+    """B1 identity scaler: the production Scaler configured for a_t=1, b_t=0, scale=1."""
+    scaler, asserts = _fit_production_scaler(
+        time_range=IDENTITY_TIME_RANGE,
+        time_grid=IDENTITY_TIME_GRID,
+        feature_value=IDENTITY_TRAJECTORY_VALUE,
+        dimension=dimension,
+    )
+    if asserts["a_t"] != 1.0 or asserts["b_t"] != 0.0 or any(
+        value != 1.0 for value in asserts["scale"]
+    ):
+        raise ScalerGateError(
+            "F5 FAIL: identity scaler must yield a_t=1.0, b_t=0.0, scale=1.0; got "
+            f"a_t={asserts['a_t']}, b_t={asserts['b_t']}, scale={asserts['scale']}"
+        )
     return scaler, asserts
 
 
@@ -187,10 +220,32 @@ def forward_scale_system(env: Any, tree: Any, scaler: Any) -> Any:
     return env.word_to_infix(full_prefix, is_float=False, str_array=False)
 
 
-def rescale_system(env: Any, scaler: Any, tree: Any) -> tuple[Any, bool]:
+def rescale_system(env: Any, scaler: Any, tree: Any) -> tuple[Any, bool, dict[str, Any]]:
+    """Execute the frozen production rescale (§3.4.8) and detect both early returns (§5.2)."""
+    module, qualname = production_rescale_callable_identity(scaler)
+    if module != PRODUCTION_SCALER_MODULE or qualname != PRODUCTION_RESCALE_QUALNAME:
+        raise ScalerGateError(
+            "F5 FAIL: rescale must execute the production "
+            f"{PRODUCTION_SCALER_MODULE}.{PRODUCTION_RESCALE_QUALNAME}; got {module}.{qualname}"
+        )
     a_t, b_t, scale = scaler.get_params()
+    input_nodes = len(tree.prefix().split("|")) if hasattr(tree, "prefix") else None
     rescaled = scaler.rescale_function(env, tree, a_t, b_t, scale)
-    return rescaled, rescaled is tree
+    # §5.2: the only two untransformed return paths are detected by object identity.
+    rescale_incomplete = rescaled is tree
+    proof = {
+        "rescale_callable_module": module,
+        "rescale_callable_qualname": qualname,
+        "a_t": float(a_t) + 0.0,
+        "b_t": float(b_t) + 0.0,
+        "scale": [float(value) for value in np.asarray(scale, dtype=float).tolist()],
+        "input_node_count": input_nodes,
+        "rescale_incomplete": rescale_incomplete,
+        "returned_input_tree": rescale_incomplete,
+    }
+    _LAST_RESCALE_CALL_PROOF.clear()
+    _LAST_RESCALE_CALL_PROOF.update(proof)
+    return rescaled, rescale_incomplete, proof
 
 
 def simplify_tree_subprocess(

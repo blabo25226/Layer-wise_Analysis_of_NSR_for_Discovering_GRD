@@ -65,17 +65,18 @@ class CallKey:
 
 
 class CallLogger:
-    def __init__(self, path: Path | None = None) -> None:
+    def __init__(self, path: Path | None = None, *, resource_monitor: Any | None = None) -> None:
         self.path = path
         self.rows: list[dict[str, Any]] = []
         self._keys: set[tuple[str, str, str, str, str]] = set()
         self.skip_duplicates: bool = False
+        self.resource_monitor = resource_monitor
         if path is not None and path.is_file():
             truncate_partial_suffix(path)
 
     @classmethod
-    def load(cls, path: Path) -> "CallLogger":
-        logger = cls(path)
+    def load(cls, path: Path, *, resource_monitor: Any | None = None) -> "CallLogger":
+        logger = cls(path, resource_monitor=resource_monitor)
         loaded = load_jsonl(
             path,
             key_fn=lambda row: (
@@ -110,7 +111,13 @@ class CallLogger:
         key = CallKey(primitive, condition, stage, unit_type, unit_id).as_tuple()
         return key in self._keys
 
+    def assert_resource_ceilings(self) -> None:
+        """§8.5: elapsed wall and output-directory bytes are measured around every primitive."""
+        if self.resource_monitor is not None:
+            self.resource_monitor.assert_within_limits()
+
     def assert_pre_call_ceiling(self, condition: str) -> None:
+        self.assert_resource_ceilings()
         if condition in DESCRIPTIVE_CONDITIONS:
             if self.descriptive_total() >= expected_descriptive_calls():
                 raise AuditInvariantError("G1 FAIL: descriptive call ceiling reached before execution")
@@ -177,6 +184,7 @@ class CallLogger:
                     duration_sec=measured,
                     rewrite_id=resolved_rewrite_id,
                 )
+        self.assert_resource_ceilings()
         return True, result
 
     def record(

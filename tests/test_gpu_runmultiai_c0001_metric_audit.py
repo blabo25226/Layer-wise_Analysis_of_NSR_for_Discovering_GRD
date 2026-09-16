@@ -60,6 +60,26 @@ from gpu_runmultiai.rewrites import rewrite_registration, truth_component_infix
 from gpu_runmultiai.sealed_guard import SealedPathGuard
 from gpu_runmultiai.strata import component_stratum
 
+AUDIT_ENTRY_SCRIPT = "scripts/phases/gpu_runmultiai_c0001_metric_audit.py"
+
+
+@pytest.fixture(scope="session")
+def bootstrap_guard():
+    """The single guard_bootstrap handle `run_audit` accepts (§10.1-2)."""
+    from experiment_runtime import REPO_ROOT
+    from scripts.phases import guard_bootstrap as gb
+
+    try:
+        return gb.get_installed_guard()
+    except gb.GuardBootstrapViolation:
+        return gb.install_guard_from_entry(str(REPO_ROOT / AUDIT_ENTRY_SCRIPT))
+
+
+def _run_audit(options, guard):
+    from gpu_runmultiai.audit import run_audit
+
+    return run_audit(options, guard=guard)
+
 
 def test_binding_plan_sha_matches_fixture():
     assert verify_plan_hash() == PLAN_SHA256
@@ -298,9 +318,7 @@ def test_n1_and_b4_gate_shapes():
     assert gate_b4(b4_rows)
 
 
-def test_fail_if_exists_and_resume_mismatch(tmp_path):
-    from gpu_runmultiai.audit import run_audit
-
+def test_fail_if_exists_and_resume_mismatch(tmp_path, bootstrap_guard):
     output_dir = tmp_path / "audit"
     output_dir.mkdir()
     (output_dir / "marker.txt").write_text("x", encoding="utf-8")
@@ -313,14 +331,12 @@ def test_fail_if_exists_and_resume_mismatch(tmp_path):
         "primary_scales": ("0.1",),
     }
     with pytest.raises(RuntimeError, match="output directory already exists"):
-        run_audit(options)
+        _run_audit(options, bootstrap_guard)
 
 
-def test_smoke_audit_bounded(tmp_path):
-    from gpu_runmultiai.audit import run_audit
-
+def test_smoke_audit_bounded(tmp_path, bootstrap_guard):
     output_dir = tmp_path / "smoke"
-    result = run_audit(
+    result = _run_audit(
         {
             "output_dir": str(output_dir),
             "oracle_timeout_sec": 30.0,
@@ -329,7 +345,8 @@ def test_smoke_audit_bounded(tmp_path):
             "resume": False,
             "smoke": True,
             "primary_scales": ("0.1",),
-        }
+        },
+        bootstrap_guard,
     )
     assert (output_dir / "audit_manifest.json").is_file()
     assert (output_dir / "equivalence_oracle.json").is_file()
@@ -452,9 +469,7 @@ def test_e1_truth_equivalence_and_e2_from_e1_provenance():
     assert simplified.get("infix")
 
 
-def test_resume_appends_call_log(tmp_path):
-    from gpu_runmultiai.audit import run_audit
-
+def test_resume_appends_call_log(tmp_path, bootstrap_guard):
     output_dir = tmp_path / "resume"
     base_options = {
         "output_dir": str(output_dir),
@@ -465,9 +480,9 @@ def test_resume_appends_call_log(tmp_path):
         "smoke": True,
         "primary_scales": ("0.1",),
     }
-    first = run_audit(base_options)
+    first = _run_audit(base_options, bootstrap_guard)
     first_total = first["call_total"]
-    second = run_audit({**base_options, "resume": True})
+    second = _run_audit({**base_options, "resume": True}, bootstrap_guard)
     assert second["call_total"] == first_total
     reloaded = CallLogger.load(output_dir / "call_log.jsonl")
     assert reloaded.total() == second["call_total"]
@@ -566,9 +581,7 @@ def test_e0_e1_round_trip_primary_scales(scale):
     assert oracle.equivalent == (oracle.analytic_equivalent and oracle.numeric_equivalent)
 
 
-def test_resume_skips_reexecution_with_spy(tmp_path):
-    from gpu_runmultiai.audit import run_audit
-
+def test_resume_skips_reexecution_with_spy(tmp_path, bootstrap_guard):
     output_dir = tmp_path / "resume_spy"
     options = {
         "output_dir": str(output_dir),
@@ -579,9 +592,9 @@ def test_resume_skips_reexecution_with_spy(tmp_path):
         "smoke": True,
         "primary_scales": ("0.1",),
     }
-    first = run_audit(options)
+    first = _run_audit(options, bootstrap_guard)
     calls_before = CallLogger.load(output_dir / "call_log.jsonl").total()
-    second = run_audit({**options, "resume": True})
+    second = _run_audit({**options, "resume": True}, bootstrap_guard)
     calls_after = CallLogger.load(output_dir / "call_log.jsonl").total()
     assert calls_after == calls_before
     assert second["call_total"] == first["call_total"]
@@ -907,8 +920,7 @@ def test_sealed_guard_repo_relative_path_denied_after_chdir(tmp_path, monkeypatc
         guard.restore()
 
 
-def test_resume_replays_guard_side_channel(tmp_path):
-    from gpu_runmultiai.audit import run_audit
+def test_resume_replays_guard_side_channel(tmp_path, bootstrap_guard):
     from gpu_runmultiai.guard_side_channel import append_guard_attempts, load_guard_attempts, side_channel_path
 
     output_dir = tmp_path / "resume_guard"
@@ -921,7 +933,7 @@ def test_resume_replays_guard_side_channel(tmp_path):
         "smoke": True,
         "primary_scales": ("0.1",),
     }
-    run_audit(options)
+    _run_audit(options, bootstrap_guard)
     append_guard_attempts(
         side_channel_path(output_dir),
         [
@@ -932,7 +944,7 @@ def test_resume_replays_guard_side_channel(tmp_path):
             }
         ],
     )
-    resumed = run_audit({**options, "resume": True})
+    resumed = _run_audit({**options, "resume": True}, bootstrap_guard)
     manifest = json.loads((output_dir / "audit_manifest.json").read_text(encoding="utf-8"))
     assert manifest["status"] == "completed"
     assert any(
@@ -942,11 +954,9 @@ def test_resume_replays_guard_side_channel(tmp_path):
     assert resumed["manifest"]["status"] == "completed"
 
 
-def test_manifest_completed_last_and_schema_columns(tmp_path):
-    from gpu_runmultiai.audit import run_audit
-
+def test_manifest_completed_last_and_schema_columns(tmp_path, bootstrap_guard):
     output_dir = tmp_path / "schema_smoke"
-    run_audit(
+    _run_audit(
         {
             "output_dir": str(output_dir),
             "oracle_timeout_sec": 30.0,
@@ -955,7 +965,8 @@ def test_manifest_completed_last_and_schema_columns(tmp_path):
             "resume": False,
             "smoke": True,
             "primary_scales": ("0.1",),
-        }
+        },
+        bootstrap_guard,
     )
     manifest = json.loads((output_dir / "audit_manifest.json").read_text(encoding="utf-8"))
     assert manifest["status"] == "completed"
@@ -986,8 +997,12 @@ def test_frozen_environment_mismatch_fails_fast(monkeypatch):
 
 
 def test_b1_uses_identity_scaler_parameters():
-    from gpu_runmultiai.odeformer_runtime import build_identity_scaler
+    from gpu_runmultiai.odeformer_runtime import ODEFormerUnavailable, build_identity_scaler, require_odeformer
 
+    try:
+        require_odeformer()
+    except ODEFormerUnavailable:
+        pytest.skip("ODEFormer runtime unavailable")
     scaler, asserts = build_identity_scaler(3)
     assert asserts["a_t"] == 1.0
     assert asserts["b_t"] == 0.0
@@ -1019,21 +1034,31 @@ def test_q4_contract_error_global_abort():
         verify_q4_emitted_prefix("foobar,x_0")
 
 
-def test_guard_bootstrap_singleton_and_deny(tmp_path):
-    from experiment_runtime import REPO_ROOT
+def test_guard_bootstrap_singleton_and_deny(tmp_path, bootstrap_guard):
+    """Singleton identity is asserted on the installed handle; denial is probed under tmp_path."""
     from scripts.phases import guard_bootstrap as gb
 
-    gb._INSTALLED_GUARD = None
-    denied = REPO_ROOT / "results" / "runs" / "gpu_run5_example" / "test" / "rows.json"
+    assert gb.get_installed_guard() is bootstrap_guard
+    with pytest.raises(gb.GuardBootstrapViolation):
+        gb.install_guard_from_entry(str(Path(AUDIT_ENTRY_SCRIPT)))
+
+    output_root = tmp_path / "results" / "runs"
+    denied = output_root / "gpu_run5_example" / "test" / "rows.json"
     denied.parent.mkdir(parents=True, exist_ok=True)
-    if not denied.is_file():
-        denied.write_text("[]", encoding="utf-8")
-    handle = gb.install_guard_from_entry(str(REPO_ROOT / "scripts/phases/gpu_runmultiai_c0001_metric_audit.py"))
-    assert gb.get_installed_guard() is handle
-    with pytest.raises(PermissionError):
-        open(denied, encoding="utf-8")
-    handle.restore()
-    gb._INSTALLED_GUARD = None
+    denied.write_text("[]", encoding="utf-8")
+    parent_attempts_before = bootstrap_guard.attempt_count()
+    probe = gb.BootstrapGuardHandle(repo_root=str(tmp_path), output_root_abs=str(output_root))
+    assert probe.is_denied(denied, denied)
+    probe.install()
+    try:
+        with pytest.raises(PermissionError):
+            open(denied, encoding="utf-8")
+    finally:
+        probe.restore()
+    assert probe.attempt_count() == 1
+    assert probe.to_log()[0]["attempted_operation"]
+    # The parent (G4) ledger must not absorb probe attempts.
+    assert bootstrap_guard.attempt_count() == parent_attempts_before
 
 
 def test_jsonl_partial_suffix_truncate(tmp_path):
@@ -1108,33 +1133,47 @@ def test_g_contract_artifact_schema_round_trip(tmp_path):
 
 
 def test_g_contract_abort_and_deviation_lifecycle(tmp_path):
-    from gpu_runmultiai.audit import _write_abort_manifest, _write_deviation_log
+    from gpu_runmultiai.audit import (
+        ABORT_MANIFEST_REQUIRED_FIELDS,
+        append_deviation_entry,
+        build_deviation_entry,
+        finalize_deviation_log,
+        init_deviation_log,
+        write_abort_manifest,
+    )
 
     call_logger = CallLogger()
-    _write_abort_manifest(
+    payload = write_abort_manifest(
         tmp_path,
         abort_type="Q4ContractError",
         abort_reason="dialect violation",
         call_logger=call_logger,
     )
     abort = json.loads((tmp_path / "abort_manifest.json").read_text(encoding="utf-8"))
+    assert abort == payload
     assert abort["abort_type"] == "Q4ContractError"
-    assert "abort_reason" in abort
-    assert "confirmatory_calls" in abort
-    _write_deviation_log(tmp_path / "deviation_log.md", ["bounded smoke run"])
-    body = (tmp_path / "deviation_log.md").read_text(encoding="utf-8")
+    for field in ABORT_MANIFEST_REQUIRED_FIELDS:
+        assert field in abort
+
+    path = tmp_path / "deviation_log.md"
+    init_deviation_log(path)
+    append_deviation_entry(
+        path,
+        build_deviation_entry(
+            description="bounded smoke run",
+            scientific_impact="none for primary decision",
+            resolution="full confirmatory run required",
+        ),
+    )
+    finalize_deviation_log(path, status="completed", abort_type=None)
+    body = path.read_text(encoding="utf-8")
     assert "bounded smoke run" in body
     assert "status=completed abort_type=none" in body
-    abort_dir = tmp_path / "abort_only"
-    abort_dir.mkdir()
-    _write_abort_manifest(
-        abort_dir,
-        abort_type="Q4ContractError",
-        abort_reason="dialect violation",
-        call_logger=call_logger,
-    )
-    abort_deviation = (abort_dir / "deviation_log.md").read_text(encoding="utf-8")
-    assert "status=aborted abort_type=Q4ContractError" in abort_deviation
+
+    abort_path = tmp_path / "deviation_log_aborted.md"
+    init_deviation_log(abort_path)
+    finalize_deviation_log(abort_path, status="aborted", abort_type="Q4ContractError")
+    assert "status=aborted abort_type=Q4ContractError" in abort_path.read_text(encoding="utf-8")
 
 
 def test_resource_monitor_uses_frozen_ceilings():
@@ -1191,8 +1230,17 @@ def test_quantization_stratum_counts_on_corpus():
     validate_g_stratum(rows)
 
 
-def test_rescale_incomplete_detects_identity_return():
-    from gpu_runmultiai.odeformer_runtime import ODEFormerUnavailable, get_env, require_odeformer, rescale_system
+def test_rescale_complete_on_production_scaler():
+    from gpu_runmultiai.odeformer_runtime import (
+        ODEFormerUnavailable,
+        build_production_scaler,
+        decode_system_tree,
+        forward_scale_system,
+        get_env,
+        require_odeformer,
+        rescale_system,
+        truth_system_prefixes,
+    )
 
     try:
         require_odeformer()
@@ -1201,31 +1249,137 @@ def test_rescale_incomplete_detects_identity_return():
     env = get_env()
     corpus = load_frozen_corpus()
     record = corpus["train_records"][0]
-    from gpu_runmultiai.odeformer_runtime import build_production_scaler, decode_system_tree, forward_scale_system, truth_system_prefixes
-
     scaler, _ = build_production_scaler(0.1, int(record["dimension"]))
     tree = forward_scale_system(env, decode_system_tree(env, truth_system_prefixes(record)), scaler)
-    _, incomplete = rescale_system(env, scaler, tree)
+    _, incomplete, proof = rescale_system(env, scaler, tree)
     assert incomplete is False
+    assert proof["returned_input_tree"] is False
 
 
-def test_guard_bootstrap_no_replacement():
+def test_b1_identity_scaler_is_the_production_scaler():
+    """§16 F5: identity parameters come from the production Scaler, not a bypass class."""
+    from gpu_runmultiai import odeformer_runtime as ort
+
+    try:
+        ort.require_odeformer()
+    except ort.ODEFormerUnavailable:
+        pytest.skip("ODEFormer runtime unavailable")
+    assert not hasattr(ort, "IdentityScaler")
+    scaler, asserts = ort.build_identity_scaler(3)
+    assert type(scaler).__module__ == ort.PRODUCTION_SCALER_MODULE
+    assert type(scaler).__name__ == "Scaler"
+    assert asserts["a_t"] == 1.0
+    assert asserts["b_t"] == 0.0
+    assert asserts["scale"] == [1.0, 1.0, 1.0]
+    module, qualname = ort.production_rescale_callable_identity(scaler)
+    assert (module, qualname) == (ort.PRODUCTION_SCALER_MODULE, ort.PRODUCTION_RESCALE_QUALNAME)
+
+
+def test_b1_rescale_call_proof_records_production_callable():
+    from gpu_runmultiai import odeformer_runtime as ort
+
+    try:
+        ort.require_odeformer()
+    except ort.ODEFormerUnavailable:
+        pytest.skip("ODEFormer runtime unavailable")
+    env = ort.get_env()
+    scaler, _ = ort.build_identity_scaler(1)
+    tree = ort.decode_system_tree(env, ["mul,2.0,x_0"])
+    rescaled, incomplete, proof = ort.rescale_system(env, scaler, tree)
+    assert incomplete is False
+    assert rescaled is not tree
+    assert proof["rescale_callable_module"] == ort.PRODUCTION_SCALER_MODULE
+    assert proof["rescale_callable_qualname"] == ort.PRODUCTION_RESCALE_QUALNAME
+    assert proof["a_t"] == 1.0 and proof["b_t"] == 0.0 and proof["scale"] == [1.0]
+    assert ort.last_rescale_call_proof() == proof
+
+
+def test_rescale_rejects_non_production_scaler():
+    from gpu_runmultiai.invariants import ScalerGateError
+    from gpu_runmultiai.odeformer_runtime import ODEFormerUnavailable, get_env, require_odeformer, rescale_system
+
+    try:
+        require_odeformer()
+    except ODEFormerUnavailable:
+        pytest.skip("ODEFormer runtime unavailable")
+
+    class FakeScaler:
+        def get_params(self):
+            return 1.0, 0.0, [1.0]
+
+        def rescale_function(self, env, tree, a_t, b_t, scale):
+            return tree
+
+    with pytest.raises(ScalerGateError, match="production"):
+        rescale_system(get_env(), FakeScaler(), object())
+
+
+def test_rescale_detects_both_frozen_early_returns():
+    """§5.2: component-count and variable-index early returns both return the input tree."""
+    from gpu_runmultiai import odeformer_runtime as ort
+
+    try:
+        ort.require_odeformer()
+    except ort.ODEFormerUnavailable:
+        pytest.skip("ODEFormer runtime unavailable")
+    env = ort.get_env()
+    scaler, _ = ort.build_identity_scaler(1)
+
+    # Condition 1: len(nodes) > len(scale)
+    two_component = ort.decode_system_tree(env, ["x_0", "x_0"])
+    out1, incomplete1, proof1 = ort.rescale_system(env, scaler, two_component)
+    assert incomplete1 is True
+    assert out1 is two_component
+    assert proof1["input_node_count"] == 2
+    assert len(proof1["scale"]) == 1
+
+    # Condition 2: x_k with dim >= len(scale)
+    out_of_range = ort.decode_system_tree(env, ["add,x_0,x_1"])
+    out2, incomplete2, proof2 = ort.rescale_system(env, scaler, out_of_range)
+    assert incomplete2 is True
+    assert out2 is out_of_range
+    assert proof2["input_node_count"] == 1
+    assert proof2["returned_input_tree"] is True
+
+
+def test_guard_bootstrap_no_replacement(bootstrap_guard):
     from scripts.phases import guard_bootstrap as gb
 
-    gb._INSTALLED_GUARD = None
-    entry = str(Path("scripts/phases/gpu_runmultiai_c0001_metric_audit.py"))
-    first = gb.install_guard_from_entry(entry)
     with pytest.raises(gb.GuardBootstrapViolation):
-        gb.install_guard_from_entry(entry)
-    first.restore()
-    gb._INSTALLED_GUARD = None
+        gb.install_guard_from_entry(str(Path(AUDIT_ENTRY_SCRIPT)))
+    assert gb.get_installed_guard() is bootstrap_guard
 
 
-def test_smoke_writes_quantization_and_negative_controls(tmp_path):
+def test_run_audit_requires_guard_bootstrap_singleton(tmp_path, bootstrap_guard):
+    """§10.1-2: `run_audit` accepts no substitute guard and no `None`."""
     from gpu_runmultiai.audit import run_audit
+    from scripts.phases.guard_bootstrap import BootstrapGuardHandle, GuardBootstrapViolation
 
+    options = {
+        "output_dir": str(tmp_path / "no_guard"),
+        "oracle_timeout_sec": 30.0,
+        "fail_if_exists": False,
+        "resume": False,
+        "smoke": True,
+        "primary_scales": ("0.1",),
+    }
+    with pytest.raises(GuardBootstrapViolation, match="requires the guard_bootstrap singleton"):
+        run_audit(options)
+    substitute = BootstrapGuardHandle(
+        repo_root=str(tmp_path), output_root_abs=str(tmp_path / "results" / "runs")
+    )
+    with pytest.raises(GuardBootstrapViolation, match="not the installed bootstrap singleton"):
+        run_audit({**options, "output_dir": str(tmp_path / "sub_guard")}, guard=substitute)
+    with pytest.raises(GuardBootstrapViolation):
+        run_audit(
+            {**options, "output_dir": str(tmp_path / "sealed_guard")},
+            guard=SealedPathGuard(output_root_abs=Path("/nonexistent/results/runs")),
+        )
+
+
+def test_smoke_writes_quantization_and_negative_controls(tmp_path, bootstrap_guard):
     output_dir = tmp_path / "schema_round2"
-    run_audit(
+    _run_audit(
         {
             "output_dir": str(output_dir),
             "oracle_timeout_sec": 30.0,
@@ -1234,7 +1388,8 @@ def test_smoke_writes_quantization_and_negative_controls(tmp_path):
             "resume": False,
             "smoke": True,
             "primary_scales": ("0.1",),
-        }
+        },
+        bootstrap_guard,
     )
     manifest = json.loads((output_dir / "audit_manifest.json").read_text(encoding="utf-8"))
     assert manifest["elapsed_wall_ceiling_sec"] == 18000
@@ -1244,3 +1399,642 @@ def test_smoke_writes_quantization_and_negative_controls(tmp_path):
     assert "G_grand" in manifest["validity_gates"]
     assert (output_dir / "quantization_stratum.json").is_file()
     assert (output_dir / "negative_controls.json").is_file()
+
+
+# --------------------------------------------------------------------------- #
+# Round-3 contract-first tests
+# --------------------------------------------------------------------------- #
+
+
+def test_b2_partition_uses_e1_fields_only():
+    """§2.5.2 / F7: B2 terminals are decided from E1 fields; E2 flags must not leak."""
+    from gpu_runmultiai.outcomes import FIVE_OUTCOME_CATEGORIES, build_outcome_row
+    from gpu_runmultiai.pipeline import B2_FORBIDDEN_INHERITED_FIELDS, b2_inherited_e1_fields
+
+    b0_row = {
+        "q4_construction_completed": True,
+        "e1_oracle_completed": True,
+        "e1_oracle_equivalent": True,
+        "e1_analytic_equivalent": True,
+        "e1_numeric_equivalent": True,
+        "e1_oracle_failure_reason": None,
+        "e2_oracle_completed": True,
+        "e2_oracle_equivalent": False,
+        "e2_identity_fallback_candidate": True,
+        "rescale_incomplete": False,
+        "hill_form": False,
+        "canonical_exact": 0.0,
+    }
+    inherited = b2_inherited_e1_fields(b0_row)
+    assert "e2_oracle_equivalent" not in inherited
+    assert "e2_identity_fallback_candidate" not in inherited
+    assert "hill_form" not in inherited
+    assert "canonical_exact" not in inherited
+    assert inherited["e1_oracle_equivalent"] is True
+    assert inherited["rescale_incomplete"] is False
+
+    row = build_outcome_row(
+        condition="B2",
+        pair_id="pair_sha256:" + "0" * 64,
+        stratum="strict_hill",
+        classifier_parse_valid=True,
+        formula_metrics_valid=True,
+        hill_form=True,
+        **inherited,
+    )
+    # E2 drift in the B0 row must not make the B2 row drift.
+    assert row["outcome_category"] == "preserved"
+    assert row["outcome_category"] in FIVE_OUTCOME_CATEGORIES
+    assert row["outcome_category"] != "unknown"
+    for key in B2_FORBIDDEN_INHERITED_FIELDS:
+        if key.startswith("e2_"):
+            assert row.get(key) in (None, False), key
+
+    drifted = build_outcome_row(
+        condition="B2",
+        pair_id="pair_sha256:" + "1" * 64,
+        stratum="strict_hill",
+        classifier_parse_valid=True,
+        formula_metrics_valid=True,
+        hill_form=True,
+        **{**inherited, "e1_oracle_equivalent": False},
+    )
+    assert drifted["outcome_category"] == "semantic_drift"
+
+    sfn = build_outcome_row(
+        condition="B2",
+        pair_id="pair_sha256:" + "2" * 64,
+        stratum="strict_hill",
+        classifier_parse_valid=True,
+        formula_metrics_valid=True,
+        hill_form=False,
+        **inherited,
+    )
+    assert sfn["outcome_category"] == "structural_false_negative"
+
+    incomplete_e1 = build_outcome_row(
+        condition="B2",
+        pair_id="pair_sha256:" + "9" * 64,
+        stratum="strict_hill",
+        classifier_parse_valid=True,
+        formula_metrics_valid=True,
+        hill_form=True,
+        **{**inherited, "rescale_incomplete": True},
+    )
+    assert incomplete_e1["outcome_category"] == "execution_failure"
+
+
+def test_d2_terminals_use_descriptive_vocabulary():
+    """§2.5.4: D2 rows are descriptive_recorded / descriptive_failed, never `preserved`."""
+    from gpu_runmultiai.outcomes import TERMINAL_VOCABULARY, assert_terminal_vocabulary, build_outcome_row
+
+    recorded = build_outcome_row(
+        condition="D2",
+        pair_id="pair_sha256:" + "3" * 64,
+        stratum="strict_hill",
+        q4_construction_completed=True,
+        e1_oracle_completed=True,
+        e1_oracle_equivalent=True,
+        e2_oracle_completed=True,
+        e2_oracle_equivalent=True,
+        classifier_parse_valid=True,
+        formula_metrics_valid=True,
+        hill_form=True,
+    )
+    assert recorded["partition_scope"] == "descriptive"
+    assert recorded["outcome_category"] == "descriptive_recorded"
+    assert recorded["descriptive_source_outcome"] == "preserved"
+
+    failed = build_outcome_row(
+        condition="D2",
+        pair_id="pair_sha256:" + "4" * 64,
+        stratum="strict_hill",
+        construction_incomplete=True,
+        q4_construction_completed=False,
+    )
+    assert failed["outcome_category"] == "descriptive_failed"
+    assert TERMINAL_VOCABULARY["descriptive"] == frozenset({"descriptive_recorded", "descriptive_failed"})
+    assert_terminal_vocabulary([recorded, failed], context="d2_rows")
+
+
+def test_terminal_vocabulary_rejects_illegal_terminal():
+    from gpu_runmultiai.invariants import TerminalVocabularyError
+    from gpu_runmultiai.outcomes import assert_terminal_vocabulary
+
+    with pytest.raises(TerminalVocabularyError, match="illegal terminal"):
+        assert_terminal_vocabulary(
+            [{"partition_scope": "primary", "outcome_category": "unknown"}], context="probe"
+        )
+    with pytest.raises(TerminalVocabularyError, match="unknown partition_scope"):
+        assert_terminal_vocabulary(
+            [{"partition_scope": "not_a_scope", "outcome_category": "preserved"}], context="probe"
+        )
+
+
+def test_unmapped_stratum_aborts_without_linear_fallthrough():
+    from gpu_runmultiai.invariants import StratumGateError
+    from gpu_runmultiai.outcomes import eligibility_layer_for_stratum
+
+    assert eligibility_layer_for_stratum("strict_hill") == "strict_hill_primary"
+    assert eligibility_layer_for_stratum("non_strict_hill") == "non_strict_hill_secondary"
+    assert eligibility_layer_for_stratum("linear") == "linear_control"
+    for unmapped in ("other", None, "", "hill"):
+        with pytest.raises(StratumGateError, match="no frozen eligibility layer"):
+            eligibility_layer_for_stratum(unmapped)
+
+
+def test_b3_terminal_requires_executed_cas_compare():
+    """§2.5.4: `cas_compare_completed` comes from execution, not from key presence."""
+    from gpu_runmultiai.pipeline import run_b3_pairs
+
+    b0_row = {
+        "pair_id": "pair_sha256:" + "5" * 64,
+        "component_id": "component_sha256:" + "6" * 64,
+        "component_idx": 0,
+        "classifier_parse_valid": True,
+        "formula_metrics_valid": True,
+        "exponent_aware_skeleton_exact": 1.0,
+        "truth_infix": "(x_0)",
+        "e2_infix_pre_classifier": "(x_0)",
+    }
+    rows = run_b3_pairs([b0_row], call_logger=CallLogger())
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["cas_compare_completed"] is True
+    assert row["terminal_outcome"] in {"diagnostic_complete", "diagnostic_failed"}
+    assert row["exponent_aware_skeleton_exact"] == 1.0
+    assert row["component_id"] == b0_row["component_id"]
+
+    failing = {**b0_row, "pair_id": "pair_sha256:" + "7" * 64, "classifier_parse_valid": False}
+    failed_rows = run_b3_pairs([failing], call_logger=CallLogger())
+    assert failed_rows[0]["terminal_outcome"] == "diagnostic_failed"
+
+    unparseable = {
+        **b0_row,
+        "pair_id": "pair_sha256:" + "8" * 64,
+        "truth_infix": "(((",
+        "e2_infix_pre_classifier": "(((",
+    }
+    unparseable_rows = run_b3_pairs([unparseable], call_logger=CallLogger())
+    assert unparseable_rows[0]["terminal_outcome"] == "diagnostic_failed"
+
+
+def test_negative_controls_carry_component_id():
+    from gpu_runmultiai.pipeline import run_negative_controls
+
+    corpus = load_frozen_corpus()
+    component_index = [
+        {**item, "record": next(r for r in corpus["train_records"] if r["system_id"] == item["system_id"])}
+        for item in corpus["component_index"][:2]
+    ]
+    rows = run_negative_controls(
+        component_index,
+        oracle_timeout_sec=30.0,
+        call_logger=CallLogger(),
+        corpus_hash=corpus["corpus_hash"],
+        limit=2,
+    )
+    assert rows
+    for row in rows:
+        assert row["component_id"]
+        assert row["component_id"].startswith("component_sha256:")
+
+
+def test_registration_truth_and_rewrite_schema_fields():
+    """§12.8: registration_truth carries component_flags; rewrite precheck fields are flat."""
+    from gpu_runmultiai.pipeline import registration_rows
+
+    corpus = load_frozen_corpus()
+    component_index = [
+        {**item, "record": next(r for r in corpus["train_records"] if r["system_id"] == item["system_id"])}
+        for item in corpus["component_index"][:1]
+    ]
+    truth_rows, rewrite_rows = registration_rows(
+        corpus["corpus_hash"],
+        component_index,
+        oracle_timeout_sec=30.0,
+        call_logger=CallLogger(),
+        stage_cache={},
+        cache_path=None,
+        limit=1,
+    )
+    assert truth_rows and rewrite_rows
+    assert isinstance(truth_rows[0]["component_flags"], list)
+    assert truth_rows[0]["component_flags"]
+    for key in ("precheck_completed", "precheck_equivalent", "precheck_failure_reason"):
+        assert key in rewrite_rows[0]
+
+
+def test_condition_summary_reports_call_counts_and_absolute_counts():
+    from gpu_runmultiai.controls import condition_summary
+
+    rows = [
+        {"outcome_category": "preserved", "is_fully_diagnostic": True},
+        {"outcome_category": "structural_false_negative", "is_fully_diagnostic": True},
+    ]
+    payload = condition_summary(rows, gates={"G_corpus": True}, confirmatory_calls=11, descriptive_calls=3)
+    assert payload["confirmatory_calls"] == 11
+    assert payload["descriptive_calls"] == 3
+    assert payload["primary_partition_counts"]["preserved"] == 1
+    assert payload["primary_partition_counts"]["structural_false_negative"] == 1
+    assert payload["primary_partition_counts"]["unknown"] == 0
+
+
+def test_dependency_versions_include_sklearn_and_numexpr():
+    from gpu_runmultiai.manifest import dependency_versions
+
+    versions = dependency_versions()
+    for key in ("python", "numpy", "scipy", "sympy", "scikit-learn", "numexpr", "torch", "os", "cpu"):
+        assert key in versions
+        assert versions[key]
+
+
+def test_resume_identity_paths_are_repo_relative(tmp_path):
+    from experiment_runtime import REPO_ROOT
+    from gpu_runmultiai.manifest import repo_relative_path
+
+    inside = REPO_ROOT / "GPU_RUNmultiAI" / "cycles" / "C0001" / "runs" / "probe"
+    assert repo_relative_path(inside) == "GPU_RUNmultiAI/cycles/C0001/runs/probe"
+    assert not repo_relative_path(inside).startswith("/")
+    identity = build_resume_identity(
+        commit="abc123",
+        audit_script_path=Path(AUDIT_ENTRY_SCRIPT),
+        corpus_hash="0" * 64,
+        cli_args={"smoke": True},
+        output_dir=inside,
+    )
+    assert identity["fingerprint_payload_path"] == "GPU_RUNmultiAI/cycles/C0001/runs/probe/fingerprint_payload.json"
+    assert identity["dependency_versions"]["scikit-learn"]
+    assert identity["dependency_versions"]["numexpr"]
+
+
+def test_resume_requires_byte_identical_fingerprint_artifacts(tmp_path):
+    from gpu_runmultiai.invariants import ResumeIdentityError
+    from gpu_runmultiai.manifest import verify_fingerprint_artifacts
+
+    payload = {"corpus": "fixture", "n": 3}
+    payload_bytes = json.dumps(payload, sort_keys=True).encode()
+    with pytest.raises(ResumeIdentityError, match="requires fingerprint artifact"):
+        verify_fingerprint_artifacts(tmp_path, fingerprint_bytes=payload_bytes, manifest_payload=payload)
+    (tmp_path / "fingerprint_bytes.bin").write_bytes(payload_bytes)
+    (tmp_path / "fingerprint_payload.json").write_bytes(payload_bytes)
+    verify_fingerprint_artifacts(tmp_path, fingerprint_bytes=payload_bytes, manifest_payload=payload)
+    with pytest.raises(ResumeIdentityError, match="bytes mismatch"):
+        verify_fingerprint_artifacts(tmp_path, fingerprint_bytes=b"other", manifest_payload=payload)
+    with pytest.raises(ResumeIdentityError, match="manifest payload dict"):
+        verify_fingerprint_artifacts(
+            tmp_path, fingerprint_bytes=payload_bytes, manifest_payload={"corpus": "other"}
+        )
+    # Re-serialisation must not be used to paper over a byte difference.
+    (tmp_path / "fingerprint_payload.json").write_text(
+        json.dumps(payload, sort_keys=True, indent=2), encoding="utf-8"
+    )
+    with pytest.raises(ResumeIdentityError, match="byte-identical"):
+        verify_fingerprint_artifacts(tmp_path, fingerprint_bytes=payload_bytes, manifest_payload=payload)
+
+
+def test_resume_identity_mismatch_raises_resume_identity_error():
+    from gpu_runmultiai.invariants import ResumeIdentityError
+    from gpu_runmultiai.manifest import verify_resume_identity
+
+    baseline = {"commit": "a" * 40, "corpus_hash": "b" * 64}
+    verify_resume_identity(baseline, dict(baseline))
+    with pytest.raises(ResumeIdentityError, match="commit"):
+        verify_resume_identity(baseline, {**baseline, "commit": "c" * 40})
+
+
+def test_accepted_closure_source_hash_hook_is_absent_by_default(tmp_path):
+    from gpu_runmultiai.manifest import verify_accepted_closure_source_hashes
+    from gpu_runmultiai.source_inventory import build_source_inventory
+
+    inventory = build_source_inventory(include_hashes=True)
+    status = verify_accepted_closure_source_hashes(inventory, output_dir=tmp_path)
+    assert status == "closure_record_absent"
+    (tmp_path / "implementation_closure_record.json").write_text(
+        json.dumps({"source_hashes": [{"path": "src/gpu_runmultiai/audit.py", "sha256": "0" * 64}]}),
+        encoding="utf-8",
+    )
+    from gpu_runmultiai.invariants import ResumeIdentityError
+
+    with pytest.raises(ResumeIdentityError, match="accepted closure source hashes"):
+        verify_accepted_closure_source_hashes(inventory, output_dir=tmp_path)
+
+
+def test_manifest_status_lifecycle_rejects_illegal_status(tmp_path):
+    from gpu_runmultiai.audit import MANIFEST_STATUSES, _write_atomic_manifest
+    from gpu_runmultiai.invariants import GateAbortError
+
+    assert MANIFEST_STATUSES == ("initializing", "running", "completed", "aborted")
+    path = tmp_path / "audit_manifest.json"
+    for status in MANIFEST_STATUSES:
+        _write_atomic_manifest(path, {"status": status})
+        assert json.loads(path.read_text(encoding="utf-8"))["status"] == status
+    with pytest.raises(GateAbortError, match="illegal manifest status"):
+        _write_atomic_manifest(path, {"status": "in_progress"})
+
+
+def test_global_abort_routes_gate_errors_through_aborted(tmp_path, bootstrap_guard, monkeypatch):
+    """§12.7: every listed gate error yields status=aborted plus an abort manifest and deviation entry."""
+    from gpu_runmultiai import audit as audit_module
+    from gpu_runmultiai.audit import ABORT_MANIFEST_REQUIRED_FIELDS, run_audit
+    from gpu_runmultiai.invariants import (
+        CorpusGateError,
+        EligibilityGateError,
+        ExponentTokenError,
+        FrozenEnvironmentError,
+        GateAbortError,
+        ResourceCeilingError,
+        ScalerGateError,
+        StratumGateError,
+    )
+    from gpu_runmultiai.q4_reference import Q4ContractError
+    from scripts.phases.guard_bootstrap import GuardBootstrapViolation
+
+    error_types = [
+        CorpusGateError,
+        ScalerGateError,
+        EligibilityGateError,
+        StratumGateError,
+        ResourceCeilingError,
+        GateAbortError,
+        Q4ContractError,
+        ExponentTokenError,
+        FrozenEnvironmentError,
+        GuardBootstrapViolation,
+    ]
+    for index, error_type in enumerate(error_types):
+        output_dir = tmp_path / f"abort_{index}"
+
+        def _boom(*_args, **_kwargs):
+            raise error_type(f"synthetic {error_type.__name__}")
+
+        monkeypatch.setattr(audit_module, "_run_audit_body", _boom)
+        options = {
+            "output_dir": str(output_dir),
+            "oracle_timeout_sec": 30.0,
+            "fail_if_exists": False,
+            "resume": False,
+            "smoke": True,
+            "primary_scales": ("0.1",),
+        }
+        with pytest.raises(error_type):
+            run_audit(options, guard=bootstrap_guard)
+        manifest = json.loads((output_dir / "audit_manifest.json").read_text(encoding="utf-8"))
+        assert manifest["status"] == "aborted"
+        assert manifest["abort_type"] == error_type.__name__
+        abort = json.loads((output_dir / "abort_manifest.json").read_text(encoding="utf-8"))
+        for field in ABORT_MANIFEST_REQUIRED_FIELDS:
+            assert field in abort, f"{error_type.__name__} abort manifest missing {field}"
+        assert abort["status"] == "aborted"
+        assert abort["abort_utc"]
+        assert abort["output_dir_bytes"] >= 0
+        assert "last_durable_call_key" in abort
+        assert "last_durable_cache_key" in abort
+        body = (output_dir / "deviation_log.md").read_text(encoding="utf-8")
+        entry_lines = [line for line in body.splitlines() if line.startswith("- ")]
+        assert entry_lines
+        assert len(entry_lines[-1][2:].split(" | ")) == 6
+        assert body.rstrip().endswith(f"status=aborted abort_type={error_type.__name__}")
+
+
+def test_deviation_entries_have_six_fields(tmp_path):
+    from gpu_runmultiai.audit import append_deviation_entry, build_deviation_entry, finalize_deviation_log, init_deviation_log
+    from gpu_runmultiai.invariants import GateAbortError
+
+    path = tmp_path / "deviation_log.md"
+    init_deviation_log(path)
+    entry = build_deviation_entry(
+        description="probe",
+        scientific_impact="none",
+        resolution="probe only",
+        approval_reference="cursor-round3",
+    )
+    assert len(entry) == 6
+    assert entry[5] == "cursor-round3"
+    append_deviation_entry(path, entry)
+    with pytest.raises(GateAbortError, match="six fields"):
+        append_deviation_entry(path, ("a", "b", "c"))
+    finalize_deviation_log(path, status="completed", abort_type=None)
+    body = path.read_text(encoding="utf-8")
+    assert body.rstrip().endswith("status=completed abort_type=none")
+
+
+def test_call_logger_checks_resources_around_every_primitive(tmp_path):
+    """§8.5: the counted-call path measures ceilings before and after execution."""
+    from gpu_runmultiai.invariants import ResourceCeilingError
+
+    class SpyMonitor:
+        def __init__(self):
+            self.checks = 0
+
+        def assert_within_limits(self):
+            self.checks += 1
+
+    monitor = SpyMonitor()
+    logger = CallLogger(tmp_path / "call_log.jsonl", resource_monitor=monitor)
+    logger.execute_or_record(
+        primitive="oracle_equivalence",
+        condition="B0",
+        stage="E1",
+        unit_type="pair",
+        unit_id="pair_sha256:" + "9" * 64,
+        executor=lambda: "done",
+    )
+    assert monitor.checks >= 2
+
+    class TrippingMonitor:
+        def assert_within_limits(self):
+            raise ResourceCeilingError("output directory byte ceiling exceeded")
+
+    tripping = CallLogger(resource_monitor=TrippingMonitor())
+    with pytest.raises(ResourceCeilingError):
+        tripping.execute_or_record(
+            primitive="oracle_equivalence",
+            condition="B0",
+            stage="E1",
+            unit_type="pair",
+            unit_id="pair_sha256:" + "a" * 64,
+            executor=lambda: "done",
+        )
+
+
+def test_g_contract_checks_are_executed_not_asserted(bootstrap_guard):
+    """§10.1: all seven G_contract rows come from executable checks."""
+    from gpu_runmultiai.contract_evidence import G_CONTRACT_CHECK_KEYS, evaluate_g_contract_checks
+    from gpu_runmultiai.pipeline import run_c_q4_fixtures
+
+    c_q4_rows = [
+        {**row, "terminal_outcome": "fixture_pass" if row.get("fixture_pass") else "fixture_failure"}
+        for row in run_c_q4_fixtures(call_logger=CallLogger(), q4_timeout_sec=Q4_TIMEOUT_SEC)
+    ]
+    rows = evaluate_g_contract_checks(guard=bootstrap_guard, c_q4_rows=c_q4_rows)
+    assert tuple(row["check_key"] for row in rows) == G_CONTRACT_CHECK_KEYS
+    for row in rows:
+        assert row["requirement"]
+        assert row["details"]
+        assert row["passed"] is True, f"{row['check_key']}: {row['details']}"
+
+    # The evidence is data-dependent, not a literal: a broken fixture set must fail.
+    broken = evaluate_g_contract_checks(
+        guard=bootstrap_guard,
+        c_q4_rows=[{**c_q4_rows[0], "fixture_pass": False}],
+    )
+    assert broken[0]["passed"] is False
+    assert "fixture_count=1" in broken[0]["details"]
+
+
+def test_f_acceptance_rows_are_computed_from_rows():
+    from gpu_runmultiai.contract_evidence import F_ACCEPTANCE_IDS, evaluate_f_acceptance
+
+    empty = evaluate_f_acceptance(b0_rows=[], b1_rows=[], b2_rows=[])
+    assert tuple(row["requirement_id"] for row in empty) == F_ACCEPTANCE_IDS
+    by_id = {row["requirement_id"]: row for row in empty}
+    # F2 and F8 are row-independent structural checks and must pass on their own.
+    assert by_id["F2"]["passed"] is True
+    assert by_id["F8"]["passed"] is True
+    # Everything row-dependent must fail loudly when no rows exist.
+    for requirement in ("F1", "F4", "F5", "F6", "F7"):
+        assert by_id[requirement]["passed"] is False
+        assert "no_b" in by_id[requirement]["details"]
+
+
+def test_g_contract_and_g_impl_gates_read_executed_evidence():
+    from gpu_runmultiai.controls import gate_g_contract, gate_g_impl
+    from gpu_runmultiai.contract_evidence import F_ACCEPTANCE_IDS, G_CONTRACT_CHECK_KEYS
+
+    passing = {key: True for key in G_CONTRACT_CHECK_KEYS}
+    assert gate_g_contract({"g_contract_evidence": passing}) is True
+    for key in G_CONTRACT_CHECK_KEYS:
+        assert gate_g_contract({"g_contract_evidence": {**passing, key: False}}) is False
+    assert gate_g_contract({}) is False
+
+    reachability = [{"passed": True} for _ in range(10)]
+    acceptance = {key: True for key in F_ACCEPTANCE_IDS}
+    assert gate_g_impl({"reachability_evidence": reachability, "f_acceptance": acceptance}) is True
+    for key in F_ACCEPTANCE_IDS:
+        assert (
+            gate_g_impl(
+                {"reachability_evidence": reachability, "f_acceptance": {**acceptance, key: False}}
+            )
+            is False
+        )
+
+
+def test_reachability_uns_sup_use_real_gate_evaluation():
+    """§10.2: UNS/SUP rows must run evaluate_validity_gates + evaluate_primary_decision."""
+    from gpu_runmultiai.reachability import build_reachability_evidence
+
+    rows = {row["fixture_id"]: row for row in build_reachability_evidence()}
+    assert len(rows) == 10
+    for fixture_id, row in rows.items():
+        assert row["passed"] is True, f"{fixture_id}: {row['details']}"
+    assert rows["REACH-UNS-1"]["evidence_type"] == "primary_decision_grid"
+    assert "H0001 unsupported" in rows["REACH-UNS-1"]["details"]
+    assert "rows=1320" in rows["REACH-UNS-1"]["details"]
+    assert "failed_gates=[]" in rows["REACH-UNS-1"]["details"]
+    assert "H0001 supported" in rows["REACH-SUP-1"]["details"]
+    assert "sfn=1" in rows["REACH-SUP-1"]["details"]
+    assert rows["REACH-RESCALE-1"]["evidence_type"] == "live_production_rescale"
+    assert "Scaler.rescale_function" in rows["REACH-RESCALE-1"]["details"]
+
+
+def test_round3_artifact_schemas_present_in_smoke(tmp_path, bootstrap_guard):
+    """§12.8 required keys are read back from a real bounded run."""
+    from gpu_runmultiai.contract_evidence import ARTIFACT_ROW_SCHEMAS
+
+    output_dir = tmp_path / "schema_round3"
+    result = _run_audit(
+        {
+            "output_dir": str(output_dir),
+            "oracle_timeout_sec": 30.0,
+            "simplifier_subprocess_timeout_sec": SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
+            "fail_if_exists": False,
+            "resume": False,
+            "smoke": True,
+            "primary_scales": ("0.1",),
+        },
+        bootstrap_guard,
+    )
+    manifest = result["manifest"]
+    for key in (
+        "status",
+        "audit_id",
+        "plan_hash",
+        "commit",
+        "seeds",
+        "corpus_hash",
+        "fingerprint_payload_bytes_hash",
+        "source_hashes",
+        "dependency_versions",
+        "environment",
+        "runtime_provenance",
+        "primitive_table",
+        "cli_args_normalized",
+        "confirmatory_calls",
+        "descriptive_calls",
+        "grand_calls",
+        "validity_gates",
+        "primary_decision",
+        "g_contract_evidence",
+        "f_acceptance",
+    ):
+        assert key in manifest, f"manifest missing {key}"
+    assert manifest["status"] == "completed"
+
+    for artifact in ("registration_truth.json", "registration_rewrites.json", "quantization_stratum.json",
+                     "negative_controls.json", "b3_results.json", "b4_results.json",
+                     "q4_reference_controls.json", "reachability_evidence.json",
+                     "equivalence_oracle.json", "condition_summary.json", "contract_evidence.json"):
+        assert (output_dir / artifact).is_file(), artifact
+    for artifact, required in ARTIFACT_ROW_SCHEMAS.items():
+        path = output_dir / artifact
+        if not path.is_file() or artifact.endswith(".jsonl"):
+            continue
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        rows = payload if isinstance(payload, list) else [payload]
+        if not rows:
+            continue
+        missing = [key for key in required if key not in rows[0]]
+        assert not missing, f"{artifact} missing {missing}"
+
+    # Fingerprint payload file is byte-identical to the frozen fingerprint bytes.
+    assert (output_dir / "fingerprint_payload.json").read_bytes() == (
+        output_dir / "fingerprint_bytes.bin"
+    ).read_bytes()
+    contract = json.loads((output_dir / "contract_evidence.json").read_text(encoding="utf-8"))
+    assert contract["g_contract_pass"] is True
+    assert len(contract["g_contract"]) == 7
+    assert len(contract["f_acceptance"]) == 7
+
+
+def test_smoke_terminal_vocabulary_has_no_unknown(tmp_path, bootstrap_guard):
+    import csv as _csv
+
+    output_dir = tmp_path / "vocab_round3"
+    _run_audit(
+        {
+            "output_dir": str(output_dir),
+            "oracle_timeout_sec": 30.0,
+            "simplifier_subprocess_timeout_sec": SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
+            "fail_if_exists": False,
+            "resume": False,
+            "smoke": True,
+            "primary_scales": ("0.1",),
+        },
+        bootstrap_guard,
+    )
+    with (output_dir / "pair_results.csv").open(encoding="utf-8") as handle:
+        rows = list(_csv.DictReader(handle))
+    assert rows
+    assert all(row["outcome_category"] != "unknown" for row in rows)
+    b2_rows = [row for row in rows if row["condition"] == "B2"]
+    assert b2_rows
+    assert all(row["outcome_category"] != "unknown" for row in b2_rows)
+    d2_rows = [row for row in rows if row["condition"] == "D2"]
+    assert d2_rows
+    assert all(
+        row["outcome_category"] in {"descriptive_recorded", "descriptive_failed"} for row in d2_rows
+    )
+    b1_rows = [row for row in rows if row["condition"] == "B1"]
+    assert b1_rows
+    assert all(row["outcome_category"] in {"control_pass", "control_failure"} for row in b1_rows)
