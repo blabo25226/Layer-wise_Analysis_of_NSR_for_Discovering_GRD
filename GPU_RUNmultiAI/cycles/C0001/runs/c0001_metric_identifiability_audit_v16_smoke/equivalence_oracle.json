@@ -1,0 +1,48 @@
+[
+  {
+    "pair_id": "pair_sha256:79d827b43aa8435223f5899085e8021695294caad3bb3ea26463741dfee06798",
+    "component_idx": 0,
+    "scale": "0.1",
+    "E1": {
+      "completed": null,
+      "analytic_equivalent": null,
+      "numeric_equivalent": null,
+      "equivalent": null,
+      "failure_reason": null,
+      "rational_tokens": {},
+      "parsed_rationals": {}
+    },
+    "E2": {
+      "completed": null,
+      "analytic_equivalent": null,
+      "numeric_equivalent": null,
+      "equivalent": null,
+      "failure_reason": null,
+      "rational_tokens": {},
+      "parsed_rationals": {}
+    }
+  },
+  {
+    "pair_id": "pair_sha256:4b105fe99479237d1b8c8882de1a66f277528cc58a018034c6012195e6b70907",
+    "component_idx": 0,
+    "scale": "0.1",
+    "E1": {
+      "completed": null,
+      "analytic_equivalent": null,
+      "numeric_equivalent": null,
+      "equivalent": null,
+      "failure_reason": null,
+      "rational_tokens": {},
+      "parsed_rationals": {}
+    },
+    "E2": {
+      "completed": null,
+      "analytic_equivalent": null,
+      "numeric_equivalent": null,
+      "equivalent": null,
+      "failure_reason": null,
+      "rational_tokens": {},
+      "parsed_rationals": {}
+    }
+  }
+]

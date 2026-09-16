@@ -1,0 +1,26 @@
+[
+  {
+    "fixture_id": "REACH-POW-COMP-1",
+    "evidence_type": "prefix_q4_construction",
+    "passed": true,
+    "details": "mul,1.00000000000000,pow,x_0,2"
+  },
+  {
+    "fixture_id": "REACH-Q4-REF",
+    "evidence_type": "c_q4_fixtures",
+    "passed": true,
+    "details": "7/7 fixture_pass"
+  },
+  {
+    "fixture_id": "REACH-UNS-1",
+    "evidence_type": "primary_decision_grid",
+    "passed": true,
+    "details": "H0001 unsupported"
+  },
+  {
+    "fixture_id": "REACH-SUP-1",
+    "evidence_type": "primary_decision_grid",
+    "passed": true,
+    "details": "H0001 supported"
+  }
+]

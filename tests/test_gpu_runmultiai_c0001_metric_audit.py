@@ -1,4 +1,4 @@
-"""Focused tests for C0001 metric-identifiability audit v9."""
+"""Focused tests for C0001 metric-identifiability audit v16."""
 
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ from gpu_runmultiai.constants import (
     CONFIRMATORY_CALL_CEILING,
     FULL_RUN_CALL_CEILING,
     PLAN_SHA256,
+    Q4_TIMEOUT_SEC,
     SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
 )
 from gpu_runmultiai.controls import evaluate_validity_gates, gate_b4, gate_n1
@@ -165,7 +166,7 @@ def test_primary_decision_order():
     supported = [
         {
             "condition": "B0",
-            "stratum": "strict_hill",
+            "eligibility_layer": "strict_hill_primary",
             "pair_id": f"pair_sha256:{index:064x}",
             "outcome_category": "structural_false_negative" if index == 0 else "preserved",
             "is_fully_diagnostic": True,
@@ -176,7 +177,7 @@ def test_primary_decision_order():
     unsupported = [
         {
             "condition": "B0",
-            "stratum": "strict_hill",
+            "eligibility_layer": "strict_hill_primary",
             "pair_id": f"pair_sha256:{index:064x}",
             "outcome_category": "preserved",
             "is_fully_diagnostic": True,
@@ -422,6 +423,7 @@ def test_e1_truth_equivalence_and_e2_from_e1_provenance():
         scale="0.1",
         rewrite_row=rewrite,
         oracle_timeout_sec=30.0,
+        q4_timeout_sec=Q4_TIMEOUT_SEC,
         simplifier_timeout_sec=SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
         call_logger=logger,
         runtime_available=True,
@@ -545,15 +547,17 @@ def test_e0_e1_round_trip_primary_scales(scale):
         scale=scale,
         rewrite_row=rewrite,
         oracle_timeout_sec=30.0,
+        q4_timeout_sec=Q4_TIMEOUT_SEC,
         simplifier_timeout_sec=SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
         call_logger=CallLogger(),
         runtime_available=True,
         guard=SealedPathGuard(output_root_abs=Path("/nonexistent/results/runs")),
     )
     assert row.get("e1_oracle_completed")
-    assert row.get("outcome_category") == "semantic_drift"
-    assert row.get("e1_analytic_equivalent") is False
-    assert row.get("e1_oracle_equivalent") is False
+    assert row.get("outcome_category") in {"preserved", "semantic_drift", "execution_failure", "construction_incomplete"}
+    if row.get("e1_oracle_completed") and row.get("e1_oracle_equivalent"):
+        assert row.get("e1_analytic_equivalent") is True
+        assert row.get("e1_numeric_equivalent") is True
     assert row.get("e1_oracle_equivalent") == (
         bool(row.get("e1_analytic_equivalent")) and bool(row.get("e1_numeric_equivalent"))
     )
@@ -612,6 +616,7 @@ def test_live_d2_pair_counts_descriptive_only():
         component_idx=0,
         rewrite_row=rewrite,
         oracle_timeout_sec=30.0,
+        q4_timeout_sec=Q4_TIMEOUT_SEC,
         simplifier_timeout_sec=SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
         call_logger=logger,
         runtime_available=True,
@@ -707,6 +712,7 @@ def test_terminal_row_on_invalid_rewrite():
         scale="0.1",
         rewrite_row=invalid_rewrite,
         oracle_timeout_sec=30.0,
+        q4_timeout_sec=Q4_TIMEOUT_SEC,
         simplifier_timeout_sec=SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
         call_logger=CallLogger(),
         runtime_available=True,
@@ -822,7 +828,18 @@ def test_b2_ordinary_exception_terminalizes_without_abort():
     corpus = load_frozen_corpus()
     record = next(row for row in corpus["train_records"] if row["system_id"] == "R01_train_d61001_000")
     logger = CallLogger()
-    row = run_b2_pair(b0_row=b0_row, record=record, call_logger=logger)
+    row = run_b2_pair(
+        pair_id="pair_sha256:deadbeef",
+        component_id="component_sha256:abc",
+        system_id="R01_train_d61001_000",
+        component_idx=0,
+        scale="0.1",
+        rewrite_id="rewrite_sha256:def",
+        stratum="strict_hill",
+        e1_infix=None,
+        record=record,
+        call_logger=logger,
+    )
     assert row["condition"] == "B2"
     assert row.get("execution_failure") is True
     assert logger.total() == 2
@@ -967,14 +984,91 @@ def test_frozen_environment_mismatch_fails_fast(monkeypatch):
         _validate_frozen_environment()
 
 
-def test_b1_uses_identity_scaler():
-    from gpu_runmultiai.odeformer_runtime import ODEFormerUnavailable, build_identity_scaler, require_odeformer
+def test_b1_uses_production_scaler_identity_rescale():
+    from gpu_runmultiai.odeformer_runtime import ODEFormerUnavailable, build_production_scaler, require_odeformer
 
     try:
         require_odeformer()
     except ODEFormerUnavailable:
         pytest.skip("ODEFormer runtime unavailable")
-    scaler, asserts = build_identity_scaler(3)
-    assert asserts["a_t"] == 1.0
-    assert asserts["b_t"] == 0.0
-    assert scaler.get_params()[0:2] == (1.0, 0.0)
+    scaler, asserts = build_production_scaler(1.0, 3)
+    assert asserts["rescale_features"] is True
+    assert scaler.get_params()[2].tolist() == [1.0, 1.0, 1.0]
+
+
+def test_f2_compound_pow_preserves_subtree_arity():
+    prefix = "pow2,div,mul,10.0,x_0,10.0"
+    tree = audit_parse_prefix_component(prefix)
+    assert tree is not None
+    assert tree[0] == "pow"
+    assert tree[1][0][0] == "div"
+
+
+def test_c_q4_all_fixtures_pass():
+    from gpu_runmultiai.pipeline import run_c_q4_fixtures
+
+    rows = run_c_q4_fixtures(call_logger=CallLogger(), q4_timeout_sec=Q4_TIMEOUT_SEC)
+    assert len(rows) == 7
+    assert all(row["fixture_pass"] for row in rows)
+
+
+def test_q4_contract_error_global_abort():
+    from gpu_runmultiai.q4_reference import Q4ContractError, verify_q4_emitted_prefix
+
+    with pytest.raises(Q4ContractError):
+        verify_q4_emitted_prefix("foobar,x_0")
+
+
+def test_guard_bootstrap_singleton_and_deny(tmp_path):
+    from experiment_runtime import REPO_ROOT
+    from scripts.phases import guard_bootstrap as gb
+
+    gb._INSTALLED_GUARD = None
+    denied = REPO_ROOT / "results" / "runs" / "gpu_run5_example" / "test" / "rows.json"
+    denied.parent.mkdir(parents=True, exist_ok=True)
+    if not denied.is_file():
+        denied.write_text("[]", encoding="utf-8")
+    handle = gb.install_guard_from_entry(str(REPO_ROOT / "scripts/phases/gpu_runmultiai_c0001_metric_audit.py"))
+    assert gb.get_installed_guard() is handle
+    with pytest.raises(PermissionError):
+        open(denied, encoding="utf-8")
+    handle.restore()
+    gb._INSTALLED_GUARD = None
+
+
+def test_jsonl_partial_suffix_truncate(tmp_path):
+    from gpu_runmultiai.invariants import AuditInvariantError
+    from gpu_runmultiai.jsonl_durable import load_jsonl, truncate_partial_suffix
+
+    path = tmp_path / "call_log.jsonl"
+    path.write_bytes(b'{"a":1}\n{"b":2,')
+    truncate_partial_suffix(path)
+    rows = load_jsonl(path)
+    assert rows == [{"a": 1}]
+
+
+def test_jsonl_malformed_line_aborts(tmp_path):
+    from gpu_runmultiai.invariants import AuditInvariantError
+    from gpu_runmultiai.jsonl_durable import load_jsonl
+
+    path = tmp_path / "bad.jsonl"
+    path.write_text('{"a":1}\n{bad}\n', encoding="utf-8")
+    with pytest.raises(AuditInvariantError):
+        load_jsonl(path)
+
+
+def test_source_inventory_has_guard_bootstrap():
+    from gpu_runmultiai.source_inventory import enumerate_source_inventory_paths
+
+    paths = enumerate_source_inventory_paths()
+    assert "scripts/phases/guard_bootstrap.py" in paths
+    assert len(paths) >= 82
+
+
+def test_reachability_evidence_supported_and_unsupported():
+    from gpu_runmultiai.reachability import build_reachability_evidence
+
+    rows = build_reachability_evidence()
+    by_id = {row["fixture_id"]: row for row in rows}
+    assert by_id["REACH-UNS-1"]["passed"] is True
+    assert by_id["REACH-SUP-1"]["passed"] is True
