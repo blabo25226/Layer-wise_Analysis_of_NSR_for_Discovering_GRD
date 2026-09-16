@@ -9,7 +9,7 @@ or from the recorded command output below. No value is transcribed from memory.
 | Worktree | `/tmp/lansr-multiai-C0001-implement-audit` |
 | Branch | `ai/C0001/research-engineer/implement-metric-audit` |
 | Runtime + tests commit | `1bd083def321f99b6e99c4fc558beb197f6626ec` |
-| Artifacts + report commit | `<filled in the Step F commit message below>` |
+| Artifacts + report commit | `29b343d4930e25c0f8f57a4e47dda9df239d210e` (this SHA is filled in by the immediately following commit) |
 | Plan SHA256 | `67017f5c8bac861664fc867b70cf229d43be3d052d266ffd0d575e20e6c12078` (unchanged) |
 | Validation run | bounded smoke, **not** confirmatory evidence |
 | Python | 3.10.20 (`/home/blabo/miniconda3/envs/lansr310/bin/python`) |
