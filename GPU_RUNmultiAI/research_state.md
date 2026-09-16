@@ -9,11 +9,11 @@ status: active
 current_cycle: C0001
 current_stage: PREREGISTRATION_V16_READY_FOR_TARGETED_REVIEW
 branch: ai/C0001/research-engineer/implement-metric-audit
-observed_commit: a6a869d5d6f729bb09b53502c88250c701c5269f
+observed_commit: 682fbed997388edf5be42e6dcfe9ea01a3056f2a
 base_commit: d4fef3f703cd3ef476529d110930aa34962fa2b0
 remote_branch: ai/C0001/research-engineer/implement-metric-audit
-remote_commit: a6a869d5d6f729bb09b53502c88250c701c5269f
-remote_verification_scope: content_commit_pending_push
+remote_commit: 682fbed997388edf5be42e6dcfe9ea01a3056f2a
+remote_verification_scope: content_commit_verified
 last_push_attempt_utc: null
 last_push_error: null
 binding_plan:
@@ -41,18 +41,19 @@ tracks:
     stage: PREREGISTRATION_V16_READY_FOR_TARGETED_REVIEW
 
 active_tasks:
-  - task_id: C0001-T015
+  - task_id: C0001-T015-REVIEW
     track: scientific
-    role: repo-operator / scientific-document-implementer
-    worker: Cursor Agent
+    role: independent reviewer (Claude reproducibility-auditor / scientific-critic)
+    worker: Claude Code + Codex independent subagent
     branch: ai/C0001/research-engineer/implement-metric-audit
     worktree: /tmp/lansr-multiai-C0001-implement-audit
-    status: in_progress
-    started_at: 2026-09-16T10:00:00Z
-    content_source_commit: a6a869d5d6f729bb09b53502c88250c701c5269f
-    expected_outputs: [v16 surgical closure of R15-1..R15-2]
-    acceptance_test: executable bootstrap ownership and stale refs; two commits max; push parity
-    prior_task: C0001-T014-REVIEW
+    write_scope: [targeted v16 closure review only]
+    status: queued
+    reviewed_commit: 682fbed997388edf5be42e6dcfe9ea01a3056f2a
+    reviewed_plan_sha256: 67017f5c8bac861664fc867b70cf229d43be3d052d266ffd0d575e20e6c12078
+    expected_outputs: [v16 closure verdict PASS or BLOCK on R15-1..R15-2]
+    acceptance_test: read-only review of v16 changed sections; v9-v15 bytes unchanged; no freeze without PASS
+    prior_task: C0001-T015
   - task_id: C0001-T014-REVIEW
     track: scientific
     role: independent reviewer (Claude reproducibility-auditor / scientific-critic)
@@ -269,6 +270,26 @@ active_tasks:
     reviewer_diff_assertion: true
     evidence_packet: GPU_RUNmultiAI/cycles/C0001/implementation_handoff.md
 completed_tasks:
+  - task_id: C0001-T015
+    track: scientific
+    role: repo-operator / scientific-document-implementer
+    worker: Cursor Agent
+    branch: ai/C0001/research-engineer/implement-metric-audit
+    worktree: /tmp/lansr-multiai-C0001-implement-audit
+    status: completed
+    started_at: 2026-09-16T10:00:00Z
+    completed_at: 2026-09-16T10:05:00Z
+    content_source_commit: a6a869d5d6f729bb09b53502c88250c701c5269f
+    deliverables:
+      - GPU_RUNmultiAI/cycles/C0001/preregistration_draft_v16.md
+      - GPU_RUNmultiAI/cycles/C0001/preregistration_v15_review_response.md
+      - GPU_RUNmultiAI/cycles/C0001/preregistration_v16_drafting_completion.md
+    plan_sha256: 67017f5c8bac861664fc867b70cf229d43be3d052d266ffd0d575e20e6c12078
+    deliverable_commit: 682fbed997388edf5be42e6dcfe9ea01a3056f2a
+    remote_verified: 682fbed997388edf5be42e6dcfe9ea01a3056f2a
+    expected_outputs: [v16 surgical closure of R15-1..R15-2]
+    acceptance_test: executable bootstrap ownership and stale refs; two commits max; push parity
+    prior_task: C0001-T014-REVIEW
   - task_id: C0001-T014
     track: scientific
     role: repo-operator / scientific-document-implementer
@@ -463,10 +484,11 @@ retries:
   C0001-T003: 1
 
 next_action: >
-  Targeted independent closure review on v16 R15-1 and R15-2. Freeze only after
-  PASS; guard_bootstrap.py implementation remains post-freeze before G_contract.
+  Delegate C0001-T015-REVIEW for targeted v16 closure on R15-1 and R15-2. Freeze
+  only after PASS; guard_bootstrap.py implementation remains post-freeze before
+  G_contract.
 
-last_checkpoint_utc: 2026-09-16T10:00:00Z
+last_checkpoint_utc: 2026-09-16T10:05:00Z
 ```
 
 ## Notes
