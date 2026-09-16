@@ -1,0 +1,24 @@
+[
+  {
+    "component_id": "component_sha256:9c74179cb95b9c59c1172cee61c7c7c0c5547aacb8647faf7c30cfd2823e7fba",
+    "system_id": "R01_train_d61001_000",
+    "component_idx": 0,
+    "truth_prefix": "add,0.04598,add,mul,mul,2.437,x_0,inv,add,0.4416,x_0,mul,-1,mul,0.8487,x_0",
+    "truth_infix": "(2299/50000 + (((2437/1000 * x_0) * (1 / (276/625 + x_0))) + (-1 * (8487/10000 * x_0))))",
+    "classifier_parse_valid": true,
+    "hill_form": true,
+    "eligibility_layer": "strict_hill_primary",
+    "quantization_stratum": "quantization_active"
+  },
+  {
+    "component_id": "component_sha256:40d04b01e7906d32d19b82edd08aa4a4ce16ea920f781efaeedf4d54d9d0d30f",
+    "system_id": "R01_train_d61001_001",
+    "component_idx": 0,
+    "truth_prefix": "add,0.1806,add,mul,mul,2.462,pow2,x_0,inv,add,0.8572,pow2,x_0,mul,-1,mul,0.6325,x_0",
+    "truth_infix": "(903/5000 + (((1231/500 * (x_0 ** 2)) * (1 / (2143/2500 + (x_0 ** 2)))) + (-1 * (253/400 * x_0))))",
+    "classifier_parse_valid": true,
+    "hill_form": true,
+    "eligibility_layer": "strict_hill_primary",
+    "quantization_stratum": "quantization_neutral"
+  }
+]

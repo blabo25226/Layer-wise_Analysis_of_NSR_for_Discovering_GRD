@@ -292,7 +292,7 @@ def test_sealed_guard_blocks_deep_paths_without_real_artifact(tmp_path):
 
 
 def test_n1_and_b4_gate_shapes():
-    n1_rows = [{"oracle": {"completed": True, "equivalent": False}} for _ in range(100)]
+    n1_rows = [{"oracle_completed": True, "oracle_equivalent": False} for _ in range(100)]
     assert gate_n1(n1_rows)
     b4_rows = [{"valid": True, "canonical_exact": 1} for _ in range(510)]
     assert gate_b4(b4_rows)
@@ -753,8 +753,8 @@ def test_registration_all_components_accept_pow_dialect():
     assert len(truth_rows) == 510
     assert len(rewrite_rows) == 510
     assert all(row["valid"] for row in rewrite_rows)
-    assert logger.total() == 1020
-    assert len(load_stage_cache(cache_path)) == 1020
+    assert logger.total() == 1530
+    assert len(load_stage_cache(cache_path)) == 1530
 
 
 def test_n1_all_controls_reject_with_prefix_oracle():
@@ -971,8 +971,9 @@ def test_manifest_completed_last_and_schema_columns(tmp_path):
     assert "formula_metrics_valid" in header
     oracle_payload = json.loads((output_dir / "equivalence_oracle.json").read_text(encoding="utf-8"))
     assert oracle_payload
-    assert "failure_reason" in oracle_payload[0]["E1"]
-    assert "rational_tokens" in oracle_payload[0]["E1"]
+    assert "stage" in oracle_payload[0]
+    assert "reference" in oracle_payload[0]
+    assert "failure_reason" in oracle_payload[0]
 
 
 def test_frozen_environment_mismatch_fails_fast(monkeypatch):
@@ -984,16 +985,15 @@ def test_frozen_environment_mismatch_fails_fast(monkeypatch):
         _validate_frozen_environment()
 
 
-def test_b1_uses_production_scaler_identity_rescale():
-    from gpu_runmultiai.odeformer_runtime import ODEFormerUnavailable, build_production_scaler, require_odeformer
+def test_b1_uses_identity_scaler_parameters():
+    from gpu_runmultiai.odeformer_runtime import build_identity_scaler
 
-    try:
-        require_odeformer()
-    except ODEFormerUnavailable:
-        pytest.skip("ODEFormer runtime unavailable")
-    scaler, asserts = build_production_scaler(1.0, 3)
+    scaler, asserts = build_identity_scaler(3)
+    assert asserts["a_t"] == 1.0
+    assert asserts["b_t"] == 0.0
     assert asserts["rescale_features"] is True
-    assert scaler.get_params()[2].tolist() == [1.0, 1.0, 1.0]
+    assert scaler.get_params()[0] == 1.0
+    assert scaler.get_params()[1] == 0.0
 
 
 def test_f2_compound_pow_preserves_subtree_arity():
@@ -1065,11 +1065,24 @@ def test_source_inventory_has_guard_bootstrap():
     assert len(paths) >= 82
 
 
-def test_reachability_evidence_supported_and_unsupported():
+def test_reachability_evidence_all_ten_fixtures():
     from gpu_runmultiai.reachability import build_reachability_evidence
 
     rows = build_reachability_evidence()
     by_id = {row["fixture_id"]: row for row in rows}
+    expected = {
+        "REACH-POW-COMP-1",
+        "REACH-SFN-1",
+        "REACH-PRESERVED-1",
+        "REACH-UNS-1",
+        "REACH-SUP-1",
+        "REACH-DRIFT-E2",
+        "REACH-Q4FAIL-1",
+        "REACH-IDENT-FALLBACK-1",
+        "REACH-PARSE-1",
+        "REACH-RESCALE-1",
+    }
+    assert set(by_id) == expected
     assert by_id["REACH-UNS-1"]["passed"] is True
     assert by_id["REACH-SUP-1"]["passed"] is True
 
@@ -1111,3 +1124,123 @@ def test_g_contract_abort_and_deviation_lifecycle(tmp_path):
     _write_deviation_log(tmp_path / "deviation_log.md", ["bounded smoke run"])
     body = (tmp_path / "deviation_log.md").read_text(encoding="utf-8")
     assert "bounded smoke run" in body
+    assert "status=completed abort_type=none" in body
+    abort_dir = tmp_path / "abort_only"
+    abort_dir.mkdir()
+    _write_abort_manifest(
+        abort_dir,
+        abort_type="Q4ContractError",
+        abort_reason="dialect violation",
+        call_logger=call_logger,
+    )
+    abort_deviation = (abort_dir / "deviation_log.md").read_text(encoding="utf-8")
+    assert "status=aborted abort_type=Q4ContractError" in abort_deviation
+
+
+def test_resource_monitor_uses_frozen_ceilings():
+    from gpu_runmultiai.constants import ELAPSED_WALL_CEILING_SEC, OUTPUT_DIR_BYTE_CEILING
+    from gpu_runmultiai.resources import BYTE_CONVENTION, CPU_WALL_LIMIT_SEC, DISK_LIMIT_BYTES
+
+    assert CPU_WALL_LIMIT_SEC == ELAPSED_WALL_CEILING_SEC == 18000
+    assert DISK_LIMIT_BYTES == OUTPUT_DIR_BYTE_CEILING == 1_200_000_000
+    assert BYTE_CONVENTION == "decimal_gb"
+
+
+def test_gate_order_includes_mandatory_gates():
+    from gpu_runmultiai.controls import GATE_ORDER
+
+    assert "G_eligibility" in GATE_ORDER
+    assert "G_stratum" in GATE_ORDER
+    assert "G_grand" in GATE_ORDER
+    assert "G_contract" in GATE_ORDER
+    assert "G_impl" in GATE_ORDER
+    assert GATE_ORDER.index("G_eligibility") < GATE_ORDER.index("G_stratum")
+
+
+def test_gate_b1_requires_control_pass_rows():
+    from gpu_runmultiai.controls import gate_b1
+
+    assert gate_b1([{"control_pass_row": True, "outcome_category": "control_pass"}] * 510)
+    assert not gate_b1([{"control_pass_row": False, "outcome_category": "control_failure"}] * 510)
+
+
+def test_quantization_stratum_counts_on_corpus():
+    from gpu_runmultiai.eligibility import validate_g_eligibility
+    from gpu_runmultiai.quantization import assign_quantization_stratum, validate_g_stratum
+    from gpu_runmultiai.rewrites import truth_component_infix
+
+    corpus = load_frozen_corpus()
+    validate_g_eligibility(corpus["component_index"])
+    rows = []
+    for item in corpus["component_index"]:
+        record = next(r for r in corpus["train_records"] if r["system_id"] == item["system_id"])
+        truth_prefix, _ = truth_component_infix(record, item["component_idx"])
+        component_id, _ = component_id_for(corpus["corpus_hash"], item["system_id"], item["component_idx"])
+        layer = {
+            "strict_hill": "strict_hill_primary",
+            "non_strict_hill": "non_strict_hill_secondary",
+            "linear": "linear_control",
+        }[component_stratum(item["family"], item["component_idx"])]
+        rows.append(
+            {
+                "component_id": component_id,
+                "quantization_stratum": assign_quantization_stratum(truth_prefix),
+                "eligibility_layer": layer,
+            }
+        )
+    validate_g_stratum(rows)
+
+
+def test_rescale_incomplete_detects_identity_return():
+    from gpu_runmultiai.odeformer_runtime import ODEFormerUnavailable, get_env, require_odeformer, rescale_system
+
+    try:
+        require_odeformer()
+    except ODEFormerUnavailable:
+        pytest.skip("ODEFormer runtime unavailable")
+    env = get_env()
+    corpus = load_frozen_corpus()
+    record = corpus["train_records"][0]
+    from gpu_runmultiai.odeformer_runtime import build_production_scaler, decode_system_tree, forward_scale_system, truth_system_prefixes
+
+    scaler, _ = build_production_scaler(0.1, int(record["dimension"]))
+    tree = forward_scale_system(env, decode_system_tree(env, truth_system_prefixes(record)), scaler)
+    _, incomplete = rescale_system(env, scaler, tree)
+    assert incomplete is False
+
+
+def test_guard_bootstrap_no_replacement():
+    from scripts.phases import guard_bootstrap as gb
+
+    gb._INSTALLED_GUARD = None
+    entry = str(Path("scripts/phases/gpu_runmultiai_c0001_metric_audit.py"))
+    first = gb.install_guard_from_entry(entry)
+    with pytest.raises(gb.GuardBootstrapViolation):
+        gb.install_guard_from_entry(entry)
+    first.restore()
+    gb._INSTALLED_GUARD = None
+
+
+def test_smoke_writes_quantization_and_negative_controls(tmp_path):
+    from gpu_runmultiai.audit import run_audit
+
+    output_dir = tmp_path / "schema_round2"
+    run_audit(
+        {
+            "output_dir": str(output_dir),
+            "oracle_timeout_sec": 30.0,
+            "simplifier_subprocess_timeout_sec": SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
+            "fail_if_exists": False,
+            "resume": False,
+            "smoke": True,
+            "primary_scales": ("0.1",),
+        }
+    )
+    manifest = json.loads((output_dir / "audit_manifest.json").read_text(encoding="utf-8"))
+    assert manifest["elapsed_wall_ceiling_sec"] == 18000
+    assert manifest["output_dir_byte_ceiling"] == 1_200_000_000
+    assert manifest["byte_convention"] == "decimal_gb"
+    assert "G_eligibility" in manifest["validity_gates"]
+    assert "G_grand" in manifest["validity_gates"]
+    assert (output_dir / "quantization_stratum.json").is_file()
+    assert (output_dir / "negative_controls.json").is_file()

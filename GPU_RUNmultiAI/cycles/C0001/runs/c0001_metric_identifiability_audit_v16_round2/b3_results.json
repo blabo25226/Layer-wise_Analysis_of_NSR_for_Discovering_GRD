@@ -1,0 +1,22 @@
+[
+  {
+    "pair_id": "pair_sha256:4b105fe99479237d1b8c8882de1a66f277528cc58a018034c6012195e6b70907",
+    "classifier_parse_valid": null,
+    "formula_metrics_valid": null,
+    "cas_compare_completed": true,
+    "cas_compare_valid": true,
+    "canonical_exact": 1.0,
+    "exponent_aware_skeleton_exact": null,
+    "terminal_outcome": "diagnostic_failed"
+  },
+  {
+    "pair_id": "pair_sha256:79d827b43aa8435223f5899085e8021695294caad3bb3ea26463741dfee06798",
+    "classifier_parse_valid": null,
+    "formula_metrics_valid": null,
+    "cas_compare_completed": true,
+    "cas_compare_valid": true,
+    "canonical_exact": 0.0,
+    "exponent_aware_skeleton_exact": null,
+    "terminal_outcome": "diagnostic_failed"
+  }
+]

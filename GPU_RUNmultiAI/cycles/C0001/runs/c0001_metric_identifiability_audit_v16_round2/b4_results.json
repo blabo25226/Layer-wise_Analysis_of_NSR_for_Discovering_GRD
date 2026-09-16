@@ -1,0 +1,18 @@
+[
+  {
+    "component_id": "component_sha256:9c74179cb95b9c59c1172cee61c7c7c0c5547aacb8647faf7c30cfd2823e7fba",
+    "classifier_parse_valid": true,
+    "formula_metrics_valid": true,
+    "canonical_exact": 1.0,
+    "exponent_aware_skeleton_exact": 1.0,
+    "terminal_outcome": "sanity_pass"
+  },
+  {
+    "component_id": "component_sha256:40d04b01e7906d32d19b82edd08aa4a4ce16ea920f781efaeedf4d54d9d0d30f",
+    "classifier_parse_valid": true,
+    "formula_metrics_valid": true,
+    "canonical_exact": 1.0,
+    "exponent_aware_skeleton_exact": 1.0,
+    "terminal_outcome": "sanity_pass"
+  }
+]

@@ -1,0 +1,354 @@
+[
+  {
+    "path": "configs/gpu_run5/base.yaml",
+    "sha256": "2ffee235ff1403ce62961cdd35e022c01fa56b2772785f81f60e08e009d006d2"
+  },
+  {
+    "path": "scripts/phases/gpu_runmultiai_c0001_metric_audit.py",
+    "sha256": "58573d6e9ef0a2385c11d6e9dd515fa0f3b1bf4cd5baa554ba36b7ae2e155891"
+  },
+  {
+    "path": "scripts/phases/guard_bootstrap.py",
+    "sha256": "f8671171ef0b604e2447353e8410fe20cd20c44d08bf476a56d7a26150d1d033"
+  },
+  {
+    "path": "src/evaluation/gpu_run5_structure.py",
+    "sha256": "af63fa853badf40c7ed50867567b7f54d21e51cf9dcc97d93b1d277a122b9443"
+  },
+  {
+    "path": "src/experiment_runtime.py",
+    "sha256": "305d3e6dd5dca459e041272ff699a2890e494dad233095c3f0c15dfe7094a4a8"
+  },
+  {
+    "path": "src/gpu_run2_runtime.py",
+    "sha256": "ab52937947698ebdb1c813a6a38c556cca876ea696fffc0cdebc6061da9dcb95"
+  },
+  {
+    "path": "src/gpu_run3_runtime.py",
+    "sha256": "70be40901ef77eaea5b141dc14ac7efeffc96bf1de73da67feff90d0571547cf"
+  },
+  {
+    "path": "src/gpu_run4/formulas.py",
+    "sha256": "3a25ea3e3cc19f7c6bba0fd6d7446ad705fd57088ada4cbd61fbcd10c115a8ed"
+  },
+  {
+    "path": "src/gpu_run4/ted.py",
+    "sha256": "18fd3b67fc2824a2323f21a405f6fcaa2b9b7c51baa2ab56cee9b2095ccfcb04"
+  },
+  {
+    "path": "src/gpu_run4_runtime.py",
+    "sha256": "f6140bd8cc4f3924925ebed0c121f244fedf81eb62fe135a45b1a58036bcc391"
+  },
+  {
+    "path": "src/gpu_run5/config.py",
+    "sha256": "1b72cf4232f0191e316a6e0ec39db52a0f1af890d9a219991aaf71e9c51c58ae"
+  },
+  {
+    "path": "src/gpu_run5/evaluation.py",
+    "sha256": "cb13acee2797a1c7a31c039513f23384f9943268ad5fa31ae21addb8540eb988"
+  },
+  {
+    "path": "src/gpu_run5/grn.py",
+    "sha256": "0daac34f72753add65662eed3a09b3a897cd585c1826a2547f5c48772c89bdfb"
+  },
+  {
+    "path": "src/gpu_runmultiai/__init__.py",
+    "sha256": "8971ef45ad491bff849139205aa28ab5ee9f9998a8010e6973a35ef15dd57c7a"
+  },
+  {
+    "path": "src/gpu_runmultiai/audit.py",
+    "sha256": "e3092c0ed9ee0e4f386730736f3ac2e651328c2cae9b1ea647dc722e831fa75b"
+  },
+  {
+    "path": "src/gpu_runmultiai/calls.py",
+    "sha256": "15c1c8a4c33a108931fc0485d93ac7494a1efef6d00324b861075cf57417f38d"
+  },
+  {
+    "path": "src/gpu_runmultiai/config_paths.py",
+    "sha256": "3408423a7bb0f315b0880f7ed4212c5743e99cfbfb5a5470888f7deb7ca54ac9"
+  },
+  {
+    "path": "src/gpu_runmultiai/constants.py",
+    "sha256": "770210f8fe794439434c0b0b67d7672828bad43b4c29143554851129fac88a83"
+  },
+  {
+    "path": "src/gpu_runmultiai/controls.py",
+    "sha256": "524575704d2bc390ef41ca4707276ba4fc31a5238cbfde9d5d3872af53f0cd29"
+  },
+  {
+    "path": "src/gpu_runmultiai/corpus.py",
+    "sha256": "d5af1d188170a9c2e3ef2273975459ae5720a743efa91ba2dd0ea71735bb81cc"
+  },
+  {
+    "path": "src/gpu_runmultiai/eligibility.py",
+    "sha256": "93001b50695c537c4c0b1eafa28d5b4a092ef59192dce93781706c57ed948d59"
+  },
+  {
+    "path": "src/gpu_runmultiai/guard_side_channel.py",
+    "sha256": "d918bcbed0fd7d3aee02282fd1253e0eed8446b4796a9c1377a1bd227e83f835"
+  },
+  {
+    "path": "src/gpu_runmultiai/ids.py",
+    "sha256": "b82bcb0c660e457acac56f76fdaedce350e17a8bbbee19043ece11435741f2af"
+  },
+  {
+    "path": "src/gpu_runmultiai/invariants.py",
+    "sha256": "35432a877663231ae6d9ec0214e6eebbbf0bb58d1797ea6f4033aae14fcdc88a"
+  },
+  {
+    "path": "src/gpu_runmultiai/jsonl_durable.py",
+    "sha256": "c7c0b6c0b057a6da1a0866210af692cb08adcdc51e43d0f6661b714733d7249f"
+  },
+  {
+    "path": "src/gpu_runmultiai/manifest.py",
+    "sha256": "f5d30a2e5b338cbca99cd751bfaf7c594165bb4744c2bec2e3770a6acbecef16"
+  },
+  {
+    "path": "src/gpu_runmultiai/odeformer_runtime.py",
+    "sha256": "c9da2c4249226101c135eb108b9bb881a0ac6bb40432e019fab267dded7ee2b9"
+  },
+  {
+    "path": "src/gpu_runmultiai/oracle.py",
+    "sha256": "13099b350cc6c54f09d83e07e0313c1d313505aea058bc20171af9e68ac2eb68"
+  },
+  {
+    "path": "src/gpu_runmultiai/outcomes.py",
+    "sha256": "14423ee18aaecb89272bce3eb61f83a8abd3d7697a2b7035831227f888260253"
+  },
+  {
+    "path": "src/gpu_runmultiai/pipeline.py",
+    "sha256": "ad5ac1897d2611e320ab06434fa5244254666590a4ffa789386d92bf403c23e9"
+  },
+  {
+    "path": "src/gpu_runmultiai/q4_reference.py",
+    "sha256": "55b0d8545f40978aa309f9ca498cbdd5e5c3d99fc9168721f2f60345cfa30ea1"
+  },
+  {
+    "path": "src/gpu_runmultiai/quantization.py",
+    "sha256": "9401adb045da296772e2a7a7a5dddb762cbf960164a5bce41899fb1c2131ca4f"
+  },
+  {
+    "path": "src/gpu_runmultiai/reachability.py",
+    "sha256": "79cdb455b28f22afcb07fc831f3aee02264eb2946fb969f6967fc5cd05c999a6"
+  },
+  {
+    "path": "src/gpu_runmultiai/resources.py",
+    "sha256": "cdc6c7495f687a6ccbc681730595ddc648b5e6c07ff4c4971601a7e32227aea4"
+  },
+  {
+    "path": "src/gpu_runmultiai/rewrites.py",
+    "sha256": "d517d9c081f3d69fc27345866e70574136363212921105e06ffcf3e9e6bbb74b"
+  },
+  {
+    "path": "src/gpu_runmultiai/sealed_guard.py",
+    "sha256": "be5eddb343fbbbe2365cf7f807a995a9e69e31ad4df078add48250f56c0dbb39"
+  },
+  {
+    "path": "src/gpu_runmultiai/serialization.py",
+    "sha256": "b4e96e151420a320024fd353c873ee015ba1262122e05359c2ed3c6e9a7fa74a"
+  },
+  {
+    "path": "src/gpu_runmultiai/simplifier_worker.py",
+    "sha256": "ffb1a6fc9a1d8fe5671b2b319de35bc610957377c3da14cf5a27232775fed7c3"
+  },
+  {
+    "path": "src/gpu_runmultiai/source_inventory.py",
+    "sha256": "cf6b4b87e705b5c5670c212dbf643abd1d436477a83bccf9d5afc49d3f6c837f"
+  },
+  {
+    "path": "src/gpu_runmultiai/stage_cache.py",
+    "sha256": "0fca9e9c99572c4ef4859361e179f2f2788dcb3520ef5f4439a6c2aa6fd0bcc3"
+  },
+  {
+    "path": "src/gpu_runmultiai/strata.py",
+    "sha256": "2e8bb8a29b55154995ab080f3e199a2fa88e36b3a39931f44369e6a9fceb6ae3"
+  },
+  {
+    "path": "third_party/odeformer/evaluate.py",
+    "sha256": "3ec5f115101a13fe15015d223499358da4eea57cf83d6a7c9eb8a2ab17cca4db"
+  },
+  {
+    "path": "third_party/odeformer/odeformer/__init__.py",
+    "sha256": "3cb62676c3fad403516673b2e99cdb6cbc0b71f814c3bb7f551bfa1e8495e062"
+  },
+  {
+    "path": "third_party/odeformer/odeformer/baselines/__init__.py",
+    "sha256": "c98864e7516641a9ffbc31e3e523f85b2da2ffc4218804e2c6ec458d7eb54a70"
+  },
+  {
+    "path": "third_party/odeformer/odeformer/baselines/baseline_utils.py",
+    "sha256": "d810713f3a5817b4235321f17d8082234f9736e661c4336b3a2492ed88b41350"
+  },
+  {
+    "path": "third_party/odeformer/odeformer/baselines/ellyn_wrapper.py",
+    "sha256": "b8489aca71ee6b14273512afbc2053ecd81a181d08054ea5b262e0ae120086ff"
+  },
+  {
+    "path": "third_party/odeformer/odeformer/baselines/ffx_wrapper.py",
+    "sha256": "d76e19bbe2612c141ce5dbdbe56b86e34595e6ccb6d0c94c8ee159eed5ed27f3"
+  },
+  {
+    "path": "third_party/odeformer/odeformer/baselines/proged_wrapper.py",
+    "sha256": "3b7cd1bbdb26ee798556fc9593939dbdd12fd7a02a404b6ed1a3a1ee3cfa8d01"
+  },
+  {
+    "path": "third_party/odeformer/odeformer/baselines/pysr_wrapper.py",
+    "sha256": "f87856821896ea6bd6296652c467f9acf8ecb2eb160c8753855c49a47edd9c77"
+  },
+  {
+    "path": "third_party/odeformer/odeformer/baselines/sindy_wrapper.py",
+    "sha256": "c2765cb933b5127988584174b8c3543ab7cdaae2e96042ae5860162d437b5343"
+  },
+  {
+    "path": "third_party/odeformer/odeformer/envs/__init__.py",
+    "sha256": "1b8362b3712b87940dc081bbbe330f6f2592c58993191f9f0a74d4fa6a8697af"
+  },
+  {
+    "path": "third_party/odeformer/odeformer/envs/encoders.py",
+    "sha256": "736d2015883c979012a018cb85c47b7711f0dd540b095aecf668067b077f8c76"
+  },
+  {
+    "path": "third_party/odeformer/odeformer/envs/environment.py",
+    "sha256": "6e87d9683a1138b231129fa7d1707b06708542df6f6864d4b3249b872b67bd69"
+  },
+  {
+    "path": "third_party/odeformer/odeformer/envs/generators.py",
+    "sha256": "3f7bb5d5f6b27f3c8382946329b9c8baa6e0195c60ce06788719cb0f9273a3cb"
+  },
+  {
+    "path": "third_party/odeformer/odeformer/envs/simplifiers.py",
+    "sha256": "c146bb8b966561b952e6d0f6283003ed3ffa2f4cdfb73efc062ea3991273e6b1"
+  },
+  {
+    "path": "third_party/odeformer/odeformer/envs/utils.py",
+    "sha256": "293b0926e3579e7e9c224ba6e8fb634027ab673addd45f07140572a2fbae29b9"
+  },
+  {
+    "path": "third_party/odeformer/odeformer/logger.py",
+    "sha256": "3a8d1ef583462d9e793f6d491e694ee96d283ce7a22422520b727b0f9842cf14"
+  },
+  {
+    "path": "third_party/odeformer/odeformer/metrics.py",
+    "sha256": "66747b41f6cd9e1ce6562e2606cbbc499b727ae63de278de46291f699f58bc1c"
+  },
+  {
+    "path": "third_party/odeformer/odeformer/model/__init__.py",
+    "sha256": "63aad198170122b0620b6d0f6cb10dbf12ad12f622abfd5310cbf4855cbb0c80"
+  },
+  {
+    "path": "third_party/odeformer/odeformer/model/embedders.py",
+    "sha256": "62f8e00cc941d3d9eb37cef574002b443f0225b47166e798f086a800bd6b926f"
+  },
+  {
+    "path": "third_party/odeformer/odeformer/model/mixins.py",
+    "sha256": "c7970764297114b08dc9fbf0b145492f91be86298a512bc2d5057b7bd8a15d70"
+  },
+  {
+    "path": "third_party/odeformer/odeformer/model/model_wrapper.py",
+    "sha256": "656cd7a9b8874286902d899642c2f2755abb0b0a4baae076ce4b471293ef9336"
+  },
+  {
+    "path": "third_party/odeformer/odeformer/model/sklearn_wrapper.py",
+    "sha256": "a4f26e0f2f1c33122c928b410e29488314f1be28724b87d08115048038c9b4de"
+  },
+  {
+    "path": "third_party/odeformer/odeformer/model/transformer.py",
+    "sha256": "fca05efc7a4f51a578daf13c8e5f8275f9b41ac2f759e736ffe0ad94f66ebc3c"
+  },
+  {
+    "path": "third_party/odeformer/odeformer/model/utils_wrapper.py",
+    "sha256": "4a3ad6a36d21ad12e166d29797285132396f4cfad2971d67f68a3fa50a979872"
+  },
+  {
+    "path": "third_party/odeformer/odeformer/odebench/__init__.py",
+    "sha256": "3cb62676c3fad403516673b2e99cdb6cbc0b71f814c3bb7f551bfa1e8495e062"
+  },
+  {
+    "path": "third_party/odeformer/odeformer/odebench/solve_and_plot.py",
+    "sha256": "7b9b5655b961956df3825d71b8c016641accabde70958c0713c23b86bf1c2f98"
+  },
+  {
+    "path": "third_party/odeformer/odeformer/odebench/strogatz_equations.py",
+    "sha256": "06bbb9dae2886a82f0a1d4b0cd062d063241bcfed56c01ef2a3a01d863bcf8b4"
+  },
+  {
+    "path": "third_party/odeformer/odeformer/optim.py",
+    "sha256": "f044d17ef2a70518eaf53ee5cd9204ec3b4d654ed80a734085c0749893c8e7d2"
+  },
+  {
+    "path": "third_party/odeformer/odeformer/regressors.py",
+    "sha256": "39608a90538167ef0d9574dd53177e96f49750298f16a01cd87dc2fb8a4be412"
+  },
+  {
+    "path": "third_party/odeformer/odeformer/slurm.py",
+    "sha256": "51caa9b264d34205f8b1476a6ce0246eaf583a1cfe65c40f06127e7e452b4ecd"
+  },
+  {
+    "path": "third_party/odeformer/odeformer/trainer.py",
+    "sha256": "1c3924aa6bef1377902e764959c4c322e3c847827b3e06bb79ed23a0e54151a8"
+  },
+  {
+    "path": "third_party/odeformer/odeformer/utils.py",
+    "sha256": "638370109df0168d87327969da26de460c8ce62bb93580aad66e7151b9fd39b0"
+  },
+  {
+    "path": "third_party/odeformer/param_optimizer.py",
+    "sha256": "31e4a6cabf2b180118c6ee47286a537968720710b420c1dc17bc8d670ceb0bea"
+  },
+  {
+    "path": "third_party/odeformer/parsers.py",
+    "sha256": "e5ddac605e2cc1b046d3e2c49063b8ff2e2ca47e736bf06aaad7d3d5a708b93b"
+  },
+  {
+    "path": "third_party/odeformer/scripts/generate_data.py",
+    "sha256": "426160cd496d4891fa6774051dd2eca2012204a4ab0a3bc278fc122c7261c4fd"
+  },
+  {
+    "path": "third_party/odeformer/scripts/generate_data_poly.py",
+    "sha256": "849432ae93e0c6700724a280b5c342aa228a921505c42da55d65992869bb7df1"
+  },
+  {
+    "path": "third_party/odeformer/scripts/run.py",
+    "sha256": "f8be7d0b9af096a621f63500e56204e6265081644511520b207d6c78e48d8307"
+  },
+  {
+    "path": "third_party/odeformer/scripts/run_baselines.py",
+    "sha256": "ddc141d6c00d5001cb068d79a98eadf3dc5eb664d8db0ad3e4f7461ea45fbd5b"
+  },
+  {
+    "path": "third_party/odeformer/scripts/run_distributed.py",
+    "sha256": "b57b4f384e61d0cb489a90b428e9a7ba73df18f7d37e2a534cf8e1e47ef2c360"
+  },
+  {
+    "path": "third_party/odeformer/scripts/run_evaluation.py",
+    "sha256": "fcecfc634f331a6b8a1f424ebf41ff1cf84007f37b4a2e9ab33077a06691def6"
+  },
+  {
+    "path": "third_party/odeformer/scripts/run_line.py",
+    "sha256": "80a3aef7d894252171d61a3d3323992e371ab1805e1d5846772d2bca906a6572"
+  },
+  {
+    "path": "third_party/odeformer/scripts/run_masked.py",
+    "sha256": "10a2694680e1517b6e44851fa1473da47f25cacbffed998cd5018bed8007dd8a"
+  },
+  {
+    "path": "third_party/odeformer/scripts/run_noise.py",
+    "sha256": "ef116dca5e0c646eaa0206e366efeb3e564fec063b7fe5f3b2243ebb9b6243ef"
+  },
+  {
+    "path": "third_party/odeformer/scripts/run_poly.py",
+    "sha256": "a9864bb9b6276d3554941ef1b8d12f871abe4a54dbcf75fca9a09d86df4cb53d"
+  },
+  {
+    "path": "third_party/odeformer/scripts/test_baselines.py",
+    "sha256": "d6a0dcf08fbf856499fdd0b26cbc805ea3f312b9e3ff5e7e6aa29955c95e2818"
+  },
+  {
+    "path": "third_party/odeformer/setup.py",
+    "sha256": "66ee7642973b350890927ed267855ad0f8cb756396045ada925abd473b6e9548"
+  },
+  {
+    "path": "third_party/odeformer/train.py",
+    "sha256": "6a60e0a367b419ac25194db594de0a457d9b756bb13a0117d6732c90f050917b"
+  }
+]

@@ -1,0 +1,35 @@
+{
+  "denominator": 1320,
+  "partition_rates": {
+    "construction_incomplete": 0.0,
+    "execution_failure": 0.0,
+    "semantic_drift": 0.0,
+    "structural_false_negative": 0.0,
+    "preserved": 0.0015151515151515152,
+    "control_pass": 0.0,
+    "control_failure": 0.0,
+    "unknown": 0.0
+  },
+  "diagnostic_coverage_rate": 0.0015151515151515152,
+  "terminal_coverage_rate": 0.0015151515151515152,
+  "validity_gates": {
+    "G_corpus": true,
+    "G_eligibility": true,
+    "G_stratum": true,
+    "G0": true,
+    "G4": true,
+    "G1": true,
+    "G_grand": true,
+    "G_contract": true,
+    "G_impl": true,
+    "G_q4ref": true,
+    "G_n1": false,
+    "G_b1": false,
+    "G_b4": false,
+    "G_ctrl_cov": false,
+    "G_ctrl_fp": false,
+    "G_ctrl_lin": false,
+    "G_term": false,
+    "G_inc": true
+  }
+}

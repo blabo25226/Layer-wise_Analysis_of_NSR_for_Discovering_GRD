@@ -1,0 +1,62 @@
+[
+  {
+    "fixture_id": "REACH-POW-COMP-1",
+    "evidence_type": "prefix_q4_construction",
+    "passed": true,
+    "details": "mul,1.00000000000000,pow,x_0,2"
+  },
+  {
+    "fixture_id": "REACH-SFN-1",
+    "evidence_type": "hand_algebraic",
+    "passed": true,
+    "details": "e1=True q4=True e2=True hill=False"
+  },
+  {
+    "fixture_id": "REACH-PRESERVED-1",
+    "evidence_type": "hand_algebraic",
+    "passed": true,
+    "details": "e1=True q4=True e2=True hill=True"
+  },
+  {
+    "fixture_id": "REACH-UNS-1",
+    "evidence_type": "primary_decision_grid",
+    "passed": true,
+    "details": "H0001 unsupported"
+  },
+  {
+    "fixture_id": "REACH-SUP-1",
+    "evidence_type": "primary_decision_grid",
+    "passed": true,
+    "details": "H0001 supported"
+  },
+  {
+    "fixture_id": "REACH-DRIFT-E2",
+    "evidence_type": "synthetic",
+    "passed": true,
+    "details": "semantic_drift"
+  },
+  {
+    "fixture_id": "REACH-Q4FAIL-1",
+    "evidence_type": "synthetic",
+    "passed": true,
+    "details": "execution_failure"
+  },
+  {
+    "fixture_id": "REACH-IDENT-FALLBACK-1",
+    "evidence_type": "synthetic",
+    "passed": true,
+    "details": "execution_failure"
+  },
+  {
+    "fixture_id": "REACH-PARSE-1",
+    "evidence_type": "synthetic",
+    "passed": true,
+    "details": "execution_failure"
+  },
+  {
+    "fixture_id": "REACH-RESCALE-1",
+    "evidence_type": "synthetic",
+    "passed": true,
+    "details": "execution_failure"
+  }
+]
