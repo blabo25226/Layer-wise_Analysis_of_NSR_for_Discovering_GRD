@@ -833,11 +833,15 @@ def _run_implementation_acceptance(
         artifacts.write_json(registration_rewrites_path, rewrite_rows)
     rewrite_by_component = {row["component_id"]: row for row in rewrite_rows}
 
+    b1_evidence_path = output_dir / "b1_evidence.json"
     if resume_acceptance:
-        import csv as csv_module
+        if b1_evidence_path.is_file():
+            b1_rows = json.loads(b1_evidence_path.read_text(encoding="utf-8"))
+        else:
+            import csv as csv_module
 
-        with pair_results_path.open(encoding="utf-8", newline="") as handle:
-            b1_rows = list(csv_module.DictReader(handle))
+            with pair_results_path.open(encoding="utf-8", newline="") as handle:
+                b1_rows = list(csv_module.DictReader(handle))
         _assert_b1_acceptance_ledger(call_logger)
     else:
         b1_rows: list[dict[str, Any]] = []
@@ -865,6 +869,7 @@ def _run_implementation_acceptance(
             )
             b1_rows.append(b1_row)
         _assert_b1_acceptance_ledger(call_logger)
+        artifacts.write_json(b1_evidence_path, b1_rows)
 
     b0_rows: list[dict[str, Any]] = []
     b2_rows: list[dict[str, Any]] = []

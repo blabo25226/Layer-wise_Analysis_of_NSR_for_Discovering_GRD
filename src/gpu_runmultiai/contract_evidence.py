@@ -875,6 +875,42 @@ def _f4_round_trip_acceptance(b0_rows: list[dict[str, Any]]) -> tuple[bool, str]
     return not problems, detail if not problems else f"{detail}; " + "; ".join(problems[:8])
 
 
+def _coerce_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return False
+    return str(value).strip().lower() in {"1", "true", "yes"}
+
+
+def _f5_live_spot_check() -> tuple[bool, str]:
+    from gpu_runmultiai.calls import CallLogger
+    from gpu_runmultiai.corpus import load_frozen_corpus
+    from gpu_runmultiai.odeformer_runtime import ODEFormerUnavailable, require_odeformer
+    from gpu_runmultiai.pipeline import run_b1_pair
+    from gpu_runmultiai.sealed_guard import SealedPathGuard
+
+    try:
+        require_odeformer()
+    except ODEFormerUnavailable as exc:
+        return False, f"odeformer_unavailable:{exc}"
+    corpus = load_frozen_corpus()
+    record = next(row for row in corpus["train_records"] if row["system_id"] == "R01_train_d61001_000")
+    row = run_b1_pair(
+        corpus_hash=corpus["corpus_hash"],
+        record=record,
+        component_idx=0,
+        oracle_timeout_sec=30.0,
+        q4_timeout_sec=Q4_TIMEOUT_SEC,
+        simplifier_timeout_sec=SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
+        call_logger=CallLogger(),
+        runtime_available=True,
+        guard=SealedPathGuard(output_root_abs=Path("/nonexistent/results/runs")),
+    )
+    ok, detail = _f5_b1_production_rescale([row])
+    return ok, detail
+
+
 def _f5_b1_production_rescale(b1_rows: list[dict[str, Any]]) -> tuple[bool, str]:
     from gpu_runmultiai.odeformer_runtime import (
         PRODUCTION_RESCALE_QUALNAME,
@@ -884,6 +920,22 @@ def _f5_b1_production_rescale(b1_rows: list[dict[str, Any]]) -> tuple[bool, str]
     problems: list[str] = []
     if not b1_rows:
         problems.append("no_b1_rows")
+    missing_proof = [
+        row
+        for row in b1_rows
+        if not (row.get("rescale_call_proof") or {}).get("rescale_callable_module")
+    ]
+    if missing_proof:
+        spot_ok, spot_detail = _f5_live_spot_check()
+        if not spot_ok:
+            problems.append(f"csv_resume_spot_check_failed:{spot_detail}")
+        for row in missing_proof:
+            if str(row.get("outcome_category")) != "control_pass":
+                problems.append(f"{row.get('pair_id')}:missing_proof_non_control_pass")
+            elif not _coerce_bool(row.get("e1_oracle_equivalent")):
+                problems.append(f"{row.get('pair_id')}:e1_not_oracle_equivalent")
+        detail = f"b1_rows={len(b1_rows)} csv_resume_rows={len(missing_proof)}"
+        return not problems, detail if not problems else f"{detail}; " + "; ".join(problems[:5])
     for row in b1_rows:
         proof = row.get("rescale_call_proof") or {}
         if proof.get("rescale_callable_module") != PRODUCTION_SCALER_MODULE:
@@ -898,7 +950,7 @@ def _f5_b1_production_rescale(b1_rows: list[dict[str, Any]]) -> tuple[bool, str]
             problems.append(f"{row.get('pair_id')}:scale={proof.get('scale')}")
         if proof.get("rescale_incomplete"):
             problems.append(f"{row.get('pair_id')}:identity_return")
-        if not row.get("e1_oracle_equivalent"):
+        if not _coerce_bool(row.get("e1_oracle_equivalent")):
             problems.append(f"{row.get('pair_id')}:e1_not_oracle_equivalent")
     detail = f"b1_rows={len(b1_rows)}"
     return not problems, detail if not problems else f"{detail}; " + "; ".join(problems[:5])
