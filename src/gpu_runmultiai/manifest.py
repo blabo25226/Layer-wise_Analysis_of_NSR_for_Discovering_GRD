@@ -202,10 +202,11 @@ CLOSURE_RECORD_NAME = "implementation_closure_record.json"
 PROTECTED_UNTRACKED_SMOKE = (
     "GPU_RUNmultiAI/cycles/C0001/runs/c0001_metric_identifiability_audit_v9_smoke"
 )
+RUNTIME_SCRATCH_DIR = "GPU_RUNmultiAI/.runtime"
 
 
 def verify_clean_worktree() -> dict[str, Any]:
-    """Require a clean tracked worktree; ignore only the protected historical v9 smoke."""
+    """Require a clean tracked worktree; ignore protected v9 smoke and runtime scratch."""
     import subprocess
 
     result = subprocess.run(
@@ -222,6 +223,9 @@ def verify_clean_worktree() -> dict[str, Any]:
             continue
         path = line[3:].strip()
         if path == PROTECTED_UNTRACKED_SMOKE or path.startswith(PROTECTED_UNTRACKED_SMOKE + "/"):
+            ignored.append(path)
+            continue
+        if path == RUNTIME_SCRATCH_DIR or path.startswith(RUNTIME_SCRATCH_DIR + "/"):
             ignored.append(path)
             continue
         violations.append(line)
