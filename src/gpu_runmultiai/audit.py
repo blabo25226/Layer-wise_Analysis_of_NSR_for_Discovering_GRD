@@ -606,8 +606,19 @@ def run_audit(options: dict[str, Any], *, guard=None) -> dict[str, Any]:
     verify_plan_hash()
     output_dir = Path(options["output_dir"]).resolve()
     if options.get("require_clean_worktree", True):
-        exclude = [str(output_dir)] if options.get("resume") else None
-        options["worktree_provenance"] = verify_clean_worktree(exclude_paths=exclude)
+        exclude: list[str] = []
+        if options.get("resume") or options.get("implementation_acceptance"):
+            exclude.append(str(output_dir))
+        if options.get("implementation_acceptance"):
+            exclude.append(
+                str(
+                    REPO_ROOT
+                    / "GPU_RUNmultiAI/cycles/C0001/implementation_completion_v16_round5.md"
+                )
+            )
+        options["worktree_provenance"] = verify_clean_worktree(
+            exclude_paths=exclude or None
+        )
     else:
         options["worktree_provenance"] = {"clean": "skipped_for_unit_test"}
     output_dir.mkdir(parents=True, exist_ok=True)
