@@ -7,13 +7,13 @@ Update it before a parent session ends.
 campaign: GPU_RUNmultiAI
 status: active
 current_cycle: C0001
-current_stage: PREREGISTRATION_V16_IMPLEMENTATION_COMPLETE_PENDING_REVIEW
+current_stage: PREREGISTRATION_V16_IMPLEMENTATION_ROUND3_BLOCKED_T019_REPAIR
 branch: ai/C0001/research-engineer/implement-metric-audit
-observed_commit: ecf6a05
+observed_commit: ebafe5cb7adb8780f303950a2a081b36169edc6c
 base_commit: d4fef3f703cd3ef476529d110930aa34962fa2b0
 remote_branch: ai/C0001/research-engineer/implement-metric-audit
-remote_commit: 5c24982b0a8bf53a18f1bd8c1da36047b1fe3dd8
-remote_verification_scope: local_remote_equality_verified_2026-09-16
+remote_commit: ebafe5cb7adb8780f303950a2a081b36169edc6c
+remote_verification_scope: local_tracking_remote_equality_verified_2026-09-17
 last_push_attempt_utc: null
 last_push_error: null
 binding_plan:
@@ -39,9 +39,45 @@ tracks:
   scientific:
     status: active
     current_cycle: C0001
-    stage: PREREGISTRATION_V16_IMPLEMENTATION_COMPLETE_PENDING_REVIEW
+    stage: PREREGISTRATION_V16_IMPLEMENTATION_ROUND3_BLOCKED_T019_REPAIR
 
 active_tasks:
+  - task_id: C0001-T019
+    track: scientific
+    role: research-engineer / repo-operator
+    worker: Cursor Agent
+    branch: ai/C0001/research-engineer/implement-metric-audit
+    worktree: /tmp/lansr-multiai-C0001-implement-audit
+    status: ready
+    prior_task: C0001-T018-REVIEW
+    binding_review: GPU_RUNmultiAI/cycles/C0001/implementation_review_v16_round3.md
+    expected_outputs: [runtime repair, focused tests, clean runtime commit and push, round-4 bounded validation, artifact-derived report]
+    acceptance_test: multi-component fallback; full-scale executable F evidence; closure gate; resource boundaries; all abort families; guard JSONL; D2 cache; clean provenance; independent PASS
+  - task_id: C0001-T018-REVIEW
+    track: scientific
+    role: independent reviewer / research-pi
+    worker: Claude Code + Codex executable subagent + Codex PI
+    branch: ai/C0001/research-engineer/implement-metric-audit
+    worktree: /tmp/lansr-multiai-C0001-implement-audit
+    status: completed_block
+    reviewed_tip: ebafe5cb7adb8780f303950a2a081b36169edc6c
+    runtime_commit: 1bd083def321f99b6e99c4fc558beb197f6626ec
+    result: round-3 BLOCK; closure and full audit denied; round-3 retained as negative implementation evidence
+    deliverables:
+      - GPU_RUNmultiAI/cycles/C0001/implementation_review_v16_round3.md
+      - GPU_RUNmultiAI/cycles/C0001/implementation_v16_round3_revision_handoff.md
+    prior_task: C0001-T018
+  - task_id: C0001-T018
+    track: scientific
+    role: research-engineer / repo-operator
+    worker: Cursor Agent
+    branch: ai/C0001/research-engineer/implement-metric-audit
+    worktree: /tmp/lansr-multiai-C0001-implement-audit
+    status: completed_pending_blocked_review
+    runtime_commit: 1bd083def321f99b6e99c4fc558beb197f6626ec
+    artifact_tip: ebafe5cb7adb8780f303950a2a081b36169edc6c
+    result: round-3 validation generated with corrected provenance and major repairs; independent review BLOCK
+    prior_task: C0001-T017-REVIEW
   - task_id: C0001-T016
     track: scientific
     role: research-engineer / repo-operator
@@ -477,7 +513,10 @@ completed_tasks:
     integration_commit: 47d7459
     result: four C0001 evidence and preregistration draft artifacts persisted
 open_findings:
-  - v16 is frozen at SHA256 67017f5c8bac861664fc867b70cf229d43be3d052d266ffd0d575e20e6c12078. Runtime implementation and G_contract/G_impl evidence are now authorized; full audit remains prohibited.
+  - v16 is frozen at SHA256 67017f5c8bac861664fc867b70cf229d43be3d052d266ffd0d575e20e6c12078. Round-3 implementation review is BLOCK; G_contract/G_impl closure is not authorized and full audit remains prohibited.
+  - Round-3 P0: multi-component identity-fallback prefixes use incompatible `|` versus `,|,` serialization; the d=1 smoke cannot detect it.
+  - Round-3 P0: F1/F4 evidence covers only scale 0.1, F6 passes with 2 rather than 510 rows, and closure absence does not block a full run.
+  - Round-3 P0/P1: resource boundaries, broad abort lifecycle, zero-attempt guard side-channel, and D2 durable pair-cache recovery remain incomplete.
   - v16 draft ready for targeted independent review on R15-1 and R15-2 closure.
   - v15 targeted review BLOCKED freeze on guard-bootstrap ordering/ownership and two stale references; v16 surgical revision drafted.
   - `guard_bootstrap.py` is post-freeze before G_contract evaluation; inventory lists it but file may not exist pre-freeze.
@@ -502,11 +541,11 @@ retries:
   C0001-T003: 1
 
 next_action: >
-  Integrate frozen v16 preregistration artifacts to the research branch, then
-  delegate C0001-T016 post-freeze implementation, bounded smoke, and independent
-  implementation review. No full audit yet.
+  Execute C0001-T019 from implementation_v16_round3_revision_handoff.md,
+  commit and push runtime/tests before a new round-4 bounded validation, then
+  obtain fresh independent PASS. No closure record or full audit yet.
 
-last_checkpoint_utc: 2026-09-16T10:05:00Z
+last_checkpoint_utc: 2026-09-17T00:00:00Z
 ```
 
 ## Notes
