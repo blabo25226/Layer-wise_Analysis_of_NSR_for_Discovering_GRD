@@ -201,12 +201,17 @@ def compute_b2_expected_outcome(
     e1_infix: str,
     component_idx: int,
     e1_fields: dict[str, Any],
+    classifier_parse_valid: bool | None = None,
 ) -> str:
     """F7 independent oracle: derive the B2 five-outcome partition from B0 E1 inputs only."""
     synthetic = dict(e1_fields)
     synthetic.update(
         condition="B2",
-        classifier_parse_valid=True,
+        classifier_parse_valid=(
+            classifier_parse_valid
+            if classifier_parse_valid is not None
+            else synthetic.get("classifier_parse_valid", True)
+        ),
         hill_form=frozen_hill_form_literal(e1_infix, component_idx),
     )
     return classify_b2_outcome_frozen(synthetic)

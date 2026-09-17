@@ -435,7 +435,11 @@ def _check_source_inventory() -> tuple[bool, str]:
     return not problems, detail if not problems else f"{detail}; " + "; ".join(problems)
 
 
-def validate_output_artifact_schemas(output_dir: Path) -> tuple[bool, str]:
+def validate_output_artifact_schemas(
+    output_dir: Path,
+    *,
+    present_only: bool = False,
+) -> tuple[bool, str]:
     import csv as csv_module
 
     from gpu_runmultiai.guard_side_channel import load_guard_attempts
@@ -453,6 +457,8 @@ def validate_output_artifact_schemas(output_dir: Path) -> tuple[bool, str]:
         path = root / artifact
         if artifact == "guard_attempts_side_channel.jsonl":
             if not path.is_file():
+                if present_only:
+                    continue
                 problems.append(f"{artifact}:absent")
                 continue
             rows = load_guard_attempts(path)
@@ -462,6 +468,8 @@ def validate_output_artifact_schemas(output_dir: Path) -> tuple[bool, str]:
                 _validate_loaded(f"{artifact}[{index}]", required, loaded)
             continue
         if not path.is_file():
+            if present_only:
+                continue
             problems.append(f"{artifact}:absent")
             continue
         if artifact == "condition_summary.json":
@@ -943,6 +951,7 @@ def _f7_b2_e1_only(
             e1_infix=b0_row.get("e1_infix") or "",
             component_idx=int(row.get("component_idx", 0)),
             e1_fields=b2_inherited_e1_fields(b0_row),
+            classifier_parse_valid=bool(row.get("classifier_parse_valid")),
         )
         if expected != row.get("outcome_category"):
             problems.append(

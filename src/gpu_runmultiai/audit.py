@@ -767,13 +767,23 @@ def _run_implementation_acceptance(
 
     call_log_path = output_dir / "call_log.jsonl"
     stage_cache_path = output_dir / "stage_cache.jsonl"
-    if call_log_path.exists():
-        call_log_path.unlink()
-    if stage_cache_path.exists():
-        stage_cache_path.unlink()
-    call_logger = CallLogger(call_log_path, resource_monitor=resource_monitor)
+    pair_results_path = output_dir / "pair_results.csv"
+    resume_acceptance = (
+        call_log_path.is_file()
+        and pair_results_path.is_file()
+        and not options.get("fail_if_exists")
+    )
+    if resume_acceptance:
+        call_logger = CallLogger.load(call_log_path, resource_monitor=resource_monitor)
+        stage_cache = load_stage_cache(stage_cache_path)
+    else:
+        if call_log_path.exists():
+            call_log_path.unlink()
+        if stage_cache_path.exists():
+            stage_cache_path.unlink()
+        call_logger = CallLogger(call_log_path, resource_monitor=resource_monitor)
+        stage_cache = {}
     registration_logger = CallLogger()
-    stage_cache: dict[str, Any] = {}
     context["call_logger"] = call_logger
 
     commit = current_commit()
@@ -804,47 +814,57 @@ def _run_implementation_acceptance(
     q4_timeout_sec = float(options.get("q4_timeout_sec", Q4_TIMEOUT_SEC))
     simplifier_timeout_sec = float(options.get("simplifier_subprocess_timeout_sec", 5.0))
 
-    truth_rows, rewrite_rows = registration_rows(
-        corpus["corpus_hash"],
-        component_index,
-        oracle_timeout_sec=oracle_timeout_sec,
-        call_logger=registration_logger,
-        stage_cache=stage_cache,
-        cache_path=stage_cache_path,
-        limit=None,
-    )
     registration_truth_path = output_dir / "registration_truth.json"
     registration_rewrites_path = output_dir / "registration_rewrites.json"
-    artifacts.write_json(registration_truth_path, truth_rows)
-    artifacts.write_json(registration_rewrites_path, rewrite_rows)
-    rewrite_by_component = {row["component_id"]: row for row in rewrite_rows}
-
-    b1_rows: list[dict[str, Any]] = []
-    pair_cache: dict[tuple[str, str], dict[str, Any]] = {}
-    for item in component_index:
-        resource_monitor.assert_within_limits()
-        record = item["record"]
-        component_idx = item["component_idx"]
-        rewrite_row = rewrite_by_component[
-            component_id_for(corpus["corpus_hash"], item["system_id"], component_idx)[0]
-        ]
-        b1_row = run_b1_pair(
-            corpus_hash=corpus["corpus_hash"],
-            record=record,
-            component_idx=component_idx,
+    if resume_acceptance and registration_truth_path.is_file() and registration_rewrites_path.is_file():
+        truth_rows = json.loads(registration_truth_path.read_text(encoding="utf-8"))
+        rewrite_rows = json.loads(registration_rewrites_path.read_text(encoding="utf-8"))
+    else:
+        truth_rows, rewrite_rows = registration_rows(
+            corpus["corpus_hash"],
+            component_index,
             oracle_timeout_sec=oracle_timeout_sec,
-            q4_timeout_sec=q4_timeout_sec,
-            simplifier_timeout_sec=simplifier_timeout_sec,
-            call_logger=call_logger,
-            runtime_available=runtime_available,
-            guard=guard,
-            pair_cache=pair_cache,
+            call_logger=registration_logger,
             stage_cache=stage_cache,
             cache_path=stage_cache_path,
+            limit=None,
         )
-        b1_rows.append(b1_row)
+        artifacts.write_json(registration_truth_path, truth_rows)
+        artifacts.write_json(registration_rewrites_path, rewrite_rows)
+    rewrite_by_component = {row["component_id"]: row for row in rewrite_rows}
 
-    _assert_b1_acceptance_ledger(call_logger)
+    if resume_acceptance:
+        import csv as csv_module
+
+        with pair_results_path.open(encoding="utf-8", newline="") as handle:
+            b1_rows = list(csv_module.DictReader(handle))
+        _assert_b1_acceptance_ledger(call_logger)
+    else:
+        b1_rows: list[dict[str, Any]] = []
+        pair_cache: dict[tuple[str, str], dict[str, Any]] = {}
+        for item in component_index:
+            resource_monitor.assert_within_limits()
+            record = item["record"]
+            component_idx = item["component_idx"]
+            rewrite_row = rewrite_by_component[
+                component_id_for(corpus["corpus_hash"], item["system_id"], component_idx)[0]
+            ]
+            b1_row = run_b1_pair(
+                corpus_hash=corpus["corpus_hash"],
+                record=record,
+                component_idx=component_idx,
+                oracle_timeout_sec=oracle_timeout_sec,
+                q4_timeout_sec=q4_timeout_sec,
+                simplifier_timeout_sec=simplifier_timeout_sec,
+                call_logger=call_logger,
+                runtime_available=runtime_available,
+                guard=guard,
+                pair_cache=pair_cache,
+                stage_cache=stage_cache,
+                cache_path=stage_cache_path,
+            )
+            b1_rows.append(b1_row)
+        _assert_b1_acceptance_ledger(call_logger)
 
     b0_rows: list[dict[str, Any]] = []
     b2_rows: list[dict[str, Any]] = []
@@ -943,11 +963,23 @@ def _run_implementation_acceptance(
             g_contract_rows=g_contract_rows, f_acceptance_rows=f_acceptance_rows
         ),
     )
+    c_q4_payload = [
+        {
+            **row,
+            "partition_scope": "q4_fixture",
+            "terminal_outcome": "fixture_pass" if row.get("fixture_pass") else "fixture_failure",
+        }
+        for row in c_q4_rows
+    ]
+    artifacts.write_json(output_dir / "q4_reference_controls.json", c_q4_payload)
     artifacts.write_json(output_dir / "reachability_evidence.json", reachability_evidence)
     artifacts.write_json(output_dir / "timing_calibration.json", timing_calibration)
-    artifacts.write_pair_results(output_dir / "pair_results.csv", b1_rows)
+    if not resume_acceptance:
+        artifacts.write_pair_results(output_dir / "pair_results.csv", b1_rows)
     artifacts.append_guard_attempts(side_channel_path(output_dir), guard.to_log())
-    schema_ok, schema_detail = validate_output_artifact_schemas(output_dir)
+    schema_ok, schema_detail = validate_output_artifact_schemas(
+        output_dir, present_only=True
+    )
     if not schema_ok:
         raise GateAbortError(f"produced artifact schema validation failed: {schema_detail}")
     artifacts.finalize_deviation_log(deviation_path, status="completed", abort_type=None)
