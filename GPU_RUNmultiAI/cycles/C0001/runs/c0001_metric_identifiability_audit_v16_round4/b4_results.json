@@ -1,0 +1,20 @@
+[
+  {
+    "component_id": "component_sha256:9c74179cb95b9c59c1172cee61c7c7c0c5547aacb8647faf7c30cfd2823e7fba",
+    "partition_scope": "metric_sanity",
+    "classifier_parse_valid": true,
+    "formula_metrics_valid": true,
+    "canonical_exact": 1.0,
+    "exponent_aware_skeleton_exact": 1.0,
+    "terminal_outcome": "sanity_pass"
+  },
+  {
+    "component_id": "component_sha256:af0f23de15ceb7748182388f6f0d02d43015bf9103ceefc9d88c42552c75e8bd",
+    "partition_scope": "metric_sanity",
+    "classifier_parse_valid": true,
+    "formula_metrics_valid": true,
+    "canonical_exact": 1.0,
+    "exponent_aware_skeleton_exact": 1.0,
+    "terminal_outcome": "sanity_pass"
+  }
+]

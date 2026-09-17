@@ -1,0 +1,28 @@
+[
+  {
+    "pair_id": "pair_sha256:79d827b43aa8435223f5899085e8021695294caad3bb3ea26463741dfee06798",
+    "component_id": "component_sha256:9c74179cb95b9c59c1172cee61c7c7c0c5547aacb8647faf7c30cfd2823e7fba",
+    "partition_scope": "diagnostic",
+    "classifier_parse_valid": true,
+    "formula_metrics_valid": true,
+    "cas_compare_completed": true,
+    "cas_compare_valid": true,
+    "canonical_exact": 0.0,
+    "exponent_aware_skeleton_exact": 1.0,
+    "failure_reason": null,
+    "terminal_outcome": "diagnostic_complete"
+  },
+  {
+    "pair_id": "pair_sha256:fad3a3e04cb992b1cbab42e044022a6b7a62e77a1473a86f6bb25a339e61fb90",
+    "component_id": "component_sha256:af0f23de15ceb7748182388f6f0d02d43015bf9103ceefc9d88c42552c75e8bd",
+    "partition_scope": "diagnostic",
+    "classifier_parse_valid": true,
+    "formula_metrics_valid": true,
+    "cas_compare_completed": true,
+    "cas_compare_valid": true,
+    "canonical_exact": 1.0,
+    "exponent_aware_skeleton_exact": 1.0,
+    "failure_reason": null,
+    "terminal_outcome": "diagnostic_complete"
+  }
+]

@@ -1,0 +1,122 @@
+[
+  {
+    "pair_id": "pair_sha256:79d827b43aa8435223f5899085e8021695294caad3bb3ea26463741dfee06798",
+    "component_id": "component_sha256:9c74179cb95b9c59c1172cee61c7c7c0c5547aacb8647faf7c30cfd2823e7fba",
+    "condition": "B0",
+    "stage": "E1",
+    "reference": "original_truth",
+    "completed": true,
+    "analytic_equivalent": true,
+    "numeric_equivalent": true,
+    "equivalent": true,
+    "failure_reason": null
+  },
+  {
+    "pair_id": "pair_sha256:fad3a3e04cb992b1cbab42e044022a6b7a62e77a1473a86f6bb25a339e61fb90",
+    "component_id": "component_sha256:af0f23de15ceb7748182388f6f0d02d43015bf9103ceefc9d88c42552c75e8bd",
+    "condition": "B0",
+    "stage": "E1",
+    "reference": "original_truth",
+    "completed": true,
+    "analytic_equivalent": true,
+    "numeric_equivalent": true,
+    "equivalent": true,
+    "failure_reason": null
+  },
+  {
+    "pair_id": "pair_sha256:b3db44e85d47a9839ecb6793b6673bc258471e6fbce45f10f955c33a337bf171",
+    "component_id": "component_sha256:9c74179cb95b9c59c1172cee61c7c7c0c5547aacb8647faf7c30cfd2823e7fba",
+    "condition": "B1",
+    "stage": "E1",
+    "reference": "original_truth",
+    "completed": true,
+    "analytic_equivalent": true,
+    "numeric_equivalent": true,
+    "equivalent": true,
+    "failure_reason": null
+  },
+  {
+    "pair_id": "pair_sha256:c9dbaaf30e8b3d2f9b40d4e66c929facf4dcbfc2d080b94ee91650139aa2ba31",
+    "component_id": "component_sha256:af0f23de15ceb7748182388f6f0d02d43015bf9103ceefc9d88c42552c75e8bd",
+    "condition": "B1",
+    "stage": "E1",
+    "reference": "original_truth",
+    "completed": true,
+    "analytic_equivalent": true,
+    "numeric_equivalent": true,
+    "equivalent": true,
+    "failure_reason": null
+  },
+  {
+    "pair_id": "pair_sha256:950ef4f95c079c670bca7635da496e943ce3e701c98f9ae654702ee4bf2e20ae",
+    "component_id": "component_sha256:9c74179cb95b9c59c1172cee61c7c7c0c5547aacb8647faf7c30cfd2823e7fba",
+    "condition": "D2",
+    "stage": "E1",
+    "reference": "original_truth",
+    "completed": true,
+    "analytic_equivalent": true,
+    "numeric_equivalent": true,
+    "equivalent": true,
+    "failure_reason": null
+  },
+  {
+    "pair_id": "pair_sha256:79d827b43aa8435223f5899085e8021695294caad3bb3ea26463741dfee06798",
+    "component_id": "component_sha256:9c74179cb95b9c59c1172cee61c7c7c0c5547aacb8647faf7c30cfd2823e7fba",
+    "condition": "B0",
+    "stage": "E2",
+    "reference": "q4_e1",
+    "completed": true,
+    "analytic_equivalent": true,
+    "numeric_equivalent": true,
+    "equivalent": true,
+    "failure_reason": null
+  },
+  {
+    "pair_id": "pair_sha256:fad3a3e04cb992b1cbab42e044022a6b7a62e77a1473a86f6bb25a339e61fb90",
+    "component_id": "component_sha256:af0f23de15ceb7748182388f6f0d02d43015bf9103ceefc9d88c42552c75e8bd",
+    "condition": "B0",
+    "stage": "E2",
+    "reference": "q4_e1",
+    "completed": true,
+    "analytic_equivalent": true,
+    "numeric_equivalent": true,
+    "equivalent": true,
+    "failure_reason": null
+  },
+  {
+    "pair_id": "pair_sha256:b3db44e85d47a9839ecb6793b6673bc258471e6fbce45f10f955c33a337bf171",
+    "component_id": "component_sha256:9c74179cb95b9c59c1172cee61c7c7c0c5547aacb8647faf7c30cfd2823e7fba",
+    "condition": "B1",
+    "stage": "E2",
+    "reference": "q4_e1",
+    "completed": true,
+    "analytic_equivalent": true,
+    "numeric_equivalent": true,
+    "equivalent": true,
+    "failure_reason": null
+  },
+  {
+    "pair_id": "pair_sha256:c9dbaaf30e8b3d2f9b40d4e66c929facf4dcbfc2d080b94ee91650139aa2ba31",
+    "component_id": "component_sha256:af0f23de15ceb7748182388f6f0d02d43015bf9103ceefc9d88c42552c75e8bd",
+    "condition": "B1",
+    "stage": "E2",
+    "reference": "q4_e1",
+    "completed": true,
+    "analytic_equivalent": true,
+    "numeric_equivalent": true,
+    "equivalent": true,
+    "failure_reason": null
+  },
+  {
+    "pair_id": "pair_sha256:950ef4f95c079c670bca7635da496e943ce3e701c98f9ae654702ee4bf2e20ae",
+    "component_id": "component_sha256:9c74179cb95b9c59c1172cee61c7c7c0c5547aacb8647faf7c30cfd2823e7fba",
+    "condition": "D2",
+    "stage": "E2",
+    "reference": "q4_e1",
+    "completed": true,
+    "analytic_equivalent": true,
+    "numeric_equivalent": true,
+    "equivalent": true,
+    "failure_reason": null
+  }
+]

@@ -1,0 +1,72 @@
+[
+  {
+    "component_id": "component_sha256:9c74179cb95b9c59c1172cee61c7c7c0c5547aacb8647faf7c30cfd2823e7fba",
+    "rewrite_id": "rewrite_sha256:91a3f6eb6ae668bbefd4a9d9cfc0242032549f5e9346450e932c09129bdf4d90",
+    "canonical_key": "audit_rewrite_seed=61003|system_id=R01_train_d61001_000|component_idx=0",
+    "selected_r": 3,
+    "rewrite_prefix": "div,mul,3,add,0.04598,add,mul,mul,2.437,x_0,inv,add,0.4416,x_0,mul,-1,mul,0.8487,x_0,3",
+    "rewrite_infix": "((3*((2299/50000 + (((2437/1000 * x_0) * (1 / (276/625 + x_0))) + (-1 * (8487/10000 * x_0))))))/3)",
+    "lexical_non_identity": true,
+    "precheck_completed": true,
+    "precheck_equivalent": true,
+    "precheck_failure_reason": null,
+    "oracle": {
+      "completed": true,
+      "analytic_equivalent": true,
+      "numeric_equivalent": true,
+      "equivalent": true,
+      "failure_reason": null,
+      "rational_tokens": {
+        "2299/50000": "2299/50000",
+        "2437/1000": "2437/1000",
+        "276/625": "276/625",
+        "-1": "-1",
+        "8487/10000": "8487/10000",
+        "3": "3"
+      },
+      "parsed_rationals": {
+        "2299/50000": "2299/50000",
+        "2437/1000": "2437/1000",
+        "276/625": "276/625",
+        "-1": "-1",
+        "8487/10000": "8487/10000",
+        "3": "3"
+      }
+    },
+    "valid": true
+  },
+  {
+    "component_id": "component_sha256:af0f23de15ceb7748182388f6f0d02d43015bf9103ceefc9d88c42552c75e8bd",
+    "rewrite_id": "rewrite_sha256:36d5c35d0afc72f8ac132de69da4fad307ab5a6d0e7252bf20993586c7e8ad1a",
+    "canonical_key": "audit_rewrite_seed=61003|system_id=R06_train_d61001_000|component_idx=0",
+    "selected_r": 11,
+    "rewrite_prefix": "div,mul,11,add,mul,1.085,inv,add,1.058,x_2,mul,-1,mul,0.7151,x_0,11",
+    "rewrite_infix": "((11*(((217/200 * (1 / (529/500 + x_2))) + (-1 * (7151/10000 * x_0)))))/11)",
+    "lexical_non_identity": true,
+    "precheck_completed": true,
+    "precheck_equivalent": true,
+    "precheck_failure_reason": null,
+    "oracle": {
+      "completed": true,
+      "analytic_equivalent": true,
+      "numeric_equivalent": true,
+      "equivalent": true,
+      "failure_reason": null,
+      "rational_tokens": {
+        "217/200": "217/200",
+        "529/500": "529/500",
+        "-1": "-1",
+        "7151/10000": "7151/10000",
+        "11": "11"
+      },
+      "parsed_rationals": {
+        "217/200": "217/200",
+        "529/500": "529/500",
+        "-1": "-1",
+        "7151/10000": "7151/10000",
+        "11": "11"
+      }
+    },
+    "valid": true
+  }
+]
