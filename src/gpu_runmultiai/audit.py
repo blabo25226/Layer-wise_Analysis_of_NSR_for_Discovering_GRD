@@ -775,7 +775,7 @@ def _run_implementation_acceptance(
     )
     if resume_acceptance:
         call_logger = CallLogger.load(call_log_path, resource_monitor=resource_monitor)
-        stage_cache = load_stage_cache(stage_cache_path)
+        stage_cache = {}
     else:
         if call_log_path.exists():
             call_log_path.unlink()
