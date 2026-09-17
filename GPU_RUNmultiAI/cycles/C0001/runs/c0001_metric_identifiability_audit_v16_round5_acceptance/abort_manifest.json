@@ -1,0 +1,30 @@
+{
+  "status": "aborted",
+  "abort_type": "AuditInvariantError",
+  "abort_reason": "duplicate JSONL key ('q4_decimal_round_reference|C_q4|Q4|fixture|q4_fixture_01',) in /tmp/lansr-multiai-C0001-implement-audit/GPU_RUNmultiAI/cycles/C0001/runs/c0001_metric_identifiability_audit_v16_round5_acceptance/stage_cache.jsonl",
+  "abort_utc": "2026-09-17T16:28:16.539760+00:00",
+  "elapsed_sec": 14.065401614003349,
+  "output_dir_bytes": 6264159,
+  "resource_snapshot": {
+    "elapsed_sec": 14.065401614003349,
+    "output_dir_bytes": 6264159,
+    "elapsed_wall_ceiling_sec": 18000,
+    "output_dir_byte_ceiling": 1200000000,
+    "byte_convention": "decimal_gb",
+    "elapsed_exceeded": false,
+    "bytes_exceeded": false
+  },
+  "confirmatory_calls": 4080,
+  "grand_calls": 4080,
+  "last_durable_call_key": [
+    "formula_metrics_pair",
+    "B1",
+    "E2",
+    "pair",
+    "pair_sha256:9148963ef0021859b6701ea18ca126c7f38ba24da1258eb53e56fcdfc82a2255"
+  ],
+  "last_durable_cache_key": "q4_decimal_round_reference|C_q4|Q4|fixture|q4_fixture_07",
+  "elapsed_wall_ceiling_sec": 18000,
+  "output_dir_byte_ceiling": 1200000000,
+  "byte_convention": "decimal_gb"
+}

@@ -1,0 +1,93 @@
+[
+  {
+    "e1_prefix_input": "mul,0.04598,x_0",
+    "fixture_id": "q4_fixture_01",
+    "fixture_pass": true,
+    "fixture_specific_assertions_pass": true,
+    "partition_scope": "q4_fixture",
+    "q4_construction_completed": true,
+    "q4_construction_failure_reason": null,
+    "q4_emitted_infix": "((0.0460)*(x_0))",
+    "q4_emitted_prefix": "mul,0.0460,x_0",
+    "q4_sympy_expr_canonical": "0.046*x_0",
+    "terminal_outcome": "fixture_pass"
+  },
+  {
+    "e1_prefix_input": "mul,10.0,x_0",
+    "fixture_id": "q4_fixture_02",
+    "fixture_pass": true,
+    "fixture_specific_assertions_pass": true,
+    "partition_scope": "q4_fixture",
+    "q4_construction_completed": true,
+    "q4_construction_failure_reason": null,
+    "q4_emitted_infix": "((10.0000000000000)*(x_0))",
+    "q4_emitted_prefix": "mul,10.0000000000000,x_0",
+    "q4_sympy_expr_canonical": "10.0*x_0",
+    "terminal_outcome": "fixture_pass"
+  },
+  {
+    "e1_prefix_input": "add,add,x_0,x_1,x_2",
+    "fixture_id": "q4_fixture_03",
+    "fixture_pass": true,
+    "fixture_specific_assertions_pass": true,
+    "partition_scope": "q4_fixture",
+    "q4_construction_completed": true,
+    "q4_construction_failure_reason": null,
+    "q4_emitted_infix": "((x_0)+((x_1)+(x_2)))",
+    "q4_emitted_prefix": "add,x_0,add,x_1,x_2",
+    "q4_sympy_expr_canonical": "x_0 + x_1 + x_2",
+    "terminal_outcome": "fixture_pass"
+  },
+  {
+    "e1_prefix_input": "mul,mul,2,x_0,x_1",
+    "fixture_id": "q4_fixture_04",
+    "fixture_pass": true,
+    "fixture_specific_assertions_pass": true,
+    "partition_scope": "q4_fixture",
+    "q4_construction_completed": true,
+    "q4_construction_failure_reason": null,
+    "q4_emitted_infix": "((2)*((x_0)*(x_1)))",
+    "q4_emitted_prefix": "mul,2,mul,x_0,x_1",
+    "q4_sympy_expr_canonical": "2*x_0*x_1",
+    "terminal_outcome": "fixture_pass"
+  },
+  {
+    "e1_prefix_input": "pow2,div,mul,10.0,x_0,10.0",
+    "fixture_id": "q4_fixture_05",
+    "fixture_pass": true,
+    "fixture_specific_assertions_pass": true,
+    "partition_scope": "q4_fixture",
+    "q4_construction_completed": true,
+    "q4_construction_failure_reason": null,
+    "q4_emitted_infix": "((1.00000000000000)*((x_0)**(2)))",
+    "q4_emitted_prefix": "mul,1.00000000000000,pow,x_0,2",
+    "q4_sympy_expr_canonical": "1.0*x_0**2",
+    "terminal_outcome": "fixture_pass"
+  },
+  {
+    "e1_prefix_input": "mul,0.33333,x_0",
+    "fixture_id": "q4_fixture_06",
+    "fixture_pass": true,
+    "fixture_specific_assertions_pass": true,
+    "partition_scope": "q4_fixture",
+    "q4_construction_completed": true,
+    "q4_construction_failure_reason": null,
+    "q4_emitted_infix": "((0.3333)*(x_0))",
+    "q4_emitted_prefix": "mul,0.3333,x_0",
+    "q4_sympy_expr_canonical": "0.3333*x_0",
+    "terminal_outcome": "fixture_pass"
+  },
+  {
+    "e1_prefix_input": "mul,div,1,3,x_0",
+    "fixture_id": "q4_fixture_07",
+    "fixture_pass": true,
+    "fixture_specific_assertions_pass": true,
+    "partition_scope": "q4_fixture",
+    "q4_construction_completed": true,
+    "q4_construction_failure_reason": null,
+    "q4_emitted_infix": "(((1)*((3)**(-1)))*(x_0))",
+    "q4_emitted_prefix": "mul,mul,1,pow,3,-1,x_0",
+    "q4_sympy_expr_canonical": "x_0/3",
+    "terminal_outcome": "fixture_pass"
+  }
+]

@@ -1,0 +1,181 @@
+{
+  "call_type_mean_sec": {
+    "classify_component_flags": 1.217491808347404e-06,
+    "compare_formulas_cas": 0.0017815380124375224,
+    "e0_identity_construct": 9.088544175028801e-07,
+    "formula_metrics_pair": 1.239348785020411e-06,
+    "oracle_equivalence": 0.03621216364990687,
+    "q4_decimal_round_reference": 0.009731259416892298,
+    "scaler_rescale_function": 9.439536370337009e-07,
+    "simplifier_subprocess": 3.19711939819681
+  },
+  "confirmatory_call_ceiling": 27637,
+  "conservative_multiplier": 1.15,
+  "elapsed_wall_ceiling_sec": 18000,
+  "observed_calibration_sec": 67.44914651999716,
+  "projected_full_run_sec": 101613.58697506685,
+  "sampled_component_ids": [
+    {
+      "component_id": "component_sha256:1e3893faaaeed691764a154ef0c7d2f7d0da776345ff1271c4d3039d537f4100",
+      "component_idx": 1,
+      "dimension": 3,
+      "pair_id": "pair_sha256:1073e402f8b34b0efd750573cbd86f6f6347a726d1a0d28d9f6fba8384eeb292",
+      "stratum": "strict_hill",
+      "system_id": "R06_train_d61001_000"
+    },
+    {
+      "component_id": "component_sha256:0070f97eb9c25486767c35d06395c1ab9e637928276072b0790c600a43668b34",
+      "component_idx": 0,
+      "dimension": 2,
+      "pair_id": "pair_sha256:89b96a89c497146a0b2254abd1b2f02ffad7f7420e29b5dd8ec9694138dcd59f",
+      "stratum": "linear",
+      "system_id": "R04_train_d61001_000"
+    },
+    {
+      "component_id": "component_sha256:f41259ecffab2f5762afd3e9dd9dd06ec152f73165ddc16e2795c4b58bc2c0ca",
+      "component_idx": 2,
+      "dimension": 3,
+      "pair_id": "pair_sha256:64928f2c4b482b08a4183788683d3716e3bcd96d3374a58d3f7ba295eaeca050",
+      "stratum": "non_strict_hill",
+      "system_id": "R07_train_d61001_000"
+    },
+    {
+      "component_id": "component_sha256:9c74179cb95b9c59c1172cee61c7c7c0c5547aacb8647faf7c30cfd2823e7fba",
+      "component_idx": 0,
+      "dimension": 1,
+      "pair_id": "pair_sha256:b3db44e85d47a9839ecb6793b6673bc258471e6fbce45f10f955c33a337bf171",
+      "stratum": "strict_hill",
+      "system_id": "R01_train_d61001_000"
+    },
+    {
+      "component_id": "component_sha256:7a293e2cd8d86ceb9f5de56f1813673f701f34a8f9189c32ef474041b0b2ee7c",
+      "component_idx": 0,
+      "dimension": 2,
+      "pair_id": "pair_sha256:84fd67854ed0b584bc08893bbc14bbfaf89dd49ea5e9be9d8ddc21c113c352da",
+      "stratum": "strict_hill",
+      "system_id": "R03_train_d61001_000"
+    },
+    {
+      "component_id": "component_sha256:af0f23de15ceb7748182388f6f0d02d43015bf9103ceefc9d88c42552c75e8bd",
+      "component_idx": 0,
+      "dimension": 3,
+      "pair_id": "pair_sha256:c9dbaaf30e8b3d2f9b40d4e66c929facf4dcbfc2d080b94ee91650139aa2ba31",
+      "stratum": "strict_hill",
+      "system_id": "R06_train_d61001_000"
+    },
+    {
+      "component_id": "component_sha256:95023108fc633e1f9ba58e13b5d393fe82c63962678b26eea048df8ee73e6de9",
+      "component_idx": 0,
+      "dimension": 1,
+      "pair_id": "pair_sha256:9cc85115d9749da4dd85e8b77bd23cf95fe0b51c0bea15531aee239cda5da540",
+      "stratum": "strict_hill",
+      "system_id": "R01_train_d61001_025"
+    },
+    {
+      "component_id": "component_sha256:86507f1c7302453f54e85b878905e8168af83fdfad5bfe3987c0aec24c1a35ad",
+      "component_idx": 0,
+      "dimension": 1,
+      "pair_id": "pair_sha256:7d0cca5c873638cd18594ddf6dac7956d13bca20953b52731e972de70bc792ea",
+      "stratum": "strict_hill",
+      "system_id": "R02_train_d61001_020"
+    },
+    {
+      "component_id": "component_sha256:eff39d579016d3119b9235b27210b0edb731122434c94601d7db91431cc9bb9c",
+      "component_idx": 1,
+      "dimension": 2,
+      "pair_id": "pair_sha256:faa066222ef0f4971fa4264ea97bae09d6e19c6304a6bee28f596bd72101ec7d",
+      "stratum": "strict_hill",
+      "system_id": "R03_train_d61001_007"
+    },
+    {
+      "component_id": "component_sha256:4cae88e572c9000c1010f63a317120dc1a83e7f87cf4bd9859d6e2e84602f333",
+      "component_idx": 0,
+      "dimension": 2,
+      "pair_id": "pair_sha256:7c787f139542dccdd8a279aa8f301626fee5ce8ad44811e35251c3cdde05043d",
+      "stratum": "strict_hill",
+      "system_id": "R03_train_d61001_020"
+    },
+    {
+      "component_id": "component_sha256:192a522bcd93ddafa5990965464b176565d852293614f7330d274718000f2bd8",
+      "component_idx": 1,
+      "dimension": 2,
+      "pair_id": "pair_sha256:b2fb37054e15f45a70f6f71d090fd52e757e9b4254ed61f34b91a9eff8234c3b",
+      "stratum": "strict_hill",
+      "system_id": "R04_train_d61001_002"
+    },
+    {
+      "component_id": "component_sha256:32ad5243d836b439e388bb6d371e91be1f67a351c1409c59d9d048b97e9cc16f",
+      "component_idx": 0,
+      "dimension": 2,
+      "pair_id": "pair_sha256:ac91afc35fcee7b48b916f7b2c6a21f4d501c164585c5a314d27dcaf0e08f1c5",
+      "stratum": "linear",
+      "system_id": "R04_train_d61001_015"
+    },
+    {
+      "component_id": "component_sha256:54a52d5d90c30534836e1c3e960cf87469e2e73155cc03b4a92d8d977a0eafa2",
+      "component_idx": 1,
+      "dimension": 2,
+      "pair_id": "pair_sha256:b58c02cafc80cb297bd0f2d6bdaca9a58f3292ab7dfad04c8c1c98abc02d4e33",
+      "stratum": "strict_hill",
+      "system_id": "R04_train_d61001_027"
+    },
+    {
+      "component_id": "component_sha256:7e1bf98f6d6eaca22456f6677ac4d8ff4f248e1c6e2ab2a555af2d9e09994025",
+      "component_idx": 0,
+      "dimension": 2,
+      "pair_id": "pair_sha256:3f89b4199c7e21f627840176363e02cd6239741408d3fd4ee25c66dc7682de69",
+      "stratum": "strict_hill",
+      "system_id": "R05_train_d61001_010"
+    },
+    {
+      "component_id": "component_sha256:396146019f437d4971017d83c1fc06da04c498a4423f535556d35650f20bbeb0",
+      "component_idx": 1,
+      "dimension": 2,
+      "pair_id": "pair_sha256:f2eb3ff0d608551b3e0b7d4fe081430fd494703ad23a8c114f51d1535d787e7e",
+      "stratum": "strict_hill",
+      "system_id": "R05_train_d61001_022"
+    },
+    {
+      "component_id": "component_sha256:0fd57c697c8ceef8a225de00456cdb478cbace4a9af0ba3036c161e1e8a2c1b6",
+      "component_idx": 1,
+      "dimension": 3,
+      "pair_id": "pair_sha256:26b8923850a7f2f6530d52b03d97d0f312a7e9409ddc9014c5997152deb82367",
+      "stratum": "strict_hill",
+      "system_id": "R06_train_d61001_003"
+    },
+    {
+      "component_id": "component_sha256:442a61e576240f702aac08948bdc5d7be99faa1bf94bc7859f7a5dd6b5bc580c",
+      "component_idx": 2,
+      "dimension": 3,
+      "pair_id": "pair_sha256:734d32a6eeed05ef9d4cf81aecba5e1bc1ef3fa2fb0d60d5a91018bc51bab756",
+      "stratum": "strict_hill",
+      "system_id": "R06_train_d61001_011"
+    },
+    {
+      "component_id": "component_sha256:d9bc6687933cb7b8a312b905d612596b43368b30c2f3ee60c0b00b6e3eb2a104",
+      "component_idx": 0,
+      "dimension": 3,
+      "pair_id": "pair_sha256:b418e4c61215f2a00a9778cfa8b4f8eacb3a9c3f91f439611be693cd55871134",
+      "stratum": "strict_hill",
+      "system_id": "R06_train_d61001_020"
+    },
+    {
+      "component_id": "component_sha256:14dacb14e9452984a70b9e04b22575b03aceedf5db2e05bb397b72351281077a",
+      "component_idx": 1,
+      "dimension": 3,
+      "pair_id": "pair_sha256:2d0f76d85c24e77d10a9becf873fb394a4b905186c47e1fda9160667a3e147f8",
+      "stratum": "strict_hill",
+      "system_id": "R06_train_d61001_028"
+    },
+    {
+      "component_id": "component_sha256:83265fea3137dab2ec6491817a505a29179679fe4e8b32d37b4133c35ff2efd3",
+      "component_idx": 2,
+      "dimension": 3,
+      "pair_id": "pair_sha256:ae835da31f7589894e82eb57dbf5f58e79e291c2ed16dda051c594f8509ffa88",
+      "stratum": "non_strict_hill",
+      "system_id": "R07_train_d61001_006"
+    }
+  ],
+  "sampled_components": 20,
+  "status": "BLOCK"
+}

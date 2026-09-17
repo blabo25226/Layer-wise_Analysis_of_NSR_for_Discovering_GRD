@@ -1,0 +1,39 @@
+{
+  "abort_manifest_path": "GPU_RUNmultiAI/cycles/C0001/runs/c0001_metric_identifiability_audit_v16_round5_acceptance/abort_manifest.json",
+  "abort_reason": "duplicate JSONL key ('q4_decimal_round_reference|C_q4|Q4|fixture|q4_fixture_01',) in /tmp/lansr-multiai-C0001-implement-audit/GPU_RUNmultiAI/cycles/C0001/runs/c0001_metric_identifiability_audit_v16_round5_acceptance/stage_cache.jsonl",
+  "abort_type": "AuditInvariantError",
+  "abort_utc": "2026-09-17T16:28:16.539760+00:00",
+  "audit_id": "c0001_metric_identifiability_audit_v16",
+  "b1_rows": 510,
+  "completed_utc": "2026-09-17T16:33:31.230965+00:00",
+  "confirmatory_calls": 4080,
+  "f_acceptance": {
+    "F1": true,
+    "F2": true,
+    "F4": true,
+    "F5": true,
+    "F6": true,
+    "F7": true,
+    "F8": true
+  },
+  "f_acceptance_pass": true,
+  "g_contract_evidence": {
+    "abort_deviation_lifecycle": true,
+    "artifact_schemas": true,
+    "guard_bootstrap": true,
+    "jsonl_recovery": true,
+    "q4_fixtures": true,
+    "resume_mismatch": true,
+    "source_inventory": true
+  },
+  "g_contract_pass": true,
+  "grand_calls": 4080,
+  "plan_hash": "67017f5c8bac861664fc867b70cf229d43be3d052d266ffd0d575e20e6c12078",
+  "started_utc": "2026-09-17T16:28:02.471479+00:00",
+  "status": "completed",
+  "timing_calibration_status": "BLOCK",
+  "validity_gates": {
+    "G_contract": true,
+    "G_impl": true
+  }
+}
