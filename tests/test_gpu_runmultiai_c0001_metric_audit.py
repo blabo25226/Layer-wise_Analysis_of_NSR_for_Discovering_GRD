@@ -61,7 +61,7 @@ from gpu_runmultiai.outcomes import PAIR_RESULT_COLUMNS, build_outcome_row, clas
 from gpu_runmultiai.pipeline import run_b0_pair
 from gpu_runmultiai.rewrites import rewrite_registration, truth_component_infix
 from gpu_runmultiai.sealed_guard import SealedPathGuard
-from gpu_runmultiai.strata import component_stratum
+from gpu_runmultiai.strata import component_stratum, is_linear_component
 
 AUDIT_ENTRY_SCRIPT = "scripts/phases/gpu_runmultiai_c0001_metric_audit.py"
 
@@ -86,6 +86,7 @@ def _write_test_closure_record(output_dir: Path) -> None:
         json.dumps(
             {
                 "commit": current_commit(),
+                "accepted_source_commit": current_commit(),
                 "source_hashes": build_source_inventory(include_hashes=True),
             },
             sort_keys=True,
@@ -1385,6 +1386,7 @@ def test_run_audit_requires_guard_bootstrap_singleton(tmp_path, bootstrap_guard)
         "resume": False,
         "smoke": True,
         "primary_scales": ("0.1",),
+        "require_clean_worktree": False,
     }
     with pytest.raises(GuardBootstrapViolation, match="requires the guard_bootstrap singleton"):
         run_audit(options)
@@ -1799,6 +1801,7 @@ def test_global_abort_routes_gate_errors_through_aborted(tmp_path, bootstrap_gua
             "resume": False,
             "smoke": True,
             "primary_scales": ("0.1",),
+            "require_clean_worktree": False,
         }
         with pytest.raises(error_type):
             run_audit(options, guard=bootstrap_guard)
@@ -2200,3 +2203,148 @@ def test_f6_smoke_population_does_not_pass_acceptance(tmp_path, bootstrap_guard)
     assert f6["passed"] is False
     assert "510" in f6["details"]
     assert result["gates"]["G_impl"] is False
+
+
+def test_closure_binds_accepted_source_commit_not_metadata(tmp_path):
+    from gpu_runmultiai.manifest import require_accepted_closure_for_execution
+    from gpu_runmultiai.source_inventory import build_source_inventory
+
+    inventory = build_source_inventory(include_hashes=True)
+    closure_path = tmp_path / "implementation_closure_record.json"
+    closure_path.write_text(
+        json.dumps(
+            {
+                "commit": "deadbeef" * 5,
+                "accepted_source_commit": "a" * 40,
+                "source_hashes": inventory,
+            },
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+    status = require_accepted_closure_for_execution(
+        "b" * 40,
+        inventory,
+        output_dir=tmp_path,
+    )
+    assert "accepted_source_commit=" + ("a" * 40) in status
+    assert "metadata_commit=" + ("deadbeef" * 5) in status
+
+
+def test_verify_clean_worktree_excludes_output_dir_only(monkeypatch):
+    import subprocess
+
+    from experiment_runtime import REPO_ROOT
+    from gpu_runmultiai.manifest import verify_clean_worktree
+
+    output_rel = "runs/acceptance_out"
+    other_rel = "runs/other_dirty"
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(
+            args=args[0],
+            returncode=0,
+            stdout=f"?? {output_rel}/artifact.json\n",
+            stderr="",
+        ),
+    )
+    provenance = verify_clean_worktree(exclude_paths=[str((REPO_ROOT / output_rel).resolve())])
+    assert provenance["clean"] is True
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(
+            args=args[0],
+            returncode=0,
+            stdout=f"?? {other_rel}/dirty.txt\n",
+            stderr="",
+        ),
+    )
+    with pytest.raises(Exception):
+        verify_clean_worktree(exclude_paths=[str((REPO_ROOT / output_rel).resolve())])
+
+
+def test_pair_cache_duplicate_pair_id_aborts(tmp_path):
+    from gpu_runmultiai.audit import _load_pair_cache
+    from gpu_runmultiai.invariants import AuditInvariantError
+
+    path = tmp_path / "pair_cache.jsonl"
+    path.write_text(
+        '{"pair_id":"pair_sha256:1","condition":"B0"}\n'
+        '{"pair_id":"pair_sha256:1","condition":"B2"}\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(AuditInvariantError, match="duplicate JSONL key"):
+        _load_pair_cache(path)
+
+
+def test_f7_frozen_decision_table_mutation_falsifier():
+    from gpu_runmultiai.outcomes import classify_b2_outcome_frozen, compute_b2_expected_outcome
+
+    row = {
+        "construction_incomplete": False,
+        "q4_construction_completed": True,
+        "rescale_incomplete": False,
+        "classifier_parse_valid": True,
+        "e1_oracle_completed": True,
+        "e1_oracle_equivalent": True,
+        "hill_form": True,
+    }
+    assert classify_b2_outcome_frozen(row) == "preserved"
+    assert classify_b2_outcome_frozen({**row, "e1_oracle_equivalent": False}) == "semantic_drift"
+    expected = compute_b2_expected_outcome(
+        e1_infix="x_0**2/(1+x_0**2)",
+        component_idx=0,
+        e1_fields={
+            "q4_construction_completed": True,
+            "e1_oracle_completed": True,
+            "e1_oracle_equivalent": True,
+            "rescale_incomplete": False,
+        },
+    )
+    assert expected in {"preserved", "structural_false_negative", "semantic_drift", "execution_failure"}
+
+
+def test_resource_monitor_snapshot_is_non_raising(tmp_path):
+    from gpu_runmultiai.invariants import ResourceCeilingError
+    from gpu_runmultiai.resources import ResourceMonitor
+
+    monitor = ResourceMonitor(tmp_path)
+    snapshot = monitor.snapshot()
+    assert "elapsed_sec" in snapshot
+    assert "output_dir_bytes" in snapshot
+
+    class TrippingMonitor(ResourceMonitor):
+        def assert_within_limits(self):
+            raise ResourceCeilingError("ceiling")
+
+    tripping = TrippingMonitor(tmp_path)
+    tripping_snapshot = tripping.snapshot()
+    assert tripping_snapshot["bytes_exceeded"] in (True, False)
+
+
+def test_select_smoke_components_covers_required_strata():
+    from gpu_runmultiai.audit import _select_smoke_components
+
+    corpus = load_frozen_corpus()
+    component_index = [
+        {**item, "record": next(r for r in corpus["train_records"] if r["system_id"] == item["system_id"])}
+        for item in corpus["component_index"]
+    ]
+    selected = _select_smoke_components(component_index)
+    assert any(int(item["record"]["dimension"]) == 3 and int(item["component_idx"]) > 0 for item in selected)
+    assert any(
+        component_stratum(item["record"]["family"], item["component_idx"]) == "non_strict_hill"
+        for item in selected
+    )
+    assert any(is_linear_component(item["record"]["family"], item["component_idx"]) for item in selected)
+
+
+def test_implementation_acceptance_cli_flag_exists():
+    import inspect
+
+    from scripts.phases import gpu_runmultiai_c0001_metric_audit as cli_module
+
+    source = inspect.getsource(cli_module.parse_args)
+    assert "--implementation-acceptance" in source

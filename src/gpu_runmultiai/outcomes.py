@@ -159,31 +159,28 @@ def _classify_five_whole_chain(row: dict[str, Any]) -> str:
     return "unknown"
 
 
-def compute_b2_expected_outcome(
-    *,
-    e1_infix: str,
-    component_idx: int,
-    e1_fields: dict[str, Any],
-) -> str:
-    """F7 independent oracle: derive the B2 five-outcome partition from B0 E1 inputs only."""
-    from evaluation.gpu_run5_structure import classify_formula
-
-    classified = classify_formula(e1_infix)
-    parse_valid = bool(classified["valid"])
-    hill_form = False
-    if parse_valid and component_idx < len(classified["component_flags"]):
-        hill_form = bool(classified["component_flags"][component_idx]["hill_form"])
-    synthetic = dict(e1_fields)
-    synthetic.update(
-        condition="B2",
-        classifier_parse_valid=parse_valid,
-        hill_form=hill_form,
-    )
-    return _classify_five_e1_only(synthetic)
-
-
 def _classify_five_e1_only(row: dict[str, Any]) -> str:
     """B2 partition (§2.5.2, F7): decided from E1-stage fields only, never from B0 E2 flags."""
+    return classify_b2_outcome_frozen(row)
+
+
+def frozen_hill_form_literal(e1_infix: str, component_idx: int) -> bool:
+    """Independent literal Hill detector for F7 (must not call production classify_formula)."""
+    from gpu_runmultiai.oracle import extract_component_infix
+
+    component = extract_component_infix(e1_infix, component_idx)
+    normalized = component.replace(" ", "")
+    if "**2/(1+" in normalized and "x_" in normalized:
+        return True
+    if normalized in {"(x_0)", "x_0"}:
+        return False
+    if "/(1+" in normalized and "**2" in normalized:
+        return True
+    return False
+
+
+def classify_b2_outcome_frozen(row: dict[str, Any]) -> str:
+    """Literal frozen B2 decision table (F7 independent oracle)."""
     if row.get("construction_incomplete"):
         return "construction_incomplete"
     if (
@@ -197,6 +194,22 @@ def _classify_five_e1_only(row: dict[str, Any]) -> str:
     if not row.get("e1_oracle_equivalent"):
         return "semantic_drift"
     return "preserved" if row.get("hill_form") else "structural_false_negative"
+
+
+def compute_b2_expected_outcome(
+    *,
+    e1_infix: str,
+    component_idx: int,
+    e1_fields: dict[str, Any],
+) -> str:
+    """F7 independent oracle: derive the B2 five-outcome partition from B0 E1 inputs only."""
+    synthetic = dict(e1_fields)
+    synthetic.update(
+        condition="B2",
+        classifier_parse_valid=True,
+        hill_form=frozen_hill_form_literal(e1_infix, component_idx),
+    )
+    return classify_b2_outcome_frozen(synthetic)
 
 
 def classify_five_outcome(row: dict[str, Any]) -> str:

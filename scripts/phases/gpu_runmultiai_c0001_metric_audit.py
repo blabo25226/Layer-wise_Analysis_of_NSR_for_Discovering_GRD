@@ -36,6 +36,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--fail-if-exists", action="store_true")
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--smoke", action="store_true", help="Bounded developer smoke; not part of confirmatory CLI identity")
+    parser.add_argument(
+        "--implementation-acceptance",
+        action="store_true",
+        help="Pre-closure 510-row B1 acceptance path with dedicated 4080-call ledger",
+    )
     return parser.parse_args()
 
 
@@ -107,6 +112,8 @@ def main() -> int:
         )
     if args.cas_timeout_sec != CAS_TIMEOUT_SEC:
         raise SystemExit(f"cas-timeout-sec must be {CAS_TIMEOUT_SEC}")
+    if args.smoke and args.implementation_acceptance:
+        raise SystemExit("--smoke and --implementation-acceptance are mutually exclusive")
     options = {
         "audit_id": args.audit_id,
         "output_dir": args.output_dir,
@@ -123,6 +130,7 @@ def main() -> int:
         "fail_if_exists": args.fail_if_exists,
         "resume": args.resume,
         "smoke": args.smoke,
+        "implementation_acceptance": args.implementation_acceptance,
         "primary_scales": PRIMARY_SCALES,
     }
     run_audit(options, guard=guard)

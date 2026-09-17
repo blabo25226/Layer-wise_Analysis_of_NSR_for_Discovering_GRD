@@ -288,3 +288,81 @@ def install_guard_from_entry(entry_script_path: str) -> BootstrapGuardHandle:
     handle.install()
     _INSTALLED_GUARD = handle
     return handle
+
+
+def probe_import_order_subprocess(
+    *,
+    repo_root: str,
+    module_name: str,
+    entry_script: str,
+) -> tuple[bool, str]:
+    """Fresh subprocess: importing a package before guard leaves sealed paths unprotected."""
+    import subprocess
+    import sys
+
+    code = f"""
+import os
+import sys
+from pathlib import Path
+repo = {repo_root!r}
+entry = {entry_script!r}
+sys.path.insert(0, repo)
+sys.path.insert(0, str(Path(repo) / "src"))
+output_root = Path(repo) / "results" / "runs"
+denied = output_root / "gpu_run5_probe" / "test" / "rows.json"
+denied.parent.mkdir(parents=True, exist_ok=True)
+denied.write_text("[]", encoding="utf-8")
+import {module_name}
+try:
+    open(denied, encoding="utf-8").read()
+except PermissionError:
+    print("UNEXPECTED_BLOCK")
+    raise SystemExit(1)
+from scripts.phases.guard_bootstrap import install_guard_from_entry
+install_guard_from_entry(entry)
+try:
+    open(denied, encoding="utf-8").read()
+    print("UNPROTECTED_BEFORE_GUARD")
+    raise SystemExit(1)
+except PermissionError:
+    print("BLOCKED_AFTER_GUARD")
+    raise SystemExit(0)
+"""
+    completed = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+    )
+    if completed.returncode == 0 and "BLOCKED_AFTER_GUARD" in completed.stdout:
+        return True, f"{module_name}:late_import_then_guard_blocks"
+    return False, f"{module_name}:returncode={completed.returncode} stdout={completed.stdout!r} stderr={completed.stderr!r}"
+
+
+def probe_child_import_order_subprocess(*, repo_root: str, entry_script: str) -> tuple[bool, str]:
+    """Child worker installs guard before gpu_runmultiai imports in a fresh subprocess."""
+    import subprocess
+    import sys
+
+    worker = Path(repo_root) / "src/gpu_runmultiai/simplifier_worker.py"
+    code = f"""
+import runpy
+import sys
+from pathlib import Path
+sys.path.insert(0, {repo_root!r})
+sys.path.insert(0, {str(Path(repo_root) / "src")!r})
+source = Path({str(worker)!r}).read_text(encoding="utf-8")
+assert "install_guard_from_entry" in source
+assert source.find("install_guard_from_entry") < source.find("from gpu_runmultiai")
+runpy.run_path({str(worker)!r}, run_name="__probe__")
+print("WORKER_OK")
+"""
+    completed = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+    )
+    if completed.returncode == 0 and "WORKER_OK" in completed.stdout:
+        return True, "worker_guard_before_package_import"
+    return False, f"returncode={completed.returncode} stdout={completed.stdout!r} stderr={completed.stderr!r}"

@@ -318,6 +318,8 @@ def _guard_install_before_package_imports(source: str, *, entry_main_only: bool 
 
 
 def _check_guard_import_order() -> tuple[bool, str]:
+    from scripts.phases import guard_bootstrap as gb
+
     problems: list[str] = []
     entry = REPO_ROOT / "scripts/phases/gpu_runmultiai_c0001_metric_audit.py"
     worker = REPO_ROOT / "src/gpu_runmultiai/simplifier_worker.py"
@@ -325,6 +327,20 @@ def _check_guard_import_order() -> tuple[bool, str]:
         problems.append(f"{entry}:guard_must_install_before_package_imports")
     if not _guard_install_before_package_imports(worker.read_text(encoding="utf-8")):
         problems.append(f"{worker}:guard_must_install_before_package_imports")
+    for module_name in ("gpu_runmultiai", "experiment_runtime"):
+        ok, detail = gb.probe_import_order_subprocess(
+            repo_root=str(REPO_ROOT),
+            module_name=module_name,
+            entry_script=str(entry),
+        )
+        if not ok:
+            problems.append(f"parent_probe_{module_name}:{detail}")
+    ok, detail = gb.probe_child_import_order_subprocess(
+        repo_root=str(REPO_ROOT),
+        entry_script=str(entry),
+    )
+    if not ok:
+        problems.append(f"child_probe:{detail}")
     return not problems, "ok" if not problems else "; ".join(problems)
 
 
@@ -420,7 +436,10 @@ def _check_source_inventory() -> tuple[bool, str]:
 
 
 def validate_output_artifact_schemas(output_dir: Path) -> tuple[bool, str]:
+    import csv as csv_module
+
     from gpu_runmultiai.guard_side_channel import load_guard_attempts
+    from gpu_runmultiai.outcomes import PAIR_RESULT_COLUMNS
 
     problems: list[str] = []
     root = Path(output_dir)
@@ -437,8 +456,10 @@ def validate_output_artifact_schemas(output_dir: Path) -> tuple[bool, str]:
                 problems.append(f"{artifact}:absent")
                 continue
             rows = load_guard_attempts(path)
-            if rows:
-                _validate_loaded(artifact, required, rows[0])
+            if not rows:
+                continue
+            for index, loaded in enumerate(rows):
+                _validate_loaded(f"{artifact}[{index}]", required, loaded)
             continue
         if not path.is_file():
             problems.append(f"{artifact}:absent")
@@ -452,9 +473,41 @@ def validate_output_artifact_schemas(output_dir: Path) -> tuple[bool, str]:
         if not rows:
             problems.append(f"{artifact}:empty")
             continue
-        _validate_loaded(artifact, required, rows[0])
+        for index, loaded in enumerate(rows):
+            _validate_loaded(f"{artifact}[{index}]", required, loaded)
+
+    pair_results = root / "pair_results.csv"
+    if pair_results.is_file():
+        with pair_results.open(encoding="utf-8", newline="") as handle:
+            reader = csv_module.DictReader(handle)
+            if reader.fieldnames is None:
+                problems.append("pair_results.csv:missing_header")
+            else:
+                missing_cols = [column for column in PAIR_RESULT_COLUMNS if column not in reader.fieldnames]
+                if missing_cols:
+                    problems.append(f"pair_results.csv:missing_columns={missing_cols}")
+                for index, row in enumerate(reader):
+                    for column in PAIR_RESULT_COLUMNS:
+                        if column not in row:
+                            problems.append(f"pair_results.csv[{index}]:missing={column}")
+
+    call_log = root / "call_log.jsonl"
+    if call_log.is_file():
+        required_call_keys = ("primitive", "condition", "stage", "unit_type", "unit_id", "status")
+        for index, line in enumerate(call_log.read_text(encoding="utf-8").splitlines(), start=1):
+            if not line.strip():
+                continue
+            try:
+                loaded = json.loads(line)
+            except json.JSONDecodeError:
+                problems.append(f"call_log.jsonl[{index}]:malformed")
+                continue
+            missing = [key for key in required_call_keys if key not in loaded]
+            if missing:
+                problems.append(f"call_log.jsonl[{index}]:missing={missing}")
+
     detail = f"output_artifacts={len(ARTIFACT_ROW_SCHEMAS)}"
-    return not problems, detail if not problems else f"{detail}; " + "; ".join(problems)
+    return not problems, detail if not problems else f"{detail}; " + "; ".join(problems[:12])
 
 
 def _check_artifact_schemas() -> tuple[bool, str]:
@@ -736,7 +789,24 @@ def _f1_e0_rational_forward(b0_rows: list[dict[str, Any]]) -> tuple[bool, str]:
     missing_scales = [scale for scale in PRIMARY_SCALES if scale not in executed]
     if missing_scales:
         problems.append(f"missing_primary_scales={missing_scales}")
-    detail = f"executed_scales={sorted(executed)} persisted_scales={sorted({str(row.get('scale')) for row in b0_rows})}"
+    per_scale: dict[str, dict[str, Any]] = {}
+    for scale, row in executed.items():
+        per_scale[scale] = {
+            "analytic_equivalent": row.get("e1_analytic_equivalent"),
+            "numeric_equivalent": row.get("e1_numeric_equivalent"),
+            "oracle_equivalent": row.get("e1_oracle_equivalent"),
+            "e0_has_rational_pow": "pow" in (row.get("e0_prefix_raw") or ""),
+        }
+        if not row.get("e1_analytic_equivalent") or not row.get("e1_numeric_equivalent"):
+            problems.append(f"scale={scale}:e1_not_equivalent")
+    detail = json.dumps(
+        {
+            "executed_scales": sorted(executed),
+            "persisted_scales": sorted({str(row.get("scale")) for row in b0_rows}),
+            "per_scale": per_scale,
+        },
+        sort_keys=True,
+    )
     return not problems, detail if not problems else f"{detail}; " + "; ".join(problems[:8])
 
 
@@ -767,11 +837,18 @@ def _f4_round_trip_acceptance(b0_rows: list[dict[str, Any]]) -> tuple[bool, str]
     problems: list[str] = []
     executed, exec_problems = _execute_primary_scale_b0_rows()
     problems.extend(exec_problems)
+    per_scale: dict[str, dict[str, Any]] = {}
     for scale in PRIMARY_SCALES:
         row = executed.get(scale)
         if row is None:
             problems.append(f"scale={scale}:not_executed")
             continue
+        per_scale[scale] = {
+            "oracle_completed": row.get("e1_oracle_completed"),
+            "oracle_equivalent": row.get("e1_oracle_equivalent"),
+            "analytic_equivalent": row.get("e1_analytic_equivalent"),
+            "numeric_equivalent": row.get("e1_numeric_equivalent"),
+        }
         if not (
             row.get("e1_oracle_completed")
             and row.get("e1_oracle_equivalent")
@@ -779,7 +856,14 @@ def _f4_round_trip_acceptance(b0_rows: list[dict[str, Any]]) -> tuple[bool, str]
             and row.get("e1_numeric_equivalent") is True
         ):
             problems.append(f"scale={scale}:e1_round_trip_failed")
-    detail = f"executed_scales={sorted(executed)} persisted_scales={sorted({str(row.get('scale')) for row in b0_rows})}"
+    detail = json.dumps(
+        {
+            "executed_scales": sorted(executed),
+            "persisted_scales": sorted({str(row.get("scale")) for row in b0_rows}),
+            "per_scale": per_scale,
+        },
+        sort_keys=True,
+    )
     return not problems, detail if not problems else f"{detail}; " + "; ".join(problems[:8])
 
 
@@ -837,6 +921,7 @@ def _f7_b2_e1_only(
     *,
     b0_rows: list[dict[str, Any]] | None = None,
 ) -> tuple[bool, str]:
+    from gpu_runmultiai.outcomes import classify_b2_outcome_frozen
     from gpu_runmultiai.pipeline import B2_FORBIDDEN_INHERITED_FIELDS
 
     forbidden_e2 = tuple(
@@ -866,7 +951,15 @@ def _f7_b2_e1_only(
         if row.get("outcome_category") not in FIVE_OUTCOME_CATEGORIES:
             problems.append(f"{row.get('pair_id')}:illegal={row.get('outcome_category')}")
     detail = f"b2_rows={len(b2_rows)} b0_sources={len(b0_by_pair)}"
-    return not problems, detail if not problems else f"{detail}; " + "; ".join(problems[:5])
+    if problems:
+        return False, f"{detail}; " + "; ".join(problems[:5])
+    # Mutation falsifier: perturbing the frozen table must disagree with production rows.
+    if b2_rows:
+        sample = b2_rows[0]
+        mutated = classify_b2_outcome_frozen({**sample, "e1_oracle_equivalent": False})
+        if mutated == sample.get("outcome_category"):
+            problems.append("mutation_falsifier_did_not_change_outcome")
+    return not problems, detail if not problems else f"{detail}; " + "; ".join(problems)
 
 
 def _f8_shared_component_split() -> tuple[bool, str]:

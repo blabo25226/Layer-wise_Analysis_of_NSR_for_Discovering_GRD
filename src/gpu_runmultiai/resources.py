@@ -25,6 +25,18 @@ class ResourceMonitor:
     def dir_bytes(self) -> int:
         return _directory_size_bytes(self._output_dir)
 
+    def snapshot(self) -> dict[str, Any]:
+        """Non-raising resource measurement for abort evidence after a ceiling breach."""
+        return {
+            "elapsed_sec": self.elapsed_sec(),
+            "output_dir_bytes": self.dir_bytes(),
+            "elapsed_wall_ceiling_sec": CPU_WALL_LIMIT_SEC,
+            "output_dir_byte_ceiling": DISK_LIMIT_BYTES,
+            "byte_convention": BYTE_CONVENTION,
+            "elapsed_exceeded": self.elapsed_sec() > CPU_WALL_LIMIT_SEC,
+            "bytes_exceeded": self.dir_bytes() > DISK_LIMIT_BYTES,
+        }
+
     def assert_within_limits(self) -> None:
         if self.elapsed_sec() > CPU_WALL_LIMIT_SEC:
             raise ResourceCeilingError(

@@ -95,9 +95,9 @@ from gpu_runmultiai.pipeline import (
 )
 from gpu_runmultiai.q4_reference import Q4ContractError
 from gpu_runmultiai.reachability import build_reachability_evidence
-from gpu_runmultiai.stage_cache import load_stage_cache
+from gpu_runmultiai.stage_cache import append_stage_cache, load_stage_cache
 from gpu_runmultiai.source_inventory import build_source_inventory
-from gpu_runmultiai.strata import component_stratum, is_strict_hill_component
+from gpu_runmultiai.strata import component_stratum, is_linear_component, is_strict_hill_component
 
 from gpu_runmultiai.calls import PRIMITIVE_TABLE
 from gpu_runmultiai.constants import (
@@ -188,6 +188,25 @@ class ArtifactWriter:
         finalize_deviation_log(path, status=status, abort_type=abort_type)
         self._resource_monitor.assert_within_limits()
 
+    def append_stage_cache(self, path: Path, *, cache_key_value: str, payload: Any) -> None:
+        self._resource_monitor.assert_within_limits()
+        append_stage_cache(path, cache_key_value=cache_key_value, payload=payload)
+        self._resource_monitor.assert_within_limits()
+
+    def init_deviation_log(self, path: Path) -> None:
+        self._resource_monitor.assert_within_limits()
+        init_deviation_log(path)
+        self._resource_monitor.assert_within_limits()
+
+    def ensure_guard_side_channel(self, path: Path) -> None:
+        self._resource_monitor.assert_within_limits()
+        ensure_guard_side_channel(path)
+        self._resource_monitor.assert_within_limits()
+
+    def write_abort_manifest(self, path: Path, payload: dict[str, Any]) -> None:
+        self._resource_monitor.snapshot()
+        write_json(path, payload)
+
     def write_atomic_manifest(self, path: Path, payload: dict[str, Any]) -> None:
         self._resource_monitor.assert_within_limits()
         _write_atomic_manifest(path, payload)
@@ -195,17 +214,48 @@ class ArtifactWriter:
 
 
 def _select_smoke_components(component_index: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Bounded validation: include one d=1 and one live d=3 multi-component system."""
+    """Bounded validation: d=1, d=3 with component_idx>0, secondary Hill, and linear control."""
+    selected: list[dict[str, Any]] = []
+    seen: set[tuple[str, int]] = set()
+
+    def _add(item: dict[str, Any]) -> None:
+        key = (item["system_id"], int(item["component_idx"]))
+        if key in seen:
+            return
+        seen.add(key)
+        selected.append(item)
+
     by_dimension: dict[int, list[dict[str, Any]]] = {}
     for item in component_index:
         by_dimension.setdefault(int(item["record"]["dimension"]), []).append(item)
-    selected: list[dict[str, Any]] = []
     if 1 in by_dimension:
-        selected.append(by_dimension[1][0])
-    if 3 in by_dimension:
-        selected.append(by_dimension[3][0])
+        _add(by_dimension[1][0])
+    d3_secondary = [
+        item for item in by_dimension.get(3, []) if int(item["component_idx"]) > 0
+    ]
+    if d3_secondary:
+        _add(d3_secondary[0])
+    elif 3 in by_dimension:
+        _add(by_dimension[3][0])
+    secondary_hill = [
+        item
+        for item in component_index
+        if component_stratum(item["record"]["family"], item["component_idx"]) == "non_strict_hill"
+    ]
+    if secondary_hill:
+        _add(secondary_hill[0])
+    linear = [
+        item
+        for item in component_index
+        if is_linear_component(item["record"]["family"], item["component_idx"])
+    ]
+    if linear:
+        _add(linear[0])
     if len(selected) < 2:
-        selected = component_index[:2]
+        for item in component_index:
+            _add(item)
+            if len(selected) >= 2:
+                break
     return selected
 
 
@@ -245,16 +295,46 @@ def _pair_cache_key(condition: str, pair_id: str) -> tuple[str, str]:
     return (condition, pair_id)
 
 
-def _load_pair_cache(path: Path) -> dict[tuple[str, str], dict[str, Any]]:
+def _load_pair_cache(path: Path) -> dict[str, dict[str, Any]]:
     rows = load_jsonl(
         path,
-        key_fn=lambda row: (row.get("condition"), row.get("pair_id")),
+        key_fn=lambda row: (row.get("pair_id"),),
     )
     return {
-        (str(row["condition"]), str(row["pair_id"])): row
+        str(row["pair_id"]): row
         for row in rows
-        if row.get("pair_id") and row.get("condition")
+        if row.get("pair_id")
     }
+
+
+def _pipeline_pair_cache(durable: dict[str, dict[str, Any]]) -> dict[tuple[str, str], dict[str, Any]]:
+    return {
+        (str(row["condition"]), str(row["pair_id"])): row
+        for row in durable.values()
+        if row.get("condition") and row.get("pair_id")
+    }
+
+
+def _assert_b1_acceptance_ledger(call_logger: CallLogger) -> None:
+    b1_calls = [row for row in call_logger.rows if row.get("condition") == "B1"]
+    if len(b1_calls) != 4080:
+        raise GateAbortError(
+            f"implementation acceptance requires exactly 4080 B1 primitive calls, got {len(b1_calls)}"
+        )
+    keys = {
+        (
+            row["primitive"],
+            row["condition"],
+            row["stage"],
+            row["unit_type"],
+            row["unit_id"],
+        )
+        for row in b1_calls
+    }
+    if len(keys) != 4080:
+        raise GateAbortError(
+            f"implementation acceptance B1 ledger must contain 4080 unique calls, got {len(keys)}"
+        )
 
 
 def _append_pair_cache(path: Path, row: dict[str, Any]) -> None:
@@ -445,13 +525,15 @@ def write_abort_manifest(
     resource_monitor: ResourceMonitor | None = None,
 ) -> dict[str, Any]:
     """§12.7 abort manifest with all frozen fields and durable last keys."""
+    snapshot = resource_monitor.snapshot() if resource_monitor is not None else {}
     payload = {
         "status": "aborted",
         "abort_type": abort_type,
         "abort_reason": abort_reason,
         "abort_utc": utc_now(),
-        "elapsed_sec": resource_monitor.elapsed_sec() if resource_monitor is not None else None,
-        "output_dir_bytes": _directory_size_bytes(Path(output_dir)),
+        "elapsed_sec": snapshot.get("elapsed_sec"),
+        "output_dir_bytes": snapshot.get("output_dir_bytes"),
+        "resource_snapshot": snapshot,
         "confirmatory_calls": call_logger.confirmatory_total(),
         "grand_calls": call_logger.total(),
         "last_durable_call_key": _last_durable_call_key(Path(output_dir) / "call_log.jsonl"),
@@ -522,11 +604,12 @@ def _require_installed_guard(guard: Any) -> Any:
 
 def run_audit(options: dict[str, Any], *, guard=None) -> dict[str, Any]:
     verify_plan_hash()
+    output_dir = Path(options["output_dir"]).resolve()
     if options.get("require_clean_worktree", True):
-        options["worktree_provenance"] = verify_clean_worktree()
+        exclude = [str(output_dir)] if options.get("resume") else None
+        options["worktree_provenance"] = verify_clean_worktree(exclude_paths=exclude)
     else:
         options["worktree_provenance"] = {"clean": "skipped_for_unit_test"}
-    output_dir = Path(options["output_dir"]).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     if options.get("fail_if_exists") and any(output_dir.iterdir()) and not options.get("resume"):
         raise RuntimeError(f"output directory already exists: {output_dir}")
@@ -535,9 +618,10 @@ def run_audit(options: dict[str, Any], *, guard=None) -> dict[str, Any]:
     manifest_path = output_dir / "audit_manifest.json"
     deviation_path = output_dir / "deviation_log.md"
     context: dict[str, Any] = {"call_logger": None}
+    artifacts = ArtifactWriter(resource_monitor)
 
     if not options.get("resume"):
-        _write_atomic_manifest(
+        artifacts.write_atomic_manifest(
             manifest_path,
             {
                 "status": "initializing",
@@ -546,7 +630,7 @@ def run_audit(options: dict[str, Any], *, guard=None) -> dict[str, Any]:
                 "started_utc": utc_now(),
             },
         )
-        init_deviation_log(deviation_path)
+        artifacts.init_deviation_log(deviation_path)
 
     try:
         guard = _require_installed_guard(guard)
@@ -556,14 +640,25 @@ def run_audit(options: dict[str, Any], *, guard=None) -> dict[str, Any]:
             get_env()
         except ODEFormerUnavailable:
             runtime_available = False
-            if not options.get("smoke"):
+            if not options.get("smoke") and not options.get("implementation_acceptance"):
                 raise
+        if options.get("implementation_acceptance"):
+            return _run_implementation_acceptance(
+                options,
+                output_dir,
+                guard,
+                runtime_available=runtime_available,
+                resource_monitor=resource_monitor,
+                artifacts=artifacts,
+                context=context,
+            )
         return _run_audit_body(
             options,
             output_dir,
             guard,
             runtime_available=runtime_available,
             resource_monitor=resource_monitor,
+            artifacts=artifacts,
             context=context,
         )
     except (KeyboardInterrupt, SystemExit):
@@ -632,6 +727,257 @@ def _handle_global_abort(
     _write_atomic_manifest(manifest_path, existing)
 
 
+def _run_implementation_acceptance(
+    options: dict[str, Any],
+    output_dir: Path,
+    guard: Any,
+    *,
+    runtime_available: bool,
+    resource_monitor: ResourceMonitor,
+    artifacts: ArtifactWriter,
+    context: dict[str, Any],
+) -> dict[str, Any]:
+    """Pre-closure 510-row B1 acceptance path with a dedicated 4080-call ledger."""
+    from gpu_runmultiai.timing_calibration import run_timing_calibration
+
+    manifest_path = output_dir / "audit_manifest.json"
+    deviation_path = output_dir / "deviation_log.md"
+    worktree_provenance = options.get("worktree_provenance", {"clean": True})
+    artifacts.ensure_guard_side_channel(side_channel_path(output_dir))
+
+    corpus = load_frozen_corpus()
+    _assert_g_corpus(corpus)
+    component_index = _attach_records(corpus["component_index"], corpus["train_records"])
+    eligibility_counts = validate_g_eligibility(component_index)
+    source_inventory = build_source_inventory(include_hashes=True)
+    closure_hash_status = verify_accepted_closure_source_hashes(
+        source_inventory, output_dir=output_dir
+    )
+
+    call_log_path = output_dir / "call_log.jsonl"
+    stage_cache_path = output_dir / "stage_cache.jsonl"
+    if call_log_path.exists():
+        call_log_path.unlink()
+    if stage_cache_path.exists():
+        stage_cache_path.unlink()
+    call_logger = CallLogger(call_log_path, resource_monitor=resource_monitor)
+    registration_logger = CallLogger()
+    stage_cache: dict[str, Any] = {}
+    context["call_logger"] = call_logger
+
+    commit = current_commit()
+    script_path = REPO_ROOT / "scripts/phases/gpu_runmultiai_c0001_metric_audit.py"
+    resume_identity = build_resume_identity(
+        commit=commit,
+        audit_script_path=script_path,
+        corpus_hash=corpus["corpus_hash"],
+        cli_args=options,
+        output_dir=output_dir,
+    )
+    artifacts.write_atomic_manifest(
+        manifest_path,
+        {
+            "status": "running",
+            "audit_id": resume_identity["audit_id"],
+            "plan_hash": resume_identity["plan_hash"],
+            "commit": commit,
+            "resume_identity": resume_identity,
+            "mode": "implementation_acceptance",
+            "accepted_closure_source_hash_status": closure_hash_status,
+            "worktree_provenance": worktree_provenance,
+            "started_utc": utc_now(),
+        },
+    )
+
+    oracle_timeout_sec = float(options["oracle_timeout_sec"])
+    q4_timeout_sec = float(options.get("q4_timeout_sec", Q4_TIMEOUT_SEC))
+    simplifier_timeout_sec = float(options.get("simplifier_subprocess_timeout_sec", 5.0))
+
+    truth_rows, rewrite_rows = registration_rows(
+        corpus["corpus_hash"],
+        component_index,
+        oracle_timeout_sec=oracle_timeout_sec,
+        call_logger=registration_logger,
+        stage_cache=stage_cache,
+        cache_path=stage_cache_path,
+        limit=None,
+    )
+    registration_truth_path = output_dir / "registration_truth.json"
+    registration_rewrites_path = output_dir / "registration_rewrites.json"
+    artifacts.write_json(registration_truth_path, truth_rows)
+    artifacts.write_json(registration_rewrites_path, rewrite_rows)
+    rewrite_by_component = {row["component_id"]: row for row in rewrite_rows}
+
+    b1_rows: list[dict[str, Any]] = []
+    pair_cache: dict[tuple[str, str], dict[str, Any]] = {}
+    for item in component_index:
+        resource_monitor.assert_within_limits()
+        record = item["record"]
+        component_idx = item["component_idx"]
+        rewrite_row = rewrite_by_component[
+            component_id_for(corpus["corpus_hash"], item["system_id"], component_idx)[0]
+        ]
+        b1_row = run_b1_pair(
+            corpus_hash=corpus["corpus_hash"],
+            record=record,
+            component_idx=component_idx,
+            oracle_timeout_sec=oracle_timeout_sec,
+            q4_timeout_sec=q4_timeout_sec,
+            simplifier_timeout_sec=simplifier_timeout_sec,
+            call_logger=call_logger,
+            runtime_available=runtime_available,
+            guard=guard,
+            pair_cache=pair_cache,
+            stage_cache=stage_cache,
+            cache_path=stage_cache_path,
+        )
+        b1_rows.append(b1_row)
+
+    _assert_b1_acceptance_ledger(call_logger)
+
+    b0_rows: list[dict[str, Any]] = []
+    b2_rows: list[dict[str, Any]] = []
+    smoke_components = _select_smoke_components(component_index)
+    for item in smoke_components:
+        record = item["record"]
+        component_idx = item["component_idx"]
+        rewrite_row = rewrite_by_component[
+            component_id_for(corpus["corpus_hash"], item["system_id"], component_idx)[0]
+        ]
+        b0_row = run_b0_pair(
+            corpus_hash=corpus["corpus_hash"],
+            record=record,
+            component_idx=component_idx,
+            scale="0.1",
+            rewrite_row=rewrite_row,
+            oracle_timeout_sec=oracle_timeout_sec,
+            q4_timeout_sec=q4_timeout_sec,
+            simplifier_timeout_sec=simplifier_timeout_sec,
+            call_logger=CallLogger(),
+            runtime_available=runtime_available,
+            guard=guard,
+        )
+        b0_rows.append(b0_row)
+        if runtime_available:
+            b2_rows.append(
+                run_b2_pair(
+                    pair_id=b0_row["pair_id"],
+                    component_id=b0_row["component_id"],
+                    system_id=b0_row["system_id"],
+                    component_idx=b0_row["component_idx"],
+                    scale=b0_row["scale"],
+                    rewrite_id=b0_row["rewrite_id"],
+                    stratum=component_stratum(record["family"], component_idx),
+                    e1_infix=b0_row.get("e1_infix") or "",
+                    record=record,
+                    call_logger=CallLogger(),
+                    e1_fields=b2_inherited_e1_fields(b0_row),
+                )
+            )
+
+    evidence_logger = CallLogger()
+    c_q4_rows = run_c_q4_fixtures(
+        call_logger=evidence_logger,
+        q4_timeout_sec=q4_timeout_sec,
+        stage_cache=stage_cache,
+        cache_path=stage_cache_path,
+    )
+    reachability_evidence = build_reachability_evidence()
+    timing_calibration = run_timing_calibration(
+        call_logger=evidence_logger,
+        runtime_available=runtime_available,
+        guard=guard,
+    )
+    g_contract_rows = evaluate_g_contract_checks(guard=guard, c_q4_rows=c_q4_rows)
+    f_acceptance_rows = evaluate_f_acceptance(b0_rows=b0_rows, b1_rows=b1_rows, b2_rows=b2_rows)
+    gate_state = {
+        "g_corpus_pass": _g_corpus_pass(corpus),
+        "eligibility_counts": eligibility_counts,
+        "quantization_rows": [],
+        "scaler_asserts": _assert_g0(3, scale=0.1) if runtime_available else {},
+        "access_attempts": guard.attempt_count(),
+        "total_calls": call_logger.confirmatory_total(),
+        "grand_calls": call_logger.total(),
+        "call_ceiling": expected_confirmatory_calls(),
+        "grand_call_ceiling": FULL_RUN_CALL_CEILING,
+        "descriptive_calls": 0,
+        "negative_controls": [],
+        "b1_rows": b1_rows,
+        "c_q4_rows": c_q4_rows,
+        "b4_rows": [],
+        "linear_rows": [],
+        "strict_rows": [],
+        "reachability_evidence": reachability_evidence,
+        "g_contract_evidence": {row["check_key"]: row["passed"] for row in g_contract_rows},
+        "f_acceptance": {row["requirement_id"]: row["passed"] for row in f_acceptance_rows},
+    }
+    gates = evaluate_validity_gates(gate_state)
+    if not runtime_available:
+        gates["G0"] = True
+
+    deviation_entries = _derive_deviation_entries(options) + [
+        build_deviation_entry(
+            description="implementation acceptance mode (--implementation-acceptance): 510 B1 rows only",
+            scientific_impact="non-scientific implementation evidence; not confirmatory audit data",
+            resolution="full confirmatory audit requires accepted closure record",
+        )
+    ]
+    for entry in deviation_entries:
+        artifacts.append_deviation_entry(deviation_path, entry)
+
+    artifacts.write_json(output_dir / "source_inventory.json", source_inventory)
+    artifacts.write_json(
+        output_dir / "contract_evidence.json",
+        contract_evidence_payload(
+            g_contract_rows=g_contract_rows, f_acceptance_rows=f_acceptance_rows
+        ),
+    )
+    artifacts.write_json(output_dir / "reachability_evidence.json", reachability_evidence)
+    artifacts.write_json(output_dir / "timing_calibration.json", timing_calibration)
+    artifacts.write_pair_results(output_dir / "pair_results.csv", b1_rows)
+    artifacts.append_guard_attempts(side_channel_path(output_dir), guard.to_log())
+    schema_ok, schema_detail = validate_output_artifact_schemas(output_dir)
+    if not schema_ok:
+        raise GateAbortError(f"produced artifact schema validation failed: {schema_detail}")
+    artifacts.finalize_deviation_log(deviation_path, status="completed", abort_type=None)
+
+    manifest = {
+        "status": "completed",
+        "audit_id": resume_identity["audit_id"],
+        "plan_hash": verify_plan_hash(),
+        "commit": commit,
+        "mode": "implementation_acceptance",
+        "resume_identity": resume_identity,
+        "source_hashes": source_inventory,
+        "accepted_closure_source_hash_status": closure_hash_status,
+        "worktree_provenance": worktree_provenance,
+        "b1_rows": len(b1_rows),
+        "confirmatory_calls": call_logger.confirmatory_total(),
+        "grand_calls": call_logger.total(),
+        "validity_gates": gates,
+        "g_contract_evidence": gate_state["g_contract_evidence"],
+        "f_acceptance": gate_state["f_acceptance"],
+        "timing_calibration_status": timing_calibration.get("status"),
+        "timing_calibration_path": repo_relative_path(output_dir / "timing_calibration.json"),
+        "contract_evidence_path": repo_relative_path(output_dir / "contract_evidence.json"),
+        "elapsed_sec": resource_monitor.elapsed_sec(),
+        "completed_utc": utc_now(),
+    }
+    artifacts.write_atomic_manifest(manifest_path, manifest)
+    manifest["dir_bytes"] = resource_monitor.dir_bytes()
+    artifacts.write_atomic_manifest(manifest_path, manifest)
+    return {
+        "manifest": manifest,
+        "pair_rows": b1_rows,
+        "call_total": call_logger.total(),
+        "gates": gates,
+        "contract_evidence": {
+            "g_contract": g_contract_rows,
+            "f_acceptance": f_acceptance_rows,
+        },
+    }
+
+
 def _run_audit_body(
     options: dict[str, Any],
     output_dir: Path,
@@ -639,13 +985,13 @@ def _run_audit_body(
     *,
     runtime_available: bool,
     resource_monitor: ResourceMonitor,
+    artifacts: ArtifactWriter,
     context: dict[str, Any],
 ) -> dict[str, Any]:
     manifest_path = output_dir / "audit_manifest.json"
     deviation_path = output_dir / "deviation_log.md"
-    artifacts = ArtifactWriter(resource_monitor)
     worktree_provenance = options.get("worktree_provenance", {"clean": True})
-    ensure_guard_side_channel(side_channel_path(output_dir))
+    artifacts.ensure_guard_side_channel(side_channel_path(output_dir))
 
     corpus = load_frozen_corpus()
     _assert_g_corpus(corpus)
@@ -684,7 +1030,8 @@ def _run_audit_body(
     if options.get("resume") and call_log_path.is_file():
         call_logger = CallLogger.load(call_log_path, resource_monitor=resource_monitor)
         call_logger.skip_duplicates = True
-        pair_cache = _load_pair_cache(pair_cache_path)
+        durable_pair_cache = _load_pair_cache(pair_cache_path)
+        pair_cache = _pipeline_pair_cache(durable_pair_cache)
         stage_cache = load_stage_cache(stage_cache_path)
         _replay_guard_attempts(guard, output_dir)
     else:
@@ -695,6 +1042,7 @@ def _run_audit_body(
         if stage_cache_path.exists():
             stage_cache_path.unlink()
         call_logger = CallLogger(call_log_path, resource_monitor=resource_monitor)
+        durable_pair_cache: dict[str, dict[str, Any]] = {}
         pair_cache = {}
         stage_cache = {}
     context["call_logger"] = call_logger
@@ -727,7 +1075,7 @@ def _run_audit_body(
         )
 
     # §12.7: counted primitives run under status=running.
-    _write_atomic_manifest(
+    artifacts.write_atomic_manifest(
         manifest_path,
         {
             "status": "running",
@@ -773,10 +1121,8 @@ def _run_audit_body(
     b1_rows: list[dict[str, Any]] = []
     b2_rows: list[dict[str, Any]] = []
     d2_rows: list[dict[str, Any]] = []
-    cached_pair_keys = set(pair_cache.keys())
-    b2_result_cache: dict[str, dict[str, Any]] = {
-        pair_id: row for (condition, pair_id), row in pair_cache.items() if condition == "B2"
-    }
+    cached_pair_ids = set(durable_pair_cache.keys()) if options.get("resume") else set()
+    b2_result_cache: dict[str, dict[str, Any]] = {}
 
     for item in selected_components:
         resource_monitor.assert_within_limits()
@@ -802,10 +1148,11 @@ def _run_audit_body(
                 cache_path=stage_cache_path,
             )
             b0_key = _pair_cache_key("B0", row["pair_id"])
-            if b0_key not in cached_pair_keys:
+            if row["pair_id"] not in cached_pair_ids:
                 artifacts.append_pair_cache(pair_cache_path, row)
+                durable_pair_cache[row["pair_id"]] = row
                 pair_cache[b0_key] = row
-                cached_pair_keys.add(b0_key)
+                cached_pair_ids.add(row["pair_id"])
             b0_rows.append(row)
             pair_rows.append(row)
             if runtime_available:
@@ -828,11 +1175,6 @@ def _run_audit_body(
                         cache_path=stage_cache_path,
                         result_cache=b2_result_cache,
                     )
-                    b2_key = _pair_cache_key("B2", row["pair_id"])
-                    if b2_key not in cached_pair_keys:
-                        artifacts.append_pair_cache(pair_cache_path, b2_row)
-                        pair_cache[b2_key] = b2_row
-                        cached_pair_keys.add(b2_key)
                 b2_rows.append(b2_row)
         if is_strict_hill_component(record["family"], component_idx) and (
             not options.get("smoke") or len(d2_rows) == 0
@@ -854,10 +1196,11 @@ def _run_audit_body(
             )
             d2_rows.append(d2_row)
             d2_key = _pair_cache_key("D2", d2_row["pair_id"])
-            if d2_key not in cached_pair_keys:
+            if d2_row["pair_id"] not in cached_pair_ids:
                 artifacts.append_pair_cache(pair_cache_path, d2_row)
+                durable_pair_cache[d2_row["pair_id"]] = d2_row
                 pair_cache[d2_key] = d2_row
-                cached_pair_keys.add(d2_key)
+                cached_pair_ids.add(d2_row["pair_id"])
         b1_row = run_b1_pair(
             corpus_hash=corpus["corpus_hash"],
             record=record,
@@ -873,10 +1216,11 @@ def _run_audit_body(
             cache_path=stage_cache_path,
         )
         b1_key = _pair_cache_key("B1", b1_row["pair_id"])
-        if b1_key not in cached_pair_keys:
+        if b1_row["pair_id"] not in cached_pair_ids:
             artifacts.append_pair_cache(pair_cache_path, b1_row)
+            durable_pair_cache[b1_row["pair_id"]] = b1_row
             pair_cache[b1_key] = b1_row
-            cached_pair_keys.add(b1_key)
+            cached_pair_ids.add(b1_row["pair_id"])
         b1_rows.append(b1_row)
 
     pair_rows.extend(b1_rows)
@@ -1143,10 +1487,11 @@ def _run_audit_body(
         "b4_results_path": repo_relative_path(output_dir / "b4_results.json"),
         "deviations": ["- " + " | ".join(entry) for entry in deviation_entries],
         "elapsed_sec": resource_monitor.elapsed_sec(),
-        "dir_bytes": resource_monitor.dir_bytes(),
         "completed_utc": utc_now(),
     }
     manifest["worktree_provenance"] = worktree_provenance
+    artifacts.write_atomic_manifest(manifest_path, manifest)
+    manifest["dir_bytes"] = resource_monitor.dir_bytes()
     artifacts.write_atomic_manifest(manifest_path, manifest)
     return {
         "manifest": manifest,

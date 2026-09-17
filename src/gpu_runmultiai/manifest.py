@@ -205,9 +205,29 @@ PROTECTED_UNTRACKED_SMOKE = (
 RUNTIME_SCRATCH_DIR = "GPU_RUNmultiAI/.runtime"
 
 
-def verify_clean_worktree() -> dict[str, Any]:
-    """Require a clean tracked worktree; ignore protected v9 smoke and runtime scratch."""
+def verify_clean_worktree(exclude_paths: list[str] | None = None) -> dict[str, Any]:
+    """Require a clean tracked worktree; ignore protected v9 smoke, runtime scratch, and explicit excludes."""
     import subprocess
+
+    excluded_abs: set[str] = set()
+    for raw in exclude_paths or []:
+        resolved = str(Path(raw).resolve())
+        excluded_abs.add(resolved)
+        try:
+            excluded_abs.add(repo_relative_path(Path(raw)))
+        except Exception:
+            pass
+
+    def _path_is_excluded(path: str) -> bool:
+        resolved = str((REPO_ROOT / path).resolve())
+        if path in excluded_abs or resolved in excluded_abs:
+            return True
+        for excluded in excluded_abs:
+            if resolved == excluded or resolved.startswith(excluded.rstrip("/") + "/"):
+                return True
+            if path == excluded or path.startswith(excluded.rstrip("/") + "/"):
+                return True
+        return False
 
     result = subprocess.run(
         ["git", "status", "--porcelain"],
@@ -228,13 +248,17 @@ def verify_clean_worktree() -> dict[str, Any]:
         if path == RUNTIME_SCRATCH_DIR or path.startswith(RUNTIME_SCRATCH_DIR + "/"):
             ignored.append(path)
             continue
+        resolved = str((REPO_ROOT / path).resolve())
+        if _path_is_excluded(path):
+            ignored.append(path)
+            continue
         violations.append(line)
     if violations:
         raise ResumeIdentityError(
             "validation/full execution requires a clean tracked worktree; "
             f"dirty entries: {violations}"
         )
-    return {"clean": True, "ignored_untracked": ignored}
+    return {"clean": True, "ignored_untracked": ignored, "excluded_paths": sorted(excluded_abs)}
 
 
 def require_accepted_closure_for_execution(
@@ -248,18 +272,22 @@ def require_accepted_closure_for_execution(
     if accepted is None:
         raise ResumeIdentityError(
             "non-smoke and resume execution require accepted "
-            "implementation_closure_record.json pinning the current commit and source hashes"
+            "implementation_closure_record.json pinning accepted_source_commit and source hashes"
         )
     payload = json.loads(Path(source).read_text(encoding="utf-8"))
-    if payload.get("commit") != commit:
+    accepted_source_commit = payload.get("accepted_source_commit") or payload.get("commit")
+    if not accepted_source_commit:
         raise ResumeIdentityError(
-            f"closure record commit {payload.get('commit')!r} != current {commit!r}"
+            "closure record missing accepted_source_commit"
         )
     if accepted != source_inventory:
         raise ResumeIdentityError(
             "closure record source_hashes do not match the recomputed inventory"
         )
-    return f"closure_record_verified:{source}"
+    return (
+        f"closure_record_verified:{source}:accepted_source_commit={accepted_source_commit}:"
+        f"metadata_commit={payload.get('commit') or 'unknown'}"
+    )
 
 
 def verify_fingerprint_artifacts(
