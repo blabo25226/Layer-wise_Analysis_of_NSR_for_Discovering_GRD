@@ -522,6 +522,10 @@ def _require_installed_guard(guard: Any) -> Any:
 
 def run_audit(options: dict[str, Any], *, guard=None) -> dict[str, Any]:
     verify_plan_hash()
+    if options.get("require_clean_worktree", True):
+        options["worktree_provenance"] = verify_clean_worktree()
+    else:
+        options["worktree_provenance"] = {"clean": "skipped_for_unit_test"}
     output_dir = Path(options["output_dir"]).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     if options.get("fail_if_exists") and any(output_dir.iterdir()) and not options.get("resume"):
@@ -640,10 +644,7 @@ def _run_audit_body(
     manifest_path = output_dir / "audit_manifest.json"
     deviation_path = output_dir / "deviation_log.md"
     artifacts = ArtifactWriter(resource_monitor)
-    if options.get("require_clean_worktree", True):
-        worktree_provenance = verify_clean_worktree()
-    else:
-        worktree_provenance = {"clean": "skipped_for_unit_test"}
+    worktree_provenance = options.get("worktree_provenance", {"clean": True})
     ensure_guard_side_channel(side_channel_path(output_dir))
 
     corpus = load_frozen_corpus()
