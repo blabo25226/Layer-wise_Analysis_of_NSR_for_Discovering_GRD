@@ -184,7 +184,8 @@ class CallLogger:
                     duration_sec=measured,
                     rewrite_id=resolved_rewrite_id,
                 )
-        self.assert_resource_ceilings()
+            # §8.5: post-execution ceiling check even when the primitive raised.
+            self.assert_resource_ceilings()
         return True, result
 
     def record(

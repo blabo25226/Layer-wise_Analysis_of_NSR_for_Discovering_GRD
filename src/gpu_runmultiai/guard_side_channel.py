@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from experiment_runtime import REPO_ROOT
@@ -16,8 +17,19 @@ def side_channel_path(output_dir: Path) -> Path:
     return output_dir / SIDE_CHANNEL_NAME
 
 
+def ensure_guard_side_channel(path: Path) -> None:
+    """Create an empty durable side channel when zero attempts occur (§11, §12.1)."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.is_file():
+        return
+    with path.open("wb") as handle:
+        handle.flush()
+        os.fsync(handle.fileno())
+
+
 def append_guard_attempts(path: Path, attempts: list[dict[str, str]]) -> None:
     """Append §11 attempt rows; each line is flushed and fsynced unconditionally (§12.5)."""
+    ensure_guard_side_channel(path)
     for row in attempts:
         append_jsonl_line(path, {field: str(row[field]) for field in GUARD_ATTEMPT_FIELDS})
 

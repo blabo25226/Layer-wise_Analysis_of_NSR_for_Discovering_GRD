@@ -19,15 +19,12 @@ from gpu_runmultiai.constants import (
     FULL_RUN_CALL_CEILING,
     Q4_TIMEOUT_SEC,
 )
+from gpu_runmultiai.contract_evidence import F_ACCEPTANCE_IDS, G_CONTRACT_CHECK_KEYS
 from gpu_runmultiai.controls import evaluate_validity_gates
 from gpu_runmultiai.outcomes import build_outcome_row, evaluate_primary_decision
 from gpu_runmultiai.oracle import oracle_equivalence, oracle_single_component
-from gpu_runmultiai.q4_reference import audit_q4_decimal_round_reference, e1_not_equivalent_to_q4
-
-# G_contract and G_impl are evaluated from their own executable evidence in
-# `contract_evidence.py`; including them in a synthetic decision grid would make the
-# reachability fixture self-referential, so they are excluded here and reported.
-SELF_REFERENTIAL_GATES = ("G_contract", "G_impl")
+from gpu_runmultiai.pipeline import detect_e2_identity_fallback_candidate
+from gpu_runmultiai.q4_reference import audit_q4_decimal_round_reference
 
 PRIMARY_PAIR_COUNT = 1320
 
@@ -214,16 +211,16 @@ def _synthetic_gate_state(primary_rows: list[dict[str, Any]]) -> dict[str, Any]:
             for _ in range(480)
         ],
         "strict_rows": primary_rows,
+        "g_contract_evidence": {key: True for key in G_CONTRACT_CHECK_KEYS},
+        "f_acceptance": {key: True for key in F_ACCEPTANCE_IDS},
+        "reachability_evidence": [{"passed": True} for _ in range(10)],
     }
 
 
 def _decision_grid_row(fixture_id: str, *, sfn_count: int, expected_decision: str) -> dict[str, Any]:
     primary_rows = _synthetic_primary_rows(sfn_count=sfn_count)
     gates = evaluate_validity_gates(_synthetic_gate_state(primary_rows))
-    evaluated = {
-        name: value for name, value in gates.items() if name not in SELF_REFERENTIAL_GATES
-    }
-    failed = sorted(name for name, value in evaluated.items() if not value)
+    failed = sorted(name for name, value in gates.items() if not value)
     decision = evaluate_primary_decision(primary_rows, validity_gate_failed=bool(failed))
     pair_ids = {row["pair_id"] for row in primary_rows}
     diagnostic = sum(1 for row in primary_rows if row["is_fully_diagnostic"])
@@ -243,8 +240,7 @@ def _decision_grid_row(fixture_id: str, *, sfn_count: int, expected_decision: st
         "primary_decision_grid",
         passed,
         f"decision={decision} rows={len(primary_rows)} unique={len(pair_ids)} "
-        f"fully_diagnostic={diagnostic} sfn={observed_sfn} failed_gates={failed} "
-        f"excluded_self_referential_gates={list(SELF_REFERENTIAL_GATES)}",
+        f"fully_diagnostic={diagnostic} sfn={observed_sfn} failed_gates={failed}",
     )
 
 
@@ -313,14 +309,16 @@ def _reach_q4fail_1() -> dict[str, Any]:
 
 
 def _reach_ident_fallback_1() -> dict[str, Any]:
-    """E2 raw == E1 raw with E1 not equivalent to Q4(E1), computed by the §3.4.10 oracle."""
+    """Production E1/E2 prefix comparison with §3.4.10 oracle (§3.8 REACH-IDENT-FALLBACK-1)."""
     e1_prefix = "mul,0.33333,x_0"
     q4 = audit_q4_decimal_round_reference(e1_prefix, timeout_sec=Q4_TIMEOUT_SEC)
-    fallback = e1_not_equivalent_to_q4(
-        e1_prefix,
-        q4.q4_sympy_expr_canonical,
+    fallback = detect_e2_identity_fallback_candidate(
+        e1_prefix_raw=e1_prefix,
+        e2_prefix_raw=e1_prefix,
+        e1_component_prefix=e1_prefix,
+        q4_sympy_expr_canonical=q4.q4_sympy_expr_canonical,
         dimension=1,
-        timeout_sec=Q4_TIMEOUT_SEC,
+        q4_timeout_sec=Q4_TIMEOUT_SEC,
     )
     row = build_outcome_row(
         condition="B0",

@@ -16,9 +16,10 @@ from typing import Any, Callable
 
 from experiment_runtime import REPO_ROOT
 
-from gpu_runmultiai.constants import Q4_TIMEOUT_SEC
+from gpu_runmultiai.constants import PRIMARY_SCALES, Q4_TIMEOUT_SEC, SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC
 from gpu_runmultiai.invariants import AuditInvariantError, ResumeIdentityError
-from gpu_runmultiai.outcomes import FIVE_OUTCOME_CATEGORIES, _classify_five_e1_only
+from gpu_runmultiai.outcomes import FIVE_OUTCOME_CATEGORIES, compute_b2_expected_outcome
+from gpu_runmultiai.pipeline import b2_inherited_e1_fields
 from gpu_runmultiai.q4_reference import (
     Q4ContractError,
     audit_q4_decimal_round_reference,
@@ -292,10 +293,48 @@ def _check_q4_fixtures(c_q4_rows: list[dict[str, Any]]) -> tuple[bool, str]:
     return not problems, "ok" if not problems else "; ".join(problems)
 
 
+def _guard_install_before_package_imports(source: str, *, entry_main_only: bool = False) -> bool:
+    block = source
+    if entry_main_only:
+        marker = "def main("
+        start = source.find(marker)
+        if start < 0:
+            return False
+        block = source[start:]
+    install_line = -1
+    first_package_import = -1
+    for index, line in enumerate(block.splitlines()):
+        stripped = line.strip()
+        if "install_guard_from_entry" in stripped and install_line < 0:
+            install_line = index
+        if stripped.startswith(("from gpu_runmultiai", "import gpu_runmultiai")):
+            if first_package_import < 0:
+                first_package_import = index
+    if install_line < 0:
+        return False
+    if first_package_import < 0:
+        return True
+    return install_line < first_package_import
+
+
+def _check_guard_import_order() -> tuple[bool, str]:
+    problems: list[str] = []
+    entry = REPO_ROOT / "scripts/phases/gpu_runmultiai_c0001_metric_audit.py"
+    worker = REPO_ROOT / "src/gpu_runmultiai/simplifier_worker.py"
+    if not _guard_install_before_package_imports(entry.read_text(encoding="utf-8"), entry_main_only=True):
+        problems.append(f"{entry}:guard_must_install_before_package_imports")
+    if not _guard_install_before_package_imports(worker.read_text(encoding="utf-8")):
+        problems.append(f"{worker}:guard_must_install_before_package_imports")
+    return not problems, "ok" if not problems else "; ".join(problems)
+
+
 def _check_guard_bootstrap(guard: Any) -> tuple[bool, str]:
     from scripts.phases import guard_bootstrap as gb
 
     problems: list[str] = []
+    import_ok, import_detail = _check_guard_import_order()
+    if not import_ok:
+        problems.append(import_detail)
     installed = gb.get_installed_guard()
     if installed is not guard:
         problems.append("singleton_identity_mismatch")
@@ -380,17 +419,61 @@ def _check_source_inventory() -> tuple[bool, str]:
     return not problems, detail if not problems else f"{detail}; " + "; ".join(problems)
 
 
-def _check_artifact_schemas() -> tuple[bool, str]:
-    from gpu_run2_runtime import write_json
-    from gpu_runmultiai.guard_side_channel import append_guard_attempts, load_guard_attempts
+def validate_output_artifact_schemas(output_dir: Path) -> tuple[bool, str]:
+    from gpu_runmultiai.guard_side_channel import load_guard_attempts
 
     problems: list[str] = []
+    root = Path(output_dir)
+
+    def _validate_loaded(artifact: str, required: tuple[str, ...], loaded: dict[str, Any]) -> None:
+        missing = [key for key in required if key not in loaded]
+        if missing:
+            problems.append(f"{artifact}:missing={missing}")
+
+    for artifact, required in ARTIFACT_ROW_SCHEMAS.items():
+        path = root / artifact
+        if artifact == "guard_attempts_side_channel.jsonl":
+            if not path.is_file():
+                problems.append(f"{artifact}:absent")
+                continue
+            rows = load_guard_attempts(path)
+            if rows:
+                _validate_loaded(artifact, required, rows[0])
+            continue
+        if not path.is_file():
+            problems.append(f"{artifact}:absent")
+            continue
+        if artifact == "condition_summary.json":
+            loaded = json.loads(path.read_text(encoding="utf-8"))
+            _validate_loaded(artifact, required, loaded)
+            continue
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        rows = payload if isinstance(payload, list) else [payload]
+        if not rows:
+            problems.append(f"{artifact}:empty")
+            continue
+        _validate_loaded(artifact, required, rows[0])
+    detail = f"output_artifacts={len(ARTIFACT_ROW_SCHEMAS)}"
+    return not problems, detail if not problems else f"{detail}; " + "; ".join(problems)
+
+
+def _check_artifact_schemas() -> tuple[bool, str]:
+    from gpu_run2_runtime import write_json
+    from gpu_runmultiai.guard_side_channel import (
+        append_guard_attempts,
+        ensure_guard_side_channel,
+        load_guard_attempts,
+    )
+
+    problems: list[str] = []
+
     with tempfile.TemporaryDirectory(prefix="c0001_schema_") as tmp:
         tmp_dir = Path(tmp)
         for artifact, required in ARTIFACT_ROW_SCHEMAS.items():
             sample = _SCHEMA_SAMPLE_ROWS[artifact]
             path = tmp_dir / artifact
             if artifact.endswith(".jsonl"):
+                ensure_guard_side_channel(path)
                 append_guard_attempts(path, [sample])
                 loaded_rows = load_guard_attempts(path)
                 loaded = loaded_rows[0] if loaded_rows else {}
@@ -403,7 +486,7 @@ def _check_artifact_schemas() -> tuple[bool, str]:
                 loaded = payload[0] if payload else {}
             missing = [key for key in required if key not in loaded]
             if missing:
-                problems.append(f"{artifact}:missing={missing}")
+                problems.append(f"{artifact}:round_trip_missing={missing}")
             elif any(loaded[key] != sample[key] for key in required):
                 problems.append(f"{artifact}:round_trip_value_drift")
     detail = f"schemas={len(ARTIFACT_ROW_SCHEMAS)}"
@@ -569,13 +652,21 @@ def _check_abort_deviation_lifecycle() -> tuple[bool, str]:
     return not problems, "ok" if not problems else "; ".join(problems)
 
 
-def evaluate_g_contract_checks(*, guard: Any, c_q4_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def evaluate_g_contract_checks(
+    *,
+    guard: Any,
+    c_q4_rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
     """Run all seven §10.1 G_contract checks and return persisted evidence rows."""
     return [
         _guarded("q4_fixtures", "§10.1-1 C_q4 7/7 and Q4ContractError path", lambda: _check_q4_fixtures(c_q4_rows)),
         _guarded("guard_bootstrap", "§10.1-2 guard bootstrap ordering/singleton/ledger", lambda: _check_guard_bootstrap(guard)),
         _guarded("source_inventory", "§10.1-3 §13.2 sorted inventory recomputes", _check_source_inventory),
-        _guarded("artifact_schemas", "§10.1-4 §12.8 schema round-trips", _check_artifact_schemas),
+        _guarded(
+            "artifact_schemas",
+            "§10.1-4 §12.8 schema round-trips",
+            _check_artifact_schemas,
+        ),
         _guarded("jsonl_recovery", "§10.1-5 JSONL truncate/malformed/duplicate", _check_jsonl_recovery),
         _guarded("resume_mismatch", "§10.1-6 resume identity and fingerprint mismatch abort", _check_resume_mismatch),
         _guarded("abort_deviation_lifecycle", "§10.1-7 abort manifest and deviation lifecycle", _check_abort_deviation_lifecycle),
@@ -587,6 +678,52 @@ def evaluate_g_contract_checks(*, guard: Any, c_q4_rows: list[dict[str, Any]]) -
 # --------------------------------------------------------------------------- #
 
 
+def _execute_primary_scale_b0_rows() -> tuple[dict[str, dict[str, Any]], list[str]]:
+    from pathlib import Path
+
+    from gpu_runmultiai.calls import CallLogger
+    from gpu_runmultiai.corpus import load_frozen_corpus
+    from gpu_runmultiai.odeformer_runtime import ODEFormerUnavailable, require_odeformer
+    from gpu_runmultiai.pipeline import run_b0_pair
+    from gpu_runmultiai.rewrites import rewrite_registration, truth_component_infix
+    from gpu_runmultiai.sealed_guard import SealedPathGuard
+
+    problems: list[str] = []
+    rows_by_scale: dict[str, dict[str, Any]] = {}
+    try:
+        require_odeformer()
+    except ODEFormerUnavailable as exc:
+        return {}, [f"odeformer_unavailable:{exc}"]
+    corpus = load_frozen_corpus()
+    record = next(row for row in corpus["train_records"] if row["system_id"] == "R01_train_d61001_000")
+    truth_prefix, truth_infix = truth_component_infix(record, 0)
+    rewrite = rewrite_registration(
+        "R01_train_d61001_000", 0, truth_prefix, truth_infix, oracle_timeout_sec=30.0
+    )
+    guard = SealedPathGuard(output_root_abs=Path("/nonexistent/results/runs"))
+    for scale in PRIMARY_SCALES:
+        row = run_b0_pair(
+            corpus_hash=corpus["corpus_hash"],
+            record=record,
+            component_idx=0,
+            scale=scale,
+            rewrite_row=rewrite,
+            oracle_timeout_sec=30.0,
+            q4_timeout_sec=Q4_TIMEOUT_SEC,
+            simplifier_timeout_sec=SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
+            call_logger=CallLogger(),
+            runtime_available=True,
+            guard=guard,
+        )
+        rows_by_scale[scale] = row
+        if not row.get("e1_analytic_equivalent") or not row.get("e1_numeric_equivalent"):
+            problems.append(f"scale={scale}:e1_not_equivalent")
+        prefix = row.get("e0_prefix_raw") or ""
+        if "pow" not in prefix:
+            problems.append(f"scale={scale}:e0_missing_rational_reciprocal")
+    return rows_by_scale, problems
+
+
 def _f1_e0_rational_forward(b0_rows: list[dict[str, Any]]) -> tuple[bool, str]:
     from gpu_runmultiai.odeformer_runtime import _rational_reciprocal_factor_prefix
 
@@ -594,18 +731,13 @@ def _f1_e0_rational_forward(b0_rows: list[dict[str, Any]]) -> tuple[bool, str]:
     factor = _rational_reciprocal_factor_prefix("0.1", "0.9")
     if factor != ["mul", "0.1", "pow", "0.9", "-1"]:
         problems.append(f"reciprocal_not_rational:{factor}")
-    scored = [row for row in b0_rows if row.get("e0_status") == "completed"]
-    if not scored:
-        problems.append("no_b0_rows_with_e0")
-    for row in scored:
-        if not row.get("e1_analytic_equivalent") or not row.get("e1_numeric_equivalent"):
-            problems.append(f"{row.get('pair_id')}:e1_not_equivalent")
-        prefix = row.get("e0_prefix_raw") or ""
-        if "pow" not in prefix:
-            problems.append(f"{row.get('pair_id')}:e0_missing_rational_reciprocal")
-    scales = sorted({str(row.get("scale")) for row in scored})
-    detail = f"rows={len(scored)} scales={scales}"
-    return not problems, detail if not problems else f"{detail}; " + "; ".join(problems[:5])
+    executed, exec_problems = _execute_primary_scale_b0_rows()
+    problems.extend(exec_problems)
+    missing_scales = [scale for scale in PRIMARY_SCALES if scale not in executed]
+    if missing_scales:
+        problems.append(f"missing_primary_scales={missing_scales}")
+    detail = f"executed_scales={sorted(executed)} persisted_scales={sorted({str(row.get('scale')) for row in b0_rows})}"
+    return not problems, detail if not problems else f"{detail}; " + "; ".join(problems[:8])
 
 
 def _f2_compound_pow_arity() -> tuple[bool, str]:
@@ -633,26 +765,22 @@ def _f2_compound_pow_arity() -> tuple[bool, str]:
 
 def _f4_round_trip_acceptance(b0_rows: list[dict[str, Any]]) -> tuple[bool, str]:
     problems: list[str] = []
-    test_path = REPO_ROOT / "tests/test_gpu_runmultiai_c0001_metric_audit.py"
-    body = test_path.read_text(encoding="utf-8") if test_path.is_file() else ""
-    if "def test_e0_e1_round_trip_primary_scales" not in body:
-        problems.append("acceptance_test_absent")
-    if 'row.get("e1_analytic_equivalent") is True' not in body:
-        problems.append("acceptance_test_missing_analytic_assert")
-    if 'row.get("e1_numeric_equivalent") is True' not in body:
-        problems.append("acceptance_test_missing_numeric_assert")
-    by_scale: dict[str, list[dict[str, Any]]] = {}
-    for row in b0_rows:
-        by_scale.setdefault(str(row.get("scale")), []).append(row)
-    if not by_scale:
-        problems.append("no_b0_rows")
-    for scale, rows in sorted(by_scale.items()):
-        if not all(
-            row.get("e1_oracle_completed") and row.get("e1_oracle_equivalent") for row in rows
+    executed, exec_problems = _execute_primary_scale_b0_rows()
+    problems.extend(exec_problems)
+    for scale in PRIMARY_SCALES:
+        row = executed.get(scale)
+        if row is None:
+            problems.append(f"scale={scale}:not_executed")
+            continue
+        if not (
+            row.get("e1_oracle_completed")
+            and row.get("e1_oracle_equivalent")
+            and row.get("e1_analytic_equivalent") is True
+            and row.get("e1_numeric_equivalent") is True
         ):
-            problems.append(f"scale={scale}:e1_not_equivalent")
-    detail = f"scales={sorted(by_scale)}"
-    return not problems, detail if not problems else f"{detail}; " + "; ".join(problems[:5])
+            problems.append(f"scale={scale}:e1_round_trip_failed")
+    detail = f"executed_scales={sorted(executed)} persisted_scales={sorted({str(row.get('scale')) for row in b0_rows})}"
+    return not problems, detail if not problems else f"{detail}; " + "; ".join(problems[:8])
 
 
 def _f5_b1_production_rescale(b1_rows: list[dict[str, Any]]) -> tuple[bool, str]:
@@ -687,8 +815,8 @@ def _f5_b1_production_rescale(b1_rows: list[dict[str, Any]]) -> tuple[bool, str]
 def _f6_b1_explicit_partition(b1_rows: list[dict[str, Any]]) -> tuple[bool, str]:
     allowed = {"control_pass", "control_failure"}
     problems: list[str] = []
-    if not b1_rows:
-        problems.append("no_b1_rows")
+    if len(b1_rows) != 510:
+        problems.append(f"b1_population={len(b1_rows)} requires 510/510 for F6 acceptance")
     illegal = [
         f"{row.get('pair_id')}:{row.get('outcome_category')}"
         for row in b1_rows
@@ -696,12 +824,19 @@ def _f6_b1_explicit_partition(b1_rows: list[dict[str, Any]]) -> tuple[bool, str]
     ]
     if illegal:
         problems.append(f"illegal_terminals={illegal[:5]}")
+    unknown = [row.get("pair_id") for row in b1_rows if row.get("outcome_category") == "unknown"]
+    if unknown:
+        problems.append(f"unknown_terminals={unknown[:5]}")
     passes = sum(1 for row in b1_rows if row.get("outcome_category") == "control_pass")
     detail = f"b1_rows={len(b1_rows)} control_pass={passes}"
     return not problems, detail if not problems else f"{detail}; " + "; ".join(problems)
 
 
-def _f7_b2_e1_only(b2_rows: list[dict[str, Any]]) -> tuple[bool, str]:
+def _f7_b2_e1_only(
+    b2_rows: list[dict[str, Any]],
+    *,
+    b0_rows: list[dict[str, Any]] | None = None,
+) -> tuple[bool, str]:
     from gpu_runmultiai.pipeline import B2_FORBIDDEN_INHERITED_FIELDS
 
     forbidden_e2 = tuple(
@@ -710,18 +845,27 @@ def _f7_b2_e1_only(b2_rows: list[dict[str, Any]]) -> tuple[bool, str]:
     problems: list[str] = []
     if not b2_rows:
         problems.append("no_b2_rows")
+    b0_by_pair = {row["pair_id"]: row for row in (b0_rows or []) if row.get("pair_id")}
     for row in b2_rows:
         leaked = [key for key in forbidden_e2 if row.get(key) not in (None, False)]
         if leaked:
             problems.append(f"{row.get('pair_id')}:e2_leak={leaked}")
-        recomputed = _classify_five_e1_only(row)
-        if recomputed != row.get("outcome_category"):
+        b0_row = b0_by_pair.get(row.get("pair_id"))
+        if b0_row is None:
+            problems.append(f"{row.get('pair_id')}:missing_b0_source")
+            continue
+        expected = compute_b2_expected_outcome(
+            e1_infix=b0_row.get("e1_infix") or "",
+            component_idx=int(row.get("component_idx", 0)),
+            e1_fields=b2_inherited_e1_fields(b0_row),
+        )
+        if expected != row.get("outcome_category"):
             problems.append(
-                f"{row.get('pair_id')}:{row.get('outcome_category')}!=e1_only({recomputed})"
+                f"{row.get('pair_id')}:{row.get('outcome_category')}!=expected_from_b0_e1({expected})"
             )
         if row.get("outcome_category") not in FIVE_OUTCOME_CATEGORIES:
             problems.append(f"{row.get('pair_id')}:illegal={row.get('outcome_category')}")
-    detail = f"b2_rows={len(b2_rows)}"
+    detail = f"b2_rows={len(b2_rows)} b0_sources={len(b0_by_pair)}"
     return not problems, detail if not problems else f"{detail}; " + "; ".join(problems[:5])
 
 
@@ -758,7 +902,11 @@ def evaluate_f_acceptance(
         _guarded("F4", "§16 F4 round-trip acceptance expects E1≡truth", lambda: _f4_round_trip_acceptance(b0_rows)),
         _guarded("F5", "§16 F5 B1 executes production rescale with identity params", lambda: _f5_b1_production_rescale(b1_rows)),
         _guarded("F6", "§16 F6 B1 explicit partition without unknown", lambda: _f6_b1_explicit_partition(b1_rows)),
-        _guarded("F7", "§16 F7 B2 decided from E1-only fields", lambda: _f7_b2_e1_only(b2_rows)),
+        _guarded(
+            "F7",
+            "§16 F7 B2 decided from B0 E1-only fields",
+            lambda: _f7_b2_e1_only(b2_rows, b0_rows=b0_rows),
+        ),
         _guarded("F8", "§16 F8 shared `|` component split", _f8_shared_component_split),
     ]
     for row in rows:

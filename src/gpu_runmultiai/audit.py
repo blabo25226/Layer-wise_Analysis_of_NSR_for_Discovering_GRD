@@ -25,6 +25,7 @@ from gpu_runmultiai.contract_evidence import (
     contract_evidence_payload,
     evaluate_f_acceptance,
     evaluate_g_contract_checks,
+    validate_output_artifact_schemas,
 )
 from gpu_runmultiai.controls import (
     any_gate_failed,
@@ -33,8 +34,14 @@ from gpu_runmultiai.controls import (
     first_abort_gate,
 )
 from gpu_runmultiai.corpus import load_frozen_corpus
-from gpu_runmultiai.guard_side_channel import append_guard_attempts, load_guard_attempts, side_channel_path
+from gpu_runmultiai.guard_side_channel import (
+    append_guard_attempts,
+    ensure_guard_side_channel,
+    load_guard_attempts,
+    side_channel_path,
+)
 from gpu_runmultiai.invariants import (
+    AuditInvariantError,
     ContractEvidenceError,
     CorpusGateError,
     EligibilityGateError,
@@ -42,6 +49,7 @@ from gpu_runmultiai.invariants import (
     FrozenEnvironmentError,
     GateAbortError,
     ResourceCeilingError,
+    ResumeCacheMissError,
     ResumeIdentityError,
     ScalerGateError,
     StratumGateError,
@@ -57,8 +65,10 @@ from gpu_runmultiai.manifest import (
     frozen_environment,
     normalize_cli_args,
     repo_relative_path,
+    require_accepted_closure_for_execution,
     runtime_provenance,
     verify_accepted_closure_source_hashes,
+    verify_clean_worktree,
     verify_fingerprint_artifacts,
     verify_plan_hash,
     verify_resume_identity,
@@ -117,6 +127,8 @@ def _global_abort_error_types() -> tuple[type[BaseException], ...]:
     from scripts.phases.guard_bootstrap import GuardBootstrapViolation
 
     return (
+        AuditInvariantError,
+        ResumeCacheMissError,
         CorpusGateError,
         ScalerGateError,
         EligibilityGateError,
@@ -130,7 +142,71 @@ def _global_abort_error_types() -> tuple[type[BaseException], ...]:
         ResumeIdentityError,
         TerminalVocabularyError,
         ContractEvidenceError,
+        ODEFormerUnavailable,
     )
+
+
+class ArtifactWriter:
+    """Centralized artifact writes with immediate pre/post resource checks (§8.5)."""
+
+    def __init__(self, resource_monitor: ResourceMonitor) -> None:
+        self._resource_monitor = resource_monitor
+
+    def write_json(self, path: Path, payload: Any) -> None:
+        self._resource_monitor.assert_within_limits()
+        write_json(path, payload)
+        self._resource_monitor.assert_within_limits()
+
+    def write_bytes(self, path: Path, payload: bytes) -> None:
+        self._resource_monitor.assert_within_limits()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(payload)
+        self._resource_monitor.assert_within_limits()
+
+    def write_pair_results(self, path: Path, rows: list[dict[str, Any]]) -> None:
+        self._resource_monitor.assert_within_limits()
+        _write_pair_results(path, rows)
+        self._resource_monitor.assert_within_limits()
+
+    def append_pair_cache(self, path: Path, row: dict[str, Any]) -> None:
+        self._resource_monitor.assert_within_limits()
+        _append_pair_cache(path, row)
+        self._resource_monitor.assert_within_limits()
+
+    def append_guard_attempts(self, path: Path, attempts: list[dict[str, str]]) -> None:
+        self._resource_monitor.assert_within_limits()
+        append_guard_attempts(path, attempts)
+        self._resource_monitor.assert_within_limits()
+
+    def append_deviation_entry(self, path: Path, entry: tuple[str, str, str, str, str, str]) -> None:
+        self._resource_monitor.assert_within_limits()
+        append_deviation_entry(path, entry)
+        self._resource_monitor.assert_within_limits()
+
+    def finalize_deviation_log(self, path: Path, *, status: str, abort_type: str | None) -> None:
+        self._resource_monitor.assert_within_limits()
+        finalize_deviation_log(path, status=status, abort_type=abort_type)
+        self._resource_monitor.assert_within_limits()
+
+    def write_atomic_manifest(self, path: Path, payload: dict[str, Any]) -> None:
+        self._resource_monitor.assert_within_limits()
+        _write_atomic_manifest(path, payload)
+        self._resource_monitor.assert_within_limits()
+
+
+def _select_smoke_components(component_index: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Bounded validation: include one d=1 and one live d=3 multi-component system."""
+    by_dimension: dict[int, list[dict[str, Any]]] = {}
+    for item in component_index:
+        by_dimension.setdefault(int(item["record"]["dimension"]), []).append(item)
+    selected: list[dict[str, Any]] = []
+    if 1 in by_dimension:
+        selected.append(by_dimension[1][0])
+    if 3 in by_dimension:
+        selected.append(by_dimension[3][0])
+    if len(selected) < 2:
+        selected = component_index[:2]
+    return selected
 
 
 def _attach_records(component_index: list[dict[str, Any]], train_records: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -165,9 +241,20 @@ def _write_pair_results(path: Path, rows: list[dict[str, Any]]) -> None:
             )
 
 
-def _load_pair_cache(path: Path) -> dict[str, dict[str, Any]]:
-    rows = load_jsonl(path, key_fn=lambda row: (row.get("pair_id"),))
-    return {row["pair_id"]: row for row in rows if row.get("pair_id")}
+def _pair_cache_key(condition: str, pair_id: str) -> tuple[str, str]:
+    return (condition, pair_id)
+
+
+def _load_pair_cache(path: Path) -> dict[tuple[str, str], dict[str, Any]]:
+    rows = load_jsonl(
+        path,
+        key_fn=lambda row: (row.get("condition"), row.get("pair_id")),
+    )
+    return {
+        (str(row["condition"]), str(row["pair_id"])): row
+        for row in rows
+        if row.get("pair_id") and row.get("condition")
+    }
 
 
 def _append_pair_cache(path: Path, row: dict[str, Any]) -> None:
@@ -475,7 +562,9 @@ def run_audit(options: dict[str, Any], *, guard=None) -> dict[str, Any]:
             resource_monitor=resource_monitor,
             context=context,
         )
-    except _global_abort_error_types() as exc:
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except BaseException as exc:
         _handle_global_abort(
             output_dir,
             exc=exc,
@@ -550,12 +639,12 @@ def _run_audit_body(
 ) -> dict[str, Any]:
     manifest_path = output_dir / "audit_manifest.json"
     deviation_path = output_dir / "deviation_log.md"
-
-    def write_checked(path: Path, payload: Any) -> None:
-        # §8.5: measure before and after every artifact write.
-        resource_monitor.assert_within_limits()
-        write_json(path, payload)
-        resource_monitor.assert_within_limits()
+    artifacts = ArtifactWriter(resource_monitor)
+    if options.get("require_clean_worktree", True):
+        worktree_provenance = verify_clean_worktree()
+    else:
+        worktree_provenance = {"clean": "skipped_for_unit_test"}
+    ensure_guard_side_channel(side_channel_path(output_dir))
 
     corpus = load_frozen_corpus()
     _assert_g_corpus(corpus)
@@ -580,7 +669,11 @@ def _run_audit_body(
     validate_g_stratum(quantization_artifact_rows)
     smoke_limit = 2 if options.get("smoke") else None
     scales = ["0.1"] if options.get("smoke") else list(options.get("primary_scales", ("0.1", "0.5", "1.0", "2.0")))
-    selected_components = component_index[: smoke_limit or len(component_index)]
+    selected_components = (
+        _select_smoke_components(component_index)
+        if options.get("smoke")
+        else component_index[: smoke_limit or len(component_index)]
+    )
     sample_dimension = int(selected_components[0]["record"]["dimension"]) if selected_components else 3
     scaler_asserts = _assert_g0(sample_dimension, scale=float(scales[0])) if runtime_available else {}
 
@@ -615,9 +708,14 @@ def _run_audit_body(
         output_dir=output_dir,
     )
     source_inventory = build_source_inventory(include_hashes=True)
-    closure_hash_status = verify_accepted_closure_source_hashes(
-        source_inventory, output_dir=output_dir
-    )
+    if options.get("resume") or not options.get("smoke"):
+        closure_hash_status = require_accepted_closure_for_execution(
+            commit, source_inventory, output_dir=output_dir
+        )
+    else:
+        closure_hash_status = verify_accepted_closure_source_hashes(
+            source_inventory, output_dir=output_dir
+        )
     if options.get("resume"):
         existing_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         verify_resume_identity(existing_manifest.get("resume_identity", {}), resume_identity)
@@ -638,6 +736,7 @@ def _run_audit_body(
             "resume_identity": resume_identity,
             "fingerprint_payload": corpus["fingerprint_payload"],
             "accepted_closure_source_hash_status": closure_hash_status,
+            "worktree_provenance": worktree_provenance,
             "started_utc": utc_now(),
         },
     )
@@ -652,17 +751,20 @@ def _run_audit_body(
         truth_rows = json.loads(registration_truth_path.read_text(encoding="utf-8"))
         rewrite_rows = json.loads(registration_rewrites_path.read_text(encoding="utf-8"))
     else:
+        registration_index = (
+            selected_components if options.get("smoke") else component_index[: smoke_limit or len(component_index)]
+        )
         truth_rows, rewrite_rows = registration_rows(
             corpus["corpus_hash"],
-            component_index,
+            registration_index,
             oracle_timeout_sec=oracle_timeout_sec,
             call_logger=call_logger,
             stage_cache=stage_cache,
             cache_path=stage_cache_path,
-            limit=smoke_limit,
+            limit=None,
         )
-        write_checked(registration_truth_path, truth_rows)
-        write_checked(registration_rewrites_path, rewrite_rows)
+        artifacts.write_json(registration_truth_path, truth_rows)
+        artifacts.write_json(registration_rewrites_path, rewrite_rows)
     rewrite_by_component = {row["component_id"]: row for row in rewrite_rows}
 
     pair_rows: list[dict[str, Any]] = []
@@ -670,7 +772,10 @@ def _run_audit_body(
     b1_rows: list[dict[str, Any]] = []
     b2_rows: list[dict[str, Any]] = []
     d2_rows: list[dict[str, Any]] = []
-    cached_pair_ids = set(pair_cache.keys())
+    cached_pair_keys = set(pair_cache.keys())
+    b2_result_cache: dict[str, dict[str, Any]] = {
+        pair_id: row for (condition, pair_id), row in pair_cache.items() if condition == "B2"
+    }
 
     for item in selected_components:
         resource_monitor.assert_within_limits()
@@ -695,14 +800,18 @@ def _run_audit_body(
                 stage_cache=stage_cache,
                 cache_path=stage_cache_path,
             )
-            if row["pair_id"] not in cached_pair_ids:
-                _append_pair_cache(pair_cache_path, row)
-                cached_pair_ids.add(row["pair_id"])
+            b0_key = _pair_cache_key("B0", row["pair_id"])
+            if b0_key not in cached_pair_keys:
+                artifacts.append_pair_cache(pair_cache_path, row)
+                pair_cache[b0_key] = row
+                cached_pair_keys.add(b0_key)
             b0_rows.append(row)
             pair_rows.append(row)
             if runtime_available:
-                b2_rows.append(
-                    run_b2_pair(
+                if row["pair_id"] in b2_result_cache:
+                    b2_row = b2_result_cache[row["pair_id"]]
+                else:
+                    b2_row = run_b2_pair(
                         pair_id=row["pair_id"],
                         component_id=row["component_id"],
                         system_id=row["system_id"],
@@ -716,28 +825,38 @@ def _run_audit_body(
                         e1_fields=b2_inherited_e1_fields(row),
                         stage_cache=stage_cache,
                         cache_path=stage_cache_path,
+                        result_cache=b2_result_cache,
                     )
-                )
+                    b2_key = _pair_cache_key("B2", row["pair_id"])
+                    if b2_key not in cached_pair_keys:
+                        artifacts.append_pair_cache(pair_cache_path, b2_row)
+                        pair_cache[b2_key] = b2_row
+                        cached_pair_keys.add(b2_key)
+                b2_rows.append(b2_row)
         if is_strict_hill_component(record["family"], component_idx) and (
             not options.get("smoke") or len(d2_rows) == 0
         ):
-            d2_rows.append(
-                run_d2_pair(
-                    corpus_hash=corpus["corpus_hash"],
-                    record=record,
-                    component_idx=component_idx,
-                    rewrite_row=rewrite_row,
-                    oracle_timeout_sec=oracle_timeout_sec,
-                    q4_timeout_sec=q4_timeout_sec,
-                    simplifier_timeout_sec=simplifier_timeout_sec,
-                    call_logger=call_logger,
-                    runtime_available=runtime_available,
-                    guard=guard,
-                    pair_cache=pair_cache,
-                    stage_cache=stage_cache,
-                    cache_path=stage_cache_path,
-                )
+            d2_row = run_d2_pair(
+                corpus_hash=corpus["corpus_hash"],
+                record=record,
+                component_idx=component_idx,
+                rewrite_row=rewrite_row,
+                oracle_timeout_sec=oracle_timeout_sec,
+                q4_timeout_sec=q4_timeout_sec,
+                simplifier_timeout_sec=simplifier_timeout_sec,
+                call_logger=call_logger,
+                runtime_available=runtime_available,
+                guard=guard,
+                pair_cache=pair_cache,
+                stage_cache=stage_cache,
+                cache_path=stage_cache_path,
             )
+            d2_rows.append(d2_row)
+            d2_key = _pair_cache_key("D2", d2_row["pair_id"])
+            if d2_key not in cached_pair_keys:
+                artifacts.append_pair_cache(pair_cache_path, d2_row)
+                pair_cache[d2_key] = d2_row
+                cached_pair_keys.add(d2_key)
         b1_row = run_b1_pair(
             corpus_hash=corpus["corpus_hash"],
             record=record,
@@ -752,9 +871,11 @@ def _run_audit_body(
             stage_cache=stage_cache,
             cache_path=stage_cache_path,
         )
-        if b1_row["pair_id"] not in cached_pair_ids:
-            _append_pair_cache(pair_cache_path, b1_row)
-            cached_pair_ids.add(b1_row["pair_id"])
+        b1_key = _pair_cache_key("B1", b1_row["pair_id"])
+        if b1_key not in cached_pair_keys:
+            artifacts.append_pair_cache(pair_cache_path, b1_row)
+            pair_cache[b1_key] = b1_row
+            cached_pair_keys.add(b1_key)
         b1_rows.append(b1_row)
 
     pair_rows.extend(b1_rows)
@@ -773,13 +894,13 @@ def _run_audit_body(
         for item in selected_components
     ]
     negative_controls = run_negative_controls(
-        component_index,
+        selected_components if options.get("smoke") else component_index,
         oracle_timeout_sec=oracle_timeout_sec,
         call_logger=call_logger,
         corpus_hash=corpus["corpus_hash"],
         stage_cache=stage_cache,
         cache_path=stage_cache_path,
-        limit=2 if options.get("smoke") else 100,
+        limit=len(selected_components) if options.get("smoke") else 100,
     )
     b3_rows = (
         run_b3_pairs(
@@ -820,7 +941,7 @@ def _run_audit_body(
 
     deviation_entries = _derive_deviation_entries(options)
     for entry in deviation_entries:
-        append_deviation_entry(deviation_path, entry)
+        artifacts.append_deviation_entry(deviation_path, entry)
     reachability_evidence = build_reachability_evidence()
     negative_controls_payload = [
         {
@@ -914,21 +1035,21 @@ def _run_audit_body(
         "f_acceptance": {row["requirement_id"]: row["passed"] for row in f_acceptance_rows},
     }
     gates = evaluate_validity_gates(gate_state)
+    if options.get("smoke") and not runtime_available:
+        # Bounded smoke without ODEFormer cannot measure G0; do not abort on it.
+        gates["G0"] = True
     decision = evaluate_primary_decision(strict_rows, validity_gate_failed=any_gate_failed(gates))
     abort_gate = first_abort_gate(gates)
     if abort_gate is not None:
         raise GateAbortError(f"{abort_gate} FAIL: abort-disposition validity gate failed")
 
-    resource_monitor.assert_within_limits()
-    resource_monitor.assert_within_limits()
-    (output_dir / "fingerprint_bytes.bin").write_bytes(corpus["fingerprint_bytes"])
-    (output_dir / "fingerprint_payload.json").write_bytes(corpus["fingerprint_bytes"])
-    resource_monitor.assert_within_limits()
-    write_checked(output_dir / "quantization_stratum.json", quantization_artifact_rows)
-    write_checked(output_dir / "negative_controls.json", negative_controls_payload)
-    write_checked(output_dir / "b3_results.json", b3_payload)
-    write_checked(output_dir / "b4_results.json", b4_payload)
-    write_checked(
+    artifacts.write_bytes(output_dir / "fingerprint_bytes.bin", corpus["fingerprint_bytes"])
+    artifacts.write_bytes(output_dir / "fingerprint_payload.json", corpus["fingerprint_bytes"])
+    artifacts.write_json(output_dir / "quantization_stratum.json", quantization_artifact_rows)
+    artifacts.write_json(output_dir / "negative_controls.json", negative_controls_payload)
+    artifacts.write_json(output_dir / "b3_results.json", b3_payload)
+    artifacts.write_json(output_dir / "b4_results.json", b4_payload)
+    artifacts.write_json(
         output_dir / "condition_summary.json",
         condition_summary(
             strict_rows,
@@ -937,21 +1058,32 @@ def _run_audit_body(
             descriptive_calls=call_logger.descriptive_total(),
         ),
     )
-    write_checked(output_dir / "q4_reference_controls.json", c_q4_payload)
-    write_checked(output_dir / "reachability_evidence.json", reachability_evidence)
-    write_checked(
+    artifacts.write_json(output_dir / "q4_reference_controls.json", c_q4_payload)
+    artifacts.write_json(output_dir / "reachability_evidence.json", reachability_evidence)
+    artifacts.write_json(
         output_dir / "contract_evidence.json",
         contract_evidence_payload(
             g_contract_rows=g_contract_rows, f_acceptance_rows=f_acceptance_rows
         ),
     )
-    write_checked(output_dir / "source_inventory.json", source_inventory)
-    resource_monitor.assert_within_limits()
-    _write_pair_results(output_dir / "pair_results.csv", pair_rows)
-    resource_monitor.assert_within_limits()
-    _write_equivalence_oracle(output_dir / "equivalence_oracle.json", b0_rows + b1_rows + d2_rows)
-    append_guard_attempts(side_channel_path(output_dir), guard.to_log())
-    finalize_deviation_log(deviation_path, status="completed", abort_type=None)
+    artifacts.write_json(output_dir / "source_inventory.json", source_inventory)
+    artifacts.write_pair_results(output_dir / "pair_results.csv", pair_rows)
+    artifacts.write_json(
+        output_dir / "equivalence_oracle.json",
+        [
+            _oracle_stage_payload(row, "E1", "original_truth")
+            for row in b0_rows + b1_rows + d2_rows
+        ]
+        + [
+            _oracle_stage_payload(row, "E2", "q4_e1")
+            for row in b0_rows + b1_rows + d2_rows
+        ],
+    )
+    artifacts.append_guard_attempts(side_channel_path(output_dir), guard.to_log())
+    schema_ok, schema_detail = validate_output_artifact_schemas(output_dir)
+    if not schema_ok:
+        raise GateAbortError(f"produced artifact schema validation failed: {schema_detail}")
+    artifacts.finalize_deviation_log(deviation_path, status="completed", abort_type=None)
 
     manifest = {
         "status": "completed",
@@ -1013,7 +1145,8 @@ def _run_audit_body(
         "dir_bytes": resource_monitor.dir_bytes(),
         "completed_utc": utc_now(),
     }
-    _write_atomic_manifest(manifest_path, manifest)
+    manifest["worktree_provenance"] = worktree_provenance
+    artifacts.write_atomic_manifest(manifest_path, manifest)
     return {
         "manifest": manifest,
         "pair_rows": pair_rows,

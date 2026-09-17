@@ -199,6 +199,63 @@ def verify_resume_identity(existing: dict[str, Any], current: dict[str, Any]) ->
 FINGERPRINT_BYTES_NAME = "fingerprint_bytes.bin"
 FINGERPRINT_PAYLOAD_NAME = "fingerprint_payload.json"
 CLOSURE_RECORD_NAME = "implementation_closure_record.json"
+PROTECTED_UNTRACKED_SMOKE = (
+    "GPU_RUNmultiAI/cycles/C0001/runs/c0001_metric_identifiability_audit_v9_smoke"
+)
+
+
+def verify_clean_worktree() -> dict[str, Any]:
+    """Require a clean tracked worktree; ignore only the protected historical v9 smoke."""
+    import subprocess
+
+    result = subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    ignored: list[str] = []
+    violations: list[str] = []
+    for line in result.stdout.splitlines():
+        if not line.strip():
+            continue
+        path = line[3:].strip()
+        if path == PROTECTED_UNTRACKED_SMOKE or path.startswith(PROTECTED_UNTRACKED_SMOKE + "/"):
+            ignored.append(path)
+            continue
+        violations.append(line)
+    if violations:
+        raise ResumeIdentityError(
+            "validation/full execution requires a clean tracked worktree; "
+            f"dirty entries: {violations}"
+        )
+    return {"clean": True, "ignored_untracked": ignored}
+
+
+def require_accepted_closure_for_execution(
+    commit: str,
+    source_inventory: list[dict[str, str]],
+    *,
+    output_dir: Path | None = None,
+) -> str:
+    """§13.2: non-smoke and resume runs require an accepted closure record."""
+    accepted, source = accepted_closure_source_hashes(output_dir)
+    if accepted is None:
+        raise ResumeIdentityError(
+            "non-smoke and resume execution require accepted "
+            "implementation_closure_record.json pinning the current commit and source hashes"
+        )
+    payload = json.loads(Path(source).read_text(encoding="utf-8"))
+    if payload.get("commit") != commit:
+        raise ResumeIdentityError(
+            f"closure record commit {payload.get('commit')!r} != current {commit!r}"
+        )
+    if accepted != source_inventory:
+        raise ResumeIdentityError(
+            "closure record source_hashes do not match the recomputed inventory"
+        )
+    return f"closure_record_verified:{source}"
 
 
 def verify_fingerprint_artifacts(

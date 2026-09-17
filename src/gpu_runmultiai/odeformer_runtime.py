@@ -105,9 +105,31 @@ def tree_to_system_infix(tree: Any) -> str:
     return str(tree)
 
 
+MULTI_COMPONENT_SEPARATOR = ",|,"
+
+
+def component_prefix_list_from_raw(raw: str) -> list[str]:
+    """Split a system prefix into per-component comma-separated prefix strings (§3.4.8)."""
+    text = str(raw or "")
+    if MULTI_COMPONENT_SEPARATOR in text:
+        return [part for part in text.split(MULTI_COMPONENT_SEPARATOR) if part]
+    if "|" in text:
+        return [part.strip().strip(",") for part in text.split("|") if part.strip().strip(",")]
+    return [text] if text else []
+
+
+def canonical_system_prefix_raw(tree_or_raw: Any) -> str:
+    """Frozen comma-separated multi-component dialect for byte-identical E1/E2 comparison (§2.2)."""
+    if hasattr(tree_or_raw, "prefix"):
+        raw = str(tree_or_raw.prefix())
+    else:
+        raw = str(tree_or_raw or "")
+    return MULTI_COMPONENT_SEPARATOR.join(component_prefix_list_from_raw(raw))
+
+
 def tree_to_prefix_list(tree: Any) -> list[str]:
     raw = tree.prefix() if hasattr(tree, "prefix") else str(tree)
-    return [part.strip().strip(",") for part in raw.split("|") if part.strip().strip(",")]
+    return component_prefix_list_from_raw(str(raw))
 
 
 def _fit_production_scaler(

@@ -159,6 +159,29 @@ def _classify_five_whole_chain(row: dict[str, Any]) -> str:
     return "unknown"
 
 
+def compute_b2_expected_outcome(
+    *,
+    e1_infix: str,
+    component_idx: int,
+    e1_fields: dict[str, Any],
+) -> str:
+    """F7 independent oracle: derive the B2 five-outcome partition from B0 E1 inputs only."""
+    from evaluation.gpu_run5_structure import classify_formula
+
+    classified = classify_formula(e1_infix)
+    parse_valid = bool(classified["valid"])
+    hill_form = False
+    if parse_valid and component_idx < len(classified["component_flags"]):
+        hill_form = bool(classified["component_flags"][component_idx]["hill_form"])
+    synthetic = dict(e1_fields)
+    synthetic.update(
+        condition="B2",
+        classifier_parse_valid=parse_valid,
+        hill_form=hill_form,
+    )
+    return _classify_five_e1_only(synthetic)
+
+
 def _classify_five_e1_only(row: dict[str, Any]) -> str:
     """B2 partition (§2.5.2, F7): decided from E1-stage fields only, never from B0 E2 flags."""
     if row.get("construction_incomplete"):

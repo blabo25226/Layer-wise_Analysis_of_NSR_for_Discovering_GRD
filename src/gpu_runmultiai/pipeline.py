@@ -27,6 +27,8 @@ from gpu_runmultiai.odeformer_runtime import (
     ODEFormerUnavailable,
     build_identity_scaler,
     build_production_scaler,
+    canonical_system_prefix_raw,
+    component_prefix_list_from_raw,
     decode_system_tree,
     forward_scale_system,
     full_system_infix_from_record,
@@ -103,8 +105,28 @@ def _compute_original_vs_q4_numeric_max_abs_error(
 
 
 def _q4_component_prefix(q4_prefix_raw: str, component_idx: int) -> str:
-    parts = split_components(q4_prefix_raw)
+    parts = component_prefix_list_from_raw(q4_prefix_raw)
     return parts[component_idx] if component_idx < len(parts) else q4_prefix_raw
+
+
+def detect_e2_identity_fallback_candidate(
+    *,
+    e1_prefix_raw: str,
+    e2_prefix_raw: str,
+    e1_component_prefix: str,
+    q4_sympy_expr_canonical: str | None,
+    dimension: int,
+    q4_timeout_sec: float,
+) -> bool:
+    """§2.2 / §3.4.10: byte-identical stored prefixes in the frozen ,|, dialect."""
+    if e1_prefix_raw != e2_prefix_raw:
+        return False
+    return e1_not_equivalent_to_q4(
+        e1_component_prefix,
+        q4_sympy_expr_canonical,
+        dimension=dimension,
+        timeout_sec=q4_timeout_sec,
+    )
 
 
 def _cached_call(
@@ -395,7 +417,7 @@ def _execute_chain(
             unit_id=pair_id,
             executor=lambda: e0_tree,
         )
-        e0_prefix_raw = "|".join(tree_to_prefix_list(e0_tree))
+        e0_prefix_raw = canonical_system_prefix_raw(e0_tree)
         e0_infix = tree_to_system_infix(e0_tree)
         current_stage = "E1"
         e1_tree, rescale_incomplete, rescale_proof = rescale_system(env, scaler, e0_tree)
@@ -422,7 +444,7 @@ def _execute_chain(
                 e0_prefix_raw=e0_prefix_raw,
                 e0_infix=e0_infix,
             )
-        e1_prefix_raw = "|".join(tree_to_prefix_list(e1_tree))
+        e1_prefix_raw = canonical_system_prefix_raw(e1_tree)
         e1_infix = tree_to_system_infix(e1_tree)
         e1_component_prefix = tree_to_prefix_list(e1_tree)[component_idx]
 
@@ -541,7 +563,7 @@ def _execute_chain(
                 )
             e2_infix = simplified["infix"]
             child_prefix = simplified.get("prefix")
-            e2_prefix_raw = child_prefix if child_prefix else None
+            e2_prefix_raw = canonical_system_prefix_raw(child_prefix) if child_prefix else None
             e2_status = "completed"
             if run_oracles:
                 def _run_e2_oracle():
@@ -574,19 +596,14 @@ def _execute_chain(
                     status_for_result=lambda row: "completed" if row["completed"] else "failed",
                 )
         e2_identity_fallback_candidate = False
-        if (
-            run_oracles
-            and not skip_simplifier
-            and e2_prefix_raw is not None
-            and e2_prefix_raw == e1_prefix_raw
-        ):
-            # §2.2 / §3.4.10: raw E2==E1 alone is insufficient; require E1 not equivalent
-            # to Q4(E1) under the frozen local dictionary and frozen Q4 timeout.
-            e2_identity_fallback_candidate = e1_not_equivalent_to_q4(
-                e1_component_prefix,
-                q4_sympy_expr_canonical,
+        if run_oracles and not skip_simplifier and e2_prefix_raw is not None:
+            e2_identity_fallback_candidate = detect_e2_identity_fallback_candidate(
+                e1_prefix_raw=e1_prefix_raw,
+                e2_prefix_raw=e2_prefix_raw,
+                e1_component_prefix=e1_component_prefix,
+                q4_sympy_expr_canonical=q4_sympy_expr_canonical,
                 dimension=int(record["dimension"]),
-                timeout_sec=q4_timeout_sec,
+                q4_timeout_sec=q4_timeout_sec,
             )
         q4_numeric_error = None
         if q4_completed and q4_emitted_infix:
@@ -732,8 +749,9 @@ def run_b0_pair(
     cache_path=None,
 ) -> dict[str, Any]:
     pair_id, _ = pair_id_for(corpus_hash, record["system_id"], component_idx, scale, rewrite_row["rewrite_id"])
-    if pair_cache is not None and pair_id in pair_cache:
-        return pair_cache[pair_id]
+    cache_key = ("B0", pair_id)
+    if pair_cache is not None and cache_key in pair_cache:
+        return pair_cache[cache_key]
     row = _execute_chain(
         corpus_hash=corpus_hash,
         record=record,
@@ -755,7 +773,7 @@ def run_b0_pair(
         cache_path=cache_path,
     )
     if pair_cache is not None:
-        pair_cache[pair_id] = row
+        pair_cache[cache_key] = row
     return row
 
 
@@ -781,8 +799,9 @@ def run_b1_pair(
         IDENTITY_SCALE,
         IDENTITY_REWRITE_ID,
     )
-    if pair_cache is not None and pair_id in pair_cache:
-        return pair_cache[pair_id]
+    cache_key = ("B1", pair_id)
+    if pair_cache is not None and cache_key in pair_cache:
+        return pair_cache[cache_key]
     row = _execute_chain(
         corpus_hash=corpus_hash,
         record=record,
@@ -804,7 +823,7 @@ def run_b1_pair(
         cache_path=cache_path,
     )
     if pair_cache is not None:
-        pair_cache[pair_id] = row
+        pair_cache[cache_key] = row
     return row
 
 
@@ -1297,8 +1316,9 @@ def run_d2_pair(
         "5.0",
         rewrite_row["rewrite_id"],
     )
-    if pair_cache is not None and pair_id in pair_cache:
-        return pair_cache[pair_id]
+    cache_key = ("D2", pair_id)
+    if pair_cache is not None and cache_key in pair_cache:
+        return pair_cache[cache_key]
     row = _execute_chain(
         corpus_hash=corpus_hash,
         record=record,
@@ -1320,7 +1340,7 @@ def run_d2_pair(
         cache_path=cache_path,
     )
     if pair_cache is not None:
-        pair_cache[pair_id] = row
+        pair_cache[cache_key] = row
     return row
 
 
