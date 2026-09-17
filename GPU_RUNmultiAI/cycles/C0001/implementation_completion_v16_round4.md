@@ -10,7 +10,7 @@ or from the recorded command output below. No value is transcribed from memory.
 | Branch | `ai/C0001/research-engineer/implement-metric-audit` |
 | Runtime + tests commits | `f4b4a1a` (round-3 blocker repairs), `ee670f1` (runtime scratch ignore), `acc1982` (worktree check ordering) |
 | Validation runtime tip | `acc1982b4212bbeb7e55ace0ded0a879bb06d0f1` |
-| Artifacts + report commit | see `git log -1` on this commit |
+| Artifacts + report commit | `a7b85528a25c776ee55f1a2fde6a67045f93e606` |
 | Plan SHA256 | `67017f5c8bac861664fc867b70cf229d43be3d052d266ffd0d575e20e6c12078` (unchanged) |
 | Validation run | bounded smoke (`--smoke`), **not** confirmatory evidence |
 | Python | 3.10.20 (`/home/blabo/miniconda3/envs/lansr310/bin/python`) |
