@@ -7,14 +7,14 @@ Update it before a parent session ends.
 campaign: GPU_RUNmultiAI
 status: active
 current_cycle: C0001
-current_stage: PREREGISTRATION_V16_IMPLEMENTATION_ROUND6_ACCEPTANCE_COMPLETE_PENDING_REVIEW
+current_stage: PREREGISTRATION_V16_IMPLEMENTATION_ROUND7_REPAIR_READY
 branch: ai/C0001/research-engineer/implement-metric-audit
-observed_commit: 5b6e662a632cbec794d9136ef06a1bebe0e06248
+observed_commit: e5fc0167d94165f5711445806b4e39a235534b75
 base_commit: d4fef3f703cd3ef476529d110930aa34962fa2b0
 remote_branch: ai/C0001/research-engineer/implement-metric-audit
-remote_commit: 5b6e662a632cbec794d9136ef06a1bebe0e06248
-remote_verification_scope: round6_acceptance_r4_artifact_commit_local_tracking_remote_equality_verified_2026-09-18
-last_push_attempt_utc: 2026-09-18T04:55:00Z
+remote_commit: e5fc0167d94165f5711445806b4e39a235534b75
+remote_verification_scope: round6_independent_block_review_and_round7_handoff_local_tracking_remote_equality_verified_2026-09-18
+last_push_attempt_utc: 2026-09-18T06:38:17Z
 last_push_error: null
 binding_plan:
   path: GPU_RUNmultiAI/cycles/C0001/preregistration_draft_v16.md
@@ -39,24 +39,50 @@ tracks:
   scientific:
     status: active
     current_cycle: C0001
-    stage: PREREGISTRATION_V16_IMPLEMENTATION_ROUND6_ACCEPTANCE_COMPLETE_PENDING_REVIEW
+    stage: PREREGISTRATION_V16_IMPLEMENTATION_ROUND7_REPAIR_READY
 
 active_tasks:
+  - task_id: C0001-T023
+    track: scientific
+    role: research-engineer / repo-operator
+    worker: Cursor Agent
+    branch: ai/C0001/research-engineer/implement-metric-audit
+    worktree: /tmp/lansr-multiai-C0001-implement-audit
+    status: ready
+    prior_task: C0001-T022-REVIEW
+    binding_review: GPU_RUNmultiAI/cycles/C0001/implementation_review_v16_round6.md
+    handoff: GPU_RUNmultiAI/cycles/C0001/implementation_v16_round6_revision_handoff.md
+    expected_outputs: [genuine identity fallback, non-circular F7, fail-closed canonical closure gate, exact timing model, final lifecycle/resource validation, fresh round7 acceptance]
+    acceptance_test: full focused module on Python 3.10; fresh 510/4080 packet; immutable pushed source; independent PASS
+  - task_id: C0001-T022-REVIEW
+    track: scientific
+    role: independent reviewer / research-pi
+    worker: Claude Code + Codex executable-audit subagent + Codex PI
+    branch: ai/C0001/research-engineer/implement-metric-audit
+    worktree: /tmp/lansr-multiai-C0001-implement-audit
+    status: completed_block
+    reviewed_tip: cbdd909cc714b023925a7eff37f4276954aeef3b
+    runtime_commit: 9aa9ad76d277c485bedd1cc8f60c655e6c0ed97f
+    review_artifact_commit: e5fc0167d94165f5711445806b4e39a235534b75
+    result: round-6 BLOCK; fabricated identity fallback, circular F7, weak full closure gate, inexact timing, incomplete final resource/lifecycle validation
+    deliverables:
+      - GPU_RUNmultiAI/cycles/C0001/implementation_review_v16_round6.md
+      - GPU_RUNmultiAI/cycles/C0001/implementation_v16_round6_revision_handoff.md
   - task_id: C0001-T021
     track: scientific
     role: research-engineer / repo-operator
     worker: Cursor Agent
     branch: ai/C0001/research-engineer/implement-metric-audit
     worktree: /tmp/lansr-multiai-C0001-implement-audit
-    status: completed_pending_independent_review
+    status: completed_blocked_by_independent_review
     prior_task: C0001-T020-REVIEW
     binding_review: GPU_RUNmultiAI/cycles/C0001/implementation_review_v16_round5.md
     runtime_commit: 9aa9ad76d277c485bedd1cc8f60c655e6c0ed97f
     acceptance_artifact_commit: 5b6e662a632cbec794d9136ef06a1bebe0e06248
     acceptance_artifact: GPU_RUNmultiAI/cycles/C0001/runs/c0001_metric_identifiability_audit_v16_round6_acceptance_r4
     completion_report: GPU_RUNmultiAI/cycles/C0001/implementation_completion_v16_round6.md
-    result: R5-1..R5-8 closed; 510/4080 acceptance PASS; G_contract/G_impl PASS; timing PASS
-    next_action: independent round-six review on 9aa9ad7 runtime + r4 artifacts; no full audit
+    result: 510/4080, cache uniqueness, provenance, and lifecycle mechanically PASS; claimed G_impl/timing closure rejected by round-six independent review
+    next_action: preserve as negative evidence; execute C0001-T023 in a fresh round-seven directory
   - task_id: C0001-T020-REVIEW
     track: scientific
     role: independent reviewer / research-pi
@@ -567,6 +593,11 @@ completed_tasks:
     integration_commit: 47d7459
     result: four C0001 evidence and preregistration draft artifacts persisted
 open_findings:
+  - Round-6 independent review is BLOCK. REACH-IDENT-FALLBACK-1 overwrites production E2 with E1; the artifact itself records production equality false and subprocess identity false.
+  - Production B2 outcome imports the independent F7 decision table, so production/reference logic is circular.
+  - Full execution calls a weak closure verifier; exact PASS verdicts, plan/audit identity, accepted-commit Git blobs, and evidence/review digests are not all enforced at the execution gate.
+  - Round-6 timing does not use exact D2 eight-call multiplicities and does not directly measure P1/P2/P12 or finalization/resource overhead.
+  - Round-6 mechanically validated 510 B1 rows, 4,080 unique calls, unique/loadable stage cache, source/Git blob equality, and clean completed lifecycle. These artifacts remain non-scientific negative implementation evidence.
   - v16 is frozen at SHA256 67017f5c8bac861664fc867b70cf229d43be3d052d266ffd0d575e20e6c12078. Round-3 implementation review is BLOCK; G_contract/G_impl closure is not authorized and full audit remains prohibited.
   - Round-3 P0: multi-component identity-fallback prefixes use incompatible `|` versus `,|,` serialization; the d=1 smoke cannot detect it.
   - Round-3 P0: F1/F4 evidence covers only scale 0.1, F6 passes with 2 rather than 510 rows, and closure absence does not block a full run.
@@ -595,12 +626,12 @@ retries:
   C0001-T003: 1
 
 next_action: >
-  Independent round-5 review on 24f1e04 runtime and
-  c0001_metric_identifiability_audit_v16_round5_acceptance artifacts (510 B1 rows,
-  4080-call ledger, G_contract/G_impl PASS, timing_calibration BLOCK). No closure
-  record or 27,637-call audit until reviewer PASS and timing feasibility resolved.
+  Execute C0001-T023 with Cursor in the isolated worktree. Repair the five
+  round-six blockers, commit and push an immutable candidate source, then run a
+  fresh round-seven 510-B1/4,080-call acceptance. No closure record or full
+  27,637-call audit until another independent review returns PASS.
 
-last_checkpoint_utc: 2026-09-17T00:00:00Z
+last_checkpoint_utc: 2026-09-18T06:38:17Z
 ```
 
 ## Notes
