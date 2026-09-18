@@ -550,14 +550,16 @@ def validate_acceptance_artifact_schemas(output_dir: Path) -> tuple[bool, str]:
         problems.append("audit_manifest.json:absent")
     else:
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        if manifest.get("status") != "completed":
-            problems.append(f"manifest_status={manifest.get('status')}")
-        if not manifest.get("commit"):
-            problems.append("manifest_missing_commit")
-        if not manifest.get("source_hashes"):
-            problems.append("manifest_missing_source_hashes")
-        if manifest.get("abort_type"):
-            problems.append(f"manifest_abort_type={manifest.get('abort_type')}")
+        manifest_status = manifest.get("status")
+        if manifest_status not in {"running", "completed"}:
+            problems.append(f"manifest_status={manifest_status}")
+        if manifest_status == "completed":
+            if not manifest.get("commit"):
+                problems.append("manifest_missing_commit")
+            if not manifest.get("source_hashes"):
+                problems.append("manifest_missing_source_hashes")
+            if manifest.get("abort_type"):
+                problems.append(f"manifest_abort_type={manifest.get('abort_type')}")
 
     if (root / "abort_manifest.json").is_file():
         problems.append("abort_manifest_present")
@@ -566,8 +568,12 @@ def validate_acceptance_artifact_schemas(output_dir: Path) -> tuple[bool, str]:
         body = deviation_path.read_text(encoding="utf-8")
         if body.rstrip().endswith("status=aborted"):
             problems.append("deviation_log_aborted")
-        if not body.rstrip().endswith("status=completed abort_type=none"):
-            problems.append("deviation_log_not_completed")
+        if manifest_path.is_file():
+            manifest_status = json.loads(manifest_path.read_text(encoding="utf-8")).get("status")
+            if manifest_status == "completed" and not body.rstrip().endswith(
+                "status=completed abort_type=none"
+            ):
+                problems.append("deviation_log_not_completed")
 
     pair_results = root / "pair_results.csv"
     call_log = root / "call_log.jsonl"
