@@ -612,6 +612,11 @@ def run_audit(options: dict[str, Any], *, guard=None) -> dict[str, Any]:
         exclude: list[str] = []
         if options.get("resume") or options.get("implementation_acceptance"):
             exclude.append(str(output_dir))
+        if options.get("implementation_acceptance"):
+            from gpu_runmultiai.manifest import PRESERVED_NEGATIVE_ACCEPTANCE_RUNS
+
+            for preserved in PRESERVED_NEGATIVE_ACCEPTANCE_RUNS:
+                exclude.append(str((REPO_ROOT / preserved).resolve()))
         options["worktree_provenance"] = verify_clean_worktree(
             exclude_paths=exclude or None
         )

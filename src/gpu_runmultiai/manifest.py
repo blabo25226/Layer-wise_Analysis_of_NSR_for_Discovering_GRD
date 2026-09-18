@@ -202,6 +202,9 @@ CLOSURE_RECORD_NAME = "implementation_closure_record.json"
 PROTECTED_UNTRACKED_SMOKE = (
     "GPU_RUNmultiAI/cycles/C0001/runs/c0001_metric_identifiability_audit_v9_smoke"
 )
+PRESERVED_NEGATIVE_ACCEPTANCE_RUNS = (
+    "GPU_RUNmultiAI/cycles/C0001/runs/c0001_metric_identifiability_audit_v16_round6_acceptance",
+)
 RUNTIME_SCRATCH_DIR = "GPU_RUNmultiAI/.runtime"
 
 
