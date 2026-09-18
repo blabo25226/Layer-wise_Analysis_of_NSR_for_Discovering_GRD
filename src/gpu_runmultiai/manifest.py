@@ -205,6 +205,7 @@ PROTECTED_UNTRACKED_SMOKE = (
 PRESERVED_NEGATIVE_ACCEPTANCE_RUNS = (
     "GPU_RUNmultiAI/cycles/C0001/runs/c0001_metric_identifiability_audit_v16_round6_acceptance",
     "GPU_RUNmultiAI/cycles/C0001/runs/c0001_metric_identifiability_audit_v16_round6_acceptance_r2",
+    "GPU_RUNmultiAI/cycles/C0001/runs/c0001_metric_identifiability_audit_v16_round6_acceptance_r3",
 )
 RUNTIME_SCRATCH_DIR = "GPU_RUNmultiAI/.runtime"
 
