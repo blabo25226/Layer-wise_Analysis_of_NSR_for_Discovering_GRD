@@ -18,7 +18,11 @@ from experiment_runtime import REPO_ROOT
 
 from gpu_runmultiai.constants import PRIMARY_SCALES, Q4_TIMEOUT_SEC, SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC
 from gpu_runmultiai.invariants import AuditInvariantError, ResumeIdentityError
-from gpu_runmultiai.outcomes import FIVE_OUTCOME_CATEGORIES, compute_b2_expected_outcome
+from gpu_runmultiai.f7_independent_reference import (
+    classify_b2_outcome_frozen,
+    compute_b2_expected_outcome,
+)
+from gpu_runmultiai.outcomes import FIVE_OUTCOME_CATEGORIES
 from gpu_runmultiai.pipeline import b2_inherited_e1_fields
 from gpu_runmultiai.q4_reference import (
     Q4ContractError,
@@ -518,6 +522,67 @@ def validate_output_artifact_schemas(
     return not problems, detail if not problems else f"{detail}; " + "; ".join(problems[:12])
 
 
+def validate_acceptance_artifact_schemas(output_dir: Path) -> tuple[bool, str]:
+    """Full acceptance-specific schema and lifecycle validation (R5-8)."""
+    from gpu_runmultiai.jsonl_durable import load_jsonl
+
+    problems: list[str] = []
+    root = Path(output_dir)
+    schema_ok, schema_detail = validate_output_artifact_schemas(root, present_only=False)
+    if not schema_ok:
+        problems.append(schema_detail)
+
+    manifest_path = root / "audit_manifest.json"
+    deviation_path = root / "deviation_log.md"
+    if not manifest_path.is_file():
+        problems.append("audit_manifest.json:absent")
+    else:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if manifest.get("status") != "completed":
+            problems.append(f"manifest_status={manifest.get('status')}")
+        if not manifest.get("commit"):
+            problems.append("manifest_missing_commit")
+        if not manifest.get("source_hashes"):
+            problems.append("manifest_missing_source_hashes")
+        if manifest.get("abort_type"):
+            problems.append(f"manifest_abort_type={manifest.get('abort_type')}")
+
+    if (root / "abort_manifest.json").is_file():
+        problems.append("abort_manifest_present")
+
+    if deviation_path.is_file():
+        body = deviation_path.read_text(encoding="utf-8")
+        if body.rstrip().endswith("status=aborted"):
+            problems.append("deviation_log_aborted")
+        if not body.rstrip().endswith("status=completed abort_type=none"):
+            problems.append("deviation_log_not_completed")
+
+    pair_results = root / "pair_results.csv"
+    call_log = root / "call_log.jsonl"
+    if pair_results.is_file() and call_log.is_file():
+        import csv as csv_module
+
+        with pair_results.open(encoding="utf-8", newline="") as handle:
+            b1_rows = list(csv_module.DictReader(handle))
+        if len(b1_rows) != 510:
+            problems.append(f"b1_rows={len(b1_rows)}")
+        call_rows = load_jsonl(call_log)
+        if len(call_rows) != 4080:
+            problems.append(f"call_log_rows={len(call_rows)}")
+        if any(row.get("condition") != "B1" for row in call_rows):
+            problems.append("call_log_non_b1_condition")
+
+    stage_cache = root / "stage_cache.jsonl"
+    if stage_cache.is_file():
+        try:
+            load_jsonl(stage_cache, key_fn=lambda row: (row.get("cache_key"),))
+        except AuditInvariantError as exc:
+            problems.append(f"stage_cache:{exc}")
+
+    detail = f"acceptance_artifacts={len(ARTIFACT_ROW_SCHEMAS)}"
+    return not problems, detail if not problems else f"{detail}; " + "; ".join(problems[:12])
+
+
 def _check_artifact_schemas() -> tuple[bool, str]:
     from gpu_run2_runtime import write_json
     from gpu_runmultiai.guard_side_channel import (
@@ -981,8 +1046,8 @@ def _f7_b2_e1_only(
     *,
     b0_rows: list[dict[str, Any]] | None = None,
 ) -> tuple[bool, str]:
-    from gpu_runmultiai.outcomes import classify_b2_outcome_frozen
-    from gpu_runmultiai.pipeline import B2_FORBIDDEN_INHERITED_FIELDS
+    from evaluation.gpu_run5_structure import classify_formula
+    from gpu_runmultiai.pipeline import B2_FORBIDDEN_INHERITED_FIELDS, run_b2_pair
 
     forbidden_e2 = tuple(
         key for key in B2_FORBIDDEN_INHERITED_FIELDS if key.startswith("e2_")
@@ -999,12 +1064,13 @@ def _f7_b2_e1_only(
         if b0_row is None:
             problems.append(f"{row.get('pair_id')}:missing_b0_source")
             continue
-        expected = compute_b2_expected_outcome(
-            e1_infix=b0_row.get("e1_infix") or "",
-            component_idx=int(row.get("component_idx", 0)),
-            e1_fields=b2_inherited_e1_fields(b0_row),
+        synthetic = dict(b2_inherited_e1_fields(b0_row))
+        synthetic.update(
+            condition="B2",
             classifier_parse_valid=bool(row.get("classifier_parse_valid")),
+            hill_form=bool(row.get("hill_form")),
         )
+        expected = classify_b2_outcome_frozen(synthetic)
         if expected != row.get("outcome_category"):
             problems.append(
                 f"{row.get('pair_id')}:{row.get('outcome_category')}!=expected_from_b0_e1({expected})"
@@ -1014,12 +1080,49 @@ def _f7_b2_e1_only(
     detail = f"b2_rows={len(b2_rows)} b0_sources={len(b0_by_pair)}"
     if problems:
         return False, f"{detail}; " + "; ".join(problems[:5])
-    # Mutation falsifier: perturbing the frozen table must disagree with production rows.
-    if b2_rows:
-        sample = b2_rows[0]
-        mutated = classify_b2_outcome_frozen({**sample, "e1_oracle_equivalent": False})
-        if mutated == sample.get("outcome_category"):
-            problems.append("mutation_falsifier_did_not_change_outcome")
+    if b2_rows and b0_rows:
+        from gpu_runmultiai.calls import CallLogger
+
+        sample_b0 = b0_by_pair.get(b2_rows[0].get("pair_id"))
+        if sample_b0 is not None:
+            original = classify_formula
+
+            def _mutated_classifier(infix: str):
+                result = original(infix)
+                if result.get("valid") and result.get("component_flags"):
+                    result = dict(result)
+                    flags = [dict(flag) for flag in result["component_flags"]]
+                    flags[0] = {**flags[0], "hill_form": not flags[0].get("hill_form", False)}
+                    result["component_flags"] = flags
+                return result
+
+            import gpu_runmultiai.pipeline as pipeline_module
+
+            pipeline_module.classify_formula = _mutated_classifier
+            try:
+                mutated_row = run_b2_pair(
+                    pair_id=sample_b0["pair_id"],
+                    component_id=sample_b0["component_id"],
+                    system_id=sample_b0["system_id"],
+                    component_idx=int(sample_b0["component_idx"]),
+                    scale=sample_b0["scale"],
+                    rewrite_id=sample_b0["rewrite_id"],
+                    stratum=sample_b0.get("stratum") or "strict_hill",
+                    e1_infix=sample_b0.get("e1_infix") or "",
+                    record={"family": sample_b0.get("family", "hill"), "dimension": 1},
+                    call_logger=CallLogger(),
+                    e1_fields=b2_inherited_e1_fields(sample_b0),
+                )
+            finally:
+                pipeline_module.classify_formula = original
+            literal_expected = compute_b2_expected_outcome(
+                e1_infix=sample_b0.get("e1_infix") or "",
+                component_idx=int(sample_b0["component_idx"]),
+                e1_fields=b2_inherited_e1_fields(sample_b0),
+                classifier_parse_valid=bool(mutated_row.get("classifier_parse_valid")),
+            )
+            if literal_expected == mutated_row.get("outcome_category"):
+                problems.append("production_mutation_not_caught_by_independent_reference")
     return not problems, detail if not problems else f"{detail}; " + "; ".join(problems)
 
 

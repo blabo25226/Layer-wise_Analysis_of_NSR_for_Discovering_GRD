@@ -323,17 +323,98 @@ def verify_fingerprint_artifacts(
             )
 
 
+CANONICAL_CLOSURE_RECORD_PATH = REPO_ROOT / "GPU_RUNmultiAI/cycles/C0001" / CLOSURE_RECORD_NAME
+
+
 def accepted_closure_source_hashes(output_dir: Path | None = None) -> tuple[list[dict[str, str]] | None, str]:
     """Optional hook: accepted per-file hashes become normative only after closure PASS (§13.2)."""
-    candidates: list[Path] = []
-    if output_dir is not None:
-        candidates.append(Path(output_dir) / CLOSURE_RECORD_NAME)
-    candidates.append(REPO_ROOT / "GPU_RUNmultiAI/cycles/C0001" / CLOSURE_RECORD_NAME)
-    for path in candidates:
-        if path.is_file():
-            payload = json.loads(path.read_text(encoding="utf-8"))
-            return payload.get("source_hashes"), str(path)
+    path = CANONICAL_CLOSURE_RECORD_PATH
+    if path.is_file():
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        return payload.get("source_hashes"), str(path)
     return None, "absent"
+
+
+def verify_source_inventory_at_commit(
+    commit: str,
+    inventory: list[dict[str, str]],
+) -> None:
+    """Prove manifest source inventory matches Git blobs at the bound commit (R5-1)."""
+    import subprocess
+
+    for entry in inventory:
+        rel_path = entry["path"]
+        expected = entry.get("sha256")
+        if not expected:
+            raise ResumeIdentityError(f"source inventory missing sha256 for {rel_path}")
+        try:
+            blob = subprocess.run(
+                ["git", "show", f"{commit}:{rel_path}"],
+                cwd=REPO_ROOT,
+                capture_output=True,
+                check=True,
+            ).stdout
+        except subprocess.CalledProcessError as exc:
+            raise ResumeIdentityError(
+                f"bound commit {commit} does not contain inventory path {rel_path}: {exc.stderr.decode()}"
+            ) from exc
+        digest = hashlib.sha256(blob).hexdigest()
+        if digest != expected:
+            raise ResumeIdentityError(
+                f"source inventory sha256 mismatch for {rel_path} at {commit}: "
+                f"inventory={expected} git_blob={digest}"
+            )
+
+
+def verify_canonical_closure_record(
+    *,
+    commit: str,
+    source_inventory: list[dict[str, str]],
+    plan_hash: str,
+    audit_id: str,
+) -> str:
+    """Canonical repository closure validation (R5-7)."""
+    import subprocess
+
+    path = CANONICAL_CLOSURE_RECORD_PATH
+    if not path.is_file():
+        return "closure_record_absent"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    accepted_source_commit = payload.get("accepted_source_commit") or payload.get("commit")
+    if not accepted_source_commit:
+        raise ResumeIdentityError("closure record missing accepted_source_commit")
+    try:
+        subprocess.run(
+            ["git", "cat-file", "-e", f"{accepted_source_commit}^{{commit}}"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            check=True,
+        )
+    except subprocess.CalledProcessError as exc:
+        raise ResumeIdentityError(
+            f"accepted_source_commit {accepted_source_commit} does not exist in git: {exc.stderr.decode()}"
+        ) from exc
+    accepted_hashes = payload.get("source_hashes")
+    if accepted_hashes != source_inventory:
+        raise ResumeIdentityError("closure record source_hashes do not match recomputed inventory")
+    verify_source_inventory_at_commit(accepted_source_commit, source_inventory)
+    if payload.get("plan_hash") and payload.get("plan_hash") != plan_hash:
+        raise ResumeIdentityError("closure record plan_hash mismatch")
+    if payload.get("audit_id") and payload.get("audit_id") != audit_id:
+        raise ResumeIdentityError("closure record audit_id mismatch")
+    for field in (
+        "g_contract_verdict",
+        "g_impl_verdict",
+        "independent_reviewer_identity",
+        "independent_review_verdict",
+        "review_artifact_digest",
+    ):
+        if not payload.get(field):
+            raise ResumeIdentityError(f"closure record missing required field {field}")
+    return (
+        f"canonical_closure_verified:{path}:accepted_source_commit={accepted_source_commit}:"
+        f"metadata_commit={payload.get('commit') or 'unknown'}"
+    )
 
 
 def verify_accepted_closure_source_hashes(

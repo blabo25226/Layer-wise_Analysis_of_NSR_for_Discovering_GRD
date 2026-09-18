@@ -25,6 +25,7 @@ from gpu_runmultiai.contract_evidence import (
     contract_evidence_payload,
     evaluate_f_acceptance,
     evaluate_g_contract_checks,
+    validate_acceptance_artifact_schemas,
     validate_output_artifact_schemas,
 )
 from gpu_runmultiai.controls import (
@@ -68,7 +69,9 @@ from gpu_runmultiai.manifest import (
     require_accepted_closure_for_execution,
     runtime_provenance,
     verify_accepted_closure_source_hashes,
+    verify_canonical_closure_record,
     verify_clean_worktree,
+    verify_source_inventory_at_commit,
     verify_fingerprint_artifacts,
     verify_plan_hash,
     verify_resume_identity,
@@ -609,13 +612,6 @@ def run_audit(options: dict[str, Any], *, guard=None) -> dict[str, Any]:
         exclude: list[str] = []
         if options.get("resume") or options.get("implementation_acceptance"):
             exclude.append(str(output_dir))
-        if options.get("implementation_acceptance"):
-            exclude.append(
-                str(
-                    REPO_ROOT
-                    / "GPU_RUNmultiAI/cycles/C0001/implementation_completion_v16_round5.md"
-                )
-            )
         options["worktree_provenance"] = verify_clean_worktree(
             exclude_paths=exclude or None
         )
@@ -768,14 +764,16 @@ def _run_implementation_acceptance(
     call_log_path = output_dir / "call_log.jsonl"
     stage_cache_path = output_dir / "stage_cache.jsonl"
     pair_results_path = output_dir / "pair_results.csv"
-    resume_acceptance = (
-        call_log_path.is_file()
-        and pair_results_path.is_file()
-        and not options.get("fail_if_exists")
-    )
+    resume_acceptance = bool(options.get("resume"))
     if resume_acceptance:
+        if not call_log_path.is_file() or not pair_results_path.is_file():
+            raise ResumeIdentityError(
+                "implementation acceptance --resume requires existing call_log.jsonl and pair_results.csv"
+            )
+        existing_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         call_logger = CallLogger.load(call_log_path, resource_monitor=resource_monitor)
-        stage_cache = {}
+        call_logger.skip_duplicates = True
+        stage_cache = load_stage_cache(stage_cache_path)
     else:
         if call_log_path.exists():
             call_log_path.unlink()
@@ -783,7 +781,7 @@ def _run_implementation_acceptance(
             stage_cache_path.unlink()
         call_logger = CallLogger(call_log_path, resource_monitor=resource_monitor)
         stage_cache = {}
-    registration_logger = CallLogger()
+    registration_logger = CallLogger(resource_monitor=resource_monitor)
     context["call_logger"] = call_logger
 
     commit = current_commit()
@@ -795,6 +793,21 @@ def _run_implementation_acceptance(
         cli_args=options,
         output_dir=output_dir,
     )
+    verify_source_inventory_at_commit(commit, source_inventory)
+    if resume_acceptance:
+        existing_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        verify_resume_identity(existing_manifest.get("resume_identity", {}), resume_identity)
+        if existing_manifest.get("commit") != commit:
+            raise ResumeIdentityError("implementation acceptance resume commit mismatch")
+        prior_inventory = existing_manifest.get("source_hashes") or []
+        if prior_inventory != source_inventory:
+            raise ResumeIdentityError("implementation acceptance resume source_hashes mismatch")
+    closure_record_status = verify_canonical_closure_record(
+        commit=commit,
+        source_inventory=source_inventory,
+        plan_hash=resume_identity["plan_hash"],
+        audit_id=resume_identity["audit_id"],
+    )
     artifacts.write_atomic_manifest(
         manifest_path,
         {
@@ -805,6 +818,8 @@ def _run_implementation_acceptance(
             "resume_identity": resume_identity,
             "mode": "implementation_acceptance",
             "accepted_closure_source_hash_status": closure_hash_status,
+            "canonical_closure_status": closure_record_status,
+            "source_hashes": source_inventory,
             "worktree_provenance": worktree_provenance,
             "started_utc": utc_now(),
         },
@@ -982,12 +997,16 @@ def _run_implementation_acceptance(
     if not resume_acceptance:
         artifacts.write_pair_results(output_dir / "pair_results.csv", b1_rows)
     artifacts.append_guard_attempts(side_channel_path(output_dir), guard.to_log())
-    schema_ok, schema_detail = validate_output_artifact_schemas(
-        output_dir, present_only=True
-    )
+    schema_ok, schema_detail = validate_acceptance_artifact_schemas(output_dir)
     if not schema_ok:
         raise GateAbortError(f"produced artifact schema validation failed: {schema_detail}")
+    abort_path = output_dir / "abort_manifest.json"
+    if abort_path.is_file():
+        raise GateAbortError("completed implementation acceptance may not retain abort_manifest.json")
     artifacts.finalize_deviation_log(deviation_path, status="completed", abort_type=None)
+    deviation_body = deviation_path.read_text(encoding="utf-8")
+    if deviation_body.rstrip().endswith("status=aborted"):
+        raise GateAbortError("completed implementation acceptance may not retain aborted deviation terminator")
 
     manifest = {
         "status": "completed",
@@ -998,6 +1017,7 @@ def _run_implementation_acceptance(
         "resume_identity": resume_identity,
         "source_hashes": source_inventory,
         "accepted_closure_source_hash_status": closure_hash_status,
+        "canonical_closure_status": closure_record_status,
         "worktree_provenance": worktree_provenance,
         "b1_rows": len(b1_rows),
         "confirmatory_calls": call_logger.confirmatory_total(),

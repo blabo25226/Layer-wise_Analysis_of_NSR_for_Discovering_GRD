@@ -933,7 +933,7 @@ def run_b2_pair(
                 hill_form = bool(classified["component_flags"][component_idx]["hill_form"])
             return parse_valid, parse_reason, hill_form
 
-        parse_valid, parse_reason, _production_hill_form = _cached_call(
+        parse_valid, parse_reason, hill_form = _cached_call(
             call_logger,
             stage_cache,
             cache_path,
@@ -945,9 +945,6 @@ def run_b2_pair(
             executor=_classify,
             status_for_result=lambda result: "completed" if result[0] else "failed",
         )
-        from gpu_runmultiai.outcomes import frozen_hill_form_literal
-
-        hill_form = frozen_hill_form_literal(score_infix, component_idx)
         metrics = _cached_call(
             call_logger,
             stage_cache,

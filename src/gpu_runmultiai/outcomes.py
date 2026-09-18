@@ -161,60 +161,16 @@ def _classify_five_whole_chain(row: dict[str, Any]) -> str:
 
 def _classify_five_e1_only(row: dict[str, Any]) -> str:
     """B2 partition (§2.5.2, F7): decided from E1-stage fields only, never from B0 E2 flags."""
+    from gpu_runmultiai.f7_independent_reference import classify_b2_outcome_frozen
+
     return classify_b2_outcome_frozen(row)
 
 
-def frozen_hill_form_literal(e1_infix: str, component_idx: int) -> bool:
-    """Independent literal Hill detector for F7 (must not call production classify_formula)."""
-    from gpu_runmultiai.oracle import extract_component_infix
-
-    component = extract_component_infix(e1_infix, component_idx)
-    normalized = component.replace(" ", "")
-    if "**2/(1+" in normalized and "x_" in normalized:
-        return True
-    if normalized in {"(x_0)", "x_0"}:
-        return False
-    if "/(1+" in normalized and "**2" in normalized:
-        return True
-    return False
-
-
-def classify_b2_outcome_frozen(row: dict[str, Any]) -> str:
-    """Literal frozen B2 decision table (F7 independent oracle)."""
-    if row.get("construction_incomplete"):
-        return "construction_incomplete"
-    if (
-        row.get("execution_failure")
-        or row.get("q4_construction_completed") is False
-        or row.get("rescale_incomplete")
-        or row.get("classifier_parse_valid") is False
-        or row.get("e1_oracle_completed") is False
-    ):
-        return "execution_failure"
-    if not row.get("e1_oracle_equivalent"):
-        return "semantic_drift"
-    return "preserved" if row.get("hill_form") else "structural_false_negative"
-
-
-def compute_b2_expected_outcome(
-    *,
-    e1_infix: str,
-    component_idx: int,
-    e1_fields: dict[str, Any],
-    classifier_parse_valid: bool | None = None,
-) -> str:
-    """F7 independent oracle: derive the B2 five-outcome partition from B0 E1 inputs only."""
-    synthetic = dict(e1_fields)
-    synthetic.update(
-        condition="B2",
-        classifier_parse_valid=(
-            classifier_parse_valid
-            if classifier_parse_valid is not None
-            else synthetic.get("classifier_parse_valid", True)
-        ),
-        hill_form=frozen_hill_form_literal(e1_infix, component_idx),
-    )
-    return classify_b2_outcome_frozen(synthetic)
+from gpu_runmultiai.f7_independent_reference import (
+    classify_b2_outcome_frozen,
+    compute_b2_expected_outcome,
+    frozen_hill_form_literal,
+)
 
 
 def classify_five_outcome(row: dict[str, Any]) -> str:

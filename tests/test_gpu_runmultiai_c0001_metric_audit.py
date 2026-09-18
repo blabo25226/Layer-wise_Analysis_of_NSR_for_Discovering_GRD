@@ -2279,8 +2279,50 @@ def test_pair_cache_duplicate_pair_id_aborts(tmp_path):
         _load_pair_cache(path)
 
 
+def test_f7_independent_reference_module_has_no_production_classifier_import():
+    import ast
+    from pathlib import Path
+
+    source = Path("src/gpu_runmultiai/f7_independent_reference.py").read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    imported = {
+        alias.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Import)
+        for alias in node.names
+    }
+    imported_from = {
+        node.module
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) and node.module
+    }
+    assert "evaluation.gpu_run5_structure" not in imported_from
+    assert "gpu_runmultiai.outcomes" not in imported_from
+    assert "gpu_runmultiai.pipeline" not in imported_from
+
+
+def test_verify_source_inventory_at_commit_matches_head():
+    from gpu_runmultiai.manifest import verify_source_inventory_at_commit
+    from gpu_runmultiai.manifest import current_commit
+    from gpu_runmultiai.source_inventory import build_source_inventory
+
+    inventory = build_source_inventory(include_hashes=True)
+    verify_source_inventory_at_commit(current_commit(), inventory)
+
+
+def test_timing_calibration_uses_multiplicity_weighting():
+    from gpu_runmultiai.timing_calibration import _primitive_multiplicities, run_timing_calibration
+    from gpu_runmultiai.calls import expected_confirmatory_calls, expected_descriptive_calls
+
+    counts = _primitive_multiplicities()
+    assert sum(counts.values()) == expected_confirmatory_calls()
+    blocked = run_timing_calibration(call_logger=None, runtime_available=False, guard=None)
+    assert blocked["status"] == "BLOCK"
+    assert blocked["reason"] == "odeformer_unavailable"
+
+
 def test_f7_frozen_decision_table_mutation_falsifier():
-    from gpu_runmultiai.outcomes import classify_b2_outcome_frozen, compute_b2_expected_outcome
+    from gpu_runmultiai.f7_independent_reference import classify_b2_outcome_frozen, compute_b2_expected_outcome
 
     row = {
         "construction_incomplete": False,

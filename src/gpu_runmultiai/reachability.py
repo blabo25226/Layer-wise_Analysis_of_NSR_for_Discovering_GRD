@@ -331,7 +331,7 @@ def _reach_ident_fallback_1() -> dict[str, Any]:
         )
 
     corpus = load_frozen_corpus()
-    record = next(row for row in corpus["train_records"] if int(row["dimension"]) >= 2)
+    record = next(row for row in corpus["train_records"] if int(row["dimension"]) == 3)
     truth_prefix, truth_infix = truth_component_infix(record, 0)
     rewrite = rewrite_registration(
         record["system_id"], 0, truth_prefix, truth_infix, oracle_timeout_sec=30.0

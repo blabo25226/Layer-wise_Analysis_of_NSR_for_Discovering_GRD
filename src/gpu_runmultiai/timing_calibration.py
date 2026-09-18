@@ -5,9 +5,12 @@ from __future__ import annotations
 import time
 from typing import Any
 
-from gpu_runmultiai.calls import expected_confirmatory_calls
+from gpu_runmultiai.calls import PRIMITIVE_TABLE, expected_confirmatory_calls, expected_descriptive_calls
 from gpu_runmultiai.constants import (
+    D2_CALLS_PER_PAIR,
+    D2_PAIR_COUNT,
     ELAPSED_WALL_CEILING_SEC,
+    FULL_RUN_CALL_CEILING,
     IDENTITY_REWRITE_ID,
     IDENTITY_SCALE,
     ORACLE_TIMEOUT_SEC,
@@ -16,13 +19,15 @@ from gpu_runmultiai.constants import (
 )
 from gpu_runmultiai.corpus import load_frozen_corpus
 from gpu_runmultiai.ids import component_id_for, pair_id_for
-from gpu_runmultiai.pipeline import run_b1_pair, run_b3_pairs, run_c_q4_fixtures
-from gpu_runmultiai.rewrites import truth_component_infix
+from gpu_runmultiai.pipeline import run_b0_pair, run_b1_pair, run_b3_pairs, run_c_q4_fixtures, run_d2_pair
+from gpu_runmultiai.rewrites import rewrite_registration, truth_component_infix
 from gpu_runmultiai.sealed_guard import SealedPathGuard
-from gpu_runmultiai.strata import component_stratum, is_linear_component, is_strict_hill_component
+from gpu_runmultiai.strata import component_stratum, is_linear_component
 
 B1_PRIMITIVES_PER_COMPONENT = 8
 MIN_CALIBRATION_COMPONENTS = 20
+FIXED_OVERHEAD_SEC = 45.0
+POSITIVE_MARGIN_FRACTION = 0.15
 
 
 def _select_calibration_components(component_index: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -95,13 +100,33 @@ def _aggregate_call_type_means(rows: list[dict[str, Any]]) -> dict[str, float]:
     }
 
 
+def _primitive_multiplicities() -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for row in PRIMITIVE_TABLE:
+        primitive = str(row["primitive"])
+        counts[primitive] = counts.get(primitive, 0) + int(row["units"])
+    return counts
+
+
+def _conservative_cost(
+    primitive: str,
+    per_type: dict[str, float],
+    *,
+    fallback: float,
+) -> float:
+    observed = per_type.get(primitive)
+    if observed is None:
+        return fallback
+    return observed * 1.10
+
+
 def run_timing_calibration(
     *,
     call_logger: Any,
     runtime_available: bool,
     guard: Any,
 ) -> dict[str, Any]:
-    """Sample representative B1/C_q4/B3 costs and project a conservative full-run wall time."""
+    """Sample representative costs and project multiplicity-weighted grand runtime."""
     from gpu_runmultiai.calls import CallLogger
     from gpu_runmultiai.odeformer_runtime import ODEFormerUnavailable, require_odeformer
 
@@ -110,7 +135,7 @@ def run_timing_calibration(
             "status": "BLOCK",
             "reason": "odeformer_unavailable",
             "sampled_components": 0,
-            "projected_full_run_sec": None,
+            "projected_grand_run_sec": None,
             "elapsed_wall_ceiling_sec": ELAPSED_WALL_CEILING_SEC,
         }
 
@@ -121,7 +146,7 @@ def run_timing_calibration(
             "status": "BLOCK",
             "reason": f"odeformer_unavailable:{exc}",
             "sampled_components": 0,
-            "projected_full_run_sec": None,
+            "projected_grand_run_sec": None,
             "elapsed_wall_ceiling_sec": ELAPSED_WALL_CEILING_SEC,
         }
 
@@ -134,13 +159,41 @@ def run_timing_calibration(
     calibration_logger = CallLogger()
     started = time.monotonic()
 
+    rewrite_by_component: dict[str, dict[str, Any]] = {}
     for item in selected:
         record = item["record"]
         component_idx = int(item["component_idx"])
+        truth_prefix, truth_infix = truth_component_infix(record, component_idx)
+        component_id, _ = component_id_for(corpus["corpus_hash"], item["system_id"], component_idx)
+        rewrite_by_component[component_id] = rewrite_registration(
+            record["system_id"],
+            component_idx,
+            truth_prefix,
+            truth_infix,
+            oracle_timeout_sec=ORACLE_TIMEOUT_SEC,
+        )
+
+    for item in selected:
+        record = item["record"]
+        component_idx = int(item["component_idx"])
+        component_id, _ = component_id_for(corpus["corpus_hash"], item["system_id"], component_idx)
         run_b1_pair(
             corpus_hash=corpus["corpus_hash"],
             record=record,
             component_idx=component_idx,
+            oracle_timeout_sec=ORACLE_TIMEOUT_SEC,
+            q4_timeout_sec=Q4_TIMEOUT_SEC,
+            simplifier_timeout_sec=SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
+            call_logger=calibration_logger,
+            runtime_available=True,
+            guard=guard,
+        )
+        run_b0_pair(
+            corpus_hash=corpus["corpus_hash"],
+            record=record,
+            component_idx=component_idx,
+            scale="0.1",
+            rewrite_row=rewrite_by_component[component_id],
             oracle_timeout_sec=ORACLE_TIMEOUT_SEC,
             q4_timeout_sec=Q4_TIMEOUT_SEC,
             simplifier_timeout_sec=SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
@@ -165,32 +218,61 @@ def run_timing_calibration(
     }
     run_b3_pairs([sample_b0], call_logger=calibration_logger)
 
+    d2_sample = next(
+        item
+        for item in component_index
+        if component_stratum(item["record"]["family"], item["component_idx"]) == "strict_hill"
+    )
+    d2_record = d2_sample["record"]
+    d2_component_idx = int(d2_sample["component_idx"])
+    d2_component_id, _ = component_id_for(
+        corpus["corpus_hash"], d2_sample["system_id"], d2_component_idx
+    )
+    if d2_component_id not in rewrite_by_component:
+        truth_prefix, truth_infix = truth_component_infix(d2_record, d2_component_idx)
+        rewrite_by_component[d2_component_id] = rewrite_registration(
+            d2_record["system_id"],
+            d2_component_idx,
+            truth_prefix,
+            truth_infix,
+            oracle_timeout_sec=ORACLE_TIMEOUT_SEC,
+        )
+    run_d2_pair(
+        corpus_hash=corpus["corpus_hash"],
+        record=d2_record,
+        component_idx=d2_component_idx,
+        rewrite_row=rewrite_by_component[d2_component_id],
+        oracle_timeout_sec=ORACLE_TIMEOUT_SEC,
+        q4_timeout_sec=Q4_TIMEOUT_SEC,
+        simplifier_timeout_sec=SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
+        call_logger=calibration_logger,
+        runtime_available=True,
+        guard=guard,
+    )
+
     observed_sec = time.monotonic() - started
     per_type = _aggregate_call_type_means(calibration_logger.rows)
-    b1_calls = len(selected) * B1_PRIMITIVES_PER_COMPONENT
-    mean_b1_call = (
-        sum(per_type.get(name, 0.0) for name in (
-            "e0_identity_construct",
+    fallback = observed_sec / max(len(calibration_logger.rows), 1)
+    multiplicities = _primitive_multiplicities()
+    weighted_confirmatory = sum(
+        count * _conservative_cost(primitive, per_type, fallback=fallback)
+        for primitive, count in multiplicities.items()
+    )
+    d2_mean = sum(
+        _conservative_cost(name, per_type, fallback=fallback)
+        for name in (
+            "e0_analytic_construct",
             "scaler_rescale_function",
             "q4_decimal_round_reference",
             "simplifier_subprocess",
             "oracle_equivalence",
             "classify_component_flags",
             "formula_metrics_pair",
-        ))
-        / 7.0
-        if per_type
-        else observed_sec / max(b1_calls, 1)
-    )
-    oracle_mean = per_type.get("oracle_equivalence", mean_b1_call)
-    simplifier_mean = per_type.get("simplifier_subprocess", mean_b1_call)
-    cas_mean = per_type.get("compare_formulas_cas", mean_b1_call)
-    q4_mean = per_type.get("q4_decimal_round_reference", mean_b1_call)
-
-    projected = (
-        expected_confirmatory_calls() * max(mean_b1_call, oracle_mean, simplifier_mean, q4_mean) * 1.15
-        + 500 * cas_mean * 1.10
-    )
+        )
+    ) / 7.0
+    descriptive_weighted = expected_descriptive_calls() * d2_mean
+    subtotal = weighted_confirmatory + descriptive_weighted + FIXED_OVERHEAD_SEC
+    projected = subtotal * (1.0 + POSITIVE_MARGIN_FRACTION)
     status = "PASS" if projected <= ELAPSED_WALL_CEILING_SEC else "BLOCK"
     component_ids = []
     for item in selected:
@@ -218,8 +300,17 @@ def run_timing_calibration(
         "sampled_component_ids": component_ids,
         "observed_calibration_sec": observed_sec,
         "call_type_mean_sec": per_type,
-        "conservative_multiplier": 1.15,
+        "primitive_multiplicities": multiplicities,
+        "weighted_confirmatory_sec": weighted_confirmatory,
+        "descriptive_calls": expected_descriptive_calls(),
+        "descriptive_weighted_sec": descriptive_weighted,
+        "fixed_overhead_sec": FIXED_OVERHEAD_SEC,
+        "positive_margin_fraction": POSITIVE_MARGIN_FRACTION,
+        "projected_grand_run_sec": projected,
         "projected_full_run_sec": projected,
         "elapsed_wall_ceiling_sec": ELAPSED_WALL_CEILING_SEC,
         "confirmatory_call_ceiling": expected_confirmatory_calls(),
+        "grand_call_ceiling": FULL_RUN_CALL_CEILING,
+        "d2_pair_count": D2_PAIR_COUNT,
+        "d2_calls_per_pair": D2_CALLS_PER_PAIR,
     }
