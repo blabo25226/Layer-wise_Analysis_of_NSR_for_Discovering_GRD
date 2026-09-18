@@ -522,15 +522,27 @@ def validate_output_artifact_schemas(
     return not problems, detail if not problems else f"{detail}; " + "; ".join(problems[:12])
 
 
+ACCEPTANCE_REQUIRED_ARTIFACTS = (
+    "registration_truth.json",
+    "registration_rewrites.json",
+    "q4_reference_controls.json",
+    "reachability_evidence.json",
+    "guard_attempts_side_channel.jsonl",
+)
+
+
 def validate_acceptance_artifact_schemas(output_dir: Path) -> tuple[bool, str]:
     """Full acceptance-specific schema and lifecycle validation (R5-8)."""
     from gpu_runmultiai.jsonl_durable import load_jsonl
 
     problems: list[str] = []
     root = Path(output_dir)
-    schema_ok, schema_detail = validate_output_artifact_schemas(root, present_only=False)
+    schema_ok, schema_detail = validate_output_artifact_schemas(root, present_only=True)
     if not schema_ok:
         problems.append(schema_detail)
+    for artifact in ACCEPTANCE_REQUIRED_ARTIFACTS:
+        if not (root / artifact).is_file():
+            problems.append(f"{artifact}:absent")
 
     manifest_path = root / "audit_manifest.json"
     deviation_path = root / "deviation_log.md"
