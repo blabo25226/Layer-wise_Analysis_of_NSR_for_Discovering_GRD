@@ -7,14 +7,14 @@ Update it before a parent session ends.
 campaign: GPU_RUNmultiAI
 status: active
 current_cycle: C0001
-current_stage: PREREGISTRATION_V16_IMPLEMENTATION_ROUND5_PENDING_REVIEW
+current_stage: PREREGISTRATION_V16_IMPLEMENTATION_ROUND5_BLOCKED_T021_REPAIR
 branch: ai/C0001/research-engineer/implement-metric-audit
-observed_commit: a7c028fd356f2924c99ff03c79b0683c0e2e3539
+observed_commit: 2e2ad0ad5c7cc5c9bbbdd8732868dad43dad7bc2
 base_commit: d4fef3f703cd3ef476529d110930aa34962fa2b0
 remote_branch: ai/C0001/research-engineer/implement-metric-audit
-remote_commit: a7c028fd356f2924c99ff03c79b0683c0e2e3539
-remote_verification_scope: round5_T020_acceptance_artifacts_and_runtime_local_tracking_remote_equality_verified_2026-09-18
-last_push_attempt_utc: 2026-09-17T16:35:00Z
+remote_commit: 2e2ad0ad5c7cc5c9bbbdd8732868dad43dad7bc2
+remote_verification_scope: round5_review_and_T021_handoff_local_tracking_remote_equality_verified_2026-09-18
+last_push_attempt_utc: 2026-09-18T01:16:45Z
 last_push_error: null
 binding_plan:
   path: GPU_RUNmultiAI/cycles/C0001/preregistration_draft_v16.md
@@ -39,16 +39,40 @@ tracks:
   scientific:
     status: active
     current_cycle: C0001
-    stage: PREREGISTRATION_V16_IMPLEMENTATION_ROUND5_PENDING_REVIEW
+    stage: PREREGISTRATION_V16_IMPLEMENTATION_ROUND5_BLOCKED_T021_REPAIR
 
 active_tasks:
+  - task_id: C0001-T021
+    track: scientific
+    role: research-engineer / repo-operator
+    worker: Cursor Agent
+    branch: ai/C0001/research-engineer/implement-metric-audit
+    worktree: /tmp/lansr-multiai-C0001-implement-audit
+    status: ready
+    prior_task: C0001-T020-REVIEW
+    binding_review: GPU_RUNmultiAI/cycles/C0001/implementation_review_v16_round5.md
+    expected_outputs: [immutable candidate source, fresh round6 acceptance, strict resume/cache, 10 reachability PASS, independent F7, weighted timing, round6 report]
+    acceptance_test: R5-1 through R5-8 closed; fresh 510/4080 artifact; source/Git binding; tests; push parity; independent PASS
+  - task_id: C0001-T020-REVIEW
+    track: scientific
+    role: independent reviewer / research-pi
+    worker: Claude Code + Codex executable-audit subagent + Codex PI
+    branch: ai/C0001/research-engineer/implement-metric-audit
+    worktree: /tmp/lansr-multiai-C0001-implement-audit
+    status: completed_block
+    reviewed_tip: 947d539818eadfcaa43ab664fbc141fd93728afa
+    runtime_commit: 24f1e041cc2328a29034a414574a2a8a9c261e8d
+    result: round-5 BLOCK; mixed provenance, persisted G_impl FAIL, invalid cache/lifecycle, circular F7, invalid timing formula
+    deliverables:
+      - GPU_RUNmultiAI/cycles/C0001/implementation_review_v16_round5.md
+      - GPU_RUNmultiAI/cycles/C0001/implementation_v16_round5_revision_handoff.md
   - task_id: C0001-T020
     track: scientific
     role: research-engineer / repo-operator
     worker: Cursor Agent
     branch: ai/C0001/research-engineer/implement-metric-audit
     worktree: /tmp/lansr-multiai-C0001-implement-audit
-    status: completed_pending_independent_review
+    status: completed_pending_blocked_review
     runtime_commit: 24f1e041cc2328a29034a414574a2a8a9c261e8d
     acceptance_artifact_commit: a7c028fd356f2924c99ff03c79b0683c0e2e3539
     prior_task: C0001-T019-REVIEW
