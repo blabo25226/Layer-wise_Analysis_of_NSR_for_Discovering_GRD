@@ -78,21 +78,73 @@ def bootstrap_guard():
         return gb.install_guard_from_entry(str(REPO_ROOT / AUDIT_ENTRY_SCRIPT))
 
 
-def _write_test_closure_record(output_dir: Path) -> None:
-    from gpu_runmultiai.manifest import current_commit
+def _source_inventory_for_commit(commit: str) -> list[dict[str, str]]:
+    import hashlib
+    import subprocess
+
+    from experiment_runtime import REPO_ROOT
     from gpu_runmultiai.source_inventory import build_source_inventory
 
-    (Path(output_dir) / "implementation_closure_record.json").write_text(
-        json.dumps(
-            {
-                "commit": current_commit(),
-                "accepted_source_commit": current_commit(),
-                "source_hashes": build_source_inventory(include_hashes=True),
-            },
-            sort_keys=True,
-        ),
-        encoding="utf-8",
+    inventory: list[dict[str, str]] = []
+    for entry in build_source_inventory(include_hashes=True):
+        rel_path = entry["path"]
+        blob = subprocess.run(
+            ["git", "show", f"{commit}:{rel_path}"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            check=True,
+        ).stdout
+        inventory.append({"path": rel_path, "sha256": hashlib.sha256(blob).hexdigest()})
+    return inventory
+
+
+def _canonical_closure_record_payload(tmp_path: Path | None = None) -> dict:
+    import hashlib
+
+    from experiment_runtime import REPO_ROOT
+    from gpu_runmultiai.manifest import current_commit
+
+    artifact_dir = REPO_ROOT / "GPU_RUNmultiAI/.runtime/closure_test_artifacts"
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+    acceptance_path = artifact_dir / "acceptance.json"
+    review_path = artifact_dir / "review.json"
+    acceptance_path.write_text('{"acceptance":"ok"}', encoding="utf-8")
+    review_path.write_text('{"review":"ok"}', encoding="utf-8")
+    commit = current_commit()
+    return {
+        "commit": commit,
+        "accepted_source_commit": commit,
+        "source_hashes": _source_inventory_for_commit(commit),
+        "plan_hash": PLAN_SHA256,
+        "audit_id": AUDIT_ID,
+        "g_contract_verdict": "PASS",
+        "g_impl_verdict": "PASS",
+        "independent_reviewer_identity": "pytest-canonical-closure",
+        "independent_review_verdict": "PASS",
+        "acceptance_artifact_path": str(acceptance_path.relative_to(REPO_ROOT)),
+        "acceptance_artifact_digest": hashlib.sha256(acceptance_path.read_bytes()).hexdigest(),
+        "review_artifact_path": str(review_path.relative_to(REPO_ROOT)),
+        "review_artifact_digest": hashlib.sha256(review_path.read_bytes()).hexdigest(),
+    }
+
+
+@pytest.fixture
+def canonical_closure_record(tmp_path):
+    from gpu_runmultiai.manifest import CANONICAL_CLOSURE_RECORD_PATH
+
+    payload = _canonical_closure_record_payload(tmp_path)
+    original = (
+        CANONICAL_CLOSURE_RECORD_PATH.read_text(encoding="utf-8")
+        if CANONICAL_CLOSURE_RECORD_PATH.is_file()
+        else None
     )
+    CANONICAL_CLOSURE_RECORD_PATH.parent.mkdir(parents=True, exist_ok=True)
+    CANONICAL_CLOSURE_RECORD_PATH.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
+    yield payload
+    if original is None:
+        CANONICAL_CLOSURE_RECORD_PATH.unlink(missing_ok=True)
+    else:
+        CANONICAL_CLOSURE_RECORD_PATH.write_text(original, encoding="utf-8")
 
 
 def _run_audit(options, guard):
@@ -490,7 +542,7 @@ def test_e1_truth_equivalence_and_e2_from_e1_provenance():
     assert simplified.get("infix")
 
 
-def test_resume_appends_call_log(tmp_path, bootstrap_guard):
+def test_resume_appends_call_log(tmp_path, bootstrap_guard, canonical_closure_record):
     output_dir = tmp_path / "resume"
     base_options = {
         "output_dir": str(output_dir),
@@ -503,7 +555,6 @@ def test_resume_appends_call_log(tmp_path, bootstrap_guard):
     }
     first = _run_audit(base_options, bootstrap_guard)
     first_total = first["call_total"]
-    _write_test_closure_record(output_dir)
     second = _run_audit({**base_options, "resume": True}, bootstrap_guard)
     assert second["call_total"] == first_total
     reloaded = CallLogger.load(output_dir / "call_log.jsonl")
@@ -603,7 +654,7 @@ def test_e0_e1_round_trip_primary_scales(scale):
     assert oracle.equivalent == (oracle.analytic_equivalent and oracle.numeric_equivalent)
 
 
-def test_resume_skips_reexecution_with_spy(tmp_path, bootstrap_guard):
+def test_resume_skips_reexecution_with_spy(tmp_path, bootstrap_guard, canonical_closure_record):
     output_dir = tmp_path / "resume_spy"
     options = {
         "output_dir": str(output_dir),
@@ -616,7 +667,6 @@ def test_resume_skips_reexecution_with_spy(tmp_path, bootstrap_guard):
     }
     first = _run_audit(options, bootstrap_guard)
     calls_before = CallLogger.load(output_dir / "call_log.jsonl").total()
-    _write_test_closure_record(output_dir)
     second = _run_audit({**options, "resume": True}, bootstrap_guard)
     calls_after = CallLogger.load(output_dir / "call_log.jsonl").total()
     assert calls_after == calls_before
@@ -943,7 +993,7 @@ def test_sealed_guard_repo_relative_path_denied_after_chdir(tmp_path, monkeypatc
         guard.restore()
 
 
-def test_resume_replays_guard_side_channel(tmp_path, bootstrap_guard):
+def test_resume_replays_guard_side_channel(tmp_path, bootstrap_guard, canonical_closure_record):
     from gpu_runmultiai.guard_side_channel import append_guard_attempts, load_guard_attempts, side_channel_path
 
     output_dir = tmp_path / "resume_guard"
@@ -967,7 +1017,6 @@ def test_resume_replays_guard_side_channel(tmp_path, bootstrap_guard):
             }
         ],
     )
-    _write_test_closure_record(output_dir)
     resumed = _run_audit({**options, "resume": True}, bootstrap_guard)
     manifest = json.loads((output_dir / "audit_manifest.json").read_text(encoding="utf-8"))
     assert manifest["status"] == "completed"
@@ -2205,30 +2254,82 @@ def test_f6_smoke_population_does_not_pass_acceptance(tmp_path, bootstrap_guard)
     assert result["gates"]["G_impl"] is False
 
 
-def test_closure_binds_accepted_source_commit_not_metadata(tmp_path):
+def test_closure_binds_accepted_source_commit_not_metadata(tmp_path, canonical_closure_record):
     from gpu_runmultiai.manifest import require_accepted_closure_for_execution
     from gpu_runmultiai.source_inventory import build_source_inventory
 
-    inventory = build_source_inventory(include_hashes=True)
-    closure_path = tmp_path / "implementation_closure_record.json"
-    closure_path.write_text(
-        json.dumps(
-            {
-                "commit": "deadbeef" * 5,
-                "accepted_source_commit": "a" * 40,
-                "source_hashes": inventory,
-            },
-            sort_keys=True,
-        ),
-        encoding="utf-8",
-    )
+    inventory = _source_inventory_for_commit(canonical_closure_record["accepted_source_commit"])
     status = require_accepted_closure_for_execution(
-        "b" * 40,
+        canonical_closure_record["accepted_source_commit"],
         inventory,
-        output_dir=tmp_path,
+        plan_hash=PLAN_SHA256,
+        audit_id=AUDIT_ID,
     )
-    assert "accepted_source_commit=" + ("a" * 40) in status
-    assert "metadata_commit=" + ("deadbeef" * 5) in status
+    assert (
+        "accepted_source_commit=" + canonical_closure_record["accepted_source_commit"] in status
+    )
+    assert "metadata_commit=" + canonical_closure_record["commit"] in status
+
+
+def test_canonical_closure_negative_fixtures_fail_closed(tmp_path):
+    from gpu_runmultiai.invariants import ResumeIdentityError
+    from gpu_runmultiai.manifest import CANONICAL_CLOSURE_RECORD_PATH, verify_canonical_closure_record
+    from gpu_runmultiai.source_inventory import build_source_inventory
+
+    base = _canonical_closure_record_payload(tmp_path)
+    inventory = list(base["source_hashes"])
+    original = (
+        CANONICAL_CLOSURE_RECORD_PATH.read_text(encoding="utf-8")
+        if CANONICAL_CLOSURE_RECORD_PATH.is_file()
+        else None
+    )
+    CANONICAL_CLOSURE_RECORD_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+    def _write(payload):
+        CANONICAL_CLOSURE_RECORD_PATH.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
+
+    try:
+        _write({**base, "g_impl_verdict": "BLOCK"})
+        with pytest.raises(ResumeIdentityError, match="g_impl_verdict"):
+            verify_canonical_closure_record(
+                commit=base["accepted_source_commit"],
+                source_inventory=inventory,
+                plan_hash=PLAN_SHA256,
+                audit_id=AUDIT_ID,
+                required=True,
+            )
+        _write({**base, "plan_hash": "0" * 64})
+        with pytest.raises(ResumeIdentityError, match="plan_hash"):
+            verify_canonical_closure_record(
+                commit=base["accepted_source_commit"],
+                source_inventory=inventory,
+                plan_hash=PLAN_SHA256,
+                audit_id=AUDIT_ID,
+                required=True,
+            )
+        _write({**base, "acceptance_artifact_digest": "0" * 64})
+        with pytest.raises(ResumeIdentityError, match="acceptance_artifact_digest"):
+            verify_canonical_closure_record(
+                commit=base["accepted_source_commit"],
+                source_inventory=inventory,
+                plan_hash=PLAN_SHA256,
+                audit_id=AUDIT_ID,
+                required=True,
+            )
+        CANONICAL_CLOSURE_RECORD_PATH.unlink(missing_ok=True)
+        with pytest.raises(ResumeIdentityError, match="require accepted"):
+            verify_canonical_closure_record(
+                commit=base["accepted_source_commit"],
+                source_inventory=inventory,
+                plan_hash=PLAN_SHA256,
+                audit_id=AUDIT_ID,
+                required=True,
+            )
+    finally:
+        if original is None:
+            CANONICAL_CLOSURE_RECORD_PATH.unlink(missing_ok=True)
+        else:
+            CANONICAL_CLOSURE_RECORD_PATH.write_text(original, encoding="utf-8")
 
 
 def test_verify_clean_worktree_excludes_output_dir_only(monkeypatch):
@@ -2311,14 +2412,17 @@ def test_verify_source_inventory_at_commit_matches_head():
 
 
 def test_timing_calibration_uses_multiplicity_weighting():
-    from gpu_runmultiai.timing_calibration import _primitive_multiplicities, run_timing_calibration
+    from gpu_runmultiai.constants import D2_CALLS_PER_PAIR, D2_PAIR_COUNT
+    from gpu_runmultiai.timing_calibration import D2_PAIR_PRIMITIVE_SEQUENCE, run_timing_calibration
     from gpu_runmultiai.calls import expected_confirmatory_calls, expected_descriptive_calls
 
-    counts = _primitive_multiplicities()
-    assert sum(counts.values()) == expected_confirmatory_calls()
+    assert len(D2_PAIR_PRIMITIVE_SEQUENCE) == D2_CALLS_PER_PAIR
+    assert sum(1 for _primitive, _condition in D2_PAIR_PRIMITIVE_SEQUENCE if _primitive == "oracle_equivalence") == 2
     blocked = run_timing_calibration(call_logger=None, runtime_available=False, guard=None)
     assert blocked["status"] == "BLOCK"
     assert blocked["reason"] == "odeformer_unavailable"
+    assert expected_descriptive_calls() == D2_PAIR_COUNT * D2_CALLS_PER_PAIR
+    assert expected_confirmatory_calls() == 27637
 
 
 def test_f7_frozen_decision_table_mutation_falsifier():

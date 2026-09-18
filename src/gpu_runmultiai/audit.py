@@ -909,7 +909,7 @@ def _run_implementation_acceptance(
             oracle_timeout_sec=oracle_timeout_sec,
             q4_timeout_sec=q4_timeout_sec,
             simplifier_timeout_sec=simplifier_timeout_sec,
-            call_logger=CallLogger(),
+            call_logger=CallLogger(resource_monitor=resource_monitor),
             runtime_available=runtime_available,
             guard=guard,
         )
@@ -926,23 +926,24 @@ def _run_implementation_acceptance(
                     stratum=component_stratum(record["family"], component_idx),
                     e1_infix=b0_row.get("e1_infix") or "",
                     record=record,
-                    call_logger=CallLogger(),
+                    call_logger=CallLogger(resource_monitor=resource_monitor),
                     e1_fields=b2_inherited_e1_fields(b0_row),
                 )
             )
 
-    evidence_logger = CallLogger()
+    evidence_logger = CallLogger(resource_monitor=resource_monitor)
     c_q4_rows = run_c_q4_fixtures(
         call_logger=evidence_logger,
         q4_timeout_sec=q4_timeout_sec,
         stage_cache=stage_cache,
         cache_path=stage_cache_path,
     )
-    reachability_evidence = build_reachability_evidence()
+    reachability_evidence = build_reachability_evidence(resource_monitor=resource_monitor)
     timing_calibration = run_timing_calibration(
         call_logger=evidence_logger,
         runtime_available=runtime_available,
         guard=guard,
+        resource_monitor=resource_monitor,
     )
     g_contract_rows = evaluate_g_contract_checks(guard=guard, c_q4_rows=c_q4_rows)
     f_acceptance_rows = evaluate_f_acceptance(b0_rows=b0_rows, b1_rows=b1_rows, b2_rows=b2_rows)
@@ -1002,9 +1003,6 @@ def _run_implementation_acceptance(
     if not resume_acceptance:
         artifacts.write_pair_results(output_dir / "pair_results.csv", b1_rows)
     artifacts.append_guard_attempts(side_channel_path(output_dir), guard.to_log())
-    schema_ok, schema_detail = validate_acceptance_artifact_schemas(output_dir)
-    if not schema_ok:
-        raise GateAbortError(f"produced artifact schema validation failed: {schema_detail}")
     abort_path = output_dir / "abort_manifest.json"
     if abort_path.is_file():
         raise GateAbortError("completed implementation acceptance may not retain abort_manifest.json")
@@ -1037,6 +1035,12 @@ def _run_implementation_acceptance(
         "completed_utc": utc_now(),
     }
     artifacts.write_atomic_manifest(manifest_path, manifest)
+    schema_ok, schema_detail = validate_acceptance_artifact_schemas(
+        output_dir,
+        require_completed=True,
+    )
+    if not schema_ok:
+        raise GateAbortError(f"produced artifact schema validation failed: {schema_detail}")
     manifest["dir_bytes"] = resource_monitor.dir_bytes()
     artifacts.write_atomic_manifest(manifest_path, manifest)
     return {
@@ -1132,7 +1136,11 @@ def _run_audit_body(
     source_inventory = build_source_inventory(include_hashes=True)
     if options.get("resume") or not options.get("smoke"):
         closure_hash_status = require_accepted_closure_for_execution(
-            commit, source_inventory, output_dir=output_dir
+            commit,
+            source_inventory,
+            plan_hash=resume_identity["plan_hash"],
+            audit_id=resume_identity["audit_id"],
+            output_dir=output_dir,
         )
     else:
         closure_hash_status = verify_accepted_closure_source_hashes(
@@ -1360,7 +1368,7 @@ def _run_audit_body(
     deviation_entries = _derive_deviation_entries(options)
     for entry in deviation_entries:
         artifacts.append_deviation_entry(deviation_path, entry)
-    reachability_evidence = build_reachability_evidence()
+    reachability_evidence = build_reachability_evidence(resource_monitor=resource_monitor)
     negative_controls_payload = [
         {
             "negative_id": row["negative_id"],
@@ -1498,9 +1506,6 @@ def _run_audit_body(
         ],
     )
     artifacts.append_guard_attempts(side_channel_path(output_dir), guard.to_log())
-    schema_ok, schema_detail = validate_output_artifact_schemas(output_dir)
-    if not schema_ok:
-        raise GateAbortError(f"produced artifact schema validation failed: {schema_detail}")
     artifacts.finalize_deviation_log(deviation_path, status="completed", abort_type=None)
 
     manifest = {
@@ -1564,6 +1569,9 @@ def _run_audit_body(
     }
     manifest["worktree_provenance"] = worktree_provenance
     artifacts.write_atomic_manifest(manifest_path, manifest)
+    schema_ok, schema_detail = validate_output_artifact_schemas(output_dir)
+    if not schema_ok:
+        raise GateAbortError(f"produced artifact schema validation failed: {schema_detail}")
     manifest["dir_bytes"] = resource_monitor.dir_bytes()
     artifacts.write_atomic_manifest(manifest_path, manifest)
     return {

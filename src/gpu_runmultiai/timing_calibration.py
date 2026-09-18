@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import json
+import os
 import time
+from pathlib import Path
 from typing import Any
 
 from gpu_runmultiai.calls import PRIMITIVE_TABLE, expected_confirmatory_calls, expected_descriptive_calls
@@ -19,15 +22,31 @@ from gpu_runmultiai.constants import (
 )
 from gpu_runmultiai.corpus import load_frozen_corpus
 from gpu_runmultiai.ids import component_id_for, pair_id_for
-from gpu_runmultiai.pipeline import run_b0_pair, run_b1_pair, run_b3_pairs, run_c_q4_fixtures, run_d2_pair
+from gpu_runmultiai.pipeline import (
+    registration_rows,
+    run_b0_pair,
+    run_b1_pair,
+    run_b3_pairs,
+    run_c_q4_fixtures,
+    run_d2_pair,
+)
 from gpu_runmultiai.rewrites import rewrite_registration, truth_component_infix
 from gpu_runmultiai.sealed_guard import SealedPathGuard
 from gpu_runmultiai.strata import component_stratum, is_linear_component
 
-B1_PRIMITIVES_PER_COMPONENT = 8
 MIN_CALIBRATION_COMPONENTS = 20
-FIXED_OVERHEAD_SEC = 45.0
 POSITIVE_MARGIN_FRACTION = 0.15
+
+D2_PAIR_PRIMITIVE_SEQUENCE: tuple[tuple[str, str], ...] = (
+    ("e0_analytic_construct", "D2"),
+    ("scaler_rescale_function", "D2"),
+    ("q4_decimal_round_reference", "D2"),
+    ("simplifier_subprocess", "D2"),
+    ("oracle_equivalence", "D2_E1"),
+    ("oracle_equivalence", "D2_E2"),
+    ("classify_component_flags", "D2"),
+    ("formula_metrics_pair", "D2"),
+)
 
 
 def _select_calibration_components(component_index: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -86,38 +105,49 @@ def _select_calibration_components(component_index: list[dict[str, Any]]) -> lis
     return selected[: max(MIN_CALIBRATION_COMPONENTS, len(selected))]
 
 
-def _aggregate_call_type_means(rows: list[dict[str, Any]]) -> dict[str, float]:
-    buckets: dict[str, list[float]] = {}
+def _aggregate_call_type_means(rows: list[dict[str, Any]]) -> dict[tuple[str, str], float]:
+    buckets: dict[tuple[str, str], list[float]] = {}
     for row in rows:
         duration = row.get("duration_sec")
         if duration is None:
             continue
-        buckets.setdefault(str(row["primitive"]), []).append(float(duration))
+        key = (str(row["primitive"]), str(row["condition"]))
+        buckets.setdefault(key, []).append(float(duration))
     return {
-        primitive: sum(values) / len(values)
-        for primitive, values in buckets.items()
+        key: sum(values) / len(values)
+        for key, values in buckets.items()
         if values
     }
 
 
-def _primitive_multiplicities() -> dict[str, int]:
-    counts: dict[str, int] = {}
-    for row in PRIMITIVE_TABLE:
-        primitive = str(row["primitive"])
-        counts[primitive] = counts.get(primitive, 0) + int(row["units"])
-    return counts
+def _frozen_primitive_rows() -> list[dict[str, Any]]:
+    return [dict(row) for row in PRIMITIVE_TABLE]
 
 
 def _conservative_cost(
     primitive: str,
-    per_type: dict[str, float],
+    condition: str,
+    per_type: dict[tuple[str, str], float],
     *,
     fallback: float,
 ) -> float:
-    observed = per_type.get(primitive)
+    observed = per_type.get((primitive, condition))
+    if observed is None:
+        observed = per_type.get((primitive, condition.split("_")[0]))
     if observed is None:
         return fallback
     return observed * 1.10
+
+
+def _measure_append_fsync_overhead(tmp_path: Path) -> float:
+    target = tmp_path / "timing_append_probe.jsonl"
+    started = time.monotonic()
+    for index in range(20):
+        with target.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps({"index": index}, sort_keys=True) + "\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+    return (time.monotonic() - started) / 20.0
 
 
 def run_timing_calibration(
@@ -125,8 +155,9 @@ def run_timing_calibration(
     call_logger: Any,
     runtime_available: bool,
     guard: Any,
+    resource_monitor: Any | None = None,
 ) -> dict[str, Any]:
-    """Sample representative costs and project multiplicity-weighted grand runtime."""
+    """Sample representative costs and project exact multiplicity-weighted grand runtime."""
     from gpu_runmultiai.calls import CallLogger
     from gpu_runmultiai.odeformer_runtime import ODEFormerUnavailable, require_odeformer
 
@@ -156,8 +187,28 @@ def run_timing_calibration(
         for item in corpus["component_index"]
     ]
     selected = _select_calibration_components(component_index)
-    calibration_logger = CallLogger()
-    started = time.monotonic()
+    startup_started = time.monotonic()
+    calibration_logger = CallLogger(resource_monitor=resource_monitor)
+    startup_overhead_sec = time.monotonic() - startup_started
+    calibration_started = time.monotonic()
+    overhead_probe_dir = (
+        resource_monitor._output_dir / ".timing_overhead_probe"
+        if resource_monitor is not None
+        else Path("/tmp/c0001_timing_overhead_probe")
+    )
+    overhead_probe_dir.mkdir(parents=True, exist_ok=True)
+
+    registration_logger = CallLogger(resource_monitor=resource_monitor)
+    registration_sample = selected[: max(5, min(len(selected), MIN_CALIBRATION_COMPONENTS // 4))]
+    registration_rows(
+        corpus["corpus_hash"],
+        registration_sample,
+        oracle_timeout_sec=ORACLE_TIMEOUT_SEC,
+        call_logger=registration_logger,
+        stage_cache={},
+        cache_path=None,
+        limit=len(registration_sample),
+    )
 
     rewrite_by_component: dict[str, dict[str, Any]] = {}
     for item in selected:
@@ -250,28 +301,72 @@ def run_timing_calibration(
         guard=guard,
     )
 
-    observed_sec = time.monotonic() - started
-    per_type = _aggregate_call_type_means(calibration_logger.rows)
-    fallback = observed_sec / max(len(calibration_logger.rows), 1)
-    multiplicities = _primitive_multiplicities()
-    weighted_confirmatory = sum(
-        count * _conservative_cost(primitive, per_type, fallback=fallback)
-        for primitive, count in multiplicities.items()
-    )
-    d2_mean = sum(
-        _conservative_cost(name, per_type, fallback=fallback)
-        for name in (
-            "e0_analytic_construct",
-            "scaler_rescale_function",
-            "q4_decimal_round_reference",
-            "simplifier_subprocess",
-            "oracle_equivalence",
-            "classify_component_flags",
-            "formula_metrics_pair",
+    observed_sec = time.monotonic() - calibration_started
+    combined_rows = registration_logger.rows + calibration_logger.rows
+    per_type = _aggregate_call_type_means(combined_rows)
+    fallback = observed_sec / max(len(combined_rows), 1)
+
+    multiplicity_rows: list[dict[str, Any]] = []
+    weighted_confirmatory = 0.0
+    for row in _frozen_primitive_rows():
+        primitive = str(row["primitive"])
+        condition = str(row["condition"])
+        units = int(row["units"])
+        unit_cost = _conservative_cost(primitive, condition, per_type, fallback=fallback)
+        weighted = units * unit_cost
+        weighted_confirmatory += weighted
+        multiplicity_rows.append(
+            {
+                "primitive_id": row["id"],
+                "primitive": primitive,
+                "condition": condition,
+                "multiplicity": units,
+                "sample_count": len(
+                    [
+                        sample
+                        for sample in combined_rows
+                        if sample.get("primitive") == primitive and sample.get("condition") == condition
+                    ]
+                ),
+                "conservative_unit_cost_sec": unit_cost,
+                "weighted_cost_sec": weighted,
+            }
         )
-    ) / 7.0
-    descriptive_weighted = expected_descriptive_calls() * d2_mean
-    subtotal = weighted_confirmatory + descriptive_weighted + FIXED_OVERHEAD_SEC
+
+    d2_pair_costs: list[dict[str, Any]] = []
+    d2_pair_weighted = 0.0
+    for primitive, condition in D2_PAIR_PRIMITIVE_SEQUENCE:
+        unit_cost = _conservative_cost(primitive, condition, per_type, fallback=fallback)
+        weighted = unit_cost
+        d2_pair_weighted += weighted
+        d2_pair_costs.append(
+            {
+                "primitive": primitive,
+                "condition": condition,
+                "conservative_unit_cost_sec": unit_cost,
+            }
+        )
+    descriptive_weighted = D2_PAIR_COUNT * d2_pair_weighted
+
+    append_fsync_sec = _measure_append_fsync_overhead(overhead_probe_dir)
+    resource_scan_sec = 0.0
+    if resource_monitor is not None:
+        scan_started = time.monotonic()
+        resource_monitor.snapshot()
+        resource_monitor.dir_bytes()
+        resource_scan_sec = time.monotonic() - scan_started
+    finalization_probe_started = time.monotonic()
+    probe_manifest = overhead_probe_dir / "finalization_probe.json"
+    probe_manifest.write_text(json.dumps({"status": "completed"}, sort_keys=True), encoding="utf-8")
+    finalization_sec = time.monotonic() - finalization_probe_started
+    measured_overhead_sec = (
+        startup_overhead_sec
+        + append_fsync_sec * 200.0
+        + resource_scan_sec * 50.0
+        + finalization_sec * 10.0
+    )
+
+    subtotal = weighted_confirmatory + descriptive_weighted + measured_overhead_sec
     projected = subtotal * (1.0 + POSITIVE_MARGIN_FRACTION)
     status = "PASS" if projected <= ELAPSED_WALL_CEILING_SEC else "BLOCK"
     component_ids = []
@@ -299,18 +394,29 @@ def run_timing_calibration(
         "sampled_components": len(selected),
         "sampled_component_ids": component_ids,
         "observed_calibration_sec": observed_sec,
-        "call_type_mean_sec": per_type,
-        "primitive_multiplicities": multiplicities,
+        "call_type_mean_sec": {f"{primitive}:{condition}": value for (primitive, condition), value in per_type.items()},
+        "primitive_multiplicity_table": multiplicity_rows,
         "weighted_confirmatory_sec": weighted_confirmatory,
+        "d2_pair_primitive_sequence": [
+            {"primitive": primitive, "condition": condition}
+            for primitive, condition in D2_PAIR_PRIMITIVE_SEQUENCE
+        ],
+        "d2_pair_weighted_sec": d2_pair_weighted,
+        "d2_pair_count": D2_PAIR_COUNT,
+        "d2_calls_per_pair": D2_CALLS_PER_PAIR,
         "descriptive_calls": expected_descriptive_calls(),
         "descriptive_weighted_sec": descriptive_weighted,
-        "fixed_overhead_sec": FIXED_OVERHEAD_SEC,
+        "measured_overhead_sec": measured_overhead_sec,
+        "overhead_components_sec": {
+            "startup": startup_overhead_sec,
+            "append_fsync_per_write": append_fsync_sec,
+            "resource_scan": resource_scan_sec,
+            "finalization": finalization_sec,
+        },
         "positive_margin_fraction": POSITIVE_MARGIN_FRACTION,
         "projected_grand_run_sec": projected,
         "projected_full_run_sec": projected,
         "elapsed_wall_ceiling_sec": ELAPSED_WALL_CEILING_SEC,
         "confirmatory_call_ceiling": expected_confirmatory_calls(),
         "grand_call_ceiling": FULL_RUN_CALL_CEILING,
-        "d2_pair_count": D2_PAIR_COUNT,
-        "d2_calls_per_pair": D2_CALLS_PER_PAIR,
     }

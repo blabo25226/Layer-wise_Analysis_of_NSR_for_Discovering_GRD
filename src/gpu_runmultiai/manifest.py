@@ -266,32 +266,41 @@ def verify_clean_worktree(exclude_paths: list[str] | None = None) -> dict[str, A
     return {"clean": True, "ignored_untracked": ignored, "excluded_paths": sorted(excluded_abs)}
 
 
+def _artifact_digest(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _verify_closure_artifact_digest(payload: dict[str, Any], digest_field: str, path_field: str) -> None:
+    expected = payload.get(digest_field)
+    rel_path = payload.get(path_field)
+    if not expected or not rel_path:
+        raise ResumeIdentityError(f"closure record missing {digest_field} or {path_field}")
+    artifact_path = REPO_ROOT / rel_path
+    if not artifact_path.is_file():
+        raise ResumeIdentityError(f"closure artifact missing: {rel_path}")
+    actual = _artifact_digest(artifact_path)
+    if actual != expected:
+        raise ResumeIdentityError(
+            f"closure record {digest_field} mismatch for {rel_path}: "
+            f"record={expected} recomputed={actual}"
+        )
+
+
 def require_accepted_closure_for_execution(
     commit: str,
     source_inventory: list[dict[str, str]],
     *,
+    plan_hash: str,
+    audit_id: str,
     output_dir: Path | None = None,
 ) -> str:
-    """§13.2: non-smoke and resume runs require an accepted closure record."""
-    accepted, source = accepted_closure_source_hashes(output_dir)
-    if accepted is None:
-        raise ResumeIdentityError(
-            "non-smoke and resume execution require accepted "
-            "implementation_closure_record.json pinning accepted_source_commit and source hashes"
-        )
-    payload = json.loads(Path(source).read_text(encoding="utf-8"))
-    accepted_source_commit = payload.get("accepted_source_commit") or payload.get("commit")
-    if not accepted_source_commit:
-        raise ResumeIdentityError(
-            "closure record missing accepted_source_commit"
-        )
-    if accepted != source_inventory:
-        raise ResumeIdentityError(
-            "closure record source_hashes do not match the recomputed inventory"
-        )
-    return (
-        f"closure_record_verified:{source}:accepted_source_commit={accepted_source_commit}:"
-        f"metadata_commit={payload.get('commit') or 'unknown'}"
+    """§13.2: non-smoke and resume runs require fail-closed canonical closure validation."""
+    return verify_canonical_closure_record(
+        commit=commit,
+        source_inventory=source_inventory,
+        plan_hash=plan_hash,
+        audit_id=audit_id,
+        required=True,
     )
 
 
@@ -377,12 +386,18 @@ def verify_canonical_closure_record(
     source_inventory: list[dict[str, str]],
     plan_hash: str,
     audit_id: str,
+    required: bool = False,
 ) -> str:
-    """Canonical repository closure validation (R5-7)."""
+    """Canonical repository closure validation (R5-7 / round-7 fail-closed gate)."""
     import subprocess
 
     path = CANONICAL_CLOSURE_RECORD_PATH
     if not path.is_file():
+        if required:
+            raise ResumeIdentityError(
+                "non-smoke and resume execution require accepted "
+                "implementation_closure_record.json at the canonical repository path"
+            )
         return "closure_record_absent"
     payload = json.loads(path.read_text(encoding="utf-8"))
     accepted_source_commit = payload.get("accepted_source_commit") or payload.get("commit")
@@ -390,7 +405,7 @@ def verify_canonical_closure_record(
         raise ResumeIdentityError("closure record missing accepted_source_commit")
     try:
         subprocess.run(
-            ["git", "cat-file", "-e", f"{accepted_source_commit}^{{commit}}"],
+            ["git", "cat-file", "-e", accepted_source_commit],
             cwd=REPO_ROOT,
             capture_output=True,
             check=True,
@@ -403,9 +418,9 @@ def verify_canonical_closure_record(
     if accepted_hashes != source_inventory:
         raise ResumeIdentityError("closure record source_hashes do not match recomputed inventory")
     verify_source_inventory_at_commit(accepted_source_commit, source_inventory)
-    if payload.get("plan_hash") and payload.get("plan_hash") != plan_hash:
+    if payload.get("plan_hash") != plan_hash:
         raise ResumeIdentityError("closure record plan_hash mismatch")
-    if payload.get("audit_id") and payload.get("audit_id") != audit_id:
+    if payload.get("audit_id") != audit_id:
         raise ResumeIdentityError("closure record audit_id mismatch")
     for field in (
         "g_contract_verdict",
@@ -413,9 +428,17 @@ def verify_canonical_closure_record(
         "independent_reviewer_identity",
         "independent_review_verdict",
         "review_artifact_digest",
+        "acceptance_artifact_digest",
+        "acceptance_artifact_path",
+        "review_artifact_path",
     ):
         if not payload.get(field):
             raise ResumeIdentityError(f"closure record missing required field {field}")
+    for verdict_field in ("g_contract_verdict", "g_impl_verdict", "independent_review_verdict"):
+        if payload.get(verdict_field) != "PASS":
+            raise ResumeIdentityError(f"closure record {verdict_field} is not PASS")
+    _verify_closure_artifact_digest(payload, "acceptance_artifact_digest", "acceptance_artifact_path")
+    _verify_closure_artifact_digest(payload, "review_artifact_digest", "review_artifact_path")
     return (
         f"canonical_closure_verified:{path}:accepted_source_commit={accepted_source_commit}:"
         f"metadata_commit={payload.get('commit') or 'unknown'}"

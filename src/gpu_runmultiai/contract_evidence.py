@@ -531,7 +531,11 @@ ACCEPTANCE_REQUIRED_ARTIFACTS = (
 )
 
 
-def validate_acceptance_artifact_schemas(output_dir: Path) -> tuple[bool, str]:
+def validate_acceptance_artifact_schemas(
+    output_dir: Path,
+    *,
+    require_completed: bool = False,
+) -> tuple[bool, str]:
     """Full acceptance-specific schema and lifecycle validation (R5-8)."""
     from gpu_runmultiai.jsonl_durable import load_jsonl
 
@@ -551,7 +555,10 @@ def validate_acceptance_artifact_schemas(output_dir: Path) -> tuple[bool, str]:
     else:
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         manifest_status = manifest.get("status")
-        if manifest_status not in {"running", "completed"}:
+        if require_completed:
+            if manifest_status != "completed":
+                problems.append(f"manifest_status={manifest_status}")
+        elif manifest_status not in {"running", "completed"}:
             problems.append(f"manifest_status={manifest_status}")
         if manifest_status == "completed":
             if not manifest.get("commit"):
@@ -1140,7 +1147,45 @@ def _f7_b2_e1_only(
                 classifier_parse_valid=bool(sample_b0.get("classifier_parse_valid", True)),
             )
             if literal_expected == mutated_row.get("outcome_category"):
-                problems.append("production_mutation_not_caught_by_independent_reference")
+                problems.append("production_classifier_mutation_not_caught_by_independent_reference")
+
+            import gpu_runmultiai.outcomes as outcomes_module
+
+            original_precedence = outcomes_module._classify_five_e1_only
+
+            def _mutated_precedence(row: dict[str, Any]) -> str:
+                outcome = original_precedence(row)
+                if outcome == "preserved":
+                    return "semantic_drift"
+                return outcome
+
+            outcomes_module._classify_five_e1_only = _mutated_precedence
+            try:
+                precedence_row = run_b2_pair(
+                    pair_id=sample_b0["pair_id"],
+                    component_id=sample_b0["component_id"],
+                    system_id=sample_b0["system_id"],
+                    component_idx=int(sample_b0["component_idx"]),
+                    scale=sample_b0["scale"],
+                    rewrite_id=sample_b0["rewrite_id"],
+                    stratum=sample_b0.get("stratum") or "strict_hill",
+                    e1_infix=sample_b0.get("e1_infix") or "",
+                    record={"family": sample_b0.get("family", "hill"), "dimension": 1},
+                    call_logger=CallLogger(),
+                    e1_fields=b2_inherited_e1_fields(sample_b0),
+                )
+            finally:
+                outcomes_module._classify_five_e1_only = original_precedence
+            precedence_expected = compute_b2_expected_outcome(
+                e1_infix=sample_b0.get("e1_infix") or "",
+                component_idx=int(sample_b0["component_idx"]),
+                e1_fields=b2_inherited_e1_fields(sample_b0),
+                classifier_parse_valid=bool(sample_b0.get("classifier_parse_valid", True)),
+            )
+            if precedence_expected == precedence_row.get("outcome_category"):
+                problems.append(
+                    "production_precedence_mutation_not_caught_by_independent_reference"
+                )
     return not problems, detail if not problems else f"{detail}; " + "; ".join(problems)
 
 

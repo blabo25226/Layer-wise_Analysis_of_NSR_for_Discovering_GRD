@@ -311,7 +311,7 @@ def _reach_q4fail_1() -> dict[str, Any]:
     )
 
 
-def _reach_ident_fallback_1() -> dict[str, Any]:
+def _reach_ident_fallback_1(resource_monitor: Any | None = None) -> dict[str, Any]:
     """Live d>=2 production B0 prefix with §2.2 identity-fallback detector exercise (§3.8)."""
     from gpu_runmultiai.calls import CallLogger
     from gpu_runmultiai.corpus import load_frozen_corpus
@@ -365,7 +365,7 @@ def _reach_ident_fallback_1() -> dict[str, Any]:
                 oracle_timeout_sec=30.0,
                 q4_timeout_sec=Q4_TIMEOUT_SEC,
                 simplifier_timeout_sec=SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
-                call_logger=CallLogger(),
+                call_logger=CallLogger(resource_monitor=resource_monitor),
                 runtime_available=True,
                 guard=SealedPathGuard(output_root_abs=Path("/nonexistent/results/runs")),
             )
@@ -395,16 +395,14 @@ def _reach_ident_fallback_1() -> dict[str, Any]:
             if not simplified.get("ok"):
                 continue
             simplifier_output_raw = canonical_system_prefix_raw(simplified.get("prefix") or "")
-            production_simplifier_ran = production_e2_prefix_raw != e1_prefix_raw
-            # Prefer a true production fixed point when one exists; otherwise exercise the
-            # §2.2 detector on byte-identical stored prefixes for live E1≢Q4(E1).
-            if production_e2_prefix_raw == e1_prefix_raw:
-                stored_e2_prefix_raw = production_e2_prefix_raw
-            else:
-                stored_e2_prefix_raw = e1_prefix_raw
+            # Genuine production fixed point only: unmodified production E2 must equal E1.
+            if production_e2_prefix_raw != e1_prefix_raw:
+                continue
+            if simplifier_output_raw != e1_prefix_raw:
+                continue
             fallback = detect_e2_identity_fallback_candidate(
                 e1_prefix_raw=e1_prefix_raw,
-                e2_prefix_raw=stored_e2_prefix_raw,
+                e2_prefix_raw=production_e2_prefix_raw,
                 e1_component_prefix=e1_component_prefix,
                 q4_sympy_expr_canonical=q4.q4_sympy_expr_canonical,
                 dimension=dimension,
@@ -416,7 +414,7 @@ def _reach_ident_fallback_1() -> dict[str, Any]:
                 pair_id="pair_sha256:reach_ident_fallback_1",
                 q4_construction_completed=row.get("q4_construction_completed"),
                 e1_prefix_raw=e1_prefix_raw,
-                e2_prefix_raw=stored_e2_prefix_raw,
+                e2_prefix_raw=production_e2_prefix_raw,
                 e2_identity_fallback_candidate=fallback,
                 e1_oracle_completed=row.get("e1_oracle_completed"),
                 e1_oracle_equivalent=row.get("e1_oracle_equivalent"),
@@ -426,20 +424,16 @@ def _reach_ident_fallback_1() -> dict[str, Any]:
                 formula_metrics_valid=row.get("formula_metrics_valid"),
                 hill_form=row.get("hill_form"),
             )
-            passed = (
-                production_simplifier_ran
-                and fallback
-                and outcome_row["outcome_category"] == "execution_failure"
-            )
+            passed = bool(fallback and outcome_row["outcome_category"] == "execution_failure")
             return _reachability_row(
                 "REACH-IDENT-FALLBACK-1",
                 "live_simplifier_fixed_point",
                 passed,
                 f"system_id={record['system_id']} component_idx={component_idx} "
                 f"dimension={dimension} outcome={outcome_row['outcome_category']} "
-                f"fallback_candidate={fallback} production_e1_raw==e2_raw={production_e2_prefix_raw == e1_prefix_raw} "
-                f"stored_e1_raw==e2_raw={stored_e2_prefix_raw == e1_prefix_raw} "
-                f"simplifier_subprocess_identity={simplifier_output_raw == e1_prefix_raw} "
+                f"fallback_candidate={fallback} production_e1_raw==e2_raw=True "
+                f"stored_e1_raw==e2_raw={production_e2_prefix_raw == e1_prefix_raw} "
+                f"simplifier_subprocess_identity=True "
                 f"q4_canonical={q4.q4_sympy_expr_canonical}",
             )
     return _reachability_row(
@@ -527,7 +521,7 @@ def _reach_pow_comp_1() -> dict[str, Any]:
     )
 
 
-def build_reachability_evidence() -> list[dict[str, Any]]:
+def build_reachability_evidence(resource_monitor: Any | None = None) -> list[dict[str, Any]]:
     return [
         _reach_pow_comp_1(),
         _reach_sfn_1(),
@@ -536,7 +530,7 @@ def build_reachability_evidence() -> list[dict[str, Any]]:
         _reach_sup_1(),
         _reach_drift_e2(),
         _reach_q4fail_1(),
-        _reach_ident_fallback_1(),
+        _reach_ident_fallback_1(resource_monitor=resource_monitor),
         _reach_parse_1(),
         _reach_rescale_1(),
     ]

@@ -160,17 +160,20 @@ def _classify_five_whole_chain(row: dict[str, Any]) -> str:
 
 
 def _classify_five_e1_only(row: dict[str, Any]) -> str:
-    """B2 partition (§2.5.2, F7): decided from E1-stage fields only, never from B0 E2 flags."""
-    from gpu_runmultiai.f7_independent_reference import classify_b2_outcome_frozen
-
-    return classify_b2_outcome_frozen(row)
-
-
-from gpu_runmultiai.f7_independent_reference import (
-    classify_b2_outcome_frozen,
-    compute_b2_expected_outcome,
-    frozen_hill_form_literal,
-)
+    """B2 partition (§2.5.2, F7): production decision from E1-stage fields only."""
+    if row.get("construction_incomplete"):
+        return "construction_incomplete"
+    if (
+        row.get("execution_failure")
+        or row.get("q4_construction_completed") is False
+        or row.get("rescale_incomplete")
+        or row.get("classifier_parse_valid") is False
+        or row.get("e1_oracle_completed") is False
+    ):
+        return "execution_failure"
+    if not row.get("e1_oracle_equivalent"):
+        return "semantic_drift"
+    return "preserved" if row.get("hill_form") else "structural_false_negative"
 
 
 def classify_five_outcome(row: dict[str, Any]) -> str:
