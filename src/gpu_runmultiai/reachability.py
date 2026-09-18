@@ -18,6 +18,7 @@ from evaluation.gpu_run5_structure import classify_formula
 from gpu_runmultiai.constants import (
     CONFIRMATORY_CALL_CEILING,
     FULL_RUN_CALL_CEILING,
+    PRIMARY_SCALES,
     Q4_TIMEOUT_SEC,
     SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
 )
@@ -345,6 +346,87 @@ def _reach_ident_fallback_1(resource_monitor: Any | None = None) -> dict[str, An
         ),
         key=lambda row: row["system_id"],
     )
+    guard = SealedPathGuard(output_root_abs=Path("/nonexistent/results/runs"))
+
+    def _evaluate_candidate(
+        *,
+        record: dict[str, Any],
+        component_idx: int,
+        scale: str,
+        row: dict[str, Any],
+        construction_input_raw: str | None = None,
+        construction_first_output_raw: str | None = None,
+    ) -> dict[str, Any] | None:
+        dimension = int(record["dimension"])
+        e1_prefix_raw = row.get("e1_prefix_raw") or ""
+        production_e2_prefix_raw = row.get("e2_prefix_raw") or ""
+        if MULTI_COMPONENT_SEPARATOR not in e1_prefix_raw:
+            return None
+        if production_e2_prefix_raw != e1_prefix_raw:
+            return None
+        e1_component_prefix = component_prefix_list_from_raw(e1_prefix_raw)[component_idx]
+        q4 = audit_q4_decimal_round_reference(
+            e1_component_prefix,
+            dimension=dimension,
+            timeout_sec=Q4_TIMEOUT_SEC,
+        )
+        if not q4.q4_construction_completed or not q4.q4_sympy_expr_canonical:
+            return None
+        if not e1_not_equivalent_to_q4(
+            e1_component_prefix,
+            q4.q4_sympy_expr_canonical,
+            dimension=dimension,
+            timeout_sec=Q4_TIMEOUT_SEC,
+        ):
+            return None
+        simplified = simplify_tree_subprocess(
+            component_prefix_list_from_raw(e1_prefix_raw),
+            timeout_sec=SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
+        )
+        if not simplified.get("ok"):
+            return None
+        simplifier_output_raw = canonical_system_prefix_raw(simplified.get("prefix") or "")
+        if simplifier_output_raw != e1_prefix_raw:
+            return None
+        fallback = detect_e2_identity_fallback_candidate(
+            e1_prefix_raw=e1_prefix_raw,
+            e2_prefix_raw=production_e2_prefix_raw,
+            e1_component_prefix=e1_component_prefix,
+            q4_sympy_expr_canonical=q4.q4_sympy_expr_canonical,
+            dimension=dimension,
+            q4_timeout_sec=Q4_TIMEOUT_SEC,
+        )
+        outcome_row = build_outcome_row(
+            condition="B0",
+            eligibility_layer="strict_hill_primary",
+            pair_id="pair_sha256:reach_ident_fallback_1",
+            q4_construction_completed=row.get("q4_construction_completed"),
+            e1_prefix_raw=e1_prefix_raw,
+            e2_prefix_raw=production_e2_prefix_raw,
+            e2_identity_fallback_candidate=fallback,
+            e1_oracle_completed=row.get("e1_oracle_completed"),
+            e1_oracle_equivalent=row.get("e1_oracle_equivalent"),
+            e2_oracle_completed=row.get("e2_oracle_completed"),
+            e2_oracle_equivalent=row.get("e2_oracle_equivalent"),
+            classifier_parse_valid=row.get("classifier_parse_valid"),
+            formula_metrics_valid=row.get("formula_metrics_valid"),
+            hill_form=row.get("hill_form"),
+        )
+        passed = bool(fallback and outcome_row["outcome_category"] == "execution_failure")
+        return _reachability_row(
+            "REACH-IDENT-FALLBACK-1",
+            "live_simplifier_fixed_point",
+            passed,
+            f"system_id={record['system_id']} component_idx={component_idx} scale={scale} "
+            f"dimension={dimension} outcome={outcome_row['outcome_category']} "
+            f"fallback_candidate={fallback} production_e1_raw==e2_raw=True "
+            f"stored_e1_raw==e2_raw={production_e2_prefix_raw == e1_prefix_raw} "
+            f"simplifier_subprocess_identity={simplifier_output_raw == e1_prefix_raw} "
+            f"construction_input_raw={construction_input_raw} "
+            f"construction_first_output_raw={construction_first_output_raw} "
+            f"q4_canonical={q4.q4_sympy_expr_canonical}",
+        )
+
     for record in candidates:
         dimension = int(record["dimension"])
         for component_idx in range(dimension):
@@ -356,86 +438,86 @@ def _reach_ident_fallback_1(resource_monitor: Any | None = None) -> dict[str, An
                 truth_infix,
                 oracle_timeout_sec=30.0,
             )
-            row = run_b0_pair(
-                corpus_hash=corpus["corpus_hash"],
-                record=record,
-                component_idx=component_idx,
-                scale="0.1",
-                rewrite_row=rewrite,
+            for scale in PRIMARY_SCALES:
+                row = run_b0_pair(
+                    corpus_hash=corpus["corpus_hash"],
+                    record=record,
+                    component_idx=component_idx,
+                    scale=scale,
+                    rewrite_row=rewrite,
+                    oracle_timeout_sec=30.0,
+                    q4_timeout_sec=Q4_TIMEOUT_SEC,
+                    simplifier_timeout_sec=SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
+                    call_logger=CallLogger(resource_monitor=resource_monitor),
+                    runtime_available=True,
+                    guard=guard,
+                )
+                result = _evaluate_candidate(
+                    record=record,
+                    component_idx=component_idx,
+                    scale=scale,
+                    row=row,
+                )
+                if result is not None:
+                    return result
+
+    for record in candidates:
+        dimension = int(record["dimension"])
+        component_prefixes = [
+            truth_component_infix(record, component_idx)[0] for component_idx in range(dimension)
+        ]
+        construction_input_raw = canonical_system_prefix_raw(
+            MULTI_COMPONENT_SEPARATOR.join(component_prefixes)
+        )
+        simplified_once = simplify_tree_subprocess(
+            component_prefixes,
+            timeout_sec=SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
+        )
+        if not simplified_once.get("ok"):
+            continue
+        construction_first_output_raw = canonical_system_prefix_raw(simplified_once.get("prefix") or "")
+        simplified_twice = simplify_tree_subprocess(
+            component_prefix_list_from_raw(construction_first_output_raw),
+            timeout_sec=SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
+        )
+        if not simplified_twice.get("ok"):
+            continue
+        construction_second_output_raw = canonical_system_prefix_raw(simplified_twice.get("prefix") or "")
+        if construction_first_output_raw != construction_second_output_raw:
+            continue
+        for component_idx in range(dimension):
+            truth_prefix, truth_infix = truth_component_infix(record, component_idx)
+            rewrite = rewrite_registration(
+                record["system_id"],
+                component_idx,
+                truth_prefix,
+                truth_infix,
                 oracle_timeout_sec=30.0,
-                q4_timeout_sec=Q4_TIMEOUT_SEC,
-                simplifier_timeout_sec=SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
-                call_logger=CallLogger(resource_monitor=resource_monitor),
-                runtime_available=True,
-                guard=SealedPathGuard(output_root_abs=Path("/nonexistent/results/runs")),
             )
-            e1_prefix_raw = row.get("e1_prefix_raw") or ""
-            production_e2_prefix_raw = row.get("e2_prefix_raw") or ""
-            if MULTI_COMPONENT_SEPARATOR not in e1_prefix_raw:
-                continue
-            e1_component_prefix = component_prefix_list_from_raw(e1_prefix_raw)[component_idx]
-            q4 = audit_q4_decimal_round_reference(
-                e1_component_prefix,
-                dimension=dimension,
-                timeout_sec=Q4_TIMEOUT_SEC,
-            )
-            if not q4.q4_construction_completed or not q4.q4_sympy_expr_canonical:
-                continue
-            if not e1_not_equivalent_to_q4(
-                e1_component_prefix,
-                q4.q4_sympy_expr_canonical,
-                dimension=dimension,
-                timeout_sec=Q4_TIMEOUT_SEC,
-            ):
-                continue
-            simplified = simplify_tree_subprocess(
-                component_prefix_list_from_raw(e1_prefix_raw),
-                timeout_sec=SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
-            )
-            if not simplified.get("ok"):
-                continue
-            simplifier_output_raw = canonical_system_prefix_raw(simplified.get("prefix") or "")
-            # Genuine production fixed point only: unmodified production E2 must equal E1.
-            if production_e2_prefix_raw != e1_prefix_raw:
-                continue
-            if simplifier_output_raw != e1_prefix_raw:
-                continue
-            fallback = detect_e2_identity_fallback_candidate(
-                e1_prefix_raw=e1_prefix_raw,
-                e2_prefix_raw=production_e2_prefix_raw,
-                e1_component_prefix=e1_component_prefix,
-                q4_sympy_expr_canonical=q4.q4_sympy_expr_canonical,
-                dimension=dimension,
-                q4_timeout_sec=Q4_TIMEOUT_SEC,
-            )
-            outcome_row = build_outcome_row(
-                condition="B0",
-                eligibility_layer="strict_hill_primary",
-                pair_id="pair_sha256:reach_ident_fallback_1",
-                q4_construction_completed=row.get("q4_construction_completed"),
-                e1_prefix_raw=e1_prefix_raw,
-                e2_prefix_raw=production_e2_prefix_raw,
-                e2_identity_fallback_candidate=fallback,
-                e1_oracle_completed=row.get("e1_oracle_completed"),
-                e1_oracle_equivalent=row.get("e1_oracle_equivalent"),
-                e2_oracle_completed=row.get("e2_oracle_completed"),
-                e2_oracle_equivalent=row.get("e2_oracle_equivalent"),
-                classifier_parse_valid=row.get("classifier_parse_valid"),
-                formula_metrics_valid=row.get("formula_metrics_valid"),
-                hill_form=row.get("hill_form"),
-            )
-            passed = bool(fallback and outcome_row["outcome_category"] == "execution_failure")
-            return _reachability_row(
-                "REACH-IDENT-FALLBACK-1",
-                "live_simplifier_fixed_point",
-                passed,
-                f"system_id={record['system_id']} component_idx={component_idx} "
-                f"dimension={dimension} outcome={outcome_row['outcome_category']} "
-                f"fallback_candidate={fallback} production_e1_raw==e2_raw=True "
-                f"stored_e1_raw==e2_raw={production_e2_prefix_raw == e1_prefix_raw} "
-                f"simplifier_subprocess_identity=True "
-                f"q4_canonical={q4.q4_sympy_expr_canonical}",
-            )
+            for scale in PRIMARY_SCALES:
+                row = run_b0_pair(
+                    corpus_hash=corpus["corpus_hash"],
+                    record=record,
+                    component_idx=component_idx,
+                    scale=scale,
+                    rewrite_row=rewrite,
+                    oracle_timeout_sec=30.0,
+                    q4_timeout_sec=Q4_TIMEOUT_SEC,
+                    simplifier_timeout_sec=SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
+                    call_logger=CallLogger(resource_monitor=resource_monitor),
+                    runtime_available=True,
+                    guard=guard,
+                )
+                result = _evaluate_candidate(
+                    record=record,
+                    component_idx=component_idx,
+                    scale=scale,
+                    row=row,
+                    construction_input_raw=construction_input_raw,
+                    construction_first_output_raw=construction_first_output_raw,
+                )
+                if result is not None:
+                    return result
     return _reachability_row(
         "REACH-IDENT-FALLBACK-1",
         "live_simplifier_fixed_point",

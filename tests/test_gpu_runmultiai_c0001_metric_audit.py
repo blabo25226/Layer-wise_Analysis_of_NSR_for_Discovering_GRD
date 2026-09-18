@@ -1183,6 +1183,7 @@ def test_reachability_evidence_all_ten_fixtures():
     assert set(by_id) == expected
     assert by_id["REACH-UNS-1"]["passed"] is True
     assert by_id["REACH-SUP-1"]["passed"] is True
+    assert by_id["REACH-IDENT-FALLBACK-1"]["passed"] is True
 
 
 def test_g_contract_artifact_schema_round_trip(tmp_path):
