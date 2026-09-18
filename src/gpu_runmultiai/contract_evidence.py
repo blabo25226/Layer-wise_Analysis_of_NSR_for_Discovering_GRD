@@ -1107,12 +1107,12 @@ def _f7_b2_e1_only(
 
             def _mutated_classifier(infix: str):
                 result = original(infix)
-                if result.get("valid") and result.get("component_flags"):
-                    result = dict(result)
-                    flags = [dict(flag) for flag in result["component_flags"]]
-                    flags[0] = {**flags[0], "hill_form": not flags[0].get("hill_form", False)}
-                    result["component_flags"] = flags
-                return result
+                return {
+                    **result,
+                    "valid": False,
+                    "failure_reason": "F7_independent_mutation_test",
+                    "component_flags": [],
+                }
 
             import gpu_runmultiai.pipeline as pipeline_module
 
@@ -1137,7 +1137,7 @@ def _f7_b2_e1_only(
                 e1_infix=sample_b0.get("e1_infix") or "",
                 component_idx=int(sample_b0["component_idx"]),
                 e1_fields=b2_inherited_e1_fields(sample_b0),
-                classifier_parse_valid=bool(mutated_row.get("classifier_parse_valid")),
+                classifier_parse_valid=bool(sample_b0.get("classifier_parse_valid", True)),
             )
             if literal_expected == mutated_row.get("outcome_category"):
                 problems.append("production_mutation_not_caught_by_independent_reference")
