@@ -65,7 +65,7 @@ active_tasks:
     broker_smoke_pre_remediation_at_utc: 2026-09-23T06:47:06Z
     broker_live_post_remediation_verdict: FAIL
     broker_live_post_remediation_exit: 70
-    routing_refresh_branch_remote_commit: 453ff28
+    routing_refresh_branch_remote_commit: 596202b
     source_commit: 3e72bbb3874a22afb05ab218139c45b1423ce368
     integration_tip_commit: 71ae46e49c6b8ef9cb3fd1f18e476b9f6fb953bf
     implementer_identity: Cursor Agent
