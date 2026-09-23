@@ -938,7 +938,9 @@ def _run_implementation_acceptance(
         stage_cache=stage_cache,
         cache_path=stage_cache_path,
     )
-    reachability_evidence = build_reachability_evidence(resource_monitor=resource_monitor)
+    reachability_evidence = build_reachability_evidence(
+        include_live_ident_fallback_observation=True,
+    )
     timing_calibration = run_timing_calibration(
         call_logger=evidence_logger,
         runtime_available=runtime_available,

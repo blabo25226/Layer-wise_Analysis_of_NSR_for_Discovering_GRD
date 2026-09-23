@@ -317,7 +317,7 @@ _IDENT_FALLBACK_SYNTHETIC_COMPONENT_0 = "mul,0.04598,x_0"
 _IDENT_FALLBACK_SYNTHETIC_COMPONENT_1 = "x_1"
 _IDENT_FALLBACK_SYNTHETIC_DIMENSION = 2
 
-# Live production observation: hard cap on counted run_b0_pair probes (not §8.1 ledger).
+# Live production observation: bounded auxiliary run_b0_pair probes (excluded from §8.1 ledger).
 LIVE_IDENT_FALLBACK_RUN_B0_PAIR_BUDGET = 8
 
 
@@ -341,8 +341,10 @@ def _live_ident_fallback_b0_pair_trials(corpus: dict[str, Any]) -> list[tuple[di
 def _reach_ident_fallback_1_synthetic() -> tuple[bool, str]:
     """§3.8 synthetic decision-rule fixture; E2 is explicit injection equal to E1 raw."""
     from gpu_runmultiai.odeformer_runtime import canonical_system_prefix_raw
+    from gpu_runmultiai.oracle import oracle_equivalence_prefix
     from gpu_runmultiai.q4_reference import e1_not_equivalent_to_q4
 
+    oracle_timeout_sec = 30.0
     e1_component_prefix = _IDENT_FALLBACK_SYNTHETIC_COMPONENT_0
     e1_prefix_raw = canonical_system_prefix_raw(
         _IDENT_FALLBACK_SYNTHETIC_COMPONENT_0
@@ -362,11 +364,30 @@ def _reach_ident_fallback_1_synthetic() -> tuple[bool, str]:
             f"q4_completed={q4.q4_construction_completed} "
             f"reason={q4.q4_construction_failure_reason}"
         )
+    q4_prefix_parts = component_prefix_list_from_raw(q4.q4_emitted_prefix or "")
+    e2_component_prefix = component_prefix_list_from_raw(e1_prefix_raw)[0]
+    if not q4_prefix_parts:
+        return False, "synthetic_fixture_failed q4_emitted_prefix_empty"
+    q4_component_prefix = q4_prefix_parts[0]
     e1_neq_q4 = e1_not_equivalent_to_q4(
         e1_component_prefix,
         q4.q4_sympy_expr_canonical,
         dimension=dimension,
         timeout_sec=Q4_TIMEOUT_SEC,
+    )
+    # Corpus truth matches the five-decimal E1 leaf (q4_fixture_01); oracle is production-independent.
+    e1_oracle = oracle_equivalence_prefix(
+        e1_component_prefix,
+        e1_component_prefix,
+        timeout_sec=oracle_timeout_sec,
+    )
+    e2_oracle = oracle_single_component(
+        q4.q4_emitted_infix or "",
+        "",
+        candidate_component_idx=0,
+        timeout_sec=oracle_timeout_sec,
+        truth_component_prefix=q4_component_prefix,
+        candidate_component_prefix=e2_component_prefix,
     )
     fallback = detect_e2_identity_fallback_candidate(
         e1_prefix_raw=e1_prefix_raw,
@@ -385,10 +406,27 @@ def _reach_ident_fallback_1_synthetic() -> tuple[bool, str]:
         e1_prefix_raw=e1_prefix_raw,
         e2_prefix_raw=e2_prefix_raw,
         e2_identity_fallback_candidate=fallback,
-        e1_oracle_completed=True,
-        e1_oracle_equivalent=True,
-        e2_oracle_completed=True,
-        e2_oracle_equivalent=True,
+        e1_oracle_completed=e1_oracle.completed,
+        e1_oracle_equivalent=e1_oracle.equivalent,
+        e2_oracle_completed=e2_oracle.completed,
+        e2_oracle_equivalent=e2_oracle.equivalent,
+        classifier_parse_valid=True,
+        formula_metrics_valid=True,
+        hill_form=True,
+    )
+    no_fallback_row = build_outcome_row(
+        condition="B0",
+        eligibility_layer="strict_hill_primary",
+        pair_id="pair_sha256:reach_ident_fallback_1_no_fallback",
+        q4_construction_completed=True,
+        q4_sympy_expr_canonical=q4.q4_sympy_expr_canonical,
+        e1_prefix_raw=e1_prefix_raw,
+        e2_prefix_raw=e2_prefix_raw,
+        e2_identity_fallback_candidate=False,
+        e1_oracle_completed=e1_oracle.completed,
+        e1_oracle_equivalent=e1_oracle.equivalent,
+        e2_oracle_completed=e2_oracle.completed,
+        e2_oracle_equivalent=e2_oracle.equivalent,
         classifier_parse_valid=True,
         formula_metrics_valid=True,
         hill_form=True,
@@ -396,8 +434,13 @@ def _reach_ident_fallback_1_synthetic() -> tuple[bool, str]:
     passed = bool(
         e1_neq_q4
         and e2_prefix_raw == e1_prefix_raw
+        and e1_oracle.completed
+        and e1_oracle.equivalent
+        and e2_oracle.completed
+        and not e2_oracle.equivalent
         and fallback
         and outcome_row["outcome_category"] == "execution_failure"
+        and no_fallback_row["outcome_category"] == "semantic_drift"
     )
     detail = (
         "synthetic_fixture "
@@ -407,38 +450,54 @@ def _reach_ident_fallback_1_synthetic() -> tuple[bool, str]:
         f"e2_source=synthetic_injection_not_production "
         f"e1_neq_q4={e1_neq_q4} "
         f"q4_canonical={q4.q4_sympy_expr_canonical} "
+        f"e1_oracle_equivalent={e1_oracle.equivalent} "
+        f"e2_oracle_equivalent={e2_oracle.equivalent} "
+        f"no_fallback_outcome={no_fallback_row['outcome_category']} "
         f"fallback_candidate={fallback} "
         f"outcome={outcome_row['outcome_category']}"
     )
     return passed, detail
 
 
-def _reach_ident_fallback_1_live_production_observation(
-    resource_monitor: Any | None,
-) -> str:
-    """Record run_b0_pair identity-fallback reachability without substituting production E2."""
-    from gpu_runmultiai.calls import CallLogger
-    from gpu_runmultiai.corpus import load_frozen_corpus
-    from gpu_runmultiai.odeformer_runtime import (
-        ODEFormerUnavailable,
-        canonical_system_prefix_raw,
-        require_odeformer,
-        simplify_tree_subprocess,
-    )
-    from gpu_runmultiai.pipeline import run_b0_pair
-    from gpu_runmultiai.q4_reference import e1_not_equivalent_to_q4
-    from gpu_runmultiai.rewrites import rewrite_registration, truth_component_infix
-    from gpu_runmultiai.sealed_guard import SealedPathGuard
+def _reach_ident_fallback_1_live_production_observation() -> str:
+    """Record run_b0_pair identity-fallback reachability without substituting production E2.
+
+    Auxiliary pre-closure observation only: uses a dedicated CallLogger excluded from the
+    confirmatory audit ledger and must not share the full-run ResourceMonitor.
+    """
+    from gpu_runmultiai.odeformer_runtime import ODEFormerUnavailable, require_odeformer
 
     try:
         require_odeformer()
     except ODEFormerUnavailable as exc:
         return f"live_production_observation odeformer_unavailable:{exc}"
 
+    try:
+        return _reach_ident_fallback_1_live_production_observation_body()
+    except Exception as exc:  # must not abort acceptance after counted work completes
+        return (
+            "live_production_observation error_isolated=true "
+            f"error={type(exc).__name__}:{exc}"
+        )
+
+
+def _reach_ident_fallback_1_live_production_observation_body() -> str:
+    from gpu_runmultiai.calls import CallLogger
+    from gpu_runmultiai.corpus import load_frozen_corpus
+    from gpu_runmultiai.odeformer_runtime import (
+        canonical_system_prefix_raw,
+        simplify_tree_subprocess,
+    )
+    from gpu_runmultiai.pipeline import run_b0_pair
+    from gpu_runmultiai.q4_reference import audit_q4_decimal_round_reference, e1_not_equivalent_to_q4
+    from gpu_runmultiai.rewrites import rewrite_registration, truth_component_infix
+    from gpu_runmultiai.sealed_guard import SealedPathGuard
+
     corpus = load_frozen_corpus()
     trials = _live_ident_fallback_b0_pair_trials(corpus)
     budget = LIVE_IDENT_FALLBACK_RUN_B0_PAIR_BUDGET
     guard = SealedPathGuard(output_root_abs=Path("/nonexistent/results/runs"))
+    auxiliary_logger = CallLogger()
     run_b0_pair_calls = 0
     for record, component_idx, scale in trials:
         dimension = int(record["dimension"])
@@ -459,7 +518,7 @@ def _reach_ident_fallback_1_live_production_observation(
             oracle_timeout_sec=30.0,
             q4_timeout_sec=Q4_TIMEOUT_SEC,
             simplifier_timeout_sec=SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
-            call_logger=CallLogger(resource_monitor=resource_monitor),
+            call_logger=auxiliary_logger,
             runtime_available=True,
             guard=guard,
         )
@@ -492,6 +551,7 @@ def _reach_ident_fallback_1_live_production_observation(
         simplifier_output_raw = ""
         if simplified.get("ok"):
             simplifier_output_raw = canonical_system_prefix_raw(simplified.get("prefix") or "")
+        production_fallback_flag = bool(row.get("e2_identity_fallback_candidate"))
         fallback = detect_e2_identity_fallback_candidate(
             e1_prefix_raw=e1_prefix_raw,
             e2_prefix_raw=production_e2_prefix_raw,
@@ -524,13 +584,17 @@ def _reach_ident_fallback_1_live_production_observation(
                 f"system_id={record['system_id']} component_idx={component_idx} "
                 f"scale={scale} dimension={dimension} "
                 f"production_e1_raw==e2_raw=True production_e2_unchanged=True "
-                f"simplifier_subprocess_identity={simplifier_output_raw == e1_prefix_raw} "
+                f"simplifier_subprocess_rerun_not_production_e2="
+                f"{simplifier_output_raw == e1_prefix_raw} "
+                f"production_fallback_flag={production_fallback_flag} "
+                f"fallback_recomputed={fallback} "
+                f"fallback_flags_match={production_fallback_flag == fallback} "
                 f"fallback_candidate={fallback} outcome={outcome_row['outcome_category']} "
                 f"q4_canonical={q4.q4_sympy_expr_canonical}"
             )
     bounded_scan_exhausted = run_b0_pair_calls >= len(trials)
     return (
-        "live_production_observation bounded_no_match=true "
+        "live_production_observation bounded_no_match_within_first_8_trials=true "
         f"observation_scope=first_{budget}_sorted_trials "
         f"run_b0_pair_budget={budget} run_b0_pair_calls={run_b0_pair_calls} "
         f"bounded_scan_exhausted={bounded_scan_exhausted} "
@@ -538,15 +602,27 @@ def _reach_ident_fallback_1_live_production_observation(
     )
 
 
-def _reach_ident_fallback_1(resource_monitor: Any | None = None) -> dict[str, Any]:
-    """§3.8 synthetic fixture plus separate live production observation (PI round-7 split)."""
+def _reach_ident_fallback_1(
+    *,
+    include_live_observation: bool = False,
+) -> dict[str, Any]:
+    """§3.8 synthetic fixture; optional auxiliary live observation (pre-closure only)."""
     synthetic_passed, synthetic_detail = _reach_ident_fallback_1_synthetic()
-    live_detail = _reach_ident_fallback_1_live_production_observation(resource_monitor)
+    detail = synthetic_detail
+    if include_live_observation:
+        try:
+            live_detail = _reach_ident_fallback_1_live_production_observation()
+        except Exception as exc:
+            live_detail = (
+                "live_production_observation error_isolated=true "
+                f"error={type(exc).__name__}:{exc}"
+            )
+        detail = f"{synthetic_detail}; {live_detail}"
     return _reachability_row(
         "REACH-IDENT-FALLBACK-1",
         "synthetic",
         synthetic_passed,
-        f"{synthetic_detail}; {live_detail}",
+        detail,
     )
 
 
@@ -627,7 +703,19 @@ def _reach_pow_comp_1() -> dict[str, Any]:
     )
 
 
-def build_reachability_evidence(resource_monitor: Any | None = None) -> list[dict[str, Any]]:
+def build_reachability_evidence(
+    resource_monitor: Any | None = None,
+    *,
+    include_live_ident_fallback_observation: bool = False,
+) -> list[dict[str, Any]]:
+    """Build §3.8 reachability rows (§8.1 excluded from counted-call ledger).
+
+    ``resource_monitor`` is accepted for API compatibility but ignored: reachability probes
+    must not attach to the confirmatory audit monitor. Live identity-fallback observation
+    runs only when ``include_live_ident_fallback_observation`` is True (implementation
+    acceptance / pre-closure preflight).
+    """
+    _ = resource_monitor
     return [
         _reach_pow_comp_1(),
         _reach_sfn_1(),
@@ -636,7 +724,7 @@ def build_reachability_evidence(resource_monitor: Any | None = None) -> list[dic
         _reach_sup_1(),
         _reach_drift_e2(),
         _reach_q4fail_1(),
-        _reach_ident_fallback_1(resource_monitor=resource_monitor),
+        _reach_ident_fallback_1(include_live_observation=include_live_ident_fallback_observation),
         _reach_parse_1(),
         _reach_rescale_1(),
     ]

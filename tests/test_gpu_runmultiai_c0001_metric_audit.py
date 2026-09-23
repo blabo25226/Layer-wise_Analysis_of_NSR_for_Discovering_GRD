@@ -1186,8 +1186,76 @@ def test_reach_ident_fallback_synthetic_fixture_passes_without_production_e2():
     assert passed is True
     assert "e2_source=synthetic_injection_not_production" in detail
     assert "e1_neq_q4=True" in detail
+    assert "e1_oracle_equivalent=True" in detail
+    assert "e2_oracle_equivalent=False" in detail
+    assert "no_fallback_outcome=semantic_drift" in detail
     assert "fallback_candidate=True" in detail
     assert "outcome=execution_failure" in detail
+
+
+def test_reach_ident_fallback_synthetic_mutations():
+    from gpu_runmultiai.odeformer_runtime import MULTI_COMPONENT_SEPARATOR, canonical_system_prefix_raw
+    from gpu_runmultiai.pipeline import detect_e2_identity_fallback_candidate
+    from gpu_runmultiai.q4_reference import audit_q4_decimal_round_reference, e1_not_equivalent_to_q4
+    from gpu_runmultiai.reachability import (
+        _IDENT_FALLBACK_SYNTHETIC_COMPONENT_0,
+        _IDENT_FALLBACK_SYNTHETIC_COMPONENT_1,
+        _IDENT_FALLBACK_SYNTHETIC_DIMENSION,
+        _reach_ident_fallback_1_synthetic,
+    )
+
+    passed, _ = _reach_ident_fallback_1_synthetic()
+    assert passed is True
+
+    e1_prefix_raw = canonical_system_prefix_raw(
+        _IDENT_FALLBACK_SYNTHETIC_COMPONENT_0
+        + MULTI_COMPONENT_SEPARATOR
+        + _IDENT_FALLBACK_SYNTHETIC_COMPONENT_1
+    )
+    assert detect_e2_identity_fallback_candidate(
+        e1_prefix_raw=e1_prefix_raw,
+        e2_prefix_raw=e1_prefix_raw + MULTI_COMPONENT_SEPARATOR + "mut",
+        e1_component_prefix=_IDENT_FALLBACK_SYNTHETIC_COMPONENT_0,
+        q4_sympy_expr_canonical="0.0460*x_0",
+        dimension=_IDENT_FALLBACK_SYNTHETIC_DIMENSION,
+        q4_timeout_sec=30.0,
+    ) is False
+
+    q4 = audit_q4_decimal_round_reference(
+        _IDENT_FALLBACK_SYNTHETIC_COMPONENT_0,
+        dimension=_IDENT_FALLBACK_SYNTHETIC_DIMENSION,
+        timeout_sec=30.0,
+    )
+    assert q4.q4_sympy_expr_canonical
+    assert e1_not_equivalent_to_q4(
+        _IDENT_FALLBACK_SYNTHETIC_COMPONENT_0,
+        q4.q4_sympy_expr_canonical,
+        dimension=_IDENT_FALLBACK_SYNTHETIC_DIMENSION,
+        timeout_sec=30.0,
+    )
+
+    q4_matched = audit_q4_decimal_round_reference(
+        "mul,0.0460,x_0",
+        dimension=_IDENT_FALLBACK_SYNTHETIC_DIMENSION,
+        timeout_sec=30.0,
+    )
+    matched_prefix = canonical_system_prefix_raw(
+        "mul,0.0460,x_0" + MULTI_COMPONENT_SEPARATOR + _IDENT_FALLBACK_SYNTHETIC_COMPONENT_1
+    )
+    assert not e1_not_equivalent_to_q4(
+        "mul,0.0460,x_0",
+        q4_matched.q4_sympy_expr_canonical,
+        dimension=_IDENT_FALLBACK_SYNTHETIC_DIMENSION,
+        timeout_sec=30.0,
+    )
+    assert detect_e2_identity_fallback_candidate(
+        e1_prefix_raw=matched_prefix,
+        e2_prefix_raw=matched_prefix,
+        e1_component_prefix="mul,0.0460,x_0",
+        q4_sympy_expr_canonical=q4_matched.q4_sympy_expr_canonical,
+        dimension=_IDENT_FALLBACK_SYNTHETIC_DIMENSION,
+        q4_timeout_sec=30.0,
+    ) is False
 
 
 def test_reach_ident_fallback_live_observation_run_b0_pair_hard_bounded(monkeypatch):
@@ -1222,16 +1290,65 @@ def test_reach_ident_fallback_live_observation_run_b0_pair_hard_bounded(monkeypa
         lambda: None,
     )
 
-    detail = _reach_ident_fallback_1_live_production_observation(None)
+    detail = _reach_ident_fallback_1_live_production_observation()
     assert len(calls) == len(trials)
     assert len(calls) <= LIVE_IDENT_FALLBACK_RUN_B0_PAIR_BUDGET
     assert f"run_b0_pair_budget={LIVE_IDENT_FALLBACK_RUN_B0_PAIR_BUDGET}" in detail
     assert "run_b0_pair_calls=" in detail
     assert "bounded_scan_exhausted=" in detail
-    assert "bounded_no_match=true" in detail
+    assert "bounded_no_match_within_first_8_trials=true" in detail
     assert "not_global_corpus_absence" in detail
     assert "production_e2_unchanged=True" in detail
     assert "live_simplifier_fixed_point" not in detail
+
+
+def test_reach_ident_fallback_live_observation_isolated_from_counted_ledger(monkeypatch, tmp_path):
+    from gpu_runmultiai.calls import CallLogger
+    from gpu_runmultiai.reachability import _reach_ident_fallback_1
+
+    audit_logger = CallLogger(tmp_path / "audit_call_log.jsonl")
+    before = audit_logger.confirmatory_total()
+
+    monkeypatch.setattr(
+        "gpu_runmultiai.reachability._reach_ident_fallback_1_live_production_observation",
+        lambda: "live_production_observation error_isolated=true error=RuntimeError:probe",
+    )
+    row_err = _reach_ident_fallback_1(include_live_observation=True)
+    assert row_err["passed"] is True
+    assert audit_logger.confirmatory_total() == before
+    assert "error_isolated=true" in row_err["details"]
+
+    def _boom():
+        raise RuntimeError("live observation must not abort synthetic reachability")
+
+    monkeypatch.setattr(
+        "gpu_runmultiai.reachability._reach_ident_fallback_1_live_production_observation",
+        _boom,
+    )
+    row = _reach_ident_fallback_1(include_live_observation=True)
+    assert row["passed"] is True
+    assert audit_logger.confirmatory_total() == before
+    assert "synthetic_injection_not_production" in row["details"]
+
+
+def test_build_reachability_evidence_excludes_live_ident_fallback_by_default(monkeypatch):
+    from gpu_runmultiai.reachability import build_reachability_evidence
+
+    live_calls = 0
+
+    def _track_live():
+        nonlocal live_calls
+        live_calls += 1
+        return "live_production_observation bounded_no_match_within_first_8_trials=true"
+
+    monkeypatch.setattr(
+        "gpu_runmultiai.reachability._reach_ident_fallback_1_live_production_observation",
+        _track_live,
+    )
+    rows = build_reachability_evidence()
+    assert live_calls == 0
+    ident = next(row for row in rows if row["fixture_id"] == "REACH-IDENT-FALLBACK-1")
+    assert "live_production_observation" not in ident["details"]
 
 
 def test_reach_ident_fallback_row_labels_synthetic_pass_not_live_production(monkeypatch):
@@ -1239,14 +1356,14 @@ def test_reach_ident_fallback_row_labels_synthetic_pass_not_live_production(monk
 
     monkeypatch.setattr(
         "gpu_runmultiai.reachability._reach_ident_fallback_1_live_production_observation",
-        lambda _rm: (
-            "live_production_observation bounded_no_match=true "
+        lambda: (
+            "live_production_observation bounded_no_match_within_first_8_trials=true "
             "observation_scope=first_8_sorted_trials run_b0_pair_budget=8 "
             "run_b0_pair_calls=0 bounded_scan_exhausted=False "
             "not_global_corpus_absence production_e2_unchanged=True"
         ),
     )
-    row = _reach_ident_fallback_1()
+    row = _reach_ident_fallback_1(include_live_observation=True)
     assert row["fixture_id"] == "REACH-IDENT-FALLBACK-1"
     assert row["evidence_type"] == "synthetic"
     assert row["passed"] is True
