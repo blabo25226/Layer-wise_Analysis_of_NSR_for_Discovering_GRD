@@ -9,12 +9,12 @@ status: active
 current_cycle: C0001
 current_stage: ROUTING_REFRESH_REMEDIATION_COMPLETE_PENDING_PI_INTEGRATION
 branch: 20260912_multiAI_research
-observed_commit: 3e72bbb3874a22afb05ab218139c45b1423ce368
+observed_commit: 26d4ccba2c192ecfd897ffec81b62513150ff85b
 base_commit: df39f61f862da3329f29257b573659a19477601c
 remote_branch: ai/C0001/repo-operator/routing-refresh
-remote_commit: 6ea568c4a8e36cf386e56042341180a9f89290b9
-last_push_attempt_utc: 2026-09-23T07:15:00Z
-last_push_error: push_not_completed_in_session; local ahead of origin until non-force push verified
+remote_commit: 26d4ccba2c192ecfd897ffec81b62513150ff85b
+last_push_attempt_utc: 2026-09-23T07:16:30Z
+last_push_error: null
 binding_plan:
   path: GPU_RUNmultiAI/cycles/C0001/preregistration_draft_v16.md
   version: v16
@@ -60,6 +60,8 @@ active_tasks:
     claude_review: GPU_RUNmultiAI/cycles/C0001/routing_refresh_claude_review.md
     direct_fs_verdict: FAIL
     broker_mode_verdict: PASS
+    source_commit: 3e72bbb3874a22afb05ab218139c45b1423ce368
+    integration_tip_commit: 26d4ccba2c192ecfd897ffec81b62513150ff85b
     implementer_identity: Cursor Agent
     independent_reviewer_identity: Claude Opus 5.5
     reviewer_diff_assertion: true

@@ -63,16 +63,15 @@ After human PI integrates `ai/C0001/repo-operator/routing-refresh` into `2026091
 - Five-step direct FS E2E remains **FAIL**; broker-first routing stays mandatory.
 - Full `pytest` suite not re-run in this closure (focused worker tests only).
 
-## Source commit
+## Source commits
 
 ```text
-3e72bbb3874a22afb05ab218139c45b1423ce368
+remediation: 3e72bbb3874a22afb05ab218139c45b1423ce368
+tip_with_verified_remote: 26d4ccba2c192ecfd897ffec81b62513150ff85b
 ```
 
 ## Push / remote parity
 
 ```text
-local_head=3e72bbb3874a22afb05ab218139c45b1423ce368
-origin/ai/C0001/repo-operator/routing-refresh=6ea568c4a8e36cf386e56042341180a9f89290b9 (pre-push)
-action_required=git push -u origin HEAD && set remote_commit to verified origin SHA
+origin/ai/C0001/repo-operator/routing-refresh verified at 26d4ccba2c192ecfd897ffec81b62513150ff85b
 ```
