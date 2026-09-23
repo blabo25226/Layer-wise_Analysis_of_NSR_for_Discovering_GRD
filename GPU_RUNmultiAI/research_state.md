@@ -7,7 +7,7 @@ Update it before a parent session ends.
 campaign: GPU_RUNmultiAI
 status: active
 current_cycle: C0001
-current_stage: C0001_V16_ROUND7_FULL_FOCUSED_VERIFICATION
+current_stage: C0001_V16_ROUND7_PREACCEPTANCE_REVIEW_REPAIR
 branch: 20260912_multiAI_research
 observed_commit: c7319e7ece430fbef4d5d04f9ffb3e0b69b8285d
 base_commit: df39f61f862da3329f29257b573659a19477601c
@@ -41,7 +41,7 @@ tracks:
   scientific:
     status: active
     current_cycle: C0001
-    stage: V16_ROUND7_FULL_FOCUSED_VERIFICATION
+    stage: V16_ROUND7_PREACCEPTANCE_REVIEW_REPAIR
     resumed_by: user continuation after routing refresh
 
 active_tasks:
@@ -64,11 +64,13 @@ active_tasks:
       - GPU_RUNmultiAI/cycles/C0001/runs/c0001_metric_identifiability_audit_v16_round7_acceptance/
       - GPU_RUNmultiAI/cycles/C0001/runs/c0001_metric_identifiability_audit_v9_smoke/
     write_scope: [frozen 82-path runtime inventory, focused tests, G_contract/G_impl evidence, bounded v16 smoke, implementation completion]
-    status: full_focused_verification_running
+    status: reviewer_block_remediation_running
     prior_pause_reason: C0001-INFRA-T003 routing refresh; dirty scientific worktree preserved
     pi_resolution: GPU_RUNmultiAI/cycles/C0001/implementation_v16_round7_pi_resolution.md (scientific worktree only until source commit)
     source_candidate_commit: 92fe0c7973ba23a8e71ad245005708d7b41eaac3
     source_candidate_remote_verified: true
+    preacceptance_review: GPU_RUNmultiAI/cycles/C0001/implementation_review_v16_round7_preacceptance.md (scientific worktree)
+    preacceptance_review_verdict: BLOCK_P1_oracle_and_full_run_isolation
     resume_action: >
       Dispatch Cursor in /tmp/lansr-multiai-C0001-implement-audit using
       GPU_RUNmultiAI/cycles/C0001/implementation_v16_round6_revision_handoff.md (round7 acceptance track);
@@ -194,6 +196,8 @@ completed_tasks:
     integration_commit: 47d7459
     result: four C0001 evidence and preregistration draft artifacts persisted
 open_findings:
+  - Claude Opus 5.5 pre-acceptance review BLOCK at 92fe0c7: synthetic identity fixture hard-coded an oracle result inconsistent with E2 versus Q4 and failed to test fallback precedence over semantic_drift; auxiliary live probe could run after counted full audit and abort it. Cursor remediation is active. A full focused rerun was intentionally interrupted at 23 passed / 441.61 s because source must change; no full-suite PASS claimed.
+  - Routing exception: direct Claude primary-code review preceded Gemini compression because the narrow question required scientific interpretation of frozen predicates and production oracle behavior, which cannot safely be delegated to mechanical extraction alone.
   - C0001-T023 full focused run at fa1804b: 5 failed, 110 passed in 1672.83 s. Three resume and one source-inventory failure were due to dirty manifest.py; one stale output-directory hook test was repaired without weakening the canonical closure gate. Five affected tests passed individually on committed 92fe0c7; a clean-tree full module rerun is active.
   - C0001-T023 first resumed full focused test was interrupted after an unbounded auxiliary live-production reachability scan launched overlapping pytest processes during Cursor reconnection. No PASS was claimed; all duplicate processes were terminated without deleting artifacts. Retry caps the non-scientific live observation at eight production pairs before rerunning the full suite.
   - v16 preregistration is frozen at SHA256 67017f5c8bac861664fc867b70cf229d43be3d052d266ffd0d575e20e6c12078 after Claude, Codex subagent, and PI PASS closure.
@@ -209,12 +213,12 @@ retries:
   C0001-T023: 1
 
 next_action: >
-  Collect the single full focused Python 3.10 test run on source candidate 92fe0c7 in
-  /tmp/lansr-multiai-C0001-implement-audit. If PASS, evaluate a fresh non-overwriting
-  510-B1/4,080-call pre-closure acceptance packet under frozen v16; first verify resource/time bounds and
-  artifact path. Then independent Claude Opus 5.5 review and PI gate. Full audit remains prohibited.
+  Collect Cursor repair of Claude Opus 5.5 P1 findings in /tmp/lansr-multiai-C0001-implement-audit.
+  Verify targeted oracle/precedence and full-run isolation tests, source commit/push, then obtain independent
+  Claude re-review. Only after PASS, run a single full focused Python 3.10 suite and assess a fresh
+  non-overwriting 510-B1/4,080-call pre-closure acceptance packet. Full audit remains prohibited.
 
-last_checkpoint_utc: 2026-09-23T17:14:10Z
+last_checkpoint_utc: 2026-09-23T17:22:06Z
 ```
 
 ## Notes
