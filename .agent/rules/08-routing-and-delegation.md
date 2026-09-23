@@ -102,10 +102,12 @@ reconnaissance must fall back to Codex or Claude, the Research PI must record an
 ## Gemini broker vs direct filesystem
 
 **Broker mode** (`.ai/workers/gemini.sh --broker`) is the standard path when Antigravity cannot write repository files:
-prompt-supplied evidence packet → Gemini print stdout → local wrapper persists artifact + provenance. Exit code 0 alone
-is never sufficient.
+prompt-supplied evidence packet → Gemini print stdout → local wrapper persists artifact + provenance. Broker mode is
+**read-only** (`--write` is rejected). Exit code 0 alone is never sufficient; reject empty stdout, known headless
+deny-marker diagnostics, and require structured `--acceptance` (typically `headings`) for evidence/packet tasks.
 
-**Direct filesystem** work remains optional until headless E2E passes in a disposable worktree. When direct write is
+**Direct filesystem** `--write` stays **blocked** in `.ai/workers/gemini.sh` until a recorded five-step disposable
+worktree E2E PASS marker exists (`GPU_RUNmultiAI/.runtime/gemini_direct_fs_e2e.pass`). Until then, when direct write is
 unavailable, Gemini returns structured edit proposals / diffs / plans; **Cursor** applies, tests, and commits.
 
 ## Evidence-packet chunking

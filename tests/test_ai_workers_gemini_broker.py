@@ -17,25 +17,32 @@ def _run_broker(
     fake_agy: Path,
     prompt_body: str,
     acceptance: str = "non-empty",
+    *,
+    prompt_name: str = "prompt.txt",
+    output_name: str = "out.md",
+    extra_args: list[str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    prompt_file = tmp_path / "packet.md"
+    prompt_file = tmp_path / prompt_name
     prompt_file.write_text(prompt_body, encoding="utf-8")
-    output_file = tmp_path / "out.md"
+    output_file = tmp_path / output_name
     env = os.environ.copy()
     env["AI_WORKERS_ANTIGRAVITY_BIN"] = str(fake_agy)
     env["AI_WORKERS_GEMINI_MODEL"] = "gemini-3.8-flash-high"
+    cmd = [
+        "bash",
+        str(GEMINI_SH),
+        "--broker",
+        "--prompt-file",
+        str(prompt_file),
+        "--output-file",
+        str(output_file),
+        "--acceptance",
+        acceptance,
+    ]
+    if extra_args:
+        cmd.extend(extra_args)
     return subprocess.run(
-        [
-            "bash",
-            str(GEMINI_SH),
-            "--broker",
-            "--prompt-file",
-            str(prompt_file),
-            "--output-file",
-            str(output_file),
-            "--acceptance",
-            acceptance,
-        ],
+        cmd,
         cwd=REPO_ROOT,
         env=env,
         capture_output=True,
@@ -132,3 +139,129 @@ def test_broker_nonzero_cli_exit_skips_artifact(tmp_path: Path) -> None:
     proc = _run_broker(tmp_path, fake_agy, "x", acceptance="non-empty")
     assert proc.returncode == 3
     assert not (tmp_path / "out.md").exists()
+
+
+def test_broker_rejects_deny_marker_despite_zero_exit(tmp_path: Path) -> None:
+    fake_agy = tmp_path / "agy"
+    fake_agy.write_text(
+        "#!/bin/sh\necho 'jetski: no output produced — auto-denied'\n",
+        encoding="utf-8",
+    )
+    fake_agy.chmod(0o755)
+    output_file = tmp_path / "out.md"
+    output_file.write_text("stale artifact\n", encoding="utf-8")
+    proc = _run_broker(tmp_path, fake_agy, "x", acceptance="non-empty")
+    assert proc.returncode == 73
+    assert output_file.read_text(encoding="utf-8") == "stale artifact\n"
+
+
+def test_broker_rejects_write_flag(tmp_path: Path) -> None:
+    fake_agy = tmp_path / "agy"
+    fake_agy.write_text("#!/bin/sh\necho ok\n", encoding="utf-8")
+    fake_agy.chmod(0o755)
+    proc = _run_broker(tmp_path, fake_agy, "x", extra_args=["--write"])
+    assert proc.returncode == 64
+
+
+def test_broker_evidence_packet_requires_headings(tmp_path: Path) -> None:
+    fake_agy = tmp_path / "agy"
+    fake_agy.write_text("#!/bin/sh\necho 'plain text'\n", encoding="utf-8")
+    fake_agy.chmod(0o755)
+    proc = _run_broker(
+        tmp_path,
+        fake_agy,
+        "x",
+        acceptance="non-empty",
+        prompt_name="review_evidence.md",
+        output_name="out.md",
+    )
+    assert proc.returncode == 74
+
+
+def test_direct_write_blocked_without_fs_e2e_marker(tmp_path: Path) -> None:
+    fake_agy = tmp_path / "agy"
+    fake_agy.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    fake_agy.chmod(0o755)
+    env = os.environ.copy()
+    env["AI_WORKERS_ANTIGRAVITY_BIN"] = str(fake_agy)
+    env.pop("AI_WORKERS_GEMINI_ALLOW_DIRECT_WRITE", None)
+    env["AI_WORKERS_GEMINI_FS_E2E_PASS_FILE"] = str(tmp_path / "missing.pass")
+    proc = subprocess.run(
+        ["bash", str(GEMINI_SH), "--write", "probe"],
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert proc.returncode == 78
+
+
+def test_broker_mkdir_failure_is_fail_closed(tmp_path: Path) -> None:
+    fake_agy = tmp_path / "agy"
+    fake_agy.write_text("#!/bin/sh\necho ok\n", encoding="utf-8")
+    fake_agy.chmod(0o755)
+    blocker = tmp_path / "blocker"
+    blocker.write_text("not a directory", encoding="utf-8")
+    prompt_file = tmp_path / "prompt.txt"
+    prompt_file.write_text("hello", encoding="utf-8")
+    output_file = blocker / "child" / "out.md"
+    env = os.environ.copy()
+    env["AI_WORKERS_ANTIGRAVITY_BIN"] = str(fake_agy)
+    proc = subprocess.run(
+        [
+            "bash",
+            str(GEMINI_SH),
+            "--broker",
+            "--prompt-file",
+            str(prompt_file),
+            "--output-file",
+            str(output_file),
+            "--acceptance",
+            "non-empty",
+        ],
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert proc.returncode == 75
+    assert not output_file.exists()
+
+
+def test_broker_provenance_failure_does_not_update_artifact(tmp_path: Path) -> None:
+    fake_agy = tmp_path / "agy"
+    fake_agy.write_text("#!/bin/sh\necho 'fresh output'\n", encoding="utf-8")
+    fake_agy.chmod(0o755)
+    prompt_file = tmp_path / "prompt.txt"
+    prompt_file.write_text("hello", encoding="utf-8")
+    output_file = tmp_path / "out.md"
+    output_file.write_text("stale artifact\n", encoding="utf-8")
+    provenance_file = tmp_path / "blocked.provenance.json"
+    provenance_file.write_text("{}\n", encoding="utf-8")
+    provenance_file.chmod(0o444)
+    env = os.environ.copy()
+    env["AI_WORKERS_ANTIGRAVITY_BIN"] = str(fake_agy)
+    proc = subprocess.run(
+        [
+            "bash",
+            str(GEMINI_SH),
+            "--broker",
+            "--prompt-file",
+            str(prompt_file),
+            "--output-file",
+            str(output_file),
+            "--provenance-file",
+            str(provenance_file),
+            "--acceptance",
+            "non-empty",
+        ],
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert proc.returncode == 77
+    assert output_file.read_text(encoding="utf-8") == "stale artifact\n"

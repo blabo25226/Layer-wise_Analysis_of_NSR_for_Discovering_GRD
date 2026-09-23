@@ -9,6 +9,6 @@ description: Gather and verify literature or official implementation evidence re
 - Distinguish source evidence from inference and speculation.
 - Record search date.
 - Label novelty as `known`, `adjacent`, `plausibly_novel`, or `unverified`.
-- Use Gemini/bulk workers for breadth (~10k+ token corpora) and an independent critic for high-stakes novelty judgments.
+- Use Gemini/bulk workers for breadth (~5k+ tokens or the Gemini-first triggers in rule 08) and an independent critic for high-stakes novelty judgments.
 - Use Cursor `repo-operator` for repository structure reconnaissance when 5+ substantive files are involved.
 - Store durable notes in `GPU_RUNmultiAI/literature/` or the cycle directory.

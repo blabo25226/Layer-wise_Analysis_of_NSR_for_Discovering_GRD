@@ -54,7 +54,7 @@ expected_outputs:
 acceptance_tests:
   - CLI options and model selection verified from installed help; no guessed Gemini model setting
   - broker packet to Gemini to structured stdout to persisted artifact PASS
-  - direct filesystem E2E separately PASS or PASS_WITH_LIMITATIONS
+  - direct filesystem E2E verdict FAIL until five-step PASS; broker mode verdict PASS separately
   - Claude Opus 5.5 actual read-only CLI smoke
   - Cursor reconnaissance plus implementation smoke
   - no old preferred model names in active configuration (historical artifacts excluded)

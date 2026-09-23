@@ -27,6 +27,6 @@ Gemini 3.8 Flash broker-first for mechanical compression; GPT-6 Sol PI retains s
 
 ## Commands
 
-- `python -m pytest -q tests/test_ai_workers_gemini_broker.py` → 4 passed
+- `python -m pytest -q tests/test_ai_workers_gemini_broker.py` → broker wrapper tests PASS (count tracked in closure handoff)
 - `bash -n .ai/workers/*.sh` → PASS
 - `git diff --check` → PASS (pre-commit)

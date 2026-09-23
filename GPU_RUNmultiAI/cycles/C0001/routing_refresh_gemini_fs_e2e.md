@@ -2,7 +2,10 @@
 
 ```yaml
 task_id: C0001-INFRA-T003-FS-E2E
-status: PASS_WITH_LIMITATIONS
+direct_filesystem_verdict: FAIL
+direct_filesystem_steps_passed: 0
+broker_mode_verdict: PASS
+status: direct_FS_FAIL_broker_PASS
 verdict: broker_mode_remains_standard
 agy_version: 1.2.9
 model_flag: gemini-3.8-flash-high

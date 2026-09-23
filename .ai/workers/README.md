@@ -35,6 +35,11 @@ Use `--write` only when file edits are explicitly intended. The wrappers still
 do not enable Claude's permission bypass, Cursor's `--force`/`--yolo`, or
 Antigravity's `--dangerously-skip-permissions` mode.
 
+Gemini direct `--write` is blocked until `GPU_RUNmultiAI/.runtime/gemini_direct_fs_e2e.pass`
+exists (five-step disposable worktree E2E). Use `--broker` for local artifact persistence.
+Broker mode rejects `--write`, headless deny-marker stdout, and non-structured acceptance on
+evidence/packet paths.
+
 ```bash
 .ai/workers/cursor.sh --write "Implement the requested change and run focused tests."
 ```
@@ -64,8 +69,13 @@ Default Antigravity model: `gemini-3.8-flash-high` (override with `AI_WORKERS_GE
 `agy models` on the installed CLI before changing.
 
 The model response is written to stdout. Worker identity, mode, and the final
-process exit code are written to stderr. The wrapper itself exits with the same
-code as the worker process.
+process exit code are written to stderr.
+
+For direct Antigravity calls, the wrapper exits with the worker process exit code.
+For **broker** mode, acceptance and persistence failures use dedicated exit codes
+(70–77, 73 deny markers, 74 structured acceptance required) even when Antigravity
+returned 0. A broker task succeeds only when the artifact and provenance files
+exist and pass acceptance checks.
 
 ## Installed commands and authentication
 

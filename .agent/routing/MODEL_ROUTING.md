@@ -2,7 +2,7 @@
 
 | Logical role | Preferred worker/model | Primary purpose | Fallback |
 |---|---|---|---|
-| research-pi | GPT-6 Sol (Medium in UI) | direction, decomposition, integration, final decision | Claude Opus 5.5 |
+| research-pi | GPT-6 Sol (Medium in UI) | direction, decomposition, integration, final decision | GPT-6 Astra (exceptional verification) or explicit human PI decision — not Claude |
 | scientific-critic | Claude Opus 5.5 | adversarial scientific review | GPT-6 Sol |
 | final-auditor | Claude Opus 5.5 | cycle promotion audit | GPT-6 Sol |
 | research-engineer | Claude Sonnet 5 | scientific implementation/design concretization | Cursor Composer 2.5 |

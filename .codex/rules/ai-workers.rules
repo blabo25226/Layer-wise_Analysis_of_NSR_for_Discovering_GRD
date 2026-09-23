@@ -26,12 +26,11 @@ prefix_rule(
 prefix_rule(
     pattern = [".ai/workers/gemini.sh"],
     decision = "allow",
-    justification = "Gemini worker is an authorized autonomous scout and bulk worker",
+    justification = "Gemini worker is an authorized autonomous scout and bulk worker (broker read-only until direct FS E2E PASS)",
     match = [
         ".ai/workers/gemini.sh Summarize the artifacts",
-        ".ai/workers/gemini.sh --write Build the artifact index",
         ".ai/workers/gemini.sh --json Return a status summary",
-        ".ai/workers/gemini.sh --broker --prompt-file packet.md --output-file out.md",
+        ".ai/workers/gemini.sh --broker --prompt-file packet.md --output-file out.md --acceptance headings",
     ],
 )
 
@@ -51,7 +50,7 @@ prefix_rule(
 
 prefix_rule(
     pattern = [".ai/workers/gemini.sh", "--write"],
-    decision = "allow",
-    justification = "Write-mode delegation is pre-authorized for isolated research tasks",
+    decision = "deny",
+    justification = "Gemini direct --write remains blocked until five-step filesystem E2E PASS; use --broker or Cursor",
     match = [".ai/workers/gemini.sh --write Produce the artifact"],
 )
