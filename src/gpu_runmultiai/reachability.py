@@ -312,8 +312,111 @@ def _reach_q4fail_1() -> dict[str, Any]:
     )
 
 
-def _reach_ident_fallback_1(resource_monitor: Any | None = None) -> dict[str, Any]:
-    """Live d>=2 production B0 prefix with §2.2 identity-fallback detector exercise (§3.8)."""
+# Frozen §3.8 synthetic inputs: q4_fixture_01 five-decimal leaf + neutral second component (d>=2).
+_IDENT_FALLBACK_SYNTHETIC_COMPONENT_0 = "mul,0.04598,x_0"
+_IDENT_FALLBACK_SYNTHETIC_COMPONENT_1 = "x_1"
+_IDENT_FALLBACK_SYNTHETIC_DIMENSION = 2
+
+# Live production observation: hard cap on counted run_b0_pair probes (not §8.1 ledger).
+LIVE_IDENT_FALLBACK_RUN_B0_PAIR_BUDGET = 8
+
+
+def _live_ident_fallback_b0_pair_trials(corpus: dict[str, Any]) -> list[tuple[dict[str, Any], int, str]]:
+    """Deterministic first-N (record, component_idx, scale) trials in sorted corpus order."""
+    candidates = sorted(
+        (record for record in corpus["train_records"] if int(record["dimension"]) >= 2),
+        key=lambda row: row["system_id"],
+    )
+    trials: list[tuple[dict[str, Any], int, str]] = []
+    for record in candidates:
+        dimension = int(record["dimension"])
+        for component_idx in range(dimension):
+            for scale in PRIMARY_SCALES:
+                trials.append((record, component_idx, scale))
+                if len(trials) >= LIVE_IDENT_FALLBACK_RUN_B0_PAIR_BUDGET:
+                    return trials
+    return trials
+
+
+def _reach_ident_fallback_1_synthetic() -> tuple[bool, str]:
+    """§3.8 synthetic decision-rule fixture; E2 is explicit injection equal to E1 raw."""
+    from gpu_runmultiai.odeformer_runtime import canonical_system_prefix_raw
+    from gpu_runmultiai.q4_reference import e1_not_equivalent_to_q4
+
+    e1_component_prefix = _IDENT_FALLBACK_SYNTHETIC_COMPONENT_0
+    e1_prefix_raw = canonical_system_prefix_raw(
+        _IDENT_FALLBACK_SYNTHETIC_COMPONENT_0
+        + MULTI_COMPONENT_SEPARATOR
+        + _IDENT_FALLBACK_SYNTHETIC_COMPONENT_1
+    )
+    e2_prefix_raw = e1_prefix_raw
+    dimension = _IDENT_FALLBACK_SYNTHETIC_DIMENSION
+    q4 = audit_q4_decimal_round_reference(
+        e1_component_prefix,
+        dimension=dimension,
+        timeout_sec=Q4_TIMEOUT_SEC,
+    )
+    if not q4.q4_construction_completed or not q4.q4_sympy_expr_canonical:
+        return False, (
+            "synthetic_fixture_failed "
+            f"q4_completed={q4.q4_construction_completed} "
+            f"reason={q4.q4_construction_failure_reason}"
+        )
+    e1_neq_q4 = e1_not_equivalent_to_q4(
+        e1_component_prefix,
+        q4.q4_sympy_expr_canonical,
+        dimension=dimension,
+        timeout_sec=Q4_TIMEOUT_SEC,
+    )
+    fallback = detect_e2_identity_fallback_candidate(
+        e1_prefix_raw=e1_prefix_raw,
+        e2_prefix_raw=e2_prefix_raw,
+        e1_component_prefix=e1_component_prefix,
+        q4_sympy_expr_canonical=q4.q4_sympy_expr_canonical,
+        dimension=dimension,
+        q4_timeout_sec=Q4_TIMEOUT_SEC,
+    )
+    outcome_row = build_outcome_row(
+        condition="B0",
+        eligibility_layer="strict_hill_primary",
+        pair_id="pair_sha256:reach_ident_fallback_1",
+        q4_construction_completed=True,
+        q4_sympy_expr_canonical=q4.q4_sympy_expr_canonical,
+        e1_prefix_raw=e1_prefix_raw,
+        e2_prefix_raw=e2_prefix_raw,
+        e2_identity_fallback_candidate=fallback,
+        e1_oracle_completed=True,
+        e1_oracle_equivalent=True,
+        e2_oracle_completed=True,
+        e2_oracle_equivalent=True,
+        classifier_parse_valid=True,
+        formula_metrics_valid=True,
+        hill_form=True,
+    )
+    passed = bool(
+        e1_neq_q4
+        and e2_prefix_raw == e1_prefix_raw
+        and fallback
+        and outcome_row["outcome_category"] == "execution_failure"
+    )
+    detail = (
+        "synthetic_fixture "
+        f"e1_component0={e1_component_prefix} "
+        f"e1_prefix_raw={e1_prefix_raw} "
+        f"e2_prefix_raw={e2_prefix_raw} "
+        f"e2_source=synthetic_injection_not_production "
+        f"e1_neq_q4={e1_neq_q4} "
+        f"q4_canonical={q4.q4_sympy_expr_canonical} "
+        f"fallback_candidate={fallback} "
+        f"outcome={outcome_row['outcome_category']}"
+    )
+    return passed, detail
+
+
+def _reach_ident_fallback_1_live_production_observation(
+    resource_monitor: Any | None,
+) -> str:
+    """Record run_b0_pair identity-fallback reachability without substituting production E2."""
     from gpu_runmultiai.calls import CallLogger
     from gpu_runmultiai.corpus import load_frozen_corpus
     from gpu_runmultiai.odeformer_runtime import (
@@ -322,7 +425,7 @@ def _reach_ident_fallback_1(resource_monitor: Any | None = None) -> dict[str, An
         require_odeformer,
         simplify_tree_subprocess,
     )
-    from gpu_runmultiai.pipeline import detect_e2_identity_fallback_candidate, run_b0_pair
+    from gpu_runmultiai.pipeline import run_b0_pair
     from gpu_runmultiai.q4_reference import e1_not_equivalent_to_q4
     from gpu_runmultiai.rewrites import rewrite_registration, truth_component_infix
     from gpu_runmultiai.sealed_guard import SealedPathGuard
@@ -330,40 +433,43 @@ def _reach_ident_fallback_1(resource_monitor: Any | None = None) -> dict[str, An
     try:
         require_odeformer()
     except ODEFormerUnavailable as exc:
-        return _reachability_row(
-            "REACH-IDENT-FALLBACK-1",
-            "live_simplifier_fixed_point",
-            False,
-            f"odeformer_unavailable:{exc}",
-        )
+        return f"live_production_observation odeformer_unavailable:{exc}"
 
     corpus = load_frozen_corpus()
-    candidates = sorted(
-        (
-            record
-            for record in corpus["train_records"]
-            if int(record["dimension"]) >= 2
-        ),
-        key=lambda row: row["system_id"],
-    )
+    trials = _live_ident_fallback_b0_pair_trials(corpus)
+    budget = LIVE_IDENT_FALLBACK_RUN_B0_PAIR_BUDGET
     guard = SealedPathGuard(output_root_abs=Path("/nonexistent/results/runs"))
-
-    def _evaluate_candidate(
-        *,
-        record: dict[str, Any],
-        component_idx: int,
-        scale: str,
-        row: dict[str, Any],
-        construction_input_raw: str | None = None,
-        construction_first_output_raw: str | None = None,
-    ) -> dict[str, Any] | None:
+    run_b0_pair_calls = 0
+    for record, component_idx, scale in trials:
         dimension = int(record["dimension"])
+        truth_prefix, truth_infix = truth_component_infix(record, component_idx)
+        rewrite = rewrite_registration(
+            record["system_id"],
+            component_idx,
+            truth_prefix,
+            truth_infix,
+            oracle_timeout_sec=30.0,
+        )
+        row = run_b0_pair(
+            corpus_hash=corpus["corpus_hash"],
+            record=record,
+            component_idx=component_idx,
+            scale=scale,
+            rewrite_row=rewrite,
+            oracle_timeout_sec=30.0,
+            q4_timeout_sec=Q4_TIMEOUT_SEC,
+            simplifier_timeout_sec=SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
+            call_logger=CallLogger(resource_monitor=resource_monitor),
+            runtime_available=True,
+            guard=guard,
+        )
+        run_b0_pair_calls += 1
         e1_prefix_raw = row.get("e1_prefix_raw") or ""
         production_e2_prefix_raw = row.get("e2_prefix_raw") or ""
         if MULTI_COMPONENT_SEPARATOR not in e1_prefix_raw:
-            return None
+            continue
         if production_e2_prefix_raw != e1_prefix_raw:
-            return None
+            continue
         e1_component_prefix = component_prefix_list_from_raw(e1_prefix_raw)[component_idx]
         q4 = audit_q4_decimal_round_reference(
             e1_component_prefix,
@@ -371,23 +477,21 @@ def _reach_ident_fallback_1(resource_monitor: Any | None = None) -> dict[str, An
             timeout_sec=Q4_TIMEOUT_SEC,
         )
         if not q4.q4_construction_completed or not q4.q4_sympy_expr_canonical:
-            return None
+            continue
         if not e1_not_equivalent_to_q4(
             e1_component_prefix,
             q4.q4_sympy_expr_canonical,
             dimension=dimension,
             timeout_sec=Q4_TIMEOUT_SEC,
         ):
-            return None
+            continue
         simplified = simplify_tree_subprocess(
             component_prefix_list_from_raw(e1_prefix_raw),
             timeout_sec=SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
         )
-        if not simplified.get("ok"):
-            return None
-        simplifier_output_raw = canonical_system_prefix_raw(simplified.get("prefix") or "")
-        if simplifier_output_raw != e1_prefix_raw:
-            return None
+        simplifier_output_raw = ""
+        if simplified.get("ok"):
+            simplifier_output_raw = canonical_system_prefix_raw(simplified.get("prefix") or "")
         fallback = detect_e2_identity_fallback_candidate(
             e1_prefix_raw=e1_prefix_raw,
             e2_prefix_raw=production_e2_prefix_raw,
@@ -399,7 +503,7 @@ def _reach_ident_fallback_1(resource_monitor: Any | None = None) -> dict[str, An
         outcome_row = build_outcome_row(
             condition="B0",
             eligibility_layer="strict_hill_primary",
-            pair_id="pair_sha256:reach_ident_fallback_1",
+            pair_id="pair_sha256:reach_ident_fallback_1_live",
             q4_construction_completed=row.get("q4_construction_completed"),
             e1_prefix_raw=e1_prefix_raw,
             e2_prefix_raw=production_e2_prefix_raw,
@@ -412,117 +516,37 @@ def _reach_ident_fallback_1(resource_monitor: Any | None = None) -> dict[str, An
             formula_metrics_valid=row.get("formula_metrics_valid"),
             hill_form=row.get("hill_form"),
         )
-        passed = bool(fallback and outcome_row["outcome_category"] == "execution_failure")
-        return _reachability_row(
-            "REACH-IDENT-FALLBACK-1",
-            "live_simplifier_fixed_point",
-            passed,
-            f"system_id={record['system_id']} component_idx={component_idx} scale={scale} "
-            f"dimension={dimension} outcome={outcome_row['outcome_category']} "
-            f"fallback_candidate={fallback} production_e1_raw==e2_raw=True "
-            f"stored_e1_raw==e2_raw={production_e2_prefix_raw == e1_prefix_raw} "
-            f"simplifier_subprocess_identity={simplifier_output_raw == e1_prefix_raw} "
-            f"construction_input_raw={construction_input_raw} "
-            f"construction_first_output_raw={construction_first_output_raw} "
-            f"q4_canonical={q4.q4_sympy_expr_canonical}",
-        )
-
-    for record in candidates:
-        dimension = int(record["dimension"])
-        for component_idx in range(dimension):
-            truth_prefix, truth_infix = truth_component_infix(record, component_idx)
-            rewrite = rewrite_registration(
-                record["system_id"],
-                component_idx,
-                truth_prefix,
-                truth_infix,
-                oracle_timeout_sec=30.0,
+        if fallback and outcome_row["outcome_category"] == "execution_failure":
+            return (
+                "live_production_observation bounded_match=true "
+                f"observation_scope=first_{budget}_sorted_trials "
+                f"run_b0_pair_budget={budget} run_b0_pair_calls={run_b0_pair_calls} "
+                f"system_id={record['system_id']} component_idx={component_idx} "
+                f"scale={scale} dimension={dimension} "
+                f"production_e1_raw==e2_raw=True production_e2_unchanged=True "
+                f"simplifier_subprocess_identity={simplifier_output_raw == e1_prefix_raw} "
+                f"fallback_candidate={fallback} outcome={outcome_row['outcome_category']} "
+                f"q4_canonical={q4.q4_sympy_expr_canonical}"
             )
-            for scale in PRIMARY_SCALES:
-                row = run_b0_pair(
-                    corpus_hash=corpus["corpus_hash"],
-                    record=record,
-                    component_idx=component_idx,
-                    scale=scale,
-                    rewrite_row=rewrite,
-                    oracle_timeout_sec=30.0,
-                    q4_timeout_sec=Q4_TIMEOUT_SEC,
-                    simplifier_timeout_sec=SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
-                    call_logger=CallLogger(resource_monitor=resource_monitor),
-                    runtime_available=True,
-                    guard=guard,
-                )
-                result = _evaluate_candidate(
-                    record=record,
-                    component_idx=component_idx,
-                    scale=scale,
-                    row=row,
-                )
-                if result is not None:
-                    return result
+    bounded_scan_exhausted = run_b0_pair_calls >= len(trials)
+    return (
+        "live_production_observation bounded_no_match=true "
+        f"observation_scope=first_{budget}_sorted_trials "
+        f"run_b0_pair_budget={budget} run_b0_pair_calls={run_b0_pair_calls} "
+        f"bounded_scan_exhausted={bounded_scan_exhausted} "
+        "not_global_corpus_absence production_e2_unchanged=True"
+    )
 
-    for record in candidates:
-        dimension = int(record["dimension"])
-        component_prefixes = [
-            truth_component_infix(record, component_idx)[0] for component_idx in range(dimension)
-        ]
-        construction_input_raw = canonical_system_prefix_raw(
-            MULTI_COMPONENT_SEPARATOR.join(component_prefixes)
-        )
-        simplified_once = simplify_tree_subprocess(
-            component_prefixes,
-            timeout_sec=SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
-        )
-        if not simplified_once.get("ok"):
-            continue
-        construction_first_output_raw = canonical_system_prefix_raw(simplified_once.get("prefix") or "")
-        simplified_twice = simplify_tree_subprocess(
-            component_prefix_list_from_raw(construction_first_output_raw),
-            timeout_sec=SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
-        )
-        if not simplified_twice.get("ok"):
-            continue
-        construction_second_output_raw = canonical_system_prefix_raw(simplified_twice.get("prefix") or "")
-        if construction_first_output_raw != construction_second_output_raw:
-            continue
-        for component_idx in range(dimension):
-            truth_prefix, truth_infix = truth_component_infix(record, component_idx)
-            rewrite = rewrite_registration(
-                record["system_id"],
-                component_idx,
-                truth_prefix,
-                truth_infix,
-                oracle_timeout_sec=30.0,
-            )
-            for scale in PRIMARY_SCALES:
-                row = run_b0_pair(
-                    corpus_hash=corpus["corpus_hash"],
-                    record=record,
-                    component_idx=component_idx,
-                    scale=scale,
-                    rewrite_row=rewrite,
-                    oracle_timeout_sec=30.0,
-                    q4_timeout_sec=Q4_TIMEOUT_SEC,
-                    simplifier_timeout_sec=SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
-                    call_logger=CallLogger(resource_monitor=resource_monitor),
-                    runtime_available=True,
-                    guard=guard,
-                )
-                result = _evaluate_candidate(
-                    record=record,
-                    component_idx=component_idx,
-                    scale=scale,
-                    row=row,
-                    construction_input_raw=construction_input_raw,
-                    construction_first_output_raw=construction_first_output_raw,
-                )
-                if result is not None:
-                    return result
+
+def _reach_ident_fallback_1(resource_monitor: Any | None = None) -> dict[str, Any]:
+    """§3.8 synthetic fixture plus separate live production observation (PI round-7 split)."""
+    synthetic_passed, synthetic_detail = _reach_ident_fallback_1_synthetic()
+    live_detail = _reach_ident_fallback_1_live_production_observation(resource_monitor)
     return _reachability_row(
         "REACH-IDENT-FALLBACK-1",
-        "live_simplifier_fixed_point",
-        False,
-        "no_d>=2_live_e1_not_equivalent_to_q4_candidate",
+        "synthetic",
+        synthetic_passed,
+        f"{synthetic_detail}; {live_detail}",
     )
 
 

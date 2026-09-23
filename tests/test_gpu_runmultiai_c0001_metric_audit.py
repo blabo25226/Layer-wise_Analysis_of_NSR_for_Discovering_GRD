@@ -129,22 +129,14 @@ def _canonical_closure_record_payload(tmp_path: Path | None = None) -> dict:
 
 
 @pytest.fixture
-def canonical_closure_record(tmp_path):
-    from gpu_runmultiai.manifest import CANONICAL_CLOSURE_RECORD_PATH
+def canonical_closure_record(tmp_path, monkeypatch):
+    from gpu_runmultiai import manifest as manifest_module
 
+    closure_path = tmp_path / "implementation_closure_record.json"
     payload = _canonical_closure_record_payload(tmp_path)
-    original = (
-        CANONICAL_CLOSURE_RECORD_PATH.read_text(encoding="utf-8")
-        if CANONICAL_CLOSURE_RECORD_PATH.is_file()
-        else None
-    )
-    CANONICAL_CLOSURE_RECORD_PATH.parent.mkdir(parents=True, exist_ok=True)
-    CANONICAL_CLOSURE_RECORD_PATH.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
+    closure_path.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
+    monkeypatch.setattr(manifest_module, "CANONICAL_CLOSURE_RECORD_PATH", closure_path)
     yield payload
-    if original is None:
-        CANONICAL_CLOSURE_RECORD_PATH.unlink(missing_ok=True)
-    else:
-        CANONICAL_CLOSURE_RECORD_PATH.write_text(original, encoding="utf-8")
 
 
 def _run_audit(options, guard):
@@ -1184,6 +1176,81 @@ def test_reachability_evidence_all_ten_fixtures():
     assert by_id["REACH-UNS-1"]["passed"] is True
     assert by_id["REACH-SUP-1"]["passed"] is True
     assert by_id["REACH-IDENT-FALLBACK-1"]["passed"] is True
+
+
+def test_reach_ident_fallback_synthetic_fixture_passes_without_production_e2():
+    from gpu_runmultiai.reachability import _reach_ident_fallback_1_synthetic
+
+    passed, detail = _reach_ident_fallback_1_synthetic()
+    assert passed is True
+    assert "e2_source=synthetic_injection_not_production" in detail
+    assert "e1_neq_q4=True" in detail
+    assert "fallback_candidate=True" in detail
+    assert "outcome=execution_failure" in detail
+
+
+def test_reach_ident_fallback_live_observation_run_b0_pair_hard_bounded(monkeypatch):
+    from gpu_runmultiai.corpus import load_frozen_corpus
+    from gpu_runmultiai.reachability import (
+        LIVE_IDENT_FALLBACK_RUN_B0_PAIR_BUDGET,
+        _live_ident_fallback_b0_pair_trials,
+        _reach_ident_fallback_1_live_production_observation,
+    )
+
+    corpus = load_frozen_corpus()
+    trials = _live_ident_fallback_b0_pair_trials(corpus)
+    assert len(trials) <= LIVE_IDENT_FALLBACK_RUN_B0_PAIR_BUDGET
+
+    calls: list[tuple[str, int, str]] = []
+
+    def _fake_run_b0_pair(**kwargs):
+        record = kwargs["record"]
+        calls.append((record["system_id"], kwargs["component_idx"], kwargs["scale"]))
+        return {
+            "e1_prefix_raw": "a|b",
+            "e2_prefix_raw": "different",
+            "q4_construction_completed": True,
+        }
+
+    monkeypatch.setattr(
+        "gpu_runmultiai.pipeline.run_b0_pair",
+        _fake_run_b0_pair,
+    )
+    monkeypatch.setattr(
+        "gpu_runmultiai.odeformer_runtime.require_odeformer",
+        lambda: None,
+    )
+
+    detail = _reach_ident_fallback_1_live_production_observation(None)
+    assert len(calls) == len(trials)
+    assert len(calls) <= LIVE_IDENT_FALLBACK_RUN_B0_PAIR_BUDGET
+    assert f"run_b0_pair_budget={LIVE_IDENT_FALLBACK_RUN_B0_PAIR_BUDGET}" in detail
+    assert "run_b0_pair_calls=" in detail
+    assert "bounded_scan_exhausted=" in detail
+    assert "bounded_no_match=true" in detail
+    assert "not_global_corpus_absence" in detail
+    assert "production_e2_unchanged=True" in detail
+    assert "live_simplifier_fixed_point" not in detail
+
+
+def test_reach_ident_fallback_row_labels_synthetic_pass_not_live_production(monkeypatch):
+    from gpu_runmultiai.reachability import _reach_ident_fallback_1
+
+    monkeypatch.setattr(
+        "gpu_runmultiai.reachability._reach_ident_fallback_1_live_production_observation",
+        lambda _rm: (
+            "live_production_observation bounded_no_match=true "
+            "observation_scope=first_8_sorted_trials run_b0_pair_budget=8 "
+            "run_b0_pair_calls=0 bounded_scan_exhausted=False "
+            "not_global_corpus_absence production_e2_unchanged=True"
+        ),
+    )
+    row = _reach_ident_fallback_1()
+    assert row["fixture_id"] == "REACH-IDENT-FALLBACK-1"
+    assert row["evidence_type"] == "synthetic"
+    assert row["passed"] is True
+    assert "synthetic_injection_not_production" in row["details"]
+    assert "live_simplifier_fixed_point" not in row["details"]
 
 
 def test_g_contract_artifact_schema_round_trip(tmp_path):
@@ -2272,65 +2339,55 @@ def test_closure_binds_accepted_source_commit_not_metadata(tmp_path, canonical_c
     assert "metadata_commit=" + canonical_closure_record["commit"] in status
 
 
-def test_canonical_closure_negative_fixtures_fail_closed(tmp_path):
+def test_canonical_closure_negative_fixtures_fail_closed(tmp_path, monkeypatch):
+    from gpu_runmultiai import manifest as manifest_module
     from gpu_runmultiai.invariants import ResumeIdentityError
-    from gpu_runmultiai.manifest import CANONICAL_CLOSURE_RECORD_PATH, verify_canonical_closure_record
-    from gpu_runmultiai.source_inventory import build_source_inventory
+    from gpu_runmultiai.manifest import verify_canonical_closure_record
 
+    closure_path = tmp_path / "implementation_closure_record.json"
+    monkeypatch.setattr(manifest_module, "CANONICAL_CLOSURE_RECORD_PATH", closure_path)
     base = _canonical_closure_record_payload(tmp_path)
     inventory = list(base["source_hashes"])
-    original = (
-        CANONICAL_CLOSURE_RECORD_PATH.read_text(encoding="utf-8")
-        if CANONICAL_CLOSURE_RECORD_PATH.is_file()
-        else None
-    )
-    CANONICAL_CLOSURE_RECORD_PATH.parent.mkdir(parents=True, exist_ok=True)
 
     def _write(payload):
-        CANONICAL_CLOSURE_RECORD_PATH.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
+        closure_path.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
 
-    try:
-        _write({**base, "g_impl_verdict": "BLOCK"})
-        with pytest.raises(ResumeIdentityError, match="g_impl_verdict"):
-            verify_canonical_closure_record(
-                commit=base["accepted_source_commit"],
-                source_inventory=inventory,
-                plan_hash=PLAN_SHA256,
-                audit_id=AUDIT_ID,
-                required=True,
-            )
-        _write({**base, "plan_hash": "0" * 64})
-        with pytest.raises(ResumeIdentityError, match="plan_hash"):
-            verify_canonical_closure_record(
-                commit=base["accepted_source_commit"],
-                source_inventory=inventory,
-                plan_hash=PLAN_SHA256,
-                audit_id=AUDIT_ID,
-                required=True,
-            )
-        _write({**base, "acceptance_artifact_digest": "0" * 64})
-        with pytest.raises(ResumeIdentityError, match="acceptance_artifact_digest"):
-            verify_canonical_closure_record(
-                commit=base["accepted_source_commit"],
-                source_inventory=inventory,
-                plan_hash=PLAN_SHA256,
-                audit_id=AUDIT_ID,
-                required=True,
-            )
-        CANONICAL_CLOSURE_RECORD_PATH.unlink(missing_ok=True)
-        with pytest.raises(ResumeIdentityError, match="require accepted"):
-            verify_canonical_closure_record(
-                commit=base["accepted_source_commit"],
-                source_inventory=inventory,
-                plan_hash=PLAN_SHA256,
-                audit_id=AUDIT_ID,
-                required=True,
-            )
-    finally:
-        if original is None:
-            CANONICAL_CLOSURE_RECORD_PATH.unlink(missing_ok=True)
-        else:
-            CANONICAL_CLOSURE_RECORD_PATH.write_text(original, encoding="utf-8")
+    _write({**base, "g_impl_verdict": "BLOCK"})
+    with pytest.raises(ResumeIdentityError, match="g_impl_verdict"):
+        verify_canonical_closure_record(
+            commit=base["accepted_source_commit"],
+            source_inventory=inventory,
+            plan_hash=PLAN_SHA256,
+            audit_id=AUDIT_ID,
+            required=True,
+        )
+    _write({**base, "plan_hash": "0" * 64})
+    with pytest.raises(ResumeIdentityError, match="plan_hash"):
+        verify_canonical_closure_record(
+            commit=base["accepted_source_commit"],
+            source_inventory=inventory,
+            plan_hash=PLAN_SHA256,
+            audit_id=AUDIT_ID,
+            required=True,
+        )
+    _write({**base, "acceptance_artifact_digest": "0" * 64})
+    with pytest.raises(ResumeIdentityError, match="acceptance_artifact_digest"):
+        verify_canonical_closure_record(
+            commit=base["accepted_source_commit"],
+            source_inventory=inventory,
+            plan_hash=PLAN_SHA256,
+            audit_id=AUDIT_ID,
+            required=True,
+        )
+    closure_path.unlink(missing_ok=True)
+    with pytest.raises(ResumeIdentityError, match="require accepted"):
+        verify_canonical_closure_record(
+            commit=base["accepted_source_commit"],
+            source_inventory=inventory,
+            plan_hash=PLAN_SHA256,
+            audit_id=AUDIT_ID,
+            required=True,
+        )
 
 
 def test_verify_clean_worktree_excludes_output_dir_only(monkeypatch):
