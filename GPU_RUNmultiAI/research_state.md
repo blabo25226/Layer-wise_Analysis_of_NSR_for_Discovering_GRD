@@ -13,7 +13,7 @@ observed_commit: df39f61f862da3329f29257b573659a19477601c
 base_commit: df39f61f862da3329f29257b573659a19477601c
 remote_branch: 20260912_multiAI_research
 remote_commit: df39f61f862da3329f29257b573659a19477601c
-last_push_attempt_utc: 2026-09-23T07:20:00Z
+last_push_attempt_utc: 2026-09-23T08:25:00Z
 last_push_error: null
 binding_plan:
   path: GPU_RUNmultiAI/cycles/C0001/preregistration_draft_v16.md
@@ -65,7 +65,7 @@ active_tasks:
     broker_smoke_pre_remediation_at_utc: 2026-09-23T06:47:06Z
     broker_live_post_remediation_verdict: FAIL
     broker_live_post_remediation_exit: 70
-    routing_refresh_branch_remote_commit: 912aabf
+    routing_refresh_branch_remote_commit: 453ff28
     source_commit: 3e72bbb3874a22afb05ab218139c45b1423ce368
     integration_tip_commit: 71ae46e49c6b8ef9cb3fd1f18e476b9f6fb953bf
     implementer_identity: Cursor Agent
