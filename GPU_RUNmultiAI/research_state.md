@@ -7,7 +7,7 @@ Update it before a parent session ends.
 campaign: GPU_RUNmultiAI
 status: active
 current_cycle: C0001
-current_stage: C0001_V16_ROUND7_SOURCE_REPAIR
+current_stage: C0001_V16_ROUND7_BOUNDED_SOURCE_REPAIR
 branch: 20260912_multiAI_research
 observed_commit: c7319e7ece430fbef4d5d04f9ffb3e0b69b8285d
 base_commit: df39f61f862da3329f29257b573659a19477601c
@@ -64,7 +64,7 @@ active_tasks:
       - GPU_RUNmultiAI/cycles/C0001/runs/c0001_metric_identifiability_audit_v16_round7_acceptance/
       - GPU_RUNmultiAI/cycles/C0001/runs/c0001_metric_identifiability_audit_v9_smoke/
     write_scope: [frozen 82-path runtime inventory, focused tests, G_contract/G_impl evidence, bounded v16 smoke, implementation completion]
-    status: running_source_repair
+    status: running_bounded_source_repair_retry1
     prior_pause_reason: C0001-INFRA-T003 routing refresh; dirty scientific worktree preserved
     pi_resolution: GPU_RUNmultiAI/cycles/C0001/implementation_v16_round7_pi_resolution.md (scientific worktree only until source commit)
     resume_action: >
@@ -78,7 +78,7 @@ active_tasks:
     implementer_identity: Cursor Agent
     independent_reviewer_identity: Claude Opus 5.5 reproducibility-auditor
     reviewer_diff_assertion: true
-    retry_count: 0
+    retry_count: 1
     fallback: Claude Sonnet research-engineer; GPT-6 Sol PI conflict resolution only
 completed_tasks:
   - task_id: C0001-INFRA-T003
@@ -192,6 +192,7 @@ completed_tasks:
     integration_commit: 47d7459
     result: four C0001 evidence and preregistration draft artifacts persisted
 open_findings:
+  - C0001-T023 first resumed full focused test was interrupted after an unbounded auxiliary live-production reachability scan launched overlapping pytest processes during Cursor reconnection. No PASS was claimed; all duplicate processes were terminated without deleting artifacts. Retry caps the non-scientific live observation at eight production pairs before rerunning the full suite.
   - v16 preregistration is frozen at SHA256 67017f5c8bac861664fc867b70cf229d43be3d052d266ffd0d575e20e6c12078 after Claude, Codex subagent, and PI PASS closure.
   - Full audit remains prohibited until post-freeze G_contract/G_impl, reachability evidence, accepted 82-path hashes, bounded smoke, and independent implementation review PASS.
   - Eight pre-existing GPU_RUN5 worktree records are prunable; they are unrelated to C0000 and were left untouched.
@@ -202,14 +203,15 @@ open_findings:
 retries:
   C0000-T003: 1
   C0001-T003: 1
+  C0001-T023: 1
 
 next_action: >
-  Wait for Cursor C0001-T023 source repair in /tmp/lansr-multiai-C0001-implement-audit. Verify complete
-  focused Python 3.10 tests, diff and source commit/push, then run fresh non-overwriting 510-B1/4,080-call
-  acceptance directory if the frozen synthetic fixture and live production observation are honestly separated.
-  Obtain independent Claude Opus 5.5 review and PI gate. Full v16 audit remains prohibited.
+  Wait for Cursor C0001-T023 bounded repair retry in /tmp/lansr-multiai-C0001-implement-audit. Require a hard
+  eight-pair maximum for the auxiliary live observation, targeted fixture tests, source commit/push, then a
+  single full focused Python 3.10 test run with a bounded timeout. If that passes, run a fresh non-overwriting
+  510-B1/4,080-call acceptance directory, independent Claude Opus 5.5 review, then PI gate. Full audit prohibited.
 
-last_checkpoint_utc: 2026-09-23T11:42:14Z
+last_checkpoint_utc: 2026-09-23T12:21:10Z
 ```
 
 ## Notes
