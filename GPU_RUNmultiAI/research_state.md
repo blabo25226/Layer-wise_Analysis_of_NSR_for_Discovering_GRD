@@ -7,13 +7,13 @@ Update it before a parent session ends.
 campaign: GPU_RUNmultiAI
 status: active
 current_cycle: C0001
-current_stage: ROUTING_REFRESH_INTEGRATED_SCIENTIFIC_PAUSED
+current_stage: C0001_V16_ROUND7_SOURCE_REPAIR
 branch: 20260912_multiAI_research
-observed_commit: 6f16cb903fc7b4be02639f2a837796f41d881c98
+observed_commit: c7319e7ece430fbef4d5d04f9ffb3e0b69b8285d
 base_commit: df39f61f862da3329f29257b573659a19477601c
 remote_branch: 20260912_multiAI_research
-remote_commit: 6f16cb903fc7b4be02639f2a837796f41d881c98
-remote_commit_note: verified integration checkpoint before this state update; final remote tip verified separately
+remote_commit: c7319e7ece430fbef4d5d04f9ffb3e0b69b8285d
+remote_commit_note: verified checkpoint before this state update; newer tip is verified separately after push
 last_push_attempt_utc: 2026-09-23T07:20:00Z
 last_push_error: null
 binding_plan:
@@ -39,11 +39,10 @@ tracks:
     current_cycle: C0001
     stage: ROUTING_REFRESH_INTEGRATED_AND_PUSHED
   scientific:
-    status: paused
+    status: active
     current_cycle: C0001
-    stage: V16_IMPLEMENTATION_PAUSED_BY_ROUTING_OVERRIDE
-    pause_reason: human routing refresh (C0001-INFRA-T003); not a scientific hard stop
-    resume_after: routing task is integrated; continue C0001-T023 in scientific worktree on the next user continuation
+    stage: V16_ROUND7_SOURCE_REPAIR
+    resumed_by: user continuation after routing refresh
 
 active_tasks:
   - task_id: C0001-T023
@@ -65,12 +64,11 @@ active_tasks:
       - GPU_RUNmultiAI/cycles/C0001/runs/c0001_metric_identifiability_audit_v16_round7_acceptance/
       - GPU_RUNmultiAI/cycles/C0001/runs/c0001_metric_identifiability_audit_v9_smoke/
     write_scope: [frozen 82-path runtime inventory, focused tests, G_contract/G_impl evidence, bounded v16 smoke, implementation completion]
-    status: paused
-    pause_reason: C0001-INFRA-T003 routing refresh; preserve dirty scientific worktree untouched
+    status: running_source_repair
+    prior_pause_reason: C0001-INFRA-T003 routing refresh; dirty scientific worktree preserved
+    pi_resolution: GPU_RUNmultiAI/cycles/C0001/implementation_v16_round7_pi_resolution.md (scientific worktree only until source commit)
     resume_action: >
-      After human PI integrates C0001-INFRA-T003 from ai/C0001/repo-operator/routing-refresh into
-      20260912_multiAI_research (verified remote SHA; repo-operator does not self-integrate to PR #5),
-      dispatch Cursor in /tmp/lansr-multiai-C0001-implement-audit using
+      Dispatch Cursor in /tmp/lansr-multiai-C0001-implement-audit using
       GPU_RUNmultiAI/cycles/C0001/implementation_v16_round6_revision_handoff.md (round7 acceptance track);
       complete F1/F2/F4-F8, G_contract/G_impl, reachability evidence, bounded v16 smoke; Claude Opus 5.5
       independent implementation/reproducibility review; GPT-6 Sol PI Go/No-Go with broker or mechanical
@@ -206,13 +204,12 @@ retries:
   C0001-T003: 1
 
 next_action: >
-  On the next user continuation, resume C0001-T023 in /tmp/lansr-multiai-C0001-implement-audit using
-  GPU_RUNmultiAI/cycles/C0001/implementation_v16_round6_revision_handoff.md from that scientific worktree.
-  Preserve dirty manifest/reachability/test edits and round6/round7 run artifacts. Use Cursor for implementation,
-  Gemini broker only when live acceptance succeeds (otherwise record fallback), Claude Opus 5.5 for independent
-  review, and GPT-6 Sol PI for final scientific decisions. Full v16 audit remains gated.
+  Wait for Cursor C0001-T023 source repair in /tmp/lansr-multiai-C0001-implement-audit. Verify complete
+  focused Python 3.10 tests, diff and source commit/push, then run fresh non-overwriting 510-B1/4,080-call
+  acceptance directory if the frozen synthetic fixture and live production observation are honestly separated.
+  Obtain independent Claude Opus 5.5 review and PI gate. Full v16 audit remains prohibited.
 
-last_checkpoint_utc: 2026-09-23T07:20:00Z
+last_checkpoint_utc: 2026-09-23T11:42:14Z
 ```
 
 ## Notes
