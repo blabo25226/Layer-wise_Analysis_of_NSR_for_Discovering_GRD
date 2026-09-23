@@ -155,8 +155,15 @@ if (( broker_mode == 1 )); then
             fi
             ;;
         json)
-            if ! python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$stdout_capture" 2>/dev/null; then
-                printf 'gemini worker: broker acceptance json failed\n' >&2
+            if ! python3 -c '
+import json, sys
+path = sys.argv[1]
+with open(path, encoding="utf-8") as handle:
+    data = json.load(handle)
+if not isinstance(data, (dict, list)):
+    raise SystemExit(1)
+' "$stdout_capture" 2>/dev/null; then
+                printf 'gemini worker: broker acceptance json failed (need object or array)\n' >&2
                 exit 72
             fi
             ;;

@@ -10,9 +10,13 @@ Run these commands from the repository root:
 
 ```bash
 .ai/workers/claude.sh "Review the design without changing files."
+.ai/workers/claude.sh --model claude-sonnet-5 "Implement the bounded scientific change."
 .ai/workers/cursor.sh "Check this implementation without changing files."
 .ai/workers/gemini.sh "Summarize this log without changing files."
 ```
+
+Claude defaults to `claude-opus-5-5` for critique, review, and audit roles. Override with
+`--model` or `AI_WORKERS_CLAUDE_MODEL` (for example `claude-sonnet-5` for research-engineer work).
 
 Each wrapper accepts exactly one quoted prompt. A multiline prompt can instead
 be supplied on standard input:
@@ -65,13 +69,17 @@ code as the worker process.
 
 ## Installed commands and authentication
 
-Verified on 2026-09-12:
+Verified on 2026-09-23 (C0001-INFRA-T003):
 
-| Worker | Command | Version | Authentication |
-|---|---|---|---|
-| Claude Code | `claude` | `2.1.226` | CLI-managed Claude account login |
-| Cursor Agent | `agent` / `cursor-agent` | `2026.09.10-fd3934a` | CLI-managed Cursor browser login |
-| Gemini via Antigravity CLI | `agy` | `1.2.2` | CLI-managed Google AI Pro login |
+| Worker | Command | Version | Default model | Authentication |
+|---|---|---|---|---|
+| Claude Code | `claude` | `2.1.280` | `claude-opus-5-5` (override: `claude-sonnet-5`) | CLI-managed Claude account login |
+| Cursor Agent | `agent` / `cursor-agent` | `2026.09.10-fd3934a` | (Cursor model picker) | CLI-managed Cursor browser login |
+| Gemini via Antigravity CLI | `agy` | `1.2.9` | `gemini-3.8-flash-high` | CLI-managed Google AI Pro login |
+
+Claude model proof (2026-09-23): `claude -p --model claude-opus-5-5 --output-format json` returned
+`modelUsage.claude-opus-5-5.canonicalModel` = `claude-opus-5-5` and `result` = `ROUTING_MODEL_55_OK`.
+See `GPU_RUNmultiAI/cycles/C0001/routing_refresh_claude_smoke.md`.
 
 The standalone Gemini CLI `0.59.0` and Node.js 22 are also installed in the
 `ai-workers-node` Conda environment. Google no longer supports Google AI

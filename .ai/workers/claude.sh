@@ -3,24 +3,48 @@
 set -uo pipefail
 
 usage() {
-    printf 'Usage: %s [--write] [--json] "PROMPT"\n' "$0" >&2
-    printf '       printf "PROMPT" | %s [--write] [--json]\n' "$0" >&2
+    cat >&2 <<'EOF'
+Usage:
+  claude.sh [--write] [--json] [--model MODEL] "PROMPT"
+  printf "PROMPT" | claude.sh [--write] [--json] [--model MODEL]
+
+Default model: claude-opus-5-5 (critique, review, audit roles).
+Override with --model or AI_WORKERS_CLAUDE_MODEL (e.g. claude-sonnet-5 for research-engineer).
+EOF
 }
 
 mode="read"
 output_format="text"
+claude_model="${AI_WORKERS_CLAUDE_MODEL:-claude-opus-5-5}"
 
-if [[ "${1:-}" == "--write" ]]; then
-    mode="write"
-    shift
-fi
-if [[ "${1:-}" == "--json" ]]; then
-    output_format="json"
-    shift
-fi
-if [[ "${1:-}" == "--" ]]; then
-    shift
-fi
+while (( $# > 0 )); do
+    case "$1" in
+        --write)
+            mode="write"
+            shift
+            ;;
+        --json)
+            output_format="json"
+            shift
+            ;;
+        --model)
+            claude_model="${2:-}"
+            shift 2
+            ;;
+        --)
+            shift
+            break
+            ;;
+        -*)
+            printf 'claude worker: unknown option %s\n' "$1" >&2
+            usage
+            exit 64
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
 
 if (( $# == 1 )); then
     prompt=$1
@@ -44,6 +68,7 @@ command_args=(
     claude
     -p
     --no-session-persistence
+    --model "$claude_model"
     --output-format "$output_format"
 )
 if [[ "$mode" == "read" ]]; then
@@ -53,7 +78,8 @@ else
 fi
 command_args+=(-- "$prompt")
 
-printf 'worker=claude mode=%s output_format=%s\n' "$mode" "$output_format" >&2
+printf 'worker=claude mode=%s output_format=%s model=%s\n' \
+    "$mode" "$output_format" "$claude_model" >&2
 "${command_args[@]}"
 worker_status=$?
 printf 'worker=claude exit_code=%d\n' "$worker_status" >&2

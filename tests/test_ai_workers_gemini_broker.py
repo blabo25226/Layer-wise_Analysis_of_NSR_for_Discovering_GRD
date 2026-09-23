@@ -95,3 +95,40 @@ def test_broker_headings_acceptance_fails(tmp_path: Path) -> None:
     fake_agy.chmod(0o755)
     proc = _run_broker(tmp_path, fake_agy, "x", acceptance="headings")
     assert proc.returncode == 71
+
+
+def test_broker_json_rejects_scalar(tmp_path: Path) -> None:
+    fake_agy = tmp_path / "agy"
+    fake_agy.write_text('#!/bin/sh\necho \'"ok"\'\n', encoding="utf-8")
+    fake_agy.chmod(0o755)
+    output_file = tmp_path / "out.md"
+    output_file.write_text("stale artifact\n", encoding="utf-8")
+    proc = _run_broker(tmp_path, fake_agy, "x", acceptance="json")
+    assert proc.returncode == 72
+    assert output_file.read_text(encoding="utf-8") == "stale artifact\n"
+
+
+def test_broker_json_accepts_object(tmp_path: Path) -> None:
+    fake_agy = tmp_path / "agy"
+    fake_agy.write_text('#!/bin/sh\necho \'{"ok":true}\'\n', encoding="utf-8")
+    fake_agy.chmod(0o755)
+    proc = _run_broker(tmp_path, fake_agy, "x", acceptance="json")
+    assert proc.returncode == 0, proc.stderr
+
+
+def test_broker_json_rejects_invalid_json(tmp_path: Path) -> None:
+    fake_agy = tmp_path / "agy"
+    fake_agy.write_text("#!/bin/sh\necho 'not-json'\n", encoding="utf-8")
+    fake_agy.chmod(0o755)
+    proc = _run_broker(tmp_path, fake_agy, "x", acceptance="json")
+    assert proc.returncode == 72
+    assert not (tmp_path / "out.md").exists()
+
+
+def test_broker_nonzero_cli_exit_skips_artifact(tmp_path: Path) -> None:
+    fake_agy = tmp_path / "agy"
+    fake_agy.write_text("#!/bin/sh\necho ok\nexit 3\n", encoding="utf-8")
+    fake_agy.chmod(0o755)
+    proc = _run_broker(tmp_path, fake_agy, "x", acceptance="non-empty")
+    assert proc.returncode == 3
+    assert not (tmp_path / "out.md").exists()
