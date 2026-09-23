@@ -163,6 +163,16 @@ def test_broker_rejects_write_flag(tmp_path: Path) -> None:
     assert proc.returncode == 64
 
 
+def test_broker_unknown_acceptance_rejected_before_agy(tmp_path: Path) -> None:
+    fake_agy = tmp_path / "agy"
+    fake_agy.write_text("#!/bin/sh\necho 'AGY_SHOULD_NOT_RUN'\n", encoding="utf-8")
+    fake_agy.chmod(0o755)
+    proc = _run_broker(tmp_path, fake_agy, "x", acceptance="bogus-mode")
+    assert proc.returncode == 64
+    assert "unknown acceptance mode bogus-mode" in proc.stderr
+    assert "AGY_SHOULD_NOT_RUN" not in proc.stdout
+
+
 def test_broker_evidence_packet_requires_headings(tmp_path: Path) -> None:
     fake_agy = tmp_path / "agy"
     fake_agy.write_text("#!/bin/sh\necho 'plain text'\n", encoding="utf-8")
@@ -184,7 +194,6 @@ def test_direct_write_blocked_without_fs_e2e_marker(tmp_path: Path) -> None:
     fake_agy.chmod(0o755)
     env = os.environ.copy()
     env["AI_WORKERS_ANTIGRAVITY_BIN"] = str(fake_agy)
-    env.pop("AI_WORKERS_GEMINI_ALLOW_DIRECT_WRITE", None)
     env["AI_WORKERS_GEMINI_FS_E2E_PASS_FILE"] = str(tmp_path / "missing.pass")
     proc = subprocess.run(
         ["bash", str(GEMINI_SH), "--write", "probe"],

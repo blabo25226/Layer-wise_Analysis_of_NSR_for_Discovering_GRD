@@ -60,8 +60,10 @@ b02dd5767f44abe51563897edfa7c57ef815e9fe3f3d3ff5b15e867e09cde6e3 GPU_RUNmultiAI/
 
 ## Claude independent review
 ```text
-artifact: GPU_RUNmultiAI/cycles/C0001/routing_refresh_claude_review.md
-verdict_at_review: BLOCK; remediation on routing-refresh branch
+artifact_p1: GPU_RUNmultiAI/cycles/C0001/routing_refresh_claude_review.md
+verdict_p1: BLOCK (remediated)
+artifact_p2: GPU_RUNmultiAI/cycles/C0001/routing_refresh_claude_review_p2_pass.md
+verdict_p2: PASS_with_P2_caveats
 ```
 
 ## Gemini direct FS vs broker
@@ -70,9 +72,12 @@ verdict_at_review: BLOCK; remediation on routing-refresh branch
 task_id: C0001-INFRA-T003-FS-E2E
 direct_filesystem_verdict: FAIL
 direct_filesystem_steps_passed: 0
-broker_mode_verdict: PASS
-status: direct_FS_FAIL_broker_PASS
-verdict: broker_mode_remains_standard
+broker_smoke_pre_remediation_verdict: PASS
+broker_smoke_pre_remediation_at_utc: 2026-09-23T06:47:06Z
+broker_live_post_remediation_verdict: FAIL
+broker_live_post_remediation_exit: 70
+status: direct_FS_FAIL_broker_smoke_PASS_live_FAIL
+verdict: broker_first_routing_mandatory
 agy_version: 1.2.9
 model_flag: gemini-3.8-flash-high
 tested_at_utc: 2026-09-23T06:55:19Z

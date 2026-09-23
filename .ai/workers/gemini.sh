@@ -19,8 +19,7 @@ and persists the artifact locally (Gemini does not need repository filesystem ac
 Broker mode is read-only: --write is not allowed with --broker.
 
 Direct --write requires a recorded five-step filesystem E2E PASS marker file
-(GPU_RUNmultiAI/.runtime/gemini_direct_fs_e2e.pass) unless
-AI_WORKERS_GEMINI_ALLOW_DIRECT_WRITE=1 is set for focused tests.
+(GPU_RUNmultiAI/.runtime/gemini_direct_fs_e2e.pass).
 
 Acceptance modes (broker):
   non-empty   output must be non-whitespace and must not match headless deny markers
@@ -48,6 +47,18 @@ gemini_broker_requires_structured_acceptance() {
     artifact_base=$(basename "$artifact_path")
     [[ "$prompt_base" == *evidence* || "$prompt_base" == *packet* \
         || "$artifact_base" == *evidence* || "$artifact_base" == *compressed* ]]
+}
+
+gemini_broker_validate_acceptance_mode() {
+    case "$1" in
+        non-empty|headings|json)
+            return 0
+            ;;
+        *)
+            printf 'gemini worker: unknown acceptance mode %s\n' "$1" >&2
+            return 1
+            ;;
+    esac
 }
 
 mode="read"
@@ -111,13 +122,11 @@ if (( broker_mode == 1 )) && [[ "$mode" == "write" ]]; then
     exit 64
 fi
 
-if [[ "$mode" == "write" ]] && [[ "${AI_WORKERS_GEMINI_ALLOW_DIRECT_WRITE:-0}" != "1" ]]; then
-    if [[ ! -f "$FS_E2E_PASS_MARKER" ]]; then
-        printf 'gemini worker: direct --write blocked until five-step filesystem E2E PASS (%s)\n' \
-            "$FS_E2E_PASS_MARKER" >&2
-        printf 'Use --broker for packet stdout persistence or route edits to Cursor.\n' >&2
-        exit 78
-    fi
+if [[ "$mode" == "write" ]] && [[ ! -f "$FS_E2E_PASS_MARKER" ]]; then
+    printf 'gemini worker: direct --write blocked until five-step filesystem E2E PASS (%s)\n' \
+        "$FS_E2E_PASS_MARKER" >&2
+    printf 'Use --broker for packet stdout persistence or route edits to Cursor.\n' >&2
+    exit 78
 fi
 
 if (( broker_mode == 1 )); then
@@ -134,6 +143,9 @@ if (( broker_mode == 1 )); then
         && [[ "$acceptance" == "non-empty" ]]; then
         printf 'gemini worker: evidence/packet tasks require --acceptance headings (or json)\n' >&2
         exit 74
+    fi
+    if ! gemini_broker_validate_acceptance_mode "$acceptance"; then
+        exit 64
     fi
     if [[ -z "$provenance_file" ]]; then
         provenance_file="${output_file}.provenance.json"
@@ -218,10 +230,6 @@ if not isinstance(data, (dict, list)):
                 printf 'gemini worker: broker acceptance json failed (need object or array)\n' >&2
                 exit 72
             fi
-            ;;
-        *)
-            printf 'gemini worker: unknown acceptance mode %s\n' >&2
-            exit 64
             ;;
     esac
     output_dir=$(dirname "$output_file")

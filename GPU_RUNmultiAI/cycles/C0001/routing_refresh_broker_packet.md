@@ -5,7 +5,7 @@ Compress the following mechanical facts. Do not invent numbers.
 ## Source facts
 
 - task_id: C0001-INFRA-T003
-- agy_version: 1.2.2
+- agy_version: 1.2.9
 - model: gemini-3.8-flash-high
 - v16 preregistration sha256: 67017f5c8bac861664fc867b70cf229d43be3d052d266ffd0d575e20e6c12078
 

@@ -38,7 +38,7 @@ Close Claude Opus 5.5 independent review BLOCK findings for routing refresh infr
 ## Test evidence
 
 ```text
-python -m pytest -q tests/test_ai_workers_gemini_broker.py  → 14 passed
+python -m pytest -q tests/test_ai_workers_gemini_broker.py  → 15 passed
 bash -n .ai/workers/*.sh                                      → PASS
 python -m compileall -q src scripts tests                    → (run at commit)
 bash scripts/ops/verify_ai_manifest.sh                         → (run at commit)

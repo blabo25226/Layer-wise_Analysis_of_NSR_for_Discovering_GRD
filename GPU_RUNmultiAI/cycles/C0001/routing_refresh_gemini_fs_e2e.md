@@ -4,9 +4,12 @@
 task_id: C0001-INFRA-T003-FS-E2E
 direct_filesystem_verdict: FAIL
 direct_filesystem_steps_passed: 0
-broker_mode_verdict: PASS
-status: direct_FS_FAIL_broker_PASS
-verdict: broker_mode_remains_standard
+broker_smoke_pre_remediation_verdict: PASS
+broker_smoke_pre_remediation_at_utc: 2026-09-23T06:47:06Z
+broker_live_post_remediation_verdict: FAIL
+broker_live_post_remediation_exit: 70
+status: direct_FS_FAIL_broker_smoke_PASS_live_FAIL
+verdict: broker_first_routing_mandatory
 agy_version: 1.2.9
 model_flag: gemini-3.8-flash-high
 tested_at_utc: 2026-09-23T06:55:19Z
@@ -41,7 +44,9 @@ Steps 2–5 were not executed.
 
 Direct Antigravity filesystem/command tools remain unreliable in headless sandbox without explicit permission allow-rules or `--dangerously-skip-permissions` (not enabled in `.ai/workers/gemini.sh`).
 
-**Broker mode PASS** — see `routing_refresh_gemini_broker_smoke.md`, `routing_refresh_review_compressed.md`, and provenance JSON sidecars.
+**Broker smoke PASS (pre-remediation, 06:47 UTC)** — `routing_refresh_gemini_broker_smoke.md` + `.provenance.json`.
+
+**Live broker FAIL (post-remediation)** — exit 70; see `routing_refresh_review_broker.stderr.log`. Mechanical fallback only: `routing_refresh_review_compressed.md` (provenance `mode: mechanical_fallback`, not live broker).
 
 ## CLI model availability
 

@@ -14,10 +14,10 @@ evidence_packet: GPU_RUNmultiAI/cycles/C0001/routing_refresh_review_evidence.md
 
 - Claude Opus 5.5 independent review (`routing_refresh_claude_review.md`) returned **BLOCK**; P1 items remediated on `ai/C0001/repo-operator/routing-refresh` without touching frozen v16 or the scientific worktree.
 - `.ai/workers/gemini.sh` now uses `set -euo pipefail`, fail-closed broker persistence (staging + ordered provenance/artifact copy), deny-marker rejection, structured acceptance for evidence/packet paths, blocks `--broker --write`, and blocks direct `--write` until `GPU_RUNmultiAI/.runtime/gemini_direct_fs_e2e.pass` exists.
-- `.codex/rules/ai-workers.rules` denies `gemini.sh --write`; broker allow-list requires `--acceptance headings`.
+- `.codex/rules/ai-workers.rules` denies `gemini.sh --write`; broker allow-list example uses `--acceptance headings` (gemini.sh additionally requires headings/json for evidence/packet/compressed paths).
 - `.agent/routing/MODEL_ROUTING.md` PI fallback is **GPT-6 Astra or explicit human PI decision**, not Claude Opus 5.5.
 - Direct filesystem E2E (`routing_refresh_gemini_fs_e2e.md`): **FAIL** (0/5 steps; first failure list/auto-denied). **Broker mode** prior smoke remains **PASS** (local persistence path).
-- Focused tests: `tests/test_ai_workers_gemini_broker.py` — **14 passed** (includes stale-artifact, mkdir, provenance failure, deny-marker, write-gate cases).
+- Focused tests: `tests/test_ai_workers_gemini_broker.py` — **15 passed** (includes unknown-acceptance pre-agy gate, stale-artifact, mkdir, provenance failure, deny-marker, write-gate cases).
 
 ## Inference
 

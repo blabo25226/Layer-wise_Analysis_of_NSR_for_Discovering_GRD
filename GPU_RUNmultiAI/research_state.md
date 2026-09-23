@@ -58,8 +58,14 @@ active_tasks:
     broker_compression: GPU_RUNmultiAI/cycles/C0001/routing_refresh_review_compressed.md
     closure_handoff: GPU_RUNmultiAI/cycles/C0001/routing_refresh_t003_closure_handoff.md
     claude_review: GPU_RUNmultiAI/cycles/C0001/routing_refresh_claude_review.md
+    claude_review_p2: GPU_RUNmultiAI/cycles/C0001/routing_refresh_claude_review_p2_pass.md
+    claude_review_p2_verdict: PASS_with_P2_caveats
     direct_fs_verdict: FAIL
-    broker_mode_verdict: PASS
+    broker_smoke_pre_remediation_verdict: PASS
+    broker_smoke_pre_remediation_at_utc: 2026-09-23T06:47:06Z
+    broker_live_post_remediation_verdict: FAIL
+    broker_live_post_remediation_exit: 70
+    routing_refresh_branch_remote_commit: 912aabf
     source_commit: 3e72bbb3874a22afb05ab218139c45b1423ce368
     integration_tip_commit: 71ae46e49c6b8ef9cb3fd1f18e476b9f6fb953bf
     implementer_identity: Cursor Agent
@@ -212,12 +218,13 @@ retries:
 
 next_action: >
   Human GPT-6 Sol PI: review routing_refresh_t003_closure_handoff.md, routing_refresh_review_evidence.md,
-  routing_refresh_review_compressed.md (mechanical fallback if broker live FAIL), and routing_refresh_claude_review.md
-  remediation; integrate ai/C0001/repo-operator/routing-refresh into 20260912_multiAI_research when satisfied.
-  Repo-operator must not integrate to PR #5. After integration with verified remote SHA on the research branch,
+  routing_refresh_review_compressed.md (mechanical_fallback provenance; not live broker PASS),
+  routing_refresh_claude_review_p2_pass.md, and integrate ai/C0001/repo-operator/routing-refresh into
+  20260912_multiAI_research when satisfied. Repo-operator must not integrate to PR #5. Keep observed_commit and
+  remote_commit on integration branch df39f61 until PI merge verifies a new research-branch SHA. After integration,
   resume C0001-T023 in /tmp/lansr-multiai-C0001-implement-audit without discarding dirty manifest/reachability/test edits.
 
-last_checkpoint_utc: 2026-09-23T07:12:00Z
+last_checkpoint_utc: 2026-09-23T08:20:00Z
 ```
 
 ## Notes
