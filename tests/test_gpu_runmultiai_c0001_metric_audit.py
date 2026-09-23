@@ -103,6 +103,7 @@ def _canonical_closure_record_payload(tmp_path: Path | None = None) -> dict:
 
     from experiment_runtime import REPO_ROOT
     from gpu_runmultiai.manifest import current_commit
+    from gpu_runmultiai.source_inventory import build_source_inventory
 
     artifact_dir = REPO_ROOT / "GPU_RUNmultiAI/.runtime/closure_test_artifacts"
     artifact_dir.mkdir(parents=True, exist_ok=True)
@@ -114,7 +115,7 @@ def _canonical_closure_record_payload(tmp_path: Path | None = None) -> dict:
     return {
         "commit": commit,
         "accepted_source_commit": commit,
-        "source_hashes": _source_inventory_for_commit(commit),
+        "source_hashes": build_source_inventory(include_hashes=True),
         "plan_hash": PLAN_SHA256,
         "audit_id": AUDIT_ID,
         "g_contract_verdict": "PASS",
@@ -1845,21 +1846,39 @@ def test_resume_identity_mismatch_raises_resume_identity_error():
         verify_resume_identity(baseline, {**baseline, "commit": "c" * 40})
 
 
-def test_accepted_closure_source_hash_hook_is_absent_by_default(tmp_path):
+def test_accepted_closure_source_hash_hook_is_absent_by_default(tmp_path, monkeypatch):
+    from gpu_runmultiai import manifest as manifest_module
+    from gpu_runmultiai.invariants import ResumeIdentityError
     from gpu_runmultiai.manifest import verify_accepted_closure_source_hashes
     from gpu_runmultiai.source_inventory import build_source_inventory
 
     inventory = build_source_inventory(include_hashes=True)
-    status = verify_accepted_closure_source_hashes(inventory, output_dir=tmp_path)
-    assert status == "closure_record_absent"
-    (tmp_path / "implementation_closure_record.json").write_text(
+    canonical = tmp_path / "repo_canonical_closure.json"
+    decoy_dir = tmp_path / "output_decoy"
+    decoy_dir.mkdir()
+    monkeypatch.setattr(manifest_module, "CANONICAL_CLOSURE_RECORD_PATH", canonical)
+
+    assert verify_accepted_closure_source_hashes(inventory) == "closure_record_absent"
+    assert (
+        verify_accepted_closure_source_hashes(inventory, output_dir=decoy_dir)
+        == "closure_record_absent"
+    )
+
+    decoy_dir.joinpath("implementation_closure_record.json").write_text(
         json.dumps({"source_hashes": [{"path": "src/gpu_runmultiai/audit.py", "sha256": "0" * 64}]}),
         encoding="utf-8",
     )
-    from gpu_runmultiai.invariants import ResumeIdentityError
+    assert (
+        verify_accepted_closure_source_hashes(inventory, output_dir=decoy_dir)
+        == "closure_record_absent"
+    )
 
+    canonical.write_text(
+        json.dumps({"source_hashes": [{"path": "src/gpu_runmultiai/audit.py", "sha256": "0" * 64}]}),
+        encoding="utf-8",
+    )
     with pytest.raises(ResumeIdentityError, match="accepted closure source hashes"):
-        verify_accepted_closure_source_hashes(inventory, output_dir=tmp_path)
+        verify_accepted_closure_source_hashes(inventory)
 
 
 def test_manifest_status_lifecycle_rejects_illegal_status(tmp_path):
