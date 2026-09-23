@@ -1,0 +1,13 @@
+{
+  "worker": "gemini",
+  "mode": "broker",
+  "captured_at_utc": "2026-09-23T06:47:06Z",
+  "agy_version": "1.2.9",
+  "model": "gemini-3.8-flash-high",
+  "exit_code": 0,
+  "prompt_file": "GPU_RUNmultiAI/cycles/C0001/routing_refresh_broker_packet.md",
+  "prompt_sha256": "b873f9d960c03a94c9bd3b59e2fd42bd00d4107e03fcc76b9288ab6779807016",
+  "output_file": "GPU_RUNmultiAI/cycles/C0001/routing_refresh_gemini_broker_smoke.md",
+  "output_sha256": "f6679b7bc85441ab63bd240833dfff3b22d4b4941125e9faa553c22b249f5664",
+  "acceptance": "headings"
+}

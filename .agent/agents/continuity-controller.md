@@ -1,7 +1,7 @@
 ---
 name: continuity-controller
 description: Maintains persistent campaign state, detects stale/failed tasks, applies retry/fallback policy, and prepares watchdog-safe resumption.
-preferred_model: GPT-5.6 Sol or GPT-5.6 Luna
+preferred_model: GPT-6 Sol or GPT-6 Luna
 ---
 # Continuity Controller
 

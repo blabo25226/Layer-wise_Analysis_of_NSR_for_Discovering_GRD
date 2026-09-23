@@ -8,22 +8,56 @@ This is **resource routing**, not quota equalization. Preserve research quality 
 reconnaissance, routine multi-file implementation, bulk extraction, first-draft writing, and mechanical
 organization away from Codex/Claude toward Cursor/Gemini when reliable.
 
-Final scientific judgment remains with the Research PI and independent scientific critics.
+Final scientific judgment remains with the Research PI (GPT-6 Sol, reasoning level Medium — configured by humans in the UI)
+and independent scientific critics (Claude Opus 5.5).
+
+Expensive-model token use should maximize research value: Sol for synthesis and decisions, not routine mechanical work.
+
+## Standard pipeline (C0001 onward)
+
+When multiple workers apply, prefer:
+
+```text
+Cursor        → repository evidence collection / implementation
+Gemini        → compression, classification, deduplication, first drafts
+Claude Opus 5.5 → scientific / statistical / methodological criticism
+GPT-6 Sol PI  → final synthesis / decision
+```
+
+Before Codex or Claude directly processes large mechanical evidence, route through Gemini unless a documented exception
+applies (see **Gemini-first rule** below).
 
 ## Default role routing
 
 | Logical role | Preferred worker/model | Primary responsibility |
 |---|---|---|
-| research-pi | GPT-5.6 Sol | direction, hypothesis integration, experiment choice, delegation, conflict resolution, design freeze, critical verification, interpretation, verdict, next-cycle decision, continuity |
+| research-pi | GPT-6 Sol (Medium in UI) | direction, hypothesis integration, experiment choice, delegation, conflict resolution, design freeze, critical verification, interpretation, verdict, next-cycle decision, continuity |
 | repo-operator | Cursor Composer 2.5 | Repository Intelligence + Implementation from Stage 1 onward |
-| research-scout, bulk-worker, artifact-curator | Gemini 3.8 Flash | bulk information processing, scout, indexing, long-log work |
-| scientific-critic, final-auditor, statistical-reviewer | Claude Opus 5 | scientific, statistical, methodological, adversarial, reproducibility, final audit |
+| research-scout, bulk-worker, artifact-curator | Gemini 3.8 Flash (`gemini-3.8-flash-high` via Antigravity) | bulk information processing, scout, indexing, long-log work, evidence compression |
+| scientific-critic, final-auditor, statistical-reviewer, reproducibility-auditor | Claude Opus 5.5 | scientific, statistical, methodological, adversarial, reproducibility, final audit |
 | research-engineer | Claude Sonnet 5 | specialized scientific engineering and scientific polish |
-| report-writer | Gemini 3.8 Flash (first draft) → Claude Sonnet 5 (review/polish) | report drafting pipeline; Codex PI owns final claims |
-| fast-worker | GPT-5.6 Luna | small bounded edits, search, and tests |
+| report-writer | Gemini 3.8 Flash (first draft) → Claude Sonnet 5 or Opus 5.5 (polish) | report drafting pipeline; GPT-6 Sol PI owns final claims |
+| fast-worker | GPT-6 Luna | small bounded edits, search, manifest/check, and tests |
 | results-analyst | Claude Sonnet 5 + Luna/Gemini support | interpretation after mechanical extraction |
 
+GPT-6 Astra is **not** a routine worker. Use only for exceptional hard contradictions, very difficult math, unresolved
+strong reviewer conflict, or exceptionally important final verification.
+
 See `.agent/routing/MODEL_ROUTING.md` for the full table and `.agent/routing/FALLBACKS.md` for fallback sequences.
+
+## Codex subagent policy (exceptional only)
+
+Codex subagents are **not** default workers. Before launching a Codex subagent, answer:
+
+```text
+Why can Claude Opus 5.5 / Cursor / Gemini / GPT-6 Luna not reliably perform this task?
+```
+
+If another worker can substitute, do not use a Codex subagent. Under Codex 5h capacity pressure, new Codex subagents are
+disallowed except when scientifically mandatory and non-substitutable. Record the reason when used.
+
+Routine work must not flow back to GPT-6 Sol PI: broad reconnaissance, implementation, repetitive testing, log/JSON
+processing, report first drafts, and mechanical evidence organization belong to Cursor, Gemini, or Luna per thresholds.
 
 ## Substantive file (canonical definition)
 
@@ -38,16 +72,43 @@ Exclude generated, vendor, and boilerplate files unless they contain task-releva
 Apply unless the Research PI records a material exception (availability, failure, independence requirement):
 
 - **5+ substantive repository files** for discovery or reconnaissance → Cursor (`repo-operator`) first
-- **~10k+ mechanically processable input tokens** → Gemini (`research-scout` / `bulk-worker`) first;
-  **Gemini filesystem limitation:** Antigravity headless may soft-deny filesystem tools and exit 0 without writing
-  artifacts. Until filesystem E2E passes, use **prompt-supplied evidence packets** or route persistence to
-  Cursor/Claude/Codex fallback. Never treat Gemini wrapper exit code 0 alone as task success.
+- **Gemini-first** when **any** of:
+  - mechanically processable input ≥ ~5k tokens
+  - 5+ artifacts/reports/logs need comparison
+  - 10+ runs/records need classification
+  - an evidence packet can be mechanically compressed
+  - a report/table/index first draft is needed
 - **Multi-file implementation** → Cursor (`repo-operator`) first
-- **Report first draft** → Gemini first; Claude Sonnet review/polish; Codex PI final claims
+- **Report first draft** → Gemini first; Claude review/polish; GPT-6 Sol PI final claims
+
+Do not use ~10k tokens as the only Gemini trigger.
+
+### Gemini-first rule (PI must not bypass)
+
+The PI **must not** directly consume a large mechanical evidence set when it can first be reliably compressed by Gemini.
+
+Before Codex or Claude directly processes 5+ result artifacts, 5+ reports/logs, 10+ runs/records, broad literature
+candidate sets, or large mechanically processable text, route through Gemini unless:
+
+1. Gemini is unavailable,
+2. scientific interpretation cannot reasonably be separated from extraction,
+3. the evidence is too sensitive to compression for the decision, or
+4. the PI records an explicit exception in `research_state.md`.
 
 Broad repository scan and routine first drafts should not default to Claude or Codex. When routine broad
 reconnaissance must fall back to Codex or Claude, the Research PI must record an **exception and reason** in
 `research_state.md` before delegation.
+
+## Gemini broker vs direct filesystem
+
+**Broker mode** (`.ai/workers/gemini.sh --broker`) is the standard path when Antigravity cannot write repository files:
+prompt-supplied evidence packet → Gemini print stdout → local wrapper persists artifact + provenance. Broker mode is
+**read-only** (`--write` is rejected). Exit code 0 alone is never sufficient; reject empty stdout, known headless
+deny-marker diagnostics, and require structured `--acceptance` (typically `headings`) for evidence/packet tasks.
+
+**Direct filesystem** `--write` stays **blocked** in `.ai/workers/gemini.sh` until a recorded five-step disposable
+worktree E2E PASS marker exists (`GPU_RUNmultiAI/.runtime/gemini_direct_fs_e2e.pass`). Until then, when direct write is
+unavailable, Gemini returns structured edit proposals / diffs / plans; **Cursor** applies, tests, and commits.
 
 ## Evidence-packet chunking
 
@@ -61,9 +122,11 @@ limit, do **not** guess a universal provider token ceiling. Instead:
 
 See `.agent/routing/FALLBACKS.md` for worker-specific fallback sequences.
 
-## Capacity pressure
+## Capacity pressure and routing diagnostics
 
 Under capacity pressure, reroute **routine** work per the thresholds above.
+
+If Cursor or Gemini usage stays &lt; 5% **and** Codex repeatedly hits the 5h limit, treat routing as misconfigured.
 
 **Never** reroute, skip, or weaken:
 
@@ -80,10 +143,12 @@ Under capacity pressure, reroute **routine** work per the thresholds above.
 - Gemini final scientific decisions
 - Cursor unsupported scientific conclusions
 - quality loss for usage balancing
+- Codex PI reading bulk mechanical evidence that Gemini could compress first
 
 ## Delegation rules
 
-Workers may delegate to their own subagents when useful, but the parent worker remains responsible for the result.
+Workers may delegate to subagents when useful, but the parent worker remains responsible for the result.
+Prefer Cursor, Gemini, Claude, or Luna over Codex subagents (see **Codex subagent policy**).
 
 Use the cheapest/fastest role that can reliably complete the task.
 Sol should spend expensive context on decomposition, synthesis, conflict resolution, and research decisions — not bulk

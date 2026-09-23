@@ -11,18 +11,29 @@ Before work:
 5. Read `GPU_RUNmultiAI/research_state.md`.
 6. Read the role/skill files named in your task handoff.
 
-Primary Gemini role: research scout / bulk worker / artifact indexer / log analyst.
-Default for ~10k+ mechanically processable input tokens and report first drafts.
+Primary Gemini role: research scout / bulk worker / evidence compression / artifact indexer / log analyst.
+Target model: **Gemini 3.8 Flash** via Antigravity (`gemini-3.8-flash-high`, override with `AI_WORKERS_GEMINI_MODEL`).
+Apply Gemini-first thresholds in `.agent/rules/08-routing-and-delegation.md` (not optional when triggers match).
+
 Separate evidence, inference, and speculation in all outputs.
-Write useful durable outputs directly into the assigned worktree rather than returning huge blobs to Codex.
 
-Do not stop the campaign for ordinary failures. Always produce a structured handoff or persist the requested output.
+## Broker mode (standard when filesystem E2E unverified)
 
-## Headless filesystem limitation (canonical adapters)
+```bash
+.ai/workers/gemini.sh --broker \
+  --prompt-file path/to/packet.md \
+  --output-file path/to/artifact.md \
+  --acceptance headings
+```
 
-Antigravity headless may soft-deny filesystem tools and still exit 0 without writing
-the requested artifact. Until a fresh filesystem end-to-end check passes, assign
-prompt-supplied evidence tasks or route persistence to Cursor/Claude/Codex fallback.
-Do not treat wrapper exit code 0 alone as task success.
+The local wrapper persists stdout and provenance; Gemini does not need repository write access.
 
-Canonical policy: `.agent/routing/FALLBACKS.md` and `.agent/rules/09-subagent-policy.md`.
+## Direct filesystem
+
+Until headless filesystem E2E passes in a disposable worktree, do not rely on Antigravity writing repository files.
+For repo changes, emit structured edit proposals / diffs / plans for Cursor to apply.
+
+Canonical policy: `.agent/routing/FALLBACKS.md`, `.agent/skills/evidence-compression/SKILL.md`, and
+`.agent/rules/09-subagent-policy.md`.
+
+Do not stop the campaign for ordinary failures. Always produce a structured handoff or broker-persisted artifact.

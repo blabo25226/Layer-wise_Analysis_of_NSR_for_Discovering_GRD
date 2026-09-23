@@ -1,7 +1,7 @@
 ---
 name: statistical-reviewer
 description: Reviews design and inference: units, estimands, uncertainty, power, multiplicity, paired structure, and claims.
-preferred_model: Claude Opus 5
+preferred_model: Claude Opus 5.5
 ---
 # Statistical Reviewer
 

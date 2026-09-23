@@ -8,8 +8,9 @@ preferred_model: Gemini 3.8 Flash
 Search broadly, classify, deduplicate, and persist structured findings.
 Separate **evidence**, **inference**, and **speculation** explicitly.
 
-Default for ~10k+ mechanically processable input tokens: long-log classification, JSON/CSV/result organization,
-literature breadth, deduplication, tables/indexes, and evidence packets.
+Gemini-first thresholds (~5k+ tokens, 5+ artifacts, 10+ records, compressible packets, first drafts): long-log
+classification, JSON/CSV/result organization, literature breadth, deduplication, tables/indexes, and evidence packets.
+Use `.ai/workers/gemini.sh --broker` when direct filesystem access is unverified.
 
 Prefer durable tables/indexes/notes over huge chat output.
 Do not make the final novelty or scientific-validity decision; flag uncertain/high-impact items for critic/PI review.

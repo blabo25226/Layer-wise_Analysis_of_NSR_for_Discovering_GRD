@@ -7,13 +7,13 @@ Update it before a parent session ends.
 campaign: GPU_RUNmultiAI
 status: active
 current_cycle: C0001
-current_stage: PREREGISTRATION_V16_FROZEN_IMPLEMENTATION_QUEUED
+current_stage: ROUTING_REFRESH_REMEDIATION_COMPLETE_PENDING_PI_INTEGRATION
 branch: 20260912_multiAI_research
-observed_commit: b598cc3c6955f1c2fa071cb49eef034b2a4719a4
-base_commit: d4fef3f703cd3ef476529d110930aa34962fa2b0
+observed_commit: df39f61f862da3329f29257b573659a19477601c
+base_commit: df39f61f862da3329f29257b573659a19477601c
 remote_branch: 20260912_multiAI_research
-remote_commit: 441c3768cac0e2128fe196fea7b0caadfdde7a76
-last_push_attempt_utc: 2026-09-13T08:10:11Z
+remote_commit: df39f61f862da3329f29257b573659a19477601c
+last_push_attempt_utc: 2026-09-23T08:25:00Z
 last_push_error: null
 binding_plan:
   path: GPU_RUNmultiAI/cycles/C0001/preregistration_draft_v16.md
@@ -34,38 +34,78 @@ hard_stop_reason: null
 
 tracks:
   infrastructure:
-    status: completed
-    current_cycle: C0001
-    stage: CAPACITY_AWARE_ROUTING_PUSHED
-  scientific:
     status: active
     current_cycle: C0001
-    stage: PREREGISTRATION_V16_FROZEN_IMPLEMENTATION_QUEUED
+    stage: ROUTING_REFRESH_REMEDIATION_COMPLETE_PENDING_PI_INTEGRATION
+  scientific:
+    status: paused
+    current_cycle: C0001
+    stage: V16_IMPLEMENTATION_PAUSED_BY_ROUTING_OVERRIDE
+    pause_reason: human routing refresh (C0001-INFRA-T003); not a scientific hard stop
+    resume_after: human PI integrates ai/C0001/repo-operator/routing-refresh into 20260912_multiAI_research with verified remote SHA; then resume C0001-T023 in scientific worktree
 
 active_tasks:
-  - task_id: C0001-T016
+  - task_id: C0001-INFRA-T003
+    track: infrastructure
+    role: repo-operator
+    worker: Cursor Agent
+    branch: ai/C0001/repo-operator/routing-refresh
+    worktree: /tmp/lansr-multiai-C0001-routing-refresh
+    write_scope: [.agent/, .ai/workers/, provider adapters, GPU_RUNmultiAI routing state, focused worker tests, MANIFEST.sha256]
+    status: remediation_complete_pending_pi_integration
+    objective: GPT-6 Sol PI routing, Gemini 3.8 Flash broker-first, Claude Opus 5.5 critics, Codex subagent exceptional-only
+    evidence_packet: GPU_RUNmultiAI/cycles/C0001/routing_refresh_review_evidence.md
+    broker_compression: GPU_RUNmultiAI/cycles/C0001/routing_refresh_review_compressed.md
+    closure_handoff: GPU_RUNmultiAI/cycles/C0001/routing_refresh_t003_closure_handoff.md
+    claude_review: GPU_RUNmultiAI/cycles/C0001/routing_refresh_claude_review.md
+    claude_review_p2: GPU_RUNmultiAI/cycles/C0001/routing_refresh_claude_review_p2_pass.md
+    claude_review_p2_verdict: PASS_with_P2_caveats
+    direct_fs_verdict: FAIL
+    broker_smoke_pre_remediation_verdict: PASS
+    broker_smoke_pre_remediation_at_utc: 2026-09-23T06:47:06Z
+    broker_live_post_remediation_verdict: FAIL
+    broker_live_post_remediation_exit: 70
+    source_commit: 3e72bbb3874a22afb05ab218139c45b1423ce368
+    integration_tip_commit: 71ae46e49c6b8ef9cb3fd1f18e476b9f6fb953bf
+    implementer_identity: Cursor Agent
+    independent_reviewer_identity: Claude Opus 5.5
+    reviewer_diff_assertion: true
+  - task_id: C0001-T023
     track: scientific
     role: research-engineer / repo-operator
     worker: Cursor Agent
     branch: ai/C0001/research-engineer/implement-metric-audit
     worktree: /tmp/lansr-multiai-C0001-implement-audit
-    write_scope: [frozen 82-path runtime inventory, focused tests, G_contract/G_impl evidence, bounded v16 smoke, implementation completion]
-    status: queued
-    started_at: null
-    completed_at: null
-    expected_outputs: [F1/F2/F4-F8, G_contract, G_impl, reachability evidence, bounded v16 smoke]
-    deliverables:
-      - src/gpu_runmultiai/
-      - scripts/phases/gpu_runmultiai_c0001_metric_audit.py
+    observed_commit: 9e422dcbb856e9c69342d4ff274654ccafab28ac
+    dirty_paths:
+      - src/gpu_runmultiai/manifest.py
+      - src/gpu_runmultiai/reachability.py
       - tests/test_gpu_runmultiai_c0001_metric_audit.py
-      - GPU_RUNmultiAI/cycles/C0001/implementation_completion_v16.md
-    acceptance_test: v16 SHA; compileall; focused pytest; G_contract/G_impl; fresh bounded smoke; diff check; push parity
-    retry_count: 0
-    fallback: Claude Sonnet research-engineer; Codex PI conflict resolution only
+    untracked_paths:
+      - GPU_RUNmultiAI/.runtime/
+      - GPU_RUNmultiAI/cycles/C0001/runs/c0001_metric_identifiability_audit_v16_round6_acceptance/
+      - GPU_RUNmultiAI/cycles/C0001/runs/c0001_metric_identifiability_audit_v16_round6_acceptance_r2/
+      - GPU_RUNmultiAI/cycles/C0001/runs/c0001_metric_identifiability_audit_v16_round6_acceptance_r3/
+      - GPU_RUNmultiAI/cycles/C0001/runs/c0001_metric_identifiability_audit_v16_round7_acceptance/
+      - GPU_RUNmultiAI/cycles/C0001/runs/c0001_metric_identifiability_audit_v9_smoke/
+    write_scope: [frozen 82-path runtime inventory, focused tests, G_contract/G_impl evidence, bounded v16 smoke, implementation completion]
+    status: paused
+    pause_reason: C0001-INFRA-T003 routing refresh; preserve dirty scientific worktree untouched
+    resume_action: >
+      After human PI integrates C0001-INFRA-T003 from ai/C0001/repo-operator/routing-refresh into
+      20260912_multiAI_research (verified remote SHA; repo-operator does not self-integrate to PR #5),
+      dispatch Cursor in /tmp/lansr-multiai-C0001-implement-audit using
+      GPU_RUNmultiAI/cycles/C0001/implementation_v16_round6_revision_handoff.md (round7 acceptance track);
+      complete F1/F2/F4-F8, G_contract/G_impl, reachability evidence, bounded v16 smoke; Claude Opus 5.5
+      independent implementation/reproducibility review; GPT-6 Sol PI Go/No-Go with broker or mechanical
+      compression when live Gemini broker is unavailable.
+    expected_outputs: [F1/F2/F4-F8, G_contract, G_impl, reachability evidence, bounded v16 smoke]
+    evidence_packet: GPU_RUNmultiAI/cycles/C0001/implementation_v16_round6_revision_handoff.md
     implementer_identity: Cursor Agent
-    independent_reviewer_identity: Claude reproducibility-auditor or Codex methodological subagent fallback
+    independent_reviewer_identity: Claude Opus 5.5 reproducibility-auditor
     reviewer_diff_assertion: true
-    evidence_packet: GPU_RUNmultiAI/cycles/C0001/implementation_v16_handoff.md
+    retry_count: 0
+    fallback: Claude Sonnet research-engineer; GPT-6 Sol PI conflict resolution only
 completed_tasks:
   - task_id: C0001-T005
     track: scientific
@@ -167,7 +207,7 @@ open_findings:
   - v16 preregistration is frozen at SHA256 67017f5c8bac861664fc867b70cf229d43be3d052d266ffd0d575e20e6c12078 after Claude, Codex subagent, and PI PASS closure.
   - Full audit remains prohibited until post-freeze G_contract/G_impl, reachability evidence, accepted 82-path hashes, bounded smoke, and independent implementation review PASS.
   - Eight pre-existing GPU_RUN5 worktree records are prunable; they are unrelated to C0000 and were left untouched.
-  - Gemini headless filesystem access soft-denies read_file/ListDir and can exit 0 without producing an artifact.
+  - Gemini headless filesystem access soft-denies read_file/ListDir and can exit 0 without producing an artifact; broker mode is the standard mitigation (see C0001-INFRA-T003 artifacts).
   - Claude critic raised a possible rescaling/exact-skeleton non-invariance; an exploratory algebraically equivalent formula check reproduced a false negative, but the actual pipeline round-trip remains untested.
   - Direct `.ai/workers/cursor.sh --write` launch rejected by cached policy in pre-reload Codex session; bash wrapper fallback used for C0001-INFRA-T002.
 
@@ -176,10 +216,14 @@ retries:
   C0001-T003: 1
 
 next_action: >
-  Dispatch C0001-T016 in the existing isolated worktree using implementation_v16_handoff.md.
-  Do not run the full confirmatory audit before independent implementation and reproducibility review.
+  Human GPT-6 Sol PI: review routing_refresh_t003_closure_handoff.md, routing_refresh_review_evidence.md,
+  routing_refresh_review_compressed.md (mechanical_fallback provenance; not live broker PASS),
+  routing_refresh_claude_review_p2_pass.md, and integrate ai/C0001/repo-operator/routing-refresh into
+  20260912_multiAI_research when satisfied. Repo-operator must not integrate to PR #5. Keep observed_commit and
+  remote_commit on integration branch df39f61 until PI merge verifies a new research-branch SHA. After integration,
+  resume C0001-T023 in /tmp/lansr-multiai-C0001-implement-audit without discarding dirty manifest/reachability/test edits.
 
-last_checkpoint_utc: 2026-09-16T01:06:24Z
+last_checkpoint_utc: 2026-09-23T08:20:00Z
 ```
 
 ## Notes

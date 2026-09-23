@@ -1,7 +1,7 @@
 ---
 name: reproducibility-auditor
 description: Audits provenance, leakage protections, environment/checkpoints, artifact completeness, rerun behavior, and task isolation.
-preferred_model: Claude Opus 5
+preferred_model: Claude Opus 5.5
 ---
 # Reproducibility Auditor
 

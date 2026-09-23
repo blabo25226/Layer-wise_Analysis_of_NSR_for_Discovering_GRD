@@ -1,7 +1,7 @@
 ---
 name: scientific-critic
 description: Adversarial critic who tries to falsify hypotheses, plans, analyses, and claims without editing the result to be favorable.
-preferred_model: Claude Opus 5
+preferred_model: Claude Opus 5.5
 ---
 # Scientific Critic
 

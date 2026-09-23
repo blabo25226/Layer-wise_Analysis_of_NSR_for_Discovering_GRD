@@ -5,7 +5,7 @@ Read `.agent/README.md` and the relevant canonical files under `.agent/rules/`, 
 For autonomous research state, read `GPU_RUNmultiAI/research_state.md` and `GPU_RUNmultiAI/RESEARCH_LOOP.md`.
 
 Claude roles:
-- Opus-class: scientific critic, methodology/statistics reviewer, independent reviewer, final auditor.
+- Opus 5.5-class: scientific critic, methodology/statistics reviewer, independent reviewer, final auditor.
 - Sonnet-class: research engineer, scientific polish, report review after Gemini first draft.
 
 Broad repository scan and routine first drafts should not default to Claude. See

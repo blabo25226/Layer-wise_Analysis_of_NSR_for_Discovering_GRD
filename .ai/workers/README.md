@@ -10,9 +10,13 @@ Run these commands from the repository root:
 
 ```bash
 .ai/workers/claude.sh "Review the design without changing files."
+.ai/workers/claude.sh --model claude-sonnet-5 "Implement the bounded scientific change."
 .ai/workers/cursor.sh "Check this implementation without changing files."
 .ai/workers/gemini.sh "Summarize this log without changing files."
 ```
+
+Claude defaults to `claude-opus-5-5` for critique, review, and audit roles. Override with
+`--model` or `AI_WORKERS_CLAUDE_MODEL` (for example `claude-sonnet-5` for research-engineer work).
 
 Each wrapper accepts exactly one quoted prompt. A multiline prompt can instead
 be supplied on standard input:
@@ -31,6 +35,11 @@ Use `--write` only when file edits are explicitly intended. The wrappers still
 do not enable Claude's permission bypass, Cursor's `--force`/`--yolo`, or
 Antigravity's `--dangerously-skip-permissions` mode.
 
+Gemini direct `--write` is blocked until `GPU_RUNmultiAI/.runtime/gemini_direct_fs_e2e.pass`
+exists (five-step disposable worktree E2E). Use `--broker` for local artifact persistence.
+Broker mode rejects `--write`, headless deny-marker stdout, and non-structured acceptance on
+evidence/packet paths.
+
 ```bash
 .ai/workers/cursor.sh --write "Implement the requested change and run focused tests."
 ```
@@ -42,19 +51,45 @@ output:
 .ai/workers/gemini.sh --json "Return a short status summary."
 ```
 
+### Broker mode (filesystem-independent)
+
+When Antigravity cannot write repository files, use broker mode so the **local shell** persists stdout:
+
+```bash
+.ai/workers/gemini.sh --broker \
+  --prompt-file GPU_RUNmultiAI/cycles/C0001/packet.md \
+  --output-file GPU_RUNmultiAI/cycles/C0001/compressed.md \
+  --acceptance headings
+```
+
+Acceptance modes: `non-empty` (default), `headings` (requires `## Evidence`, `## Inference`, `## Speculation`),
+`json`. A provenance JSON sidecar is written next to the artifact unless `--provenance-file` is set.
+
+Default Antigravity model: `gemini-3.8-flash-high` (override with `AI_WORKERS_GEMINI_MODEL`). Confirm availability with
+`agy models` on the installed CLI before changing.
+
 The model response is written to stdout. Worker identity, mode, and the final
-process exit code are written to stderr. The wrapper itself exits with the same
-code as the worker process.
+process exit code are written to stderr.
+
+For direct Antigravity calls, the wrapper exits with the worker process exit code.
+For **broker** mode, acceptance and persistence failures use dedicated exit codes
+(70–77, 73 deny markers, 74 structured acceptance required) even when Antigravity
+returned 0. A broker task succeeds only when the artifact and provenance files
+exist and pass acceptance checks.
 
 ## Installed commands and authentication
 
-Verified on 2026-09-12:
+Verified on 2026-09-23 (C0001-INFRA-T003):
 
-| Worker | Command | Version | Authentication |
-|---|---|---|---|
-| Claude Code | `claude` | `2.1.226` | CLI-managed Claude account login |
-| Cursor Agent | `agent` / `cursor-agent` | `2026.09.10-fd3934a` | CLI-managed Cursor browser login |
-| Gemini via Antigravity CLI | `agy` | `1.2.2` | CLI-managed Google AI Pro login |
+| Worker | Command | Version | Default model | Authentication |
+|---|---|---|---|---|
+| Claude Code | `claude` | `2.1.280` | `claude-opus-5-5` (override: `claude-sonnet-5`) | CLI-managed Claude account login |
+| Cursor Agent | `agent` / `cursor-agent` | `2026.09.10-fd3934a` | (Cursor model picker) | CLI-managed Cursor browser login |
+| Gemini via Antigravity CLI | `agy` | `1.2.9` | `gemini-3.8-flash-high` | CLI-managed Google AI Pro login |
+
+Claude model proof (2026-09-23): `claude -p --model claude-opus-5-5 --output-format json` returned
+`modelUsage.claude-opus-5-5.canonicalModel` = `claude-opus-5-5` and `result` = `ROUTING_MODEL_55_OK`.
+See `GPU_RUNmultiAI/cycles/C0001/routing_refresh_claude_smoke.md`.
 
 The standalone Gemini CLI `0.59.0` and Node.js 22 are also installed in the
 `ai-workers-node` Conda environment. Google no longer supports Google AI
