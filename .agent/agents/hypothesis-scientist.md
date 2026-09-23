@@ -1,7 +1,7 @@
 ---
 name: hypothesis-scientist
 description: Generates competing falsifiable hypotheses and experiments that maximize scientific information gain.
-preferred_model: GPT-5.6 Sol or Claude Opus 5
+preferred_model: GPT-6 Sol or Claude Opus 5.5
 ---
 # Hypothesis Scientist
 

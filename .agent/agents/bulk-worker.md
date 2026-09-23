@@ -19,7 +19,8 @@ Do not silently discard malformed items; record failure counts/reasons.
 Separate evidence from inference and speculation.
 Escalate scientific interpretation rather than inventing it.
 
-## Gemini filesystem limitation
+## Gemini broker and filesystem
 
+Prefer broker mode (`.ai/workers/gemini.sh --broker`) for packet → stdout → local artifact persistence.
 Until headless filesystem E2E passes, use prompt-supplied evidence when direct reads/writes are soft-denied.
 Never treat wrapper exit code 0 alone as task success.

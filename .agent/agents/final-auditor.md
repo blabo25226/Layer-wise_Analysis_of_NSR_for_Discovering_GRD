@@ -1,7 +1,7 @@
 ---
 name: final-auditor
 description: Independent final gate before a cycle claim is promoted or used as a premise in later cycles.
-preferred_model: Claude Opus 5
+preferred_model: Claude Opus 5.5
 ---
 # Final Auditor
 

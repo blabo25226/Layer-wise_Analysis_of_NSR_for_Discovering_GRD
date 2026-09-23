@@ -3,32 +3,102 @@
 set -uo pipefail
 
 usage() {
-    printf 'Usage: %s [--write] [--json] "PROMPT"\n' "$0" >&2
-    printf '       printf "PROMPT" | %s [--write] [--json]\n' "$0" >&2
+    cat >&2 <<'EOF'
+Usage:
+  gemini.sh [--write] [--json] "PROMPT"
+  printf "PROMPT" | gemini.sh [--write] [--json]
+  gemini.sh --broker --prompt-file PACKET --output-file ARTIFACT \
+    [--provenance-file PATH] [--acceptance MODE] [--write]
+
+Broker mode runs Antigravity print mode, captures stdout, validates acceptance,
+and persists the artifact locally (Gemini does not need repository filesystem access).
+
+Acceptance modes (broker):
+  non-empty   output must be non-whitespace (default)
+  headings    output must contain lines starting with ## Evidence, ## Inference, ## Speculation
+  json        output must be valid JSON object or array
+EOF
 }
 
 mode="read"
 output_format="text"
+broker_mode=0
+prompt_file=""
+output_file=""
+provenance_file=""
+acceptance="non-empty"
 
-if [[ "${1:-}" == "--write" ]]; then
-    mode="write"
-    shift
-fi
-if [[ "${1:-}" == "--json" ]]; then
-    output_format="json"
-    shift
-fi
-if [[ "${1:-}" == "--" ]]; then
-    shift
-fi
+antigravity_bin="${AI_WORKERS_ANTIGRAVITY_BIN:-/home/blabo/.local/bin/agy}"
+gemini_model="${AI_WORKERS_GEMINI_MODEL:-gemini-3.8-flash-high}"
 
-if (( $# == 1 )); then
-    prompt=$1
-elif (( $# == 0 )) && [[ ! -t 0 ]]; then
-    prompt=$(</dev/stdin)
+while (( $# > 0 )); do
+    case "$1" in
+        --broker)
+            broker_mode=1
+            shift
+            ;;
+        --prompt-file)
+            prompt_file="${2:-}"
+            shift 2
+            ;;
+        --output-file)
+            output_file="${2:-}"
+            shift 2
+            ;;
+        --provenance-file)
+            provenance_file="${2:-}"
+            shift 2
+            ;;
+        --acceptance)
+            acceptance="${2:-}"
+            shift 2
+            ;;
+        --write)
+            mode="write"
+            shift
+            ;;
+        --json)
+            output_format="json"
+            shift
+            ;;
+        --)
+            shift
+            break
+            ;;
+        -*)
+            printf 'gemini worker: unknown option %s\n' "$1" >&2
+            usage
+            exit 64
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
+
+if (( broker_mode == 1 )); then
+    if [[ -z "$prompt_file" || -z "$output_file" ]]; then
+        printf 'gemini worker: broker mode requires --prompt-file and --output-file\n' >&2
+        usage
+        exit 64
+    fi
+    if [[ ! -f "$prompt_file" ]]; then
+        printf 'gemini worker: prompt file not found: %s\n' "$prompt_file" >&2
+        exit 66
+    fi
+    if [[ -z "$provenance_file" ]]; then
+        provenance_file="${output_file}.provenance.json"
+    fi
+    prompt=$(<"$prompt_file")
 else
-    usage
-    exit 64
+    if (( $# == 1 )); then
+        prompt=$1
+    elif (( $# == 0 )) && [[ ! -t 0 ]]; then
+        prompt=$(</dev/stdin)
+    else
+        usage
+        exit 64
+    fi
 fi
 
 if [[ -z "$prompt" ]]; then
@@ -36,7 +106,6 @@ if [[ -z "$prompt" ]]; then
     exit 64
 fi
 
-antigravity_bin="${AI_WORKERS_ANTIGRAVITY_BIN:-/home/blabo/.local/bin/agy}"
 if [[ ! -x "$antigravity_bin" ]]; then
     printf 'gemini worker: Antigravity executable not found at %s\n' "$antigravity_bin" >&2
     printf 'Set AI_WORKERS_ANTIGRAVITY_BIN to the agy executable.\n' >&2
@@ -47,16 +116,101 @@ agent_mode="plan"
 if [[ "$mode" == "write" ]]; then
     agent_mode="accept-edits"
 fi
+
 command_args=(
     "$antigravity_bin"
     -p "$prompt"
     --mode "$agent_mode"
+    --model "$gemini_model"
     --sandbox
     --output-format "$output_format"
     --print-timeout "${AI_WORKERS_PRINT_TIMEOUT:-5m}"
 )
 
-printf 'worker=gemini mode=%s output_format=%s\n' "$mode" "$output_format" >&2
+printf 'worker=gemini mode=%s output_format=%s broker=%s model=%s\n' \
+    "$mode" "$output_format" "$broker_mode" "$gemini_model" >&2
+
+if (( broker_mode == 1 )); then
+    stdout_capture=$(mktemp)
+    trap 'rm -f "$stdout_capture"' EXIT
+    "${command_args[@]}" >"$stdout_capture"
+    worker_status=$?
+    printf 'worker=gemini exit_code=%d\n' "$worker_status" >&2
+    if (( worker_status != 0 )); then
+        exit "$worker_status"
+    fi
+    if [[ ! -s "$stdout_capture" ]] || [[ -z "$(tr -d '[:space:]' <"$stdout_capture")" ]]; then
+        printf 'gemini worker: broker rejected empty stdout despite exit 0\n' >&2
+        exit 70
+    fi
+    case "$acceptance" in
+        non-empty)
+            ;;
+        headings)
+            if ! grep -qE '^##[[:space:]]+Evidence' "$stdout_capture" \
+                || ! grep -qE '^##[[:space:]]+Inference' "$stdout_capture" \
+                || ! grep -qE '^##[[:space:]]+Speculation' "$stdout_capture"; then
+                printf 'gemini worker: broker acceptance headings failed\n' >&2
+                exit 71
+            fi
+            ;;
+        json)
+            if ! python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$stdout_capture" 2>/dev/null; then
+                printf 'gemini worker: broker acceptance json failed\n' >&2
+                exit 72
+            fi
+            ;;
+        *)
+            printf 'gemini worker: unknown acceptance mode %s\n' "$acceptance" >&2
+            exit 64
+            ;;
+    esac
+    output_dir=$(dirname "$output_file")
+    if [[ -n "$output_dir" && "$output_dir" != . ]]; then
+        mkdir -p "$output_dir"
+    fi
+    cp "$stdout_capture" "$output_file"
+    agy_version=$("$antigravity_bin" --version 2>/dev/null || printf 'unknown')
+    prompt_sha=$(sha256sum "$prompt_file" | awk '{print $1}')
+    output_sha=$(sha256sum "$output_file" | awk '{print $1}')
+    utc_now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+    GEMINI_PROVENANCE_PATH="$provenance_file" \
+    GEMINI_PROVENANCE_UTC="$utc_now" \
+    GEMINI_PROVENANCE_AGY_VERSION="$agy_version" \
+    GEMINI_PROVENANCE_MODEL="$gemini_model" \
+    GEMINI_PROVENANCE_EXIT_CODE="$worker_status" \
+    GEMINI_PROVENANCE_PROMPT_FILE="$prompt_file" \
+    GEMINI_PROVENANCE_PROMPT_SHA="$prompt_sha" \
+    GEMINI_PROVENANCE_OUTPUT_FILE="$output_file" \
+    GEMINI_PROVENANCE_OUTPUT_SHA="$output_sha" \
+    GEMINI_PROVENANCE_ACCEPTANCE="$acceptance" \
+    python3 <<'PY'
+import json
+import os
+
+record = {
+    "worker": "gemini",
+    "mode": "broker",
+    "captured_at_utc": os.environ["GEMINI_PROVENANCE_UTC"],
+    "agy_version": os.environ["GEMINI_PROVENANCE_AGY_VERSION"],
+    "model": os.environ["GEMINI_PROVENANCE_MODEL"],
+    "exit_code": int(os.environ["GEMINI_PROVENANCE_EXIT_CODE"]),
+    "prompt_file": os.environ["GEMINI_PROVENANCE_PROMPT_FILE"],
+    "prompt_sha256": os.environ["GEMINI_PROVENANCE_PROMPT_SHA"],
+    "output_file": os.environ["GEMINI_PROVENANCE_OUTPUT_FILE"],
+    "output_sha256": os.environ["GEMINI_PROVENANCE_OUTPUT_SHA"],
+    "acceptance": os.environ["GEMINI_PROVENANCE_ACCEPTANCE"],
+}
+path = os.environ["GEMINI_PROVENANCE_PATH"]
+with open(path, "w", encoding="utf-8") as handle:
+    json.dump(record, handle, indent=2)
+    handle.write("\n")
+PY
+    printf 'worker=gemini broker_output=%s provenance=%s\n' "$output_file" "$provenance_file" >&2
+    cat "$stdout_capture"
+    exit 0
+fi
+
 "${command_args[@]}"
 worker_status=$?
 printf 'worker=gemini exit_code=%d\n' "$worker_status" >&2

@@ -1,7 +1,7 @@
 ---
 name: research-pi
 description: Top-level autonomous research supervisor. Owns cycle selection, delegation, integration, final scientific decisions, and continuity.
-preferred_model: GPT-5.6 Sol
+preferred_model: GPT-6 Sol
 ---
 # Research PI
 
@@ -20,9 +20,9 @@ You own:
 Delegate aggressively per `.agent/rules/08-routing-and-delegation.md`:
 - repository reconnaissance (5+ substantive files) → Cursor `repo-operator`
 - multi-file implementation → Cursor `repo-operator`
-- bulk extraction, long logs, report first drafts (~10k+ tokens) → Gemini scout/bulk-worker
+- bulk extraction, compression, long logs, report first drafts (Gemini-first thresholds) → Gemini scout/bulk-worker via broker when needed
 - specialized scientific engineering → Claude Sonnet
-- adversarial review, statistics, final audit → Claude Opus
+- adversarial review, statistics, final audit → Claude Opus 5.5
 
 Use expensive context for scientific synthesis and decision-making — not bulk editing, broad repository scans, or
 routine multi-file implementation.

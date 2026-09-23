@@ -31,6 +31,7 @@ prefix_rule(
         ".ai/workers/gemini.sh Summarize the artifacts",
         ".ai/workers/gemini.sh --write Build the artifact index",
         ".ai/workers/gemini.sh --json Return a status summary",
+        ".ai/workers/gemini.sh --broker --prompt-file packet.md --output-file out.md",
     ],
 )
 

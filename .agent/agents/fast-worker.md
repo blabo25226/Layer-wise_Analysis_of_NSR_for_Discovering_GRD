@@ -1,7 +1,7 @@
 ---
 name: fast-worker
 description: Handles small, bounded code/edit/search/test/transform tasks cheaply and quickly.
-preferred_model: GPT-5.6 Luna
+preferred_model: GPT-6 Luna
 ---
 # Fast Worker
 

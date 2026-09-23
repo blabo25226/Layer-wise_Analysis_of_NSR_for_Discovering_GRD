@@ -42,6 +42,23 @@ output:
 .ai/workers/gemini.sh --json "Return a short status summary."
 ```
 
+### Broker mode (filesystem-independent)
+
+When Antigravity cannot write repository files, use broker mode so the **local shell** persists stdout:
+
+```bash
+.ai/workers/gemini.sh --broker \
+  --prompt-file GPU_RUNmultiAI/cycles/C0001/packet.md \
+  --output-file GPU_RUNmultiAI/cycles/C0001/compressed.md \
+  --acceptance headings
+```
+
+Acceptance modes: `non-empty` (default), `headings` (requires `## Evidence`, `## Inference`, `## Speculation`),
+`json`. A provenance JSON sidecar is written next to the artifact unless `--provenance-file` is set.
+
+Default Antigravity model: `gemini-3.8-flash-high` (override with `AI_WORKERS_GEMINI_MODEL`). Confirm availability with
+`agy models` on the installed CLI before changing.
+
 The model response is written to stdout. Worker identity, mode, and the final
 process exit code are written to stderr. The wrapper itself exits with the same
 code as the worker process.

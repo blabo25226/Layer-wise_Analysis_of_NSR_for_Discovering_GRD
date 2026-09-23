@@ -24,9 +24,10 @@ Apply `.agent/rules/08-routing-and-delegation.md` at every stage. Summary:
 | Trigger | Default worker |
 |---|---|
 | 5+ substantive repository files | Cursor `repo-operator` |
-| ~10k+ mechanically processable tokens | Gemini scout/bulk-worker |
+| Gemini-first (≥~5k tokens, 5+ artifacts, 10+ records, compressible packets, first drafts) | Gemini scout/bulk-worker (broker mode if filesystem E2E unverified) |
 | Multi-file implementation | Cursor `repo-operator` |
-| Report first draft | Gemini → Claude polish → PI final claims |
+| Report first draft | Gemini → Claude Opus 5.5 / Sonnet polish → GPT-6 Sol PI final claims |
+| Codex subagent | exceptional only; document non-substitutability |
 
 Capacity pressure may reroute routine work but **never** removes preregistration and metric freeze, final scientific
 review and reviewer independence, primary-artifact verification, leakage protection, or replication gates.
@@ -46,13 +47,14 @@ Research PI:
 ## Stage 1 — Competing hypotheses
 
 Cursor `repo-operator` performs repository reconnaissance when needed.
-PI subagents synthesize; Gemini provides breadth when useful; Claude Opus critiques.
+Cursor collects repo evidence; Gemini compresses/classifies when Gemini-first triggers apply; Claude Opus 5.5 critiques;
+GPT-6 Sol PI synthesizes. Avoid Codex subagent trees for routine stages.
 Update `hypothesis_tree.md`.
 Select one cycle hypothesis by information gain / cost.
 
 ## Stage 2 — Literature / repository evidence
 
-Gemini Scout performs broad evidence collection (~10k+ token corpora).
+Gemini Scout performs broad evidence collection and compression (Gemini-first thresholds; broker mode when needed).
 Cursor reconnaissance for repository structure when 5+ substantive files are involved.
 A higher-reliability critic checks high-impact literature/novelty claims.
 Persist evidence with provenance; separate evidence/inference/speculation.
@@ -60,7 +62,7 @@ Persist evidence with provenance; separate evidence/inference/speculation.
 ## Stage 3 — Preregistration
 
 Claude Sonnet or Research Engineer may draft.
-Claude Opus / statistical reviewer attacks the design.
+Claude Opus 5.5 / statistical reviewer attacks the design.
 Research PI freezes the binding version before final-test access.
 **Never demote for capacity.**
 
@@ -75,7 +77,7 @@ Record write scopes and active tasks in state.
 Default:
 - Cursor Composer: repository reconnaissance and heavy multi-file implementation
 - Claude Sonnet: scientific engineering / secondary implementation
-- Luna: small fixes/tests
+- GPT-6 Luna: small fixes/tests
 - Gemini: bulk generated indexes/derived mechanical artifacts
 
 Run tests and commit task branches.
@@ -95,13 +97,13 @@ Do not tune on final-test observations.
 
 ## Stage 8 — Analysis
 
-Use bulk workers for extraction and aggregation support (~10k+ token artifacts).
+Use Gemini bulk workers for extraction and aggregation support (Gemini-first thresholds; broker when needed).
 Primary analyst interprets raw artifacts using the frozen endpoint.
 Separate numerical, symbolic, validity, generalization, compute and layer evidence.
 
 ## Stage 9 — Independent adversarial review
 
-Claude Opus is preferred.
+Claude Opus 5.5 is preferred.
 Reviewer attempts to falsify the conclusion from primary artifacts.
 Record `implementer_identity` and `independent_reviewer_identity` in the handoff/state contract; assert the
 independent reviewer differs from the implementation author unless a documented hard-stop exception is approved.
