@@ -7,13 +7,14 @@ Update it before a parent session ends.
 campaign: GPU_RUNmultiAI
 status: active
 current_cycle: C0001
-current_stage: ROUTING_REFRESH_REMEDIATION_COMPLETE_PENDING_PI_INTEGRATION
+current_stage: ROUTING_REFRESH_INTEGRATED_SCIENTIFIC_PAUSED
 branch: 20260912_multiAI_research
-observed_commit: df39f61f862da3329f29257b573659a19477601c
+observed_commit: 6f16cb903fc7b4be02639f2a837796f41d881c98
 base_commit: df39f61f862da3329f29257b573659a19477601c
 remote_branch: 20260912_multiAI_research
-remote_commit: df39f61f862da3329f29257b573659a19477601c
-last_push_attempt_utc: 2026-09-23T08:25:00Z
+remote_commit: 6f16cb903fc7b4be02639f2a837796f41d881c98
+remote_commit_note: verified integration checkpoint before this state update; final remote tip verified separately
+last_push_attempt_utc: 2026-09-23T07:20:00Z
 last_push_error: null
 binding_plan:
   path: GPU_RUNmultiAI/cycles/C0001/preregistration_draft_v16.md
@@ -34,42 +35,17 @@ hard_stop_reason: null
 
 tracks:
   infrastructure:
-    status: active
+    status: completed
     current_cycle: C0001
-    stage: ROUTING_REFRESH_REMEDIATION_COMPLETE_PENDING_PI_INTEGRATION
+    stage: ROUTING_REFRESH_INTEGRATED_AND_PUSHED
   scientific:
     status: paused
     current_cycle: C0001
     stage: V16_IMPLEMENTATION_PAUSED_BY_ROUTING_OVERRIDE
     pause_reason: human routing refresh (C0001-INFRA-T003); not a scientific hard stop
-    resume_after: human PI integrates ai/C0001/repo-operator/routing-refresh into 20260912_multiAI_research with verified remote SHA; then resume C0001-T023 in scientific worktree
+    resume_after: routing task is integrated; continue C0001-T023 in scientific worktree on the next user continuation
 
 active_tasks:
-  - task_id: C0001-INFRA-T003
-    track: infrastructure
-    role: repo-operator
-    worker: Cursor Agent
-    branch: ai/C0001/repo-operator/routing-refresh
-    worktree: /tmp/lansr-multiai-C0001-routing-refresh
-    write_scope: [.agent/, .ai/workers/, provider adapters, GPU_RUNmultiAI routing state, focused worker tests, MANIFEST.sha256]
-    status: remediation_complete_pending_pi_integration
-    objective: GPT-6 Sol PI routing, Gemini 3.8 Flash broker-first, Claude Opus 5.5 critics, Codex subagent exceptional-only
-    evidence_packet: GPU_RUNmultiAI/cycles/C0001/routing_refresh_review_evidence.md
-    broker_compression: GPU_RUNmultiAI/cycles/C0001/routing_refresh_review_compressed.md
-    closure_handoff: GPU_RUNmultiAI/cycles/C0001/routing_refresh_t003_closure_handoff.md
-    claude_review: GPU_RUNmultiAI/cycles/C0001/routing_refresh_claude_review.md
-    claude_review_p2: GPU_RUNmultiAI/cycles/C0001/routing_refresh_claude_review_p2_pass.md
-    claude_review_p2_verdict: PASS_with_P2_caveats
-    direct_fs_verdict: FAIL
-    broker_smoke_pre_remediation_verdict: PASS
-    broker_smoke_pre_remediation_at_utc: 2026-09-23T06:47:06Z
-    broker_live_post_remediation_verdict: FAIL
-    broker_live_post_remediation_exit: 70
-    source_commit: 3e72bbb3874a22afb05ab218139c45b1423ce368
-    integration_tip_commit: 71ae46e49c6b8ef9cb3fd1f18e476b9f6fb953bf
-    implementer_identity: Cursor Agent
-    independent_reviewer_identity: Claude Opus 5.5
-    reviewer_diff_assertion: true
   - task_id: C0001-T023
     track: scientific
     role: research-engineer / repo-operator
@@ -107,6 +83,20 @@ active_tasks:
     retry_count: 0
     fallback: Claude Sonnet research-engineer; GPT-6 Sol PI conflict resolution only
 completed_tasks:
+  - task_id: C0001-INFRA-T003
+    track: infrastructure
+    role: repo-operator / independent reviewer / research-pi
+    worker: Cursor Agent + Claude Opus 5.5 + GPT-6 Sol PI
+    status: integrated_and_pushed
+    source_branch: ai/C0001/repo-operator/routing-refresh
+    source_commit: c1fbeae36f96c6ef83a54408bdab18d760c934f8
+    integration_commit: 6f16cb903fc7b4be02639f2a837796f41d881c98
+    review_verdict: PASS_with_P2_caveats
+    review_artifact: GPU_RUNmultiAI/cycles/C0001/routing_refresh_claude_review_p2_pass.md
+    direct_fs_verdict: FAIL_0_of_5
+    broker_smoke_pre_remediation_verdict: PASS
+    broker_live_post_remediation_verdict: FAIL_exit_70
+    result: routing refresh integrated; non-force push and remote SHA verified; science track remains paused by latest user instruction
   - task_id: C0001-T005
     track: scientific
     role: repo-operator + independent reviewer + research-pi
@@ -216,14 +206,13 @@ retries:
   C0001-T003: 1
 
 next_action: >
-  Human GPT-6 Sol PI: review routing_refresh_t003_closure_handoff.md, routing_refresh_review_evidence.md,
-  routing_refresh_review_compressed.md (mechanical_fallback provenance; not live broker PASS),
-  routing_refresh_claude_review_p2_pass.md, and integrate ai/C0001/repo-operator/routing-refresh into
-  20260912_multiAI_research when satisfied. Repo-operator must not integrate to PR #5. Keep observed_commit and
-  remote_commit on integration branch df39f61 until PI merge verifies a new research-branch SHA. After integration,
-  resume C0001-T023 in /tmp/lansr-multiai-C0001-implement-audit without discarding dirty manifest/reachability/test edits.
+  On the next user continuation, resume C0001-T023 in /tmp/lansr-multiai-C0001-implement-audit using
+  GPU_RUNmultiAI/cycles/C0001/implementation_v16_round6_revision_handoff.md from that scientific worktree.
+  Preserve dirty manifest/reachability/test edits and round6/round7 run artifacts. Use Cursor for implementation,
+  Gemini broker only when live acceptance succeeds (otherwise record fallback), Claude Opus 5.5 for independent
+  review, and GPT-6 Sol PI for final scientific decisions. Full v16 audit remains gated.
 
-last_checkpoint_utc: 2026-09-23T08:20:00Z
+last_checkpoint_utc: 2026-09-23T07:20:00Z
 ```
 
 ## Notes
