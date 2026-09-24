@@ -144,8 +144,8 @@ active_tasks:
     worktree: /tmp/lansr-multiai-C0001-child-guard-durability
     base_commit: 86d089123226dfef434d8e0921f5f37d3afa81fc
     write_scope: [child guard timeout/crash evidence durability, idempotent orphan merge, malformed side-channel fail-closed tests, acceptance resume ordering, task handoff]
-    status: r5_committed_source_full_suite_and_independent_review_running
-    worker_session: 18466 initial commit 0016644; revision 11387 completed source c2067c2, no writer active
+    status: r6_python310_stat_fail_closed_repair_running
+    worker_session: 18466 initial commit 0016644; revision 11387 completed source c2067c2; narrow r6 Cursor revision session 92105 is sole writer
     initial_source_commit: 0016644a4f2903f00abc1616912ff2b518e20155
     initial_source_remote_verified: true
     initial_targeted_tests: 14 passed; independent r5 rejected source before acceptance
@@ -154,8 +154,10 @@ active_tasks:
     revised_source_commit: c2067c252168d19e7d8946a6ae4e8e2a40915e3c
     revised_source_remote_verified: true
     revised_targeted_tests: 18 passed, 1 skipped in worker environment; skip was ODEFormer-dependent run_b0_pair test
-    pi_full_focused_test_session: 72201 (conda lansr310 on committed c2067c2, in progress)
-    independent_reviewer_session: 52328 (Claude Opus 5.5 read-only source review, in progress)
+    pi_full_focused_test_session: 72201 (conda lansr310 on committed c2067c2 interrupted after 23 passed in 301.63 s when reviewer found blocking Python 3.10 path; not PASS)
+    independent_reviewer_session: 52328 (Claude Opus 5.5 read-only source review completed)
+    independent_review_r6_verdict: REVISE_BEFORE_ACCEPTANCE
+    independent_review_r6_artifact: GPU_RUNmultiAI/cycles/C0001/implementation_review_v16_child_guard_durability_r6.md (T025 worktree, untracked pending revision)
     acceptance_tests: [targeted C0001 guard/resume tests, compileall, diff check, committed source inventory]
     forbidden: [frozen v16 preregistration edit, existing runs/r2 overwrite, acceptance/full audit]
 completed_tasks:
@@ -270,6 +272,7 @@ completed_tasks:
     integration_commit: 47d7459
     result: four C0001 evidence and preregistration draft artifacts persisted
 open_findings:
+  - Independent Claude Opus 5.5 r6 confirms prior r5 MAJORs closed in c2067c2 but finds Python 3.10 Path.is_file() raises non-ignorable OSError before the intended fail-closed stat handler; PI inspected conda pathlib source and interrupted full suite after 23 passed, not PASS. Cursor session 92105 is repairing narrowly.
   - T025 revision c2067c2 committed/pushed and remote SHA verified; Cursor focused subset 18 passed, 1 skipped (ODEFormer absent). PI conda full focused suite and independent Opus review are running on this commit. No acceptance/full audit launched.
   - Independent Claude Opus 5.5 r5 rejected T025 source 0016644: empty-output timeout/crash without guard rows is misclassified certain, and the first live-probe run_b0_pair simplifier ignores uncertainty. PI also decides counted-path uncertainty must fail closed rather than allow a G4 PASS. Cursor revision session 11387 is active; no acceptance authorized.
   - T024 committed 86d0891 conda full focused suite PASS: 139 passed in 2276.83 s. This validates only that older source and must not be reused as a PASS for T025.
@@ -301,12 +304,13 @@ retries:
   C0001-T023: 1
 
 next_action: >
-  Monitor PI conda full focused suite (session 72201) and read-only independent Claude Opus 5.5
-  review (session 52328) on committed/pushed T025 source c2067c2 in
-  /tmp/lansr-multiai-C0001-child-guard-durability. Do not duplicate tests or launch another
-  writer in this worktree while the suite runs. If either fails, diagnose and repair before
-  acceptance; T024's 139-pass suite applies only to 86d0891. If both pass, record PI gate,
-  then start exactly one fresh empty suffixed 4080-call acceptance with --fail-if-exists.
+  Monitor the sole C0001-T025 Cursor r6 repair worker (session 92105) in
+  /tmp/lansr-multiai-C0001-child-guard-durability. Require Python 3.10 side-channel stat
+  errors to become GateAbortError, targeted conda tests, selective commit, non-force push and
+  remote SHA verification. Inspect source/test diff and independent r6 review, then rerun the
+  full conda focused suite and obtain independent Opus follow-up PASS on the **same final
+  committed source**. The c2067c2 suite was deliberately interrupted, not PASS. Only then
+  PI-gate one fresh empty suffixed 4080-call acceptance with --fail-if-exists.
   Never reuse r2; mechanically verify new packet and preserve all earlier outputs.
   Preserve old abort manifests and fail-closed auxiliary guard evidence on all paths.
   Only after a final-source PASS and conda focused-suite PASS may one fresh
@@ -314,7 +318,7 @@ next_action: >
   Preserve r2 and prior runs. Mechanically verify the new packet, independently review it,
   bind 91 accepted source hashes and closure record, run bounded smoke, then consider full audit.
 
-last_checkpoint_utc: 2026-09-24T13:35:43Z
+last_checkpoint_utc: 2026-09-24T13:41:10Z
 ```
 
 ## Notes
