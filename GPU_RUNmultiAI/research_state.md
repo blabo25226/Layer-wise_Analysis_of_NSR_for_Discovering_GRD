@@ -107,7 +107,7 @@ active_tasks:
     worktree: /tmp/lansr-multiai-C0001-full-audit-safety
     base_commit: ba8ccfc612c29077214d30a0e4a451bbfd3642ed
     write_scope: [full-audit reachability safety, exact fixture-ID gate, guard-attempt honesty, ledger-isolation regression test, focused tests, handoff]
-    status: sonnet_bounded_fallback_running
+    status: sonnet_bounded_fallback_revision_running
     source_commit: 456d8becaa274a89ef3c770cd2aac9f4693fe38c
     source_remote_verified: true
     first_independent_review_verdict: PASS_to_fresh_acceptance_only
@@ -117,7 +117,7 @@ active_tasks:
     second_independent_review_verdict: PASS_to_one_fresh_acceptance_with_conditions; no closure/full-audit authorization
     second_independent_review_artifact: GPU_RUNmultiAI/cycles/C0001/implementation_review_v16_post_acceptance_safety_r2.md
     conda_full_focused_test_status: 124 passed on committed source 456d8be; must rerun after final source edit
-    fallback_worker: Claude Sonnet 5 research-engineer; sequential writer, session 72818
+    fallback_worker: Claude Sonnet research-engineer; first session 72818 returned partial uncommitted edits without test or commit evidence; bounded continuation session 25252 is sole active writer
     fallback_reason: Cursor second revision left repeated auxiliary-guard and destructive-resume evidence-integrity findings
     focused_system_python_test: 107 passed, 14 skipped; conda lansr310 full focused suite not yet rerun
     frozen_plan_hash_unchanged: true
@@ -262,9 +262,11 @@ retries:
   C0001-T023: 1
 
 next_action: >
-  Monitor the one active Claude Sonnet 5 C0001-T024 fallback (PI shell session 72818) in
+  Monitor the one active Claude Sonnet C0001-T024 continuation (PI shell session 25252) in
   /tmp/lansr-multiai-C0001-full-audit-safety; do not duplicate a writer. On handoff inspect artifact,
-  diff, tests, commit and non-force push, then seek independent Claude Opus 5.5 re-review.
+  diff, tests, commit and non-force push. Require preservation of old abort manifests on invalid
+  resume and fail-closed persistence of auxiliary child guard attempts, including exception paths;
+  then seek independent Claude Opus 5.5 re-review.
   Only after a final-source PASS and conda focused-suite PASS may one fresh
   4080-call acceptance run start in a new suffixed output directory (not r2).
   Preserve r2 and prior runs. Mechanically verify the new packet, independently review it,
