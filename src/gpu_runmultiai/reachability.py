@@ -356,16 +356,17 @@ def _reconcile_orphan_child_process_guard_side_channel(guard: Any) -> None:
     from gpu_runmultiai.invariants import AuditInvariantError
 
     path = child_side_channel_path()
-    if not path.is_file():
-        return
     try:
-        if path.stat().st_size == 0:
-            return
+        st = path.stat()
+    except FileNotFoundError:
+        return
     except OSError as exc:
         raise GateAbortError(
             "auxiliary live probe cannot certify: child guard side channel stat failed "
             f"at {path}: {exc}"
         ) from exc
+    if st.st_size == 0:
+        return
     try:
         attempts = load_guard_attempts(path)
     except AuditInvariantError as exc:

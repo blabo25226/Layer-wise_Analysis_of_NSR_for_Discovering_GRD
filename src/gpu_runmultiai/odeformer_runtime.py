@@ -16,7 +16,7 @@ from gpu_run4.formulas import split_components
 
 from gpu_runmultiai.constants import MAX_SYSTEM_DIMENSION, SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC
 from gpu_runmultiai.guard_side_channel import child_side_channel_path, load_guard_attempts
-from gpu_runmultiai.invariants import ScalerGateError
+from gpu_runmultiai.invariants import GateAbortError, ScalerGateError
 
 PRODUCTION_SCALER_MODULE = "odeformer.model.utils_wrapper"
 PRODUCTION_RESCALE_QUALNAME = "Scaler.rescale_function"
@@ -348,8 +348,14 @@ def simplify_tree_subprocess(
 
 
 def _load_child_side_channel_attempts(path: Path) -> list[dict[str, str]]:
-    if not path.is_file():
+    try:
+        path.stat()
+    except FileNotFoundError:
         return []
+    except OSError as exc:
+        raise GateAbortError(
+            f"simplifier child guard side channel stat failed at {path}: {exc}"
+        ) from exc
     return load_guard_attempts(path)
 
 

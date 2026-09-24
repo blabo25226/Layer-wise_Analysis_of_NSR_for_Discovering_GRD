@@ -3228,12 +3228,10 @@ def test_orphan_child_side_channel_stat_oserror_fails_closed(monkeypatch, tmp_pa
 
     monkeypatch.setattr(type(path), "stat", _stat_fail)
     guard = SealedPathGuard(output_root_abs=tmp_path / "results" / "runs")
-    try:
-        with pytest.raises(GateAbortError, match="side channel stat failed"):
-            _reconcile_orphan_child_process_guard_side_channel(guard)
-    finally:
-        if path.is_file():
-            path.unlink()
+    with pytest.raises(GateAbortError, match="side channel stat failed"):
+        _reconcile_orphan_child_process_guard_side_channel(guard)
+    monkeypatch.undo()
+    path.unlink(missing_ok=True)
 
 
 def test_acceptance_resume_identity_mismatch_preserves_prior_abort_manifest(
