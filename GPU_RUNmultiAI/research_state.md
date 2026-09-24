@@ -119,7 +119,10 @@ active_tasks:
     conda_full_focused_test_status: 124 passed on committed source 456d8be; must rerun after final source edit
     fallback_worker: Claude Sonnet research-engineer; sessions 72818 and 25252 returned uncommitted edits without completed test/commit evidence; no worker writer active
     pi_full_focused_test_session: 60251 (conda lansr310, in progress; result not yet known)
-    independent_reviewer_session: 80838 (Claude Opus 5.5, read-only source review in progress)
+    independent_reviewer_session: 80838 (Claude Opus 5.5, read-only source review completed)
+    independent_review_r3_verdict: PASS_to_one_fresh_acceptance_only_with_minor_conditions; not implementation closure
+    independent_review_r3_artifact: GPU_RUNmultiAI/cycles/C0001/implementation_review_v16_post_acceptance_safety_r3.md (task worktree, untracked pending integration)
+    focused_test_interim: at least one failure observed; full module still running, no PASS claimed
     fallback_reason: Cursor second revision left repeated auxiliary-guard and destructive-resume evidence-integrity findings
     focused_system_python_test: 107 passed, 14 skipped; conda lansr310 full focused suite not yet rerun
     frozen_plan_hash_unchanged: true
@@ -265,9 +268,12 @@ retries:
 
 next_action: >
   Monitor the one PI conda full-focused test (session 60251) and read-only Claude Opus 5.5
-  independent source review (session 80838) in /tmp/lansr-multiai-C0001-full-audit-safety.
-  Do not duplicate tests or launch a writer while these checks run. Then inspect test result,
-  review, diff and frozen-plan hash; repair any failures before selective commit/non-force push.
+  independent source review (session 80838, completed conditional PASS) in
+  /tmp/lansr-multiai-C0001-full-audit-safety. Focused suite has at least one failure; await
+  full failure report, then diagnose and repair. Do not duplicate tests or launch a writer
+  while the suite runs. Inspect review r3, diff and frozen-plan hash; repair any failures before
+  selective commit/non-force push. Resolve or explicitly waive review r3 minor findings 1–3
+  before scientific closure.
   Preserve old abort manifests and fail-closed auxiliary guard evidence on all paths.
   Only after a final-source PASS and conda focused-suite PASS may one fresh
   4080-call acceptance run start in a new suffixed output directory (not r2).
