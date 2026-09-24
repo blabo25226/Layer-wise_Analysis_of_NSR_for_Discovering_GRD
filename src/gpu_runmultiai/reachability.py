@@ -346,6 +346,42 @@ _IDENT_FALLBACK_SYNTHETIC_DIMENSION = 2
 LIVE_IDENT_FALLBACK_RUN_B0_PAIR_BUDGET = 8
 
 
+def _finalize_auxiliary_live_probe_guard(
+    guard: Any,
+    auxiliary_guard_sink: list[dict[str, str]] | None,
+) -> tuple[int, int, int]:
+    """Account child subprocess guard rows on an auxiliary channel; fail-closed if unrecorded."""
+    from gpu_runmultiai.invariants import GateAbortError
+
+    direct = guard.direct_attempt_count()
+    child_count = len(guard.child_attempts)
+    total = guard.attempt_count()
+    if child_count == 0:
+        return direct, child_count, total
+    if auxiliary_guard_sink is None:
+        raise GateAbortError(
+            "auxiliary live ident-fallback probe recorded sealed-path child attempts "
+            f"without auxiliary side-channel sink: child_attempts={child_count}"
+        )
+    for attempt in guard.child_attempts:
+        auxiliary_guard_sink.append(
+            {
+                "attempted_operation": f"auxiliary_live_probe:{attempt.attempted_operation}",
+                "attempted_path_norm": attempt.attempted_path_norm,
+                "attempted_path_real": attempt.attempted_path_real,
+            }
+        )
+    return direct, child_count, total
+
+
+def _auxiliary_guard_attempt_fields(
+    guard: Any,
+    auxiliary_guard_sink: list[dict[str, str]] | None,
+) -> tuple[int, int, int, bool]:
+    direct, child_count, total = _finalize_auxiliary_live_probe_guard(guard, auxiliary_guard_sink)
+    return direct, child_count, total, child_count > 0 and auxiliary_guard_sink is not None
+
+
 def _live_ident_fallback_b0_pair_trials(corpus: dict[str, Any]) -> list[tuple[dict[str, Any], int, str]]:
     """Deterministic first-N (record, component_idx, scale) trials in sorted corpus order."""
     candidates = sorted(
@@ -484,7 +520,10 @@ def _reach_ident_fallback_1_synthetic() -> tuple[bool, str]:
     return passed, detail
 
 
-def _reach_ident_fallback_1_live_production_observation() -> str:
+def _reach_ident_fallback_1_live_production_observation(
+    *,
+    auxiliary_guard_sink: list[dict[str, str]] | None = None,
+) -> str:
     """Record run_b0_pair identity-fallback reachability without substituting production E2.
 
     Auxiliary pre-closure observation only: uses a dedicated CallLogger excluded from the
@@ -498,7 +537,9 @@ def _reach_ident_fallback_1_live_production_observation() -> str:
         return f"live_production_observation odeformer_unavailable:{exc}"
 
     try:
-        return _reach_ident_fallback_1_live_production_observation_body()
+        return _reach_ident_fallback_1_live_production_observation_body(
+            auxiliary_guard_sink=auxiliary_guard_sink
+        )
     except Exception as exc:  # must not abort acceptance after counted work completes
         return (
             "live_production_observation error_isolated=true "
@@ -506,7 +547,10 @@ def _reach_ident_fallback_1_live_production_observation() -> str:
         )
 
 
-def _reach_ident_fallback_1_live_production_observation_body() -> str:
+def _reach_ident_fallback_1_live_production_observation_body(
+    *,
+    auxiliary_guard_sink: list[dict[str, str]] | None = None,
+) -> str:
     from gpu_runmultiai.calls import CallLogger
     from gpu_runmultiai.corpus import load_frozen_corpus
     from gpu_runmultiai.odeformer_runtime import (
@@ -524,7 +568,6 @@ def _reach_ident_fallback_1_live_production_observation_body() -> str:
     guard = SealedPathGuard(output_root_abs=Path("/nonexistent/results/runs"))
     auxiliary_logger = CallLogger()
     run_b0_pair_calls = 0
-    child_guard_attempts_logged = 0
     for record, component_idx, scale in trials:
         dimension = int(record["dimension"])
         truth_prefix, truth_infix = truth_component_infix(record, component_idx)
@@ -549,7 +592,6 @@ def _reach_ident_fallback_1_live_production_observation_body() -> str:
             guard=guard,
         )
         run_b0_pair_calls += 1
-        child_guard_attempts_logged = len(guard.child_attempts)
         e1_prefix_raw = row.get("e1_prefix_raw") or ""
         production_e2_prefix_raw = row.get("e2_prefix_raw") or ""
         if MULTI_COMPONENT_SEPARATOR not in e1_prefix_raw:
@@ -604,12 +646,18 @@ def _reach_ident_fallback_1_live_production_observation_body() -> str:
             hill_form=row.get("hill_form"),
         )
         if fallback and outcome_row["outcome_category"] == "execution_failure":
+            direct, child_count, total, child_persisted = _auxiliary_guard_attempt_fields(
+                guard, auxiliary_guard_sink
+            )
             return (
                 "live_production_observation bounded_match=true "
                 f"observation_scope=first_{budget}_sorted_trials "
                 f"run_b0_pair_budget={budget} run_b0_pair_calls={run_b0_pair_calls} "
-                f"auxiliary_guard_direct_attempts={len(guard.attempts)} "
-                f"auxiliary_guard_child_attempts={child_guard_attempts_logged} "
+                f"auxiliary_call_logger_grand_calls={auxiliary_logger.total()} "
+                f"auxiliary_guard_direct_attempts={direct} "
+                f"auxiliary_guard_child_attempts={child_count} "
+                f"auxiliary_guard_total_attempts={total} "
+                f"auxiliary_guard_child_persisted={child_persisted} "
                 f"system_id={record['system_id']} component_idx={component_idx} "
                 f"scale={scale} dimension={dimension} "
                 f"production_e1_raw==e2_raw=True production_e2_unchanged=True "
@@ -622,13 +670,19 @@ def _reach_ident_fallback_1_live_production_observation_body() -> str:
                 f"q4_canonical={q4.q4_sympy_expr_canonical}"
             )
     bounded_scan_exhausted = run_b0_pair_calls >= len(trials)
+    direct, child_count, total, child_persisted = _auxiliary_guard_attempt_fields(
+        guard, auxiliary_guard_sink
+    )
     return (
         "live_production_observation bounded_no_match_within_budget=true "
         f"observation_scope=first_{budget}_sorted_trials "
         f"run_b0_pair_budget={budget} run_b0_pair_calls={run_b0_pair_calls} "
         f"bounded_scan_exhausted={bounded_scan_exhausted} "
-        f"auxiliary_guard_direct_attempts={len(guard.attempts)} "
-        f"auxiliary_guard_child_attempts={child_guard_attempts_logged} "
+        f"auxiliary_call_logger_grand_calls={auxiliary_logger.total()} "
+        f"auxiliary_guard_direct_attempts={direct} "
+        f"auxiliary_guard_child_attempts={child_count} "
+        f"auxiliary_guard_total_attempts={total} "
+        f"auxiliary_guard_child_persisted={child_persisted} "
         "not_global_corpus_absence production_e2_unchanged=True"
     )
 
@@ -636,13 +690,16 @@ def _reach_ident_fallback_1_live_production_observation_body() -> str:
 def _reach_ident_fallback_1(
     *,
     include_live_observation: bool = False,
+    auxiliary_guard_sink: list[dict[str, str]] | None = None,
 ) -> dict[str, Any]:
     """§3.8 synthetic fixture; optional auxiliary live observation (pre-closure only)."""
     synthetic_passed, synthetic_detail = _reach_ident_fallback_1_synthetic()
     detail = synthetic_detail
     if include_live_observation:
         try:
-            live_detail = _reach_ident_fallback_1_live_production_observation()
+            live_detail = _reach_ident_fallback_1_live_production_observation(
+                auxiliary_guard_sink=auxiliary_guard_sink
+            )
         except Exception as exc:
             live_detail = (
                 "live_production_observation error_isolated=true "
@@ -748,10 +805,14 @@ def _run_reachability_fixture(
     builder: Any,
     *,
     include_live_ident_fallback_observation: bool = False,
+    auxiliary_guard_sink: list[dict[str, str]] | None = None,
 ) -> dict[str, Any]:
     try:
         if fixture_id == "REACH-IDENT-FALLBACK-1":
-            row = builder(include_live_observation=include_live_ident_fallback_observation)
+            row = builder(
+                include_live_observation=include_live_ident_fallback_observation,
+                auxiliary_guard_sink=auxiliary_guard_sink,
+            )
         else:
             row = builder()
     except Exception as exc:  # must not abort confirmatory work after counted primitives
@@ -770,13 +831,16 @@ def build_reachability_evidence(
     resource_monitor: Any | None = None,
     *,
     include_live_ident_fallback_observation: bool = False,
+    auxiliary_guard_sink: list[dict[str, str]] | None = None,
 ) -> list[dict[str, Any]]:
     """Build §3.8 reachability rows (§8.1 excluded from counted-call ledger).
 
     ``resource_monitor`` is accepted for API compatibility but ignored: reachability probes
     must not attach to the confirmatory audit monitor. Live identity-fallback observation
     runs only when ``include_live_ident_fallback_observation`` is True (implementation
-    acceptance / pre-closure preflight).
+    acceptance / pre-closure preflight). Child-process sealed-path attempts from that probe
+    are appended to ``auxiliary_guard_sink`` when provided; otherwise any child attempt
+    fail-closes before counted work.
 
     Fixture builders are error-isolated: an exception becomes a fail-closed row instead of
     aborting the audit process.
@@ -799,6 +863,7 @@ def build_reachability_evidence(
             fixture_id,
             fn,
             include_live_ident_fallback_observation=include_live_ident_fallback_observation,
+            auxiliary_guard_sink=auxiliary_guard_sink,
         )
         for fixture_id, fn in builders
     ]

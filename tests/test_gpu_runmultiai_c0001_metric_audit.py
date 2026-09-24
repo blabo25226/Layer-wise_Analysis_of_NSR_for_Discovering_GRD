@@ -1302,12 +1302,18 @@ def test_reach_ident_fallback_live_observation_run_b0_pair_hard_bounded(monkeypa
     assert "live_simplifier_fixed_point" not in detail
 
 
-def test_acceptance_reachability_preflight_preserves_b1_call_log(tmp_path, monkeypatch):
-    """Acceptance path: live ident-fallback probe must not append to the B1 audit ledger."""
+def test_acceptance_reachability_live_probe_uses_isolated_loggers(tmp_path, monkeypatch):
+    """Live ident-fallback probe body must not touch the counted audit ledger or stage cache."""
     from gpu_runmultiai.audit import build_acceptance_reachability_evidence
     from gpu_runmultiai.calls import CallLogger
+    from gpu_runmultiai.corpus import load_frozen_corpus
+    from gpu_runmultiai.reachability import (
+        LIVE_IDENT_FALLBACK_RUN_B0_PAIR_BUDGET,
+        _live_ident_fallback_b0_pair_trials,
+    )
 
     call_log = tmp_path / "call_log.jsonl"
+    stage_cache = tmp_path / "stage_cache.jsonl"
     audit_logger = CallLogger(call_log)
     audit_logger.execute_or_record(
         primitive="oracle_equivalence",
@@ -1317,61 +1323,75 @@ def test_acceptance_reachability_preflight_preserves_b1_call_log(tmp_path, monke
         unit_id="pair_sha256:acceptance_ledger_probe",
         status="completed",
     )
+    stage_cache.write_text('{"probe": true}\n', encoding="utf-8")
     before_bytes = call_log.read_bytes()
     before_total = audit_logger.confirmatory_total()
+    before_cache_bytes = stage_cache.read_bytes()
 
-    live_calls = 0
+    corpus = load_frozen_corpus()
+    trials = _live_ident_fallback_b0_pair_trials(corpus)
+    auxiliary_loggers: list[CallLogger] = []
 
-    def _fake_live():
-        nonlocal live_calls
-        live_calls += 1
-        return (
-            "live_production_observation bounded_no_match_within_budget=true "
-            "observation_scope=first_8_sorted_trials run_b0_pair_budget=8 "
-            "run_b0_pair_calls=0 auxiliary_guard_direct_attempts=0 "
-            "auxiliary_guard_child_attempts=0 bounded_scan_exhausted=False "
-            "not_global_corpus_absence production_e2_unchanged=True"
+    def _fake_run_b0_pair(**kwargs):
+        logger = kwargs["call_logger"]
+        auxiliary_loggers.append(logger)
+        logger.execute_or_record(
+            primitive="oracle_equivalence",
+            condition="B0",
+            stage="E1",
+            unit_type="pair",
+            unit_id="pair_sha256:auxiliary_probe_only",
+            status="completed",
         )
+        return {
+            "e1_prefix_raw": "a|b",
+            "e2_prefix_raw": "different",
+            "q4_construction_completed": True,
+        }
 
-    monkeypatch.setattr(
-        "gpu_runmultiai.reachability._reach_ident_fallback_1_live_production_observation",
-        _fake_live,
-    )
-    rows = build_acceptance_reachability_evidence()
-    assert live_calls == 1
+    monkeypatch.setattr("gpu_runmultiai.pipeline.run_b0_pair", _fake_run_b0_pair)
+    monkeypatch.setattr("gpu_runmultiai.odeformer_runtime.require_odeformer", lambda: None)
+
+    aux_sink: list[dict[str, str]] = []
+    rows = build_acceptance_reachability_evidence(auxiliary_guard_sink=aux_sink)
+    assert len(auxiliary_loggers) == len(trials)
+    assert all(logger.path is None for logger in auxiliary_loggers)
+    assert auxiliary_loggers[0].confirmatory_total() > 0
     assert audit_logger.confirmatory_total() == before_total
     assert call_log.read_bytes() == before_bytes
+    assert stage_cache.read_bytes() == before_cache_bytes
     ident = next(row for row in rows if row["fixture_id"] == "REACH-IDENT-FALLBACK-1")
-    assert "auxiliary_guard_child_attempts=" in ident["details"] or "live_production_observation" in ident["details"]
+    assert "live_production_observation" in ident["details"]
+    assert f"run_b0_pair_budget={LIVE_IDENT_FALLBACK_RUN_B0_PAIR_BUDGET}" in ident["details"]
+    assert "auxiliary_guard_direct_attempts=" in ident["details"]
+    assert "auxiliary_guard_total_attempts=" in ident["details"]
 
 
 def test_reach_ident_fallback_live_observation_isolated_from_counted_ledger(monkeypatch, tmp_path):
     from gpu_runmultiai.calls import CallLogger
-    from gpu_runmultiai.reachability import _reach_ident_fallback_1
+    from gpu_runmultiai.reachability import _reach_ident_fallback_1_live_production_observation_body
 
     audit_logger = CallLogger(tmp_path / "audit_call_log.jsonl")
     before = audit_logger.confirmatory_total()
 
-    monkeypatch.setattr(
-        "gpu_runmultiai.reachability._reach_ident_fallback_1_live_production_observation",
-        lambda: "live_production_observation error_isolated=true error=RuntimeError:probe",
-    )
-    row_err = _reach_ident_fallback_1(include_live_observation=True)
-    assert row_err["passed"] is True
-    assert audit_logger.confirmatory_total() == before
-    assert "error_isolated=true" in row_err["details"]
+    def _fake_run_b0_pair(**kwargs):
+        kwargs["call_logger"].execute_or_record(
+            primitive="oracle_equivalence",
+            condition="B0",
+            stage="E1",
+            unit_type="pair",
+            unit_id="pair_sha256:auxiliary_only",
+            status="completed",
+        )
+        return {"e1_prefix_raw": "a|b", "e2_prefix_raw": "c|d", "q4_construction_completed": True}
 
-    def _boom():
-        raise RuntimeError("live observation must not abort synthetic reachability")
+    monkeypatch.setattr("gpu_runmultiai.pipeline.run_b0_pair", _fake_run_b0_pair)
+    monkeypatch.setattr("gpu_runmultiai.odeformer_runtime.require_odeformer", lambda: None)
 
-    monkeypatch.setattr(
-        "gpu_runmultiai.reachability._reach_ident_fallback_1_live_production_observation",
-        _boom,
-    )
-    row = _reach_ident_fallback_1(include_live_observation=True)
-    assert row["passed"] is True
+    detail = _reach_ident_fallback_1_live_production_observation_body(auxiliary_guard_sink=[])
+    assert "bounded_no_match_within_budget=true" in detail
     assert audit_logger.confirmatory_total() == before
-    assert "synthetic_injection_not_production" in row["details"]
+    assert "auxiliary_call_logger_grand_calls=" in detail
 
 
 def test_build_reachability_evidence_excludes_live_ident_fallback_by_default(monkeypatch):
@@ -2261,6 +2281,106 @@ def test_reachability_injected_failure_blocks_before_counted_primitives(monkeypa
     with pytest.raises(GateAbortError, match="before counted primitives"):
         _assert_reachability_before_counted_primitives(rows, smoke=False)
     _assert_reachability_before_counted_primitives(rows, smoke=True)
+
+
+def test_run_audit_entrypoint_reachability_preflight_aborts_zero_counted_calls(
+    tmp_path, bootstrap_guard, monkeypatch
+):
+    """§3.8 preflight at run_audit entry leaves empty ledger and abort manifest with zero calls."""
+    from gpu_runmultiai.audit import ABORT_MANIFEST_REQUIRED_FIELDS
+    from gpu_runmultiai.invariants import GateAbortError
+    from gpu_runmultiai.reachability import _reachability_row
+
+    def _fail_sfn():
+        return _reachability_row("REACH-SFN-1", "synthetic", False, "injected_preflight_fail")
+
+    registration_invoked = False
+
+    def _forbidden_registration(*_args, **_kwargs):
+        nonlocal registration_invoked
+        registration_invoked = True
+        return [], []
+
+    monkeypatch.setattr("gpu_runmultiai.reachability._reach_sfn_1", _fail_sfn)
+    monkeypatch.setattr("gpu_runmultiai.audit.registration_rows", _forbidden_registration)
+    monkeypatch.setattr(
+        "gpu_runmultiai.audit.verify_canonical_closure_record",
+        lambda **_kwargs: "closure_ok_for_test",
+    )
+    monkeypatch.setattr(
+        "gpu_runmultiai.audit.verify_accepted_closure_source_hashes",
+        lambda *_args, **_kwargs: "closure_ok_for_test",
+    )
+    monkeypatch.setattr("gpu_runmultiai.audit.verify_source_inventory_at_commit", lambda *_a, **_k: None)
+    output_dir = tmp_path / "preflight_abort"
+    options = {
+        "output_dir": str(output_dir),
+        "oracle_timeout_sec": 30.0,
+        "simplifier_subprocess_timeout_sec": SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
+        "fail_if_exists": False,
+        "resume": False,
+        "implementation_acceptance": True,
+    }
+    with pytest.raises(GateAbortError, match="before counted primitives"):
+        _run_audit(options, bootstrap_guard)
+    assert registration_invoked is False
+    call_log = output_dir / "call_log.jsonl"
+    if call_log.is_file():
+        assert CallLogger.load(call_log).confirmatory_total() == 0
+        assert CallLogger.load(call_log).total() == 0
+    abort = json.loads((output_dir / "abort_manifest.json").read_text(encoding="utf-8"))
+    for field in ABORT_MANIFEST_REQUIRED_FIELDS:
+        assert field in abort
+    assert abort["confirmatory_calls"] == 0
+    assert abort["grand_calls"] == 0
+    manifest = json.loads((output_dir / "audit_manifest.json").read_text(encoding="utf-8"))
+    assert manifest["status"] == "aborted"
+
+
+def test_auxiliary_live_probe_child_guard_rows_persist_to_side_channel(monkeypatch):
+    from gpu_runmultiai.reachability import (
+        _reach_ident_fallback_1_live_production_observation_body,
+    )
+    from gpu_runmultiai.sealed_guard import SealedPathGuard
+
+    shared_guard = SealedPathGuard(output_root_abs=Path("/nonexistent/results/runs"))
+
+    def _fake_run_b0_pair(**kwargs):
+        kwargs["guard"].extend_child_attempts(
+            [
+                {
+                    "attempted_operation": "os.stat",
+                    "attempted_path_norm": "/tmp/child",
+                    "attempted_path_real": "/tmp/child",
+                }
+            ]
+        )
+        return {"e1_prefix_raw": "a|b", "e2_prefix_raw": "c|d", "q4_construction_completed": True}
+
+    monkeypatch.setattr("gpu_runmultiai.pipeline.run_b0_pair", _fake_run_b0_pair)
+    monkeypatch.setattr("gpu_runmultiai.odeformer_runtime.require_odeformer", lambda: None)
+    monkeypatch.setattr(
+        "gpu_runmultiai.sealed_guard.SealedPathGuard",
+        lambda output_root_abs: shared_guard,
+    )
+
+    sink: list[dict[str, str]] = []
+    detail = _reach_ident_fallback_1_live_production_observation_body(auxiliary_guard_sink=sink)
+    assert shared_guard.direct_attempt_count() == 0
+    assert len(shared_guard.child_attempts) >= 1
+    assert "auxiliary_guard_child_attempts=" in detail
+    assert "auxiliary_guard_child_persisted=True" in detail
+    assert len(sink) >= 1
+    assert all(row["attempted_operation"].startswith("auxiliary_live_probe:") for row in sink)
+
+
+def test_clear_stale_abort_manifest_removes_prior_abort_file(tmp_path):
+    from gpu_runmultiai.audit import clear_stale_abort_manifest
+
+    abort = tmp_path / "abort_manifest.json"
+    abort.write_text('{"status":"aborted"}', encoding="utf-8")
+    clear_stale_abort_manifest(tmp_path)
+    assert not abort.is_file()
 
 
 def test_g_contract_and_g_impl_gates_read_executed_evidence():

@@ -10,11 +10,17 @@ from gpu_runmultiai.invariants import AuditInvariantError
 from gpu_runmultiai.jsonl_durable import append_jsonl_line, load_jsonl
 
 SIDE_CHANNEL_NAME = "guard_attempts_side_channel.jsonl"
+REACHABILITY_AUXILIARY_SIDE_CHANNEL_NAME = "reachability_auxiliary_guard_side_channel.jsonl"
 GUARD_ATTEMPT_FIELDS = ("attempted_operation", "attempted_path_norm", "attempted_path_real")
 
 
 def side_channel_path(output_dir: Path) -> Path:
     return output_dir / SIDE_CHANNEL_NAME
+
+
+def reachability_auxiliary_side_channel_path(output_dir: Path) -> Path:
+    """Durable sealed-path attempts from §3.8 live ident-fallback probe (excluded from G4 ledger)."""
+    return output_dir / REACHABILITY_AUXILIARY_SIDE_CHANNEL_NAME
 
 
 def ensure_guard_side_channel(path: Path) -> None:

@@ -256,6 +256,10 @@ class SealedPathGuard:
             self.child_attempts.append(attempt)
             self.attempts.append(attempt)
 
+    def direct_attempt_count(self) -> int:
+        """Guard-hook attempts only (excludes subprocess child rows merged via extend_child_attempts)."""
+        return len(self.attempts) - len(self.child_attempts)
+
     def attempt_count(self) -> int:
         return len(self.attempts)
 

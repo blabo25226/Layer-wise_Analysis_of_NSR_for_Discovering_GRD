@@ -39,6 +39,7 @@ from gpu_runmultiai.guard_side_channel import (
     append_guard_attempts,
     ensure_guard_side_channel,
     load_guard_attempts,
+    reachability_auxiliary_side_channel_path,
     side_channel_path,
 )
 from gpu_runmultiai.invariants import (
@@ -523,15 +524,26 @@ def _derive_deviation_entries(options: dict[str, Any]) -> list[tuple[str, str, s
     return entries
 
 
-def build_acceptance_reachability_evidence() -> list[dict[str, Any]]:
+def build_acceptance_reachability_evidence(
+    *,
+    auxiliary_guard_sink: list[dict[str, str]] | None = None,
+) -> list[dict[str, Any]]:
     """§3.8 reachability for implementation acceptance (includes capped live observation)."""
-    return build_reachability_evidence(include_live_ident_fallback_observation=True)
+    return build_reachability_evidence(
+        include_live_ident_fallback_observation=True,
+        auxiliary_guard_sink=auxiliary_guard_sink,
+    )
 
 
 def _assert_reachability_before_counted_primitives(
     reachability_evidence: list[dict[str, Any]], *, smoke: bool
 ) -> None:
-    """Fail-closed preflight: full confirmatory must not enter counted primitives when §3.8 fails."""
+    """Fail-closed preflight before §10 counted primitives (frozen §3.8 G_impl ordering).
+
+    On acceptance/full non-smoke paths, any §3.8 fixture FAIL aborts via GateAbortError
+    before registration or pair execution, leaving zero confirmatory counted calls and an
+    aborted manifest rather than a completed run that would be undecidable under §10 G_impl.
+    """
     if smoke:
         return
     if reachability_evidence_passes(reachability_evidence):
@@ -545,6 +557,13 @@ def _assert_reachability_before_counted_primitives(
         "G_impl reachability preflight FAIL before counted primitives: "
         f"failed_fixtures={failed}"
     )
+
+
+def clear_stale_abort_manifest(output_dir: Path) -> None:
+    """Remove a prior global-abort manifest before resuming or restarting counted work."""
+    path = Path(output_dir) / "abort_manifest.json"
+    if path.is_file():
+        path.unlink()
 
 
 def write_abort_manifest(
@@ -803,6 +822,7 @@ def _run_implementation_acceptance(
             raise ResumeIdentityError(
                 "implementation acceptance --resume requires existing call_log.jsonl and pair_results.csv"
             )
+        clear_stale_abort_manifest(output_dir)
         existing_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         call_logger = CallLogger.load(call_log_path, resource_monitor=resource_monitor)
         call_logger.skip_duplicates = True
@@ -812,6 +832,7 @@ def _run_implementation_acceptance(
             call_log_path.unlink()
         if stage_cache_path.exists():
             stage_cache_path.unlink()
+        clear_stale_abort_manifest(output_dir)
         call_logger = CallLogger(call_log_path, resource_monitor=resource_monitor)
         stage_cache = {}
     registration_logger = CallLogger(resource_monitor=resource_monitor)
@@ -858,7 +879,14 @@ def _run_implementation_acceptance(
         },
     )
 
-    reachability_evidence = build_acceptance_reachability_evidence()
+    auxiliary_guard_sink: list[dict[str, str]] = []
+    reachability_aux_path = reachability_auxiliary_side_channel_path(output_dir)
+    artifacts.ensure_guard_side_channel(reachability_aux_path)
+    reachability_evidence = build_acceptance_reachability_evidence(
+        auxiliary_guard_sink=auxiliary_guard_sink
+    )
+    if auxiliary_guard_sink:
+        append_guard_attempts(reachability_aux_path, auxiliary_guard_sink)
     _assert_reachability_before_counted_primitives(reachability_evidence, smoke=False)
 
     oracle_timeout_sec = float(options["oracle_timeout_sec"])
@@ -1011,13 +1039,26 @@ def _run_implementation_acceptance(
         build_deviation_entry(
             description=(
                 "implementation acceptance auxiliary work excluded from §8.1 counted ledger: "
-                "registration for all components, smoke B0/B2 pairs, seven q4_reference fixtures, "
-                "§3.8 reachability preflight (synthetic fixtures plus capped live ident-fallback "
-                f"observation budget={LIVE_IDENT_FALLBACK_RUN_B0_PAIR_BUDGET} run_b0_pair trials), "
+                "registration for all components (truth_register_classify, rewrite_oracle_precheck, "
+                "quantization_stratum_assign and trial-internal rewrite/Q4/simplifier/oracle precalls), "
+                "G0 scaler asserts, G_contract probes (seven C_q4 fixtures), smoke B0/B2 pairs, "
+                "§3.8 reachability preflight before counted B1 (synthetic fixtures plus capped live "
+                f"ident-fallback observation budget={LIVE_IDENT_FALLBACK_RUN_B0_PAIR_BUDGET} "
+                "run_b0_pair trials with isolated auxiliary CallLogger and "
+                "reachability_auxiliary_guard_side_channel.jsonl for child guard rows), "
                 "timing_calibration projection"
             ),
             scientific_impact="auxiliary preflight only; not confirmatory counted-call evidence",
             resolution="full confirmatory audit uses separate ledger and omits live ident-fallback probe",
+        ),
+        build_deviation_entry(
+            description=(
+                "frozen §3.8-before-§10 ordering: G_impl reachability preflight executes before "
+                "counted confirmatory primitives; preflight FAIL aborts with zero counted calls "
+                "instead of producing a completed run undecidable under §10 G_impl"
+            ),
+            scientific_impact="process ordering only; does not change frozen scientific endpoints",
+            resolution="none",
         ),
     ]
     for entry in deviation_entries:
@@ -1146,6 +1187,7 @@ def _run_audit_body(
     pair_cache_path = output_dir / "pair_cache.jsonl"
     stage_cache_path = output_dir / "stage_cache.jsonl"
     if options.get("resume") and call_log_path.is_file():
+        clear_stale_abort_manifest(output_dir)
         call_logger = CallLogger.load(call_log_path, resource_monitor=resource_monitor)
         call_logger.skip_duplicates = True
         durable_pair_cache = _load_pair_cache(pair_cache_path)
@@ -1159,6 +1201,7 @@ def _run_audit_body(
             pair_cache_path.unlink()
         if stage_cache_path.exists():
             stage_cache_path.unlink()
+        clear_stale_abort_manifest(output_dir)
         call_logger = CallLogger(call_log_path, resource_monitor=resource_monitor)
         durable_pair_cache: dict[str, dict[str, Any]] = {}
         pair_cache = {}
