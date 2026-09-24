@@ -1,0 +1,13 @@
+{
+  "worker": "gemini",
+  "mode": "broker",
+  "captured_at_utc": "2026-09-24T06:32:46Z",
+  "agy_version": "1.2.10",
+  "model": "gemini-3.8-flash-high",
+  "exit_code": 0,
+  "prompt_file": "/tmp/lansr-multiai-C0001-implement-audit/GPU_RUNmultiAI/cycles/C0001/acceptance_round7_r2_gemini_packet.md",
+  "prompt_sha256": "8e79a93dbcf074fc2c18ed6d0a3a48fb9dc90c5ce7536fa44c5e8c20e23a029b",
+  "output_file": "/tmp/lansr-multiai-C0001-implement-audit/GPU_RUNmultiAI/cycles/C0001/acceptance_round7_r2_gemini_compressed.md",
+  "output_sha256": "7a6bb0d71d62072d84a67efb446809e44e61fb0646b8715f0dde3f9c9fcfb488",
+  "acceptance": "headings"
+}

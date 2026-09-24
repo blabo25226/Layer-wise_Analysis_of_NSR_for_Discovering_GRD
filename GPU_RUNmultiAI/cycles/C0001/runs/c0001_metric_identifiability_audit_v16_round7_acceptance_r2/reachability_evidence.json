@@ -1,0 +1,62 @@
+[
+  {
+    "fixture_id": "REACH-POW-COMP-1",
+    "evidence_type": "prefix_q4_construction",
+    "passed": true,
+    "details": "mul,1.00000000000000,pow,x_0,2"
+  },
+  {
+    "fixture_id": "REACH-SFN-1",
+    "evidence_type": "hand_algebraic",
+    "passed": true,
+    "details": "outcome=structural_false_negative e1=True q4=True e2=True hill=False"
+  },
+  {
+    "fixture_id": "REACH-PRESERVED-1",
+    "evidence_type": "hand_algebraic",
+    "passed": true,
+    "details": "outcome=preserved e1=True q4=True e2=True hill=True"
+  },
+  {
+    "fixture_id": "REACH-UNS-1",
+    "evidence_type": "primary_decision_grid",
+    "passed": true,
+    "details": "decision=H0001 unsupported rows=1320 unique=1320 fully_diagnostic=1320 sfn=0 failed_gates=[]"
+  },
+  {
+    "fixture_id": "REACH-SUP-1",
+    "evidence_type": "primary_decision_grid",
+    "passed": true,
+    "details": "decision=H0001 supported rows=1320 unique=1320 fully_diagnostic=1320 sfn=1 failed_gates=[]"
+  },
+  {
+    "fixture_id": "REACH-DRIFT-E2",
+    "evidence_type": "synthetic",
+    "passed": true,
+    "details": "outcome=semantic_drift e2_completed=True e2_equivalent=False"
+  },
+  {
+    "fixture_id": "REACH-Q4FAIL-1",
+    "evidence_type": "synthetic",
+    "passed": true,
+    "details": "outcome=execution_failure q4_completed=False reason=Empty prefix list."
+  },
+  {
+    "fixture_id": "REACH-IDENT-FALLBACK-1",
+    "evidence_type": "synthetic",
+    "passed": true,
+    "details": "synthetic_fixture e1_component0=mul,0.04598,x_0 e1_prefix_raw=mul,0.04598,x_0,|,x_1 e2_prefix_raw=mul,0.04598,x_0,|,x_1 e2_source=synthetic_injection_not_production e1_neq_q4=True q4_canonical=0.046*x_0 e1_oracle_equivalent=True e2_oracle_equivalent=False no_fallback_outcome=semantic_drift fallback_candidate=True outcome=execution_failure; live_production_observation bounded_no_match_within_first_8_trials=true observation_scope=first_8_sorted_trials run_b0_pair_budget=8 run_b0_pair_calls=8 bounded_scan_exhausted=True not_global_corpus_absence production_e2_unchanged=True"
+  },
+  {
+    "fixture_id": "REACH-PARSE-1",
+    "evidence_type": "synthetic",
+    "passed": true,
+    "details": "outcome=execution_failure classifier_parse_valid=False"
+  },
+  {
+    "fixture_id": "REACH-RESCALE-1",
+    "evidence_type": "live_production_rescale",
+    "passed": true,
+    "details": "outcome=execution_failure rescale_incomplete=True proof=odeformer.model.utils_wrapper.Scaler.rescale_function input_nodes=2 scale_len=1"
+  }
+]
