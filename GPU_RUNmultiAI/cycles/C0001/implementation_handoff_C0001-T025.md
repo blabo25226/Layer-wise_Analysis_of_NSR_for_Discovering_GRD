@@ -5,6 +5,7 @@ task_id: C0001-T025
 cycle: C0001
 branch: ai/C0001/repo-operator/child-guard-durability
 base_commit: c2067c252168d19e7d8946a6ae4e8e2a40915e3c
+committed_sha: 2787587a95d0a16e0729df615f0b5f14ce34a70f
 scope: r6 independent review REVISE_BEFORE_ACCEPTANCE (Python 3.10 Path stat fail-closed)
 frozen_unchanged:
   - GPU_RUNmultiAI/cycles/C0001/preregistration_draft_v16.md
@@ -34,7 +35,7 @@ PYTHONPATH=src:. python -m pytest -q tests/test_gpu_runmultiai_c0001_metric_audi
   "child_guard or child_side_channel or simplifier_subprocess or auxiliary or orphan or residual or uncertain or match_path_simplifier or exception_after_child or preexisting_side_channel or without_receipt or guard_attempts_list or stat_oserror or run_b0_pair_simplifier"
 ```
 
-**Result:** `19 passed, 133 deselected in 133.73s` on committed source SHA recorded below after push.
+**Result:** `19 passed, 133 deselected in 133.73s` on `2787587a95d0a16e0729df615f0b5f14ce34a70f`.
 
 **Not run this session:** full `test_gpu_runmultiai_c0001_metric_audit.py` module (~40 min). PI interrupted prior c2067c2 run at `23 passed in 301.63s`; that run is **not PASS** for acceptance.
 
