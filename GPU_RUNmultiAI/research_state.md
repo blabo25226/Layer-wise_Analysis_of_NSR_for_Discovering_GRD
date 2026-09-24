@@ -144,7 +144,7 @@ active_tasks:
     worktree: /tmp/lansr-multiai-C0001-child-guard-durability
     base_commit: 86d089123226dfef434d8e0921f5f37d3afa81fc
     write_scope: [child guard timeout/crash evidence durability, idempotent orphan merge, malformed side-channel fail-closed tests, acceptance resume ordering, task handoff]
-    status: r6_committed_source_round7_r4_acceptance_running
+    status: r6_committed_source_round7_r4_interrupted_r5_retry_authorized
     worker_session: 18466 initial commit 0016644; revision 11387 source c2067c2; r6 Cursor session 92105 completed source 2787587 and handoff ba3ef3d; no writer active
     initial_source_commit: 0016644a4f2903f00abc1616912ff2b518e20155
     initial_source_remote_verified: true
@@ -168,6 +168,8 @@ active_tasks:
     independent_review_r7_artifact: GPU_RUNmultiAI/cycles/C0001/implementation_review_v16_child_guard_durability_r7.md
     round7_r4_acceptance_session: 73114 (conda lansr310 from ba3ef3d, started 2026-09-24T15:38:40Z; fresh output, --implementation-acceptance --fail-if-exists, no --resume)
     round7_r4_output: GPU_RUNmultiAI/cycles/C0001/runs/c0001_metric_identifiability_audit_v16_round7_acceptance_r4/ (in T025 isolated worktree)
+    round7_r4_outcome: interrupted_without_exit_code; running manifest, 1627/4080 call lines, last durable write 2026-09-24T15:52:11Z; preserve and never resume
+    round7_r5_retry_gate: GPU_RUNmultiAI/cycles/C0001/implementation_acceptance_r4_interruption_and_r5_retry_gate.md
     acceptance_tests: [targeted C0001 guard/resume tests, compileall, diff check, committed source inventory]
     forbidden: [frozen v16 preregistration edit, existing runs/r2 overwrite, acceptance/full audit]
 completed_tasks:
@@ -282,6 +284,7 @@ completed_tasks:
     integration_commit: 47d7459
     result: four C0001 evidence and preregistration draft artifacts persisted
 open_findings:
+  - Round7 r4 acceptance process disappeared after 1627/4080 calls at 15:52 UTC, coincident with GNOME session logout; exact exit signal unavailable. Manifest remains running, no abort manifest. PI classified it interrupted, not PASS, preserved r4, and authorized a fresh r5 suffix on the same source via a monitored user systemd service. `Linger=no` remains an operational limitation. See implementation_acceptance_r4_interruption_and_r5_retry_gate.md.
   - Round7 r4 fresh 510-B1/4080-call implementation acceptance is running as session 73114 from ba3ef3d in T025 worktree. Do not duplicate, overwrite, or resume; no source edit/test in that worktree until terminal status. This is not scientific data.
   - PI gate at 2026-09-24 15:38 UTC authorized exactly one fresh round7 acceptance r4 on committed/pushed ba3ef3d after same-commit conda full focused 152 PASS and independent Claude r7 conditional PASS. The child guard side-channel and r4 output were absent; no overlapping test process; frozen v16 hash matched. See implementation_acceptance_r4_pi_gate.md. This is non-scientific and does not authorize full audit.
   - Independent Claude Opus 5.5 r7 conditionally PASSed ba3ef3d for one fresh empty no-resume acceptance only, pending the running same-commit PI conda full focused suite. No closure or scientific PASS. Six closure/operational caveats are recorded in the r7 review artifact, including fail-closed side-channel read/cleanup and nonempty shared runtime channel handling.
@@ -318,11 +321,13 @@ retries:
   C0001-T023: 1
 
 next_action: >
-  Monitor the already-running round7 r4 implementation acceptance session 73114 in
-  /tmp/lansr-multiai-C0001-child-guard-durability. It uses committed/pushed ba3ef3d and
-  fresh output c0001_metric_identifiability_audit_v16_round7_acceptance_r4. Do not start a
-  second run, edit this worktree, overwrite output, or resume. Once terminal, mechanically
-  verify the new primary packet (including 510 B1, exactly 4080 unique counted calls,
+  Launch one fresh round7 r5 implementation acceptance in
+  /tmp/lansr-multiai-C0001-child-guard-durability from committed/pushed ba3ef3d, using a
+  monitored user systemd service and empty output c0001_metric_identifiability_audit_v16_round7_acceptance_r5.
+  Use the frozen CLI plus --implementation-acceptance --fail-if-exists, no --resume. Preserve
+  interrupted r4 (1627/4080 calls) and all earlier outputs. Do not duplicate or edit the
+  task worktree while r5 runs. Once terminal, mechanically verify the new primary packet
+  (including 510 B1, exactly 4080 unique counted calls,
   guard, Q4/reachability, source/frozen-plan hashes, lifecycle and no error_isolated=true),
   then obtain independent Claude review and PI gate. If failed, preserve the packet,
   diagnose, and retry only under a fresh suffix after review.
@@ -333,7 +338,7 @@ next_action: >
   Preserve r2 and prior runs. Mechanically verify the new packet, independently review it,
   bind 91 accepted source hashes and closure record, run bounded smoke, then consider full audit.
 
-last_checkpoint_utc: 2026-09-24T15:38:50Z
+last_checkpoint_utc: 2026-09-24T16:38:00Z
 ```
 
 ## Notes
