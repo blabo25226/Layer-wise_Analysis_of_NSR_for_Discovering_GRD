@@ -41,7 +41,11 @@ def load_jsonl(path: Path, *, key_fn: Callable[[dict[str, Any]], tuple[Any, ...]
     seen: set[tuple[Any, ...]] = set()
     if not path.is_file():
         return rows
-    for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError as exc:
+        raise AuditInvariantError(f"invalid UTF-8 in JSONL file {path}: {exc}") from exc
+    for line_number, line in enumerate(text.splitlines(), start=1):
         if not line.strip():
             continue
         try:

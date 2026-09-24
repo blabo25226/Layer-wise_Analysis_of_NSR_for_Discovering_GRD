@@ -247,7 +247,19 @@ class SealedPathGuard:
         self._installed = False
 
     def extend_child_attempts(self, rows: list[dict[str, str]]) -> None:
+        existing = {
+            (item.attempted_operation, item.attempted_path_norm, item.attempted_path_real)
+            for item in self.child_attempts
+        }
         for row in rows:
+            key = (
+                row["attempted_operation"],
+                row["attempted_path_norm"],
+                row["attempted_path_real"],
+            )
+            if key in existing:
+                continue
+            existing.add(key)
             attempt = AccessAttempt(
                 attempted_operation=row["attempted_operation"],
                 attempted_path_norm=row["attempted_path_norm"],

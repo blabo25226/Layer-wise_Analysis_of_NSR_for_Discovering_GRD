@@ -391,14 +391,25 @@ def _finalize_auxiliary_live_probe_guard(
             "auxiliary live ident-fallback probe recorded sealed-path child attempts "
             f"without auxiliary side-channel sink: child_attempts={child_count}"
         )
-    for attempt in guard.child_attempts:
-        auxiliary_guard_sink.append(
-            {
-                "attempted_operation": f"auxiliary_live_probe:{attempt.attempted_operation}",
-                "attempted_path_norm": attempt.attempted_path_norm,
-                "attempted_path_real": attempt.attempted_path_real,
-            }
+    seen = {
+        (
+            row["attempted_operation"],
+            row["attempted_path_norm"],
+            row["attempted_path_real"],
         )
+        for row in auxiliary_guard_sink
+    }
+    for attempt in guard.child_attempts:
+        row = {
+            "attempted_operation": f"auxiliary_live_probe:{attempt.attempted_operation}",
+            "attempted_path_norm": attempt.attempted_path_norm,
+            "attempted_path_real": attempt.attempted_path_real,
+        }
+        key = (row["attempted_operation"], row["attempted_path_norm"], row["attempted_path_real"])
+        if key in seen:
+            continue
+        seen.add(key)
+        auxiliary_guard_sink.append(row)
     return direct, child_count, total
 
 
@@ -607,8 +618,13 @@ def _reach_ident_fallback_1_live_production_observation_body(
             finalized=finalized,
         )
     finally:
+        child_attempts_before_reconcile = len(guard.child_attempts)
+        _reconcile_orphan_child_process_guard_side_channel(guard)
+        if finalized and len(guard.child_attempts) > child_attempts_before_reconcile:
+            raise GateAbortError(
+                "auxiliary live probe cannot certify: orphan child guard rows appeared after finalize"
+            )
         if not finalized:
-            _reconcile_orphan_child_process_guard_side_channel(guard)
             _finalize_auxiliary_live_probe_guard(guard, auxiliary_guard_sink)
 
 
@@ -678,14 +694,14 @@ def _reach_ident_fallback_1_live_probe_scan(
             timeout_sec=Q4_TIMEOUT_SEC,
         ):
             continue
-        try:
-            simplified = simplify_tree_subprocess(
-                component_prefix_list_from_raw(e1_prefix_raw),
-                timeout_sec=SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
+        simplified = simplify_tree_subprocess(
+            component_prefix_list_from_raw(e1_prefix_raw),
+            timeout_sec=SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
+        )
+        if simplified.get("child_guard_accounting_uncertain"):
+            raise GateAbortError(
+                "auxiliary live probe cannot certify: simplifier child guard accounting incomplete"
             )
-        except Exception:
-            _reconcile_orphan_child_process_guard_side_channel(guard)
-            raise
         if simplified.get("guard_attempts"):
             guard.extend_child_attempts(simplified["guard_attempts"])
         simplifier_output_raw = ""

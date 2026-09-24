@@ -1576,6 +1576,128 @@ def test_malformed_child_side_channel_on_simplify_failure_fails_closed(monkeypat
             path.unlink()
 
 
+def test_malformed_child_side_channel_non_dict_fails_closed(monkeypatch):
+    """r4 MINOR-4: non-dict JSONL rows must abort, not downgrade to benign observation."""
+    from gpu_runmultiai.guard_side_channel import child_side_channel_path
+    from gpu_runmultiai.invariants import GateAbortError
+    from gpu_runmultiai.reachability import _reach_ident_fallback_1_live_production_observation
+
+    def _bad_side_channel(*_args, **_kwargs):
+        path = child_side_channel_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("[1, 2, 3]\n", encoding="utf-8")
+        return {"ok": False, "failure_reason": "SyntheticFailure", "guard_attempts": []}
+
+    _install_match_path_fakes(monkeypatch, simplifier_guard_attempts=[])
+    monkeypatch.setattr("gpu_runmultiai.odeformer_runtime.simplify_tree_subprocess", _bad_side_channel)
+
+    try:
+        with pytest.raises(GateAbortError, match="malformed child guard side channel"):
+            _reach_ident_fallback_1_live_production_observation(auxiliary_guard_sink=[])
+    finally:
+        path = child_side_channel_path()
+        if path.is_file():
+            path.unlink()
+
+
+def test_malformed_child_side_channel_invalid_utf8_fails_closed(monkeypatch):
+    from gpu_runmultiai.guard_side_channel import child_side_channel_path
+    from gpu_runmultiai.invariants import GateAbortError
+    from gpu_runmultiai.reachability import _reach_ident_fallback_1_live_production_observation
+
+    def _bad_utf8_side_channel(*_args, **_kwargs):
+        path = child_side_channel_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"\xff\xfe\n")
+        return {"ok": False, "failure_reason": "SyntheticFailure", "guard_attempts": []}
+
+    _install_match_path_fakes(monkeypatch, simplifier_guard_attempts=[])
+    monkeypatch.setattr("gpu_runmultiai.odeformer_runtime.simplify_tree_subprocess", _bad_utf8_side_channel)
+
+    try:
+        with pytest.raises(GateAbortError, match="malformed child guard side channel"):
+            _reach_ident_fallback_1_live_production_observation(auxiliary_guard_sink=[])
+    finally:
+        path = child_side_channel_path()
+        if path.is_file():
+            path.unlink()
+
+
+def test_simplifier_subprocess_timeout_merges_durable_child_side_channel(tmp_path, monkeypatch):
+    import subprocess
+
+    import gpu_runmultiai.odeformer_runtime as runtime
+    from gpu_runmultiai.guard_side_channel import append_guard_attempts, child_side_channel_path
+
+    denied_row = {
+        "attempted_operation": "open",
+        "attempted_path_norm": "/tmp/timeout_denied",
+        "attempted_path_real": "/tmp/timeout_denied",
+    }
+    path = child_side_channel_path()
+
+    def _timeout(*_args, **_kwargs):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        append_guard_attempts(path, [denied_row])
+        raise subprocess.TimeoutExpired(cmd="worker", timeout=5.0, output="", stderr="")
+
+    monkeypatch.setattr(runtime.subprocess, "run", _timeout)
+    result = runtime.simplify_tree_subprocess(["add,x_0,1"], timeout_sec=5.0)
+    assert result["failure_reason"] == "SubprocessTimeout"
+    assert result["guard_attempts"] == [denied_row]
+    assert result.get("child_guard_accounting_uncertain") is False
+    if path.is_file():
+        path.unlink()
+
+
+def test_auxiliary_probe_fails_closed_on_uncertain_child_guard_accounting(monkeypatch):
+    from gpu_runmultiai.invariants import GateAbortError
+    from gpu_runmultiai.reachability import _reach_ident_fallback_1_live_production_observation
+
+    def _uncertain_simplify(*_args, **_kwargs):
+        return {
+            "ok": False,
+            "failure_reason": "subprocess_failure",
+            "guard_attempts": [],
+            "child_guard_accounting_uncertain": True,
+        }
+
+    _install_match_path_fakes(monkeypatch, simplifier_guard_attempts=[])
+    monkeypatch.setattr("gpu_runmultiai.odeformer_runtime.simplify_tree_subprocess", _uncertain_simplify)
+
+    with pytest.raises(GateAbortError, match="child guard accounting incomplete"):
+        _reach_ident_fallback_1_live_production_observation(auxiliary_guard_sink=[])
+
+
+def test_orphan_child_side_channel_reconcile_is_idempotent(monkeypatch, tmp_path):
+    from gpu_runmultiai.guard_side_channel import append_guard_attempts, child_side_channel_path
+    from gpu_runmultiai.reachability import (
+        _finalize_auxiliary_live_probe_guard,
+        _reconcile_orphan_child_process_guard_side_channel,
+    )
+    from gpu_runmultiai.sealed_guard import SealedPathGuard
+
+    denied_row = {
+        "attempted_operation": "open",
+        "attempted_path_norm": "/tmp/orphan_once",
+        "attempted_path_real": "/tmp/orphan_once",
+    }
+    path = child_side_channel_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    append_guard_attempts(path, [denied_row])
+
+    guard = SealedPathGuard(output_root_abs=tmp_path / "results" / "runs")
+    sink: list[dict[str, str]] = []
+    _reconcile_orphan_child_process_guard_side_channel(guard)
+    _reconcile_orphan_child_process_guard_side_channel(guard)
+    assert len(guard.child_attempts) == 1
+    _finalize_auxiliary_live_probe_guard(guard, sink)
+    _finalize_auxiliary_live_probe_guard(guard, sink)
+    assert len(sink) == 1
+    if path.is_file():
+        path.unlink()
+
+
 def test_match_path_fallback_patch_is_reachability_scoped(monkeypatch):
     """r3 finding 2: the match-path test must force fallback via ``reachability`` import site."""
     from gpu_runmultiai import reachability as reachability_module
@@ -2890,6 +3012,78 @@ def test_acceptance_resume_without_ledgers_rejects(tmp_path, bootstrap_guard, mo
         _run_audit(options, bootstrap_guard)
     assert registration_calls == []
     assert not (output_dir / "call_log.jsonl").exists()
+
+
+def test_acceptance_resume_invalid_identity_verifies_before_clear_stale(
+    tmp_path, bootstrap_guard, monkeypatch
+):
+    """r4 MINOR-3: implementation-acceptance resume must verify identity before clearing abort."""
+    from gpu_runmultiai import audit as audit_module
+    from gpu_runmultiai.invariants import ResumeIdentityError
+
+    output_dir = tmp_path / "acceptance_resume_clear_ordering"
+    base_options = _acceptance_entrypoint_options(output_dir)
+    _patch_acceptance_entrypoint_closure(monkeypatch)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    (output_dir / "call_log.jsonl").write_text("", encoding="utf-8")
+    (output_dir / "pair_results.csv").write_text("pair_id\n", encoding="utf-8")
+    manifest = {
+        "status": "aborted",
+        "resume_identity": {"commit": "0" * 40},
+        "commit": "0" * 40,
+        "source_hashes": [],
+    }
+    (output_dir / "audit_manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    (output_dir / "abort_manifest.json").write_text(
+        json.dumps({"status": "aborted", "abort_type": "PriorAcceptanceAbort", "abort_reason": "marker"}),
+        encoding="utf-8",
+    )
+
+    events: list[str] = []
+    real_clear = audit_module.clear_stale_abort_manifest
+    real_verify = audit_module.verify_resume_identity
+
+    def tracked_clear(directory):
+        events.append("clear_stale")
+        return real_clear(directory)
+
+    def tracked_verify(existing, new):
+        events.append("verify_resume_identity")
+        return real_verify(existing, new)
+
+    monkeypatch.setattr(audit_module, "clear_stale_abort_manifest", tracked_clear)
+    monkeypatch.setattr(audit_module, "verify_resume_identity", tracked_verify)
+
+    mismatched = {**base_options, "resume": True, "oracle_timeout_sec": 45.0}
+    with pytest.raises(ResumeIdentityError):
+        _run_audit(mismatched, bootstrap_guard)
+
+    assert events == ["verify_resume_identity", "clear_stale"]
+
+
+def test_acceptance_rejects_residual_auxiliary_denied_rows(tmp_path):
+    """r4 MINOR-5: acceptance must not ignore denied rows already on the auxiliary channel."""
+    from gpu_runmultiai.audit import _assert_no_residual_auxiliary_denied_attempts
+    from gpu_runmultiai.guard_side_channel import (
+        append_guard_attempts,
+        reachability_auxiliary_side_channel_path,
+    )
+    from gpu_runmultiai.invariants import GateAbortError
+
+    output_dir = tmp_path / "acceptance_residual_aux"
+    aux_path = reachability_auxiliary_side_channel_path(output_dir)
+    append_guard_attempts(
+        aux_path,
+        [
+            {
+                "attempted_operation": "auxiliary_live_probe:open",
+                "attempted_path_norm": "/tmp/residual_denied",
+                "attempted_path_real": "/tmp/residual_denied",
+            }
+        ],
+    )
+    with pytest.raises(GateAbortError, match="residual rows from prior acceptance attempt"):
+        _assert_no_residual_auxiliary_denied_attempts(aux_path)
 
 
 def test_acceptance_resume_identity_mismatch_preserves_prior_abort_manifest(

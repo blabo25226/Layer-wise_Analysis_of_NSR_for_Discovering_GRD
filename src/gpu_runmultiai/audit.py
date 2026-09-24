@@ -559,6 +559,25 @@ def _assert_reachability_before_counted_primitives(
     )
 
 
+def _assert_no_residual_auxiliary_denied_attempts(side_channel: Path) -> None:
+    """Fail closed when a prior acceptance attempt left denied rows on the auxiliary channel."""
+    if not side_channel.is_file():
+        return
+    try:
+        if side_channel.stat().st_size == 0:
+            return
+    except OSError:
+        return
+    rows = load_guard_attempts(side_channel)
+    if rows:
+        raise GateAbortError(
+            "G4 auxiliary sealed-path child attempts denied before counted primitives: "
+            f"auxiliary_denied_attempts={len(rows)} "
+            f"side_channel={repo_relative_path(side_channel)} "
+            "(residual rows from prior acceptance attempt)"
+        )
+
+
 def _assert_no_auxiliary_denied_attempts(
     auxiliary_guard_sink: list[dict[str, str]], side_channel: Path
 ) -> None:
@@ -921,6 +940,7 @@ def _run_implementation_acceptance(
     auxiliary_guard_sink: list[dict[str, str]] = []
     reachability_aux_path = reachability_auxiliary_side_channel_path(output_dir)
     artifacts.ensure_guard_side_channel(reachability_aux_path)
+    _assert_no_residual_auxiliary_denied_attempts(reachability_aux_path)
     try:
         reachability_evidence = build_acceptance_reachability_evidence(
             auxiliary_guard_sink=auxiliary_guard_sink

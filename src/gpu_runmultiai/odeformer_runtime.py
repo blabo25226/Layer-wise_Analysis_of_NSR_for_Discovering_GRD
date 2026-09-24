@@ -290,25 +290,36 @@ def simplify_tree_subprocess(
             cwd=str(REPO_ROOT),
         )
     except subprocess.TimeoutExpired as exc:
+        stdout = exc.stdout
+        if isinstance(stdout, bytes):
+            stdout = stdout.decode("utf-8", errors="replace")
         guard_attempts = _merge_guard_attempts(
             _guard_attempts_from_timeout_output(exc),
-            load_guard_attempts(side_channel),
+            _load_child_side_channel_attempts(side_channel),
         )
         return {
             "ok": False,
             "failure_reason": "SubprocessTimeout",
             "guard_attempts": guard_attempts,
+            "child_guard_accounting_uncertain": _subprocess_guard_accounting_uncertain(
+                stdout=str(stdout or ""),
+                guard_attempts=guard_attempts,
+            ),
         }
 
     guard_attempts = _merge_guard_attempts(
         _guard_attempts_from_process_output(proc.stdout, proc.stderr),
-        load_guard_attempts(side_channel),
+        _load_child_side_channel_attempts(side_channel),
     )
     if proc.returncode != 0:
         return {
             "ok": False,
             "failure_reason": proc.stderr.strip() or "subprocess_failure",
             "guard_attempts": guard_attempts,
+            "child_guard_accounting_uncertain": _subprocess_guard_accounting_uncertain(
+                stdout=proc.stdout,
+                guard_attempts=guard_attempts,
+            ),
         }
     try:
         result_payload = json.loads(proc.stdout)
@@ -317,6 +328,7 @@ def simplify_tree_subprocess(
             "ok": False,
             "failure_reason": "JSONDecodeError",
             "guard_attempts": guard_attempts,
+            "child_guard_accounting_uncertain": True,
         }
     if not result_payload.get("guard_attempts"):
         result_payload["guard_attempts"] = guard_attempts
@@ -326,6 +338,30 @@ def simplify_tree_subprocess(
             guard_attempts,
         )
     return result_payload
+
+
+def _load_child_side_channel_attempts(path: Path) -> list[dict[str, str]]:
+    if not path.is_file():
+        return []
+    return load_guard_attempts(path)
+
+
+def _subprocess_guard_accounting_uncertain(
+    *,
+    stdout: str,
+    guard_attempts: list[dict[str, str]],
+) -> bool:
+    """True when the parent cannot prove zero sealed-path child attempts were lost."""
+    if guard_attempts:
+        return False
+    text = str(stdout or "").strip()
+    if not text:
+        return False
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError:
+        return True
+    return not isinstance(payload, dict)
 
 
 def _merge_guard_attempts(*groups: list[dict[str, str]]) -> list[dict[str, str]]:

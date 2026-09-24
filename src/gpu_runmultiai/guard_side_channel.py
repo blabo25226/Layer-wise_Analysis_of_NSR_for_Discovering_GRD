@@ -44,6 +44,10 @@ def load_guard_attempts(path: Path) -> list[dict[str, str]]:
     """Load the durable side channel; malformed complete lines abort (§12.5)."""
     rows: list[dict[str, str]] = []
     for index, payload in enumerate(load_jsonl(path)):
+        if not isinstance(payload, dict):
+            raise AuditInvariantError(
+                f"malformed guard side-channel line {index + 1} in {path}: expected object, got {type(payload).__name__}"
+            )
         missing = [field for field in GUARD_ATTEMPT_FIELDS if field not in payload]
         if missing:
             raise AuditInvariantError(
