@@ -361,8 +361,11 @@ def _reconcile_orphan_child_process_guard_side_channel(guard: Any) -> None:
     try:
         if path.stat().st_size == 0:
             return
-    except OSError:
-        return
+    except OSError as exc:
+        raise GateAbortError(
+            "auxiliary live probe cannot certify: child guard side channel stat failed "
+            f"at {path}: {exc}"
+        ) from exc
     try:
         attempts = load_guard_attempts(path)
     except AuditInvariantError as exc:

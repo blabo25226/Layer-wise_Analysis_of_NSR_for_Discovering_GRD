@@ -21,7 +21,7 @@ from gpu_runmultiai.constants import (
 )
 from gpu_runmultiai.ids import component_id_for, negative_id_for, pair_id_for
 from gpu_run4.ted import time_limit
-from gpu_runmultiai.invariants import AuditInvariantError
+from gpu_runmultiai.invariants import AuditInvariantError, GateAbortError
 from gpu_runmultiai.quantization import assign_quantization_stratum
 from gpu_runmultiai.odeformer_runtime import (
     ODEFormerUnavailable,
@@ -528,6 +528,11 @@ def _execute_chain(
                     tree_to_prefix_list(e1_tree),
                     timeout_sec=simplifier_timeout_sec,
                 )
+                if simplified_local.get("child_guard_accounting_uncertain"):
+                    raise GateAbortError(
+                        "simplifier child guard accounting incomplete: "
+                        "cannot certify sealed-path attempts"
+                    )
                 if simplified_local.get("guard_attempts"):
                     guard.extend_child_attempts(simplified_local["guard_attempts"])
                 return simplified_local
@@ -544,6 +549,11 @@ def _execute_chain(
                 executor=_run_simplifier,
                 status_for_result=lambda row: "completed" if row.get("ok") else "failed",
             )
+            if simplified.get("child_guard_accounting_uncertain"):
+                raise GateAbortError(
+                    "simplifier child guard accounting incomplete: "
+                    "cannot certify sealed-path attempts"
+                )
             if not simplified.get("ok"):
                 return build_outcome_row(
                     **base,
@@ -701,6 +711,8 @@ def _execute_chain(
     except Q4ContractError:
         raise
     except AuditInvariantError:
+        raise
+    except GateAbortError:
         raise
     except (ODEFormerUnavailable, ValueError, TypeError, IndexError, json.JSONDecodeError, subprocess.TimeoutExpired) as exc:
         stage = locals().get("current_stage", "E0")

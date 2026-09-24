@@ -566,8 +566,11 @@ def _assert_no_residual_auxiliary_denied_attempts(side_channel: Path) -> None:
     try:
         if side_channel.stat().st_size == 0:
             return
-    except OSError:
-        return
+    except OSError as exc:
+        raise GateAbortError(
+            "G4 auxiliary sealed-path side channel stat failed before counted primitives: "
+            f"side_channel={repo_relative_path(side_channel)} error={exc}"
+        ) from exc
     rows = load_guard_attempts(side_channel)
     if rows:
         raise GateAbortError(

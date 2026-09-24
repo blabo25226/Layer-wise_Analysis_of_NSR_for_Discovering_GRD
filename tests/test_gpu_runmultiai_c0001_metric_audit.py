@@ -727,6 +727,7 @@ def test_simplifier_subprocess_timeout_is_exact():
         result = simplify_tree_subprocess(["add,x_0,1"], timeout_sec=SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC)
         assert mocked_run.call_args.kwargs["timeout"] == SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC
         assert result["failure_reason"] == "SubprocessTimeout"
+        assert result.get("child_guard_accounting_uncertain") is True
 
 
 def test_sealed_guard_symlink_lexical_and_real_checks(tmp_path):
@@ -1642,12 +1643,118 @@ def test_simplifier_subprocess_timeout_merges_durable_child_side_channel(tmp_pat
         raise subprocess.TimeoutExpired(cmd="worker", timeout=5.0, output="", stderr="")
 
     monkeypatch.setattr(runtime.subprocess, "run", _timeout)
+    try:
+        result = runtime.simplify_tree_subprocess(["add,x_0,1"], timeout_sec=5.0)
+        assert result["failure_reason"] == "SubprocessTimeout"
+        assert result["guard_attempts"] == [denied_row]
+        assert result.get("child_guard_accounting_uncertain") is False
+    finally:
+        if path.is_file():
+            path.unlink()
+
+
+def test_simplifier_subprocess_nonzero_exit_without_receipt_is_uncertain(monkeypatch):
+    import gpu_runmultiai.odeformer_runtime as runtime
+
+    class _Proc:
+        returncode = 1
+        stdout = ""
+        stderr = "killed"
+
+    monkeypatch.setattr(runtime.subprocess, "run", lambda *args, **kwargs: _Proc())
     result = runtime.simplify_tree_subprocess(["add,x_0,1"], timeout_sec=5.0)
-    assert result["failure_reason"] == "SubprocessTimeout"
-    assert result["guard_attempts"] == [denied_row]
-    assert result.get("child_guard_accounting_uncertain") is False
-    if path.is_file():
-        path.unlink()
+    assert result["ok"] is False
+    assert result.get("child_guard_accounting_uncertain") is True
+    assert result["guard_attempts"] == []
+
+
+def test_simplifier_subprocess_json_without_guard_attempts_list_is_uncertain(monkeypatch):
+    import gpu_runmultiai.odeformer_runtime as runtime
+
+    class _Proc:
+        returncode = 1
+        stdout = json.dumps({"ok": False, "failure_reason": "Synthetic"})
+        stderr = ""
+
+    monkeypatch.setattr(runtime.subprocess, "run", lambda *args, **kwargs: _Proc())
+    result = runtime.simplify_tree_subprocess(["add,x_0,1"], timeout_sec=5.0)
+    assert result.get("child_guard_accounting_uncertain") is True
+
+
+def test_simplifier_subprocess_preserves_preexisting_side_channel_on_timeout(monkeypatch):
+    import subprocess
+
+    import gpu_runmultiai.odeformer_runtime as runtime
+    from gpu_runmultiai.guard_side_channel import append_guard_attempts, child_side_channel_path
+
+    denied_row = {
+        "attempted_operation": "open",
+        "attempted_path_norm": "/tmp/orphan_before_unlink",
+        "attempted_path_real": "/tmp/orphan_before_unlink",
+    }
+    path = child_side_channel_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    append_guard_attempts(path, [denied_row])
+
+    def _timeout(*_args, **_kwargs):
+        raise subprocess.TimeoutExpired(cmd="worker", timeout=5.0, output="", stderr="")
+
+    monkeypatch.setattr(runtime.subprocess, "run", _timeout)
+    try:
+        result = runtime.simplify_tree_subprocess(["add,x_0,1"], timeout_sec=5.0)
+        assert result["guard_attempts"] == [denied_row]
+        assert result.get("child_guard_accounting_uncertain") is False
+    finally:
+        if path.is_file():
+            path.unlink()
+
+
+@pytest.mark.skipif(os.environ.get("LANSR_SKIP_ODEFORMER_CHAIN") == "1", reason="ODEFormer runtime unavailable")
+def test_run_b0_pair_simplifier_uncertain_child_guard_fails_closed(monkeypatch):
+    import gpu_runmultiai.pipeline as pipeline_module
+    from gpu_runmultiai.invariants import GateAbortError
+    from gpu_runmultiai.odeformer_runtime import ODEFormerUnavailable, require_odeformer
+    from gpu_runmultiai.rewrites import rewrite_registration, truth_component_infix
+
+    try:
+        require_odeformer()
+    except ODEFormerUnavailable:
+        pytest.skip("ODEFormer runtime unavailable")
+
+    corpus = load_frozen_corpus()
+    record = next(row for row in corpus["train_records"] if row["system_id"] == "R01_train_d61001_000")
+    truth_prefix, truth_infix = truth_component_infix(record, 0)
+    rewrite = rewrite_registration(
+        record["system_id"],
+        0,
+        truth_prefix,
+        truth_infix,
+        oracle_timeout_sec=30.0,
+    )
+
+    def _uncertain_simplify(*_args, **_kwargs):
+        return {
+            "ok": False,
+            "failure_reason": "subprocess_failure",
+            "guard_attempts": [],
+            "child_guard_accounting_uncertain": True,
+        }
+
+    monkeypatch.setattr(pipeline_module, "simplify_tree_subprocess", _uncertain_simplify)
+    with pytest.raises(GateAbortError, match="child guard accounting incomplete"):
+        pipeline_module.run_b0_pair(
+            corpus_hash=corpus["corpus_hash"],
+            record=record,
+            component_idx=0,
+            scale="0.1",
+            rewrite_row=rewrite,
+            oracle_timeout_sec=30.0,
+            q4_timeout_sec=Q4_TIMEOUT_SEC,
+            simplifier_timeout_sec=SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
+            call_logger=CallLogger(),
+            runtime_available=True,
+            guard=SealedPathGuard(output_root_abs=Path("/nonexistent/results/runs")),
+        )
 
 
 def test_auxiliary_probe_fails_closed_on_uncertain_child_guard_accounting(monkeypatch):
@@ -1688,14 +1795,16 @@ def test_orphan_child_side_channel_reconcile_is_idempotent(monkeypatch, tmp_path
 
     guard = SealedPathGuard(output_root_abs=tmp_path / "results" / "runs")
     sink: list[dict[str, str]] = []
-    _reconcile_orphan_child_process_guard_side_channel(guard)
-    _reconcile_orphan_child_process_guard_side_channel(guard)
-    assert len(guard.child_attempts) == 1
-    _finalize_auxiliary_live_probe_guard(guard, sink)
-    _finalize_auxiliary_live_probe_guard(guard, sink)
-    assert len(sink) == 1
-    if path.is_file():
-        path.unlink()
+    try:
+        _reconcile_orphan_child_process_guard_side_channel(guard)
+        _reconcile_orphan_child_process_guard_side_channel(guard)
+        assert len(guard.child_attempts) == 1
+        _finalize_auxiliary_live_probe_guard(guard, sink)
+        _finalize_auxiliary_live_probe_guard(guard, sink)
+        assert len(sink) == 1
+    finally:
+        if path.is_file():
+            path.unlink()
 
 
 def test_match_path_fallback_patch_is_reachability_scoped(monkeypatch):
@@ -3084,6 +3193,47 @@ def test_acceptance_rejects_residual_auxiliary_denied_rows(tmp_path):
     )
     with pytest.raises(GateAbortError, match="residual rows from prior acceptance attempt"):
         _assert_no_residual_auxiliary_denied_attempts(aux_path)
+
+
+def test_residual_auxiliary_side_channel_stat_oserror_fails_closed(tmp_path, monkeypatch):
+    from gpu_runmultiai.audit import _assert_no_residual_auxiliary_denied_attempts
+    from gpu_runmultiai.guard_side_channel import reachability_auxiliary_side_channel_path
+    from gpu_runmultiai.invariants import GateAbortError
+
+    output_dir = tmp_path / "acceptance_residual_stat_fail"
+    aux_path = reachability_auxiliary_side_channel_path(output_dir)
+    aux_path.parent.mkdir(parents=True, exist_ok=True)
+    aux_path.write_text('{"attempted_operation":"open"}\n', encoding="utf-8")
+
+    def _stat_fail(_self):
+        raise OSError("simulated stat failure")
+
+    monkeypatch.setattr(type(aux_path), "stat", _stat_fail)
+    with pytest.raises(GateAbortError, match="side channel stat failed"):
+        _assert_no_residual_auxiliary_denied_attempts(aux_path)
+
+
+def test_orphan_child_side_channel_stat_oserror_fails_closed(monkeypatch, tmp_path):
+    from gpu_runmultiai.guard_side_channel import child_side_channel_path
+    from gpu_runmultiai.invariants import GateAbortError
+    from gpu_runmultiai.reachability import _reconcile_orphan_child_process_guard_side_channel
+    from gpu_runmultiai.sealed_guard import SealedPathGuard
+
+    path = child_side_channel_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(b"not-empty")
+
+    def _stat_fail(_self):
+        raise OSError("simulated stat failure")
+
+    monkeypatch.setattr(type(path), "stat", _stat_fail)
+    guard = SealedPathGuard(output_root_abs=tmp_path / "results" / "runs")
+    try:
+        with pytest.raises(GateAbortError, match="side channel stat failed"):
+            _reconcile_orphan_child_process_guard_side_channel(guard)
+    finally:
+        if path.is_file():
+            path.unlink()
 
 
 def test_acceptance_resume_identity_mismatch_preserves_prior_abort_manifest(

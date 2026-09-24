@@ -278,6 +278,7 @@ def simplify_tree_subprocess(
     worker = REPO_ROOT / "src/gpu_runmultiai/simplifier_worker.py"
     payload = json.dumps({"prefixes": prefixes, "timeout_sec": timeout_sec})
     side_channel = child_side_channel_path()
+    preexisting_attempts = _load_child_side_channel_attempts(side_channel)
     if side_channel.is_file():
         side_channel.unlink()
     try:
@@ -294,6 +295,7 @@ def simplify_tree_subprocess(
         if isinstance(stdout, bytes):
             stdout = stdout.decode("utf-8", errors="replace")
         guard_attempts = _merge_guard_attempts(
+            preexisting_attempts,
             _guard_attempts_from_timeout_output(exc),
             _load_child_side_channel_attempts(side_channel),
         )
@@ -308,6 +310,7 @@ def simplify_tree_subprocess(
         }
 
     guard_attempts = _merge_guard_attempts(
+        preexisting_attempts,
         _guard_attempts_from_process_output(proc.stdout, proc.stderr),
         _load_child_side_channel_attempts(side_channel),
     )
@@ -337,6 +340,10 @@ def simplify_tree_subprocess(
             result_payload.get("guard_attempts", []),
             guard_attempts,
         )
+    result_payload["child_guard_accounting_uncertain"] = _subprocess_guard_accounting_uncertain(
+        stdout=proc.stdout,
+        guard_attempts=result_payload["guard_attempts"],
+    )
     return result_payload
 
 
@@ -354,17 +361,28 @@ def _subprocess_guard_accounting_uncertain(
     """True when the parent cannot prove zero sealed-path child attempts were lost."""
     if guard_attempts:
         return False
+    payload = _worker_stdout_receipt(stdout)
+    if payload is None:
+        return True
+    attempts = payload.get("guard_attempts")
+    return not isinstance(attempts, list)
+
+
+def _worker_stdout_receipt(stdout: str) -> dict[str, Any] | None:
     text = str(stdout or "").strip()
     if not text:
-        return False
+        return None
     try:
         payload = json.loads(text)
     except json.JSONDecodeError:
-        return True
-    return not isinstance(payload, dict)
+        return None
+    if not isinstance(payload, dict):
+        return None
+    return payload
 
 
 def _merge_guard_attempts(*groups: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Merge attempt groups; identical operation/path tuples may collapse (residual undercount risk)."""
     merged: list[dict[str, str]] = []
     seen: set[tuple[str, str, str]] = set()
     for group in groups:
