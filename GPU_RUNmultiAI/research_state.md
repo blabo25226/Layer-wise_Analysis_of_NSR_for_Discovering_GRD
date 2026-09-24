@@ -125,7 +125,9 @@ active_tasks:
     focused_test_interim: 128 passed, 6 failed on dirty source; no PASS claimed
     active_repair_worker: Cursor Agent write session 36072 completed; 17 targeted tests PASS, commit 86d0891 pushed and remote SHA verified
     final_source_full_focused_test_session: 67797 (conda lansr310, in progress on committed 86d0891)
-    final_source_independent_review_session: 84384 (Claude Opus 5.5, read-only, in progress)
+    final_source_independent_review_session: 84384 (Claude Opus 5.5, read-only, completed)
+    final_source_independent_review_verdict: PASS_to_one_fresh_acceptance_only; MAJOR timeout child-attempt evidence gap blocks closure and PI defers fresh acceptance until repair
+    final_source_independent_review_artifact: GPU_RUNmultiAI/cycles/C0001/implementation_review_v16_post_acceptance_safety_r4.md (C0001-T024 worktree, untracked pending integration)
     fallback_reason: Cursor second revision left repeated auxiliary-guard and destructive-resume evidence-integrity findings
     focused_system_python_test: 107 passed, 14 skipped; conda lansr310 full focused suite not yet rerun
     frozen_plan_hash_unchanged: true
@@ -134,6 +136,18 @@ active_tasks:
     independent_reviewer_identity: Claude Opus 5.5 reproducibility-auditor
     reviewer_diff_assertion: true
     acceptance_tests: [focused C0001 test module, source-inventory validation, no full-audit execution]
+  - task_id: C0001-T025
+    track: scientific
+    role: repo-operator
+    worker: Cursor Agent
+    branch: ai/C0001/repo-operator/child-guard-durability
+    worktree: /tmp/lansr-multiai-C0001-child-guard-durability
+    base_commit: 86d089123226dfef434d8e0921f5f37d3afa81fc
+    write_scope: [child guard timeout/crash evidence durability, idempotent orphan merge, malformed side-channel fail-closed tests, acceptance resume ordering, task handoff]
+    status: running
+    worker_session: 18466
+    acceptance_tests: [targeted C0001 guard/resume tests, compileall, diff check, committed source inventory]
+    forbidden: [frozen v16 preregistration edit, existing runs/r2 overwrite, acceptance/full audit]
 completed_tasks:
   - task_id: C0001-INFRA-T003
     track: infrastructure
@@ -246,6 +260,7 @@ completed_tasks:
     integration_commit: 47d7459
     result: four C0001 evidence and preregistration draft artifacts persisted
 open_findings:
+  - Independent Claude Opus 5.5 r4 conditionally allowed one fresh acceptance on 86d0891 but found MAJOR timeout/early-crash child guard attempts can disappear with no timeout marker; PI defers the expensive fresh acceptance until C0001-T025 resolves this evidence-integrity gap. Minor duplicate orphan merge, acceptance ordering, malformed side-channel and shared runtime risks are also recorded in r4.
   - C0001-T024 r3 source 86d0891 committed and task-branch remote SHA verified; Cursor targeted regression suite 17 PASS. PI conda full focused suite and independent Claude Opus 5.5 r4 review are in progress. No fresh acceptance/full audit yet.
   - The 2026-09-24 PI full focused suite on uncommitted C0001-T024 source ended 128 passed, 6 failed. Every failure was source-inventory-at-commit mismatch versus HEAD 456d8be (including closure fixture cascades), not an observed safety-regression assertion failure. Commit source first, then rerun full suite; do not count this run as PASS.
   - Independent Claude Opus 5.5 r3 source review conditionally PASSed one fresh acceptance only, while identifying malformed/timeout simplifier side-channel loss risk, ineffective match-path monkeypatch, and weak abort-ordering tests. Cursor session 36072 is repairing these in isolation before commit; no acceptance/full audit authorized.
@@ -273,20 +288,22 @@ retries:
   C0001-T023: 1
 
 next_action: >
-  Monitor PI conda full focused suite (session 67797) and read-only independent Claude Opus 5.5
-  r4 source review (session 84384) in /tmp/lansr-multiai-C0001-full-audit-safety at committed
-  and pushed 86d0891. Do not duplicate tests or start acceptance while either is pending.
-  Inspect results and source/review; repair if blocked, otherwise record PI gate and run exactly
-  one fresh 4080-call implementation acceptance in a new empty suffixed output directory with
-  --fail-if-exists, never reuse r2. Resolve or explicitly waive remaining review findings
-  before scientific closure.
+  Monitor PI conda full focused suite (session 67797) on committed 86d0891 in
+  /tmp/lansr-multiai-C0001-full-audit-safety; do not duplicate it. In parallel monitor the
+  sole C0001-T025 Cursor writer (session 18466) in its distinct isolated worktree
+  /tmp/lansr-multiai-C0001-child-guard-durability, repairing independent Opus r4 MAJOR-1
+  timeout/crash guard evidence gap and specified minor findings. Do not start fresh acceptance
+  while that source repair remains unresolved. Inspect T025 diff/tests/commit/push, obtain
+  independent reviewer PASS on final source and conda focused-suite PASS on that same commit,
+  then PI gate exactly one new empty suffixed 4080-call acceptance with --fail-if-exists.
+  Never reuse r2; mechanically verify new packet and preserve all earlier outputs.
   Preserve old abort manifests and fail-closed auxiliary guard evidence on all paths.
   Only after a final-source PASS and conda focused-suite PASS may one fresh
   4080-call acceptance run start in a new suffixed output directory (not r2).
   Preserve r2 and prior runs. Mechanically verify the new packet, independently review it,
   bind 91 accepted source hashes and closure record, run bounded smoke, then consider full audit.
 
-last_checkpoint_utc: 2026-09-24T11:50:20Z
+last_checkpoint_utc: 2026-09-24T11:56:20Z
 ```
 
 ## Notes
