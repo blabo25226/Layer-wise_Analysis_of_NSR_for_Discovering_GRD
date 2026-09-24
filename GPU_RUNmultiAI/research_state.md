@@ -244,11 +244,13 @@ retries:
   C0001-T023: 1
 
 next_action: >
-  Dispatch Cursor task C0001-T024 in /tmp/lansr-multiai-C0001-full-audit-safety to fix
-  the full-audit reachability exception P2 blocker and other bounded review findings, with tests and commit.
-  Independently review the diff and final source inventory; determine whether the 4080-call acceptance
-  must be rerun at final source before closure. Preserve the accepted r2 packet and all prior run trees.
-  No implementation closure record or full 27637-call audit before independent PASS.
+  Monitor the one active Cursor task C0001-T024 (PI shell session 57714) in
+  /tmp/lansr-multiai-C0001-full-audit-safety; do not dispatch a duplicate writer.
+  On completion inspect its commit, diff and tests, verify non-force push, and obtain independent
+  Claude Opus 5.5 reproducibility review. Source inventory changes require a fresh 4080-call
+  acceptance packet in a new suffixed output directory before final closure, unless an independent
+  reviewer demonstrates that a narrower check is sufficient under frozen v16.
+  Preserve accepted r2 and all prior run trees. No implementation closure record or full 27637-call audit before independent PASS.
 
 last_checkpoint_utc: 2026-09-24T06:46:36Z
 ```
