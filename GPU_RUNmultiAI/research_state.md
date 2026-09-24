@@ -144,7 +144,7 @@ active_tasks:
     worktree: /tmp/lansr-multiai-C0001-child-guard-durability
     base_commit: 86d089123226dfef434d8e0921f5f37d3afa81fc
     write_scope: [child guard timeout/crash evidence durability, idempotent orphan merge, malformed side-channel fail-closed tests, acceptance resume ordering, task handoff]
-    status: r6_committed_source_round7_r4_interrupted_r5_preflight_rejected_r6_authorized
+    status: r6_committed_source_round7_r6_acceptance_running_in_clean_worktree
     worker_session: 18466 initial commit 0016644; revision 11387 source c2067c2; r6 Cursor session 92105 completed source 2787587 and handoff ba3ef3d; no writer active
     initial_source_commit: 0016644a4f2903f00abc1616912ff2b518e20155
     initial_source_remote_verified: true
@@ -173,6 +173,9 @@ active_tasks:
     round7_r5_outcome: preflight_rejected_before_output; user-systemd invocation 7a0dccd9724c4d80b289f9c6cf1fd729 exit 1 because preserved r4 untracked directory made T025 worktree dirty
     round7_r6_worktree: /tmp/lansr-multiai-C0001-acceptance-r6 (branch ai/C0001/repo-operator/acceptance-r6, clean at source ba3ef3d)
     round7_r6_gate: GPU_RUNmultiAI/cycles/C0001/implementation_acceptance_r5_preflight_failure_and_r6_gate.md
+    round7_r6_service: lansr-c0001-acceptance-r6.service (systemd --user invocation a6e81620fb504b26b9fcbbe5876f7118, started 2026-09-24T16:40:14Z)
+    round7_r6_output: GPU_RUNmultiAI/cycles/C0001/runs/c0001_metric_identifiability_audit_v16_round7_acceptance_r6/ (in clean isolated r6 worktree)
+    round7_r6_remote_verified: true (branch ai/C0001/repo-operator/acceptance-r6 at ba3ef3d)
     acceptance_tests: [targeted C0001 guard/resume tests, compileall, diff check, committed source inventory]
     forbidden: [frozen v16 preregistration edit, existing runs/r2 overwrite, acceptance/full audit]
 completed_tasks:
@@ -287,6 +290,7 @@ completed_tasks:
     integration_commit: 47d7459
     result: four C0001 evidence and preregistration draft artifacts persisted
 open_findings:
+  - Round7 r6 acceptance is active as user systemd unit lansr-c0001-acceptance-r6.service from clean worktree /tmp/lansr-multiai-C0001-acceptance-r6 and reviewed source ba3ef3d. The branch remote SHA was verified. Do not duplicate/overwrite/resume; monitor unit/journal and r6 primary output. Linger=no may still interrupt a last-session logout.
   - r5 service was rejected before output by source preflight because the intentionally preserved r4 directory was untracked in the T025 worktree. No r5 experiment occurred. PI created a clean isolated r6 worktree at the same reviewed ba3ef3d and authorized one new suffix. See implementation_acceptance_r5_preflight_failure_and_r6_gate.md.
   - Round7 r4 acceptance process disappeared after 1627/4080 calls at 15:52 UTC, coincident with GNOME session logout; exact exit signal unavailable. Manifest remains running, no abort manifest. PI classified it interrupted, not PASS, preserved r4, and authorized a fresh r5 suffix on the same source via a monitored user systemd service. `Linger=no` remains an operational limitation. See implementation_acceptance_r4_interruption_and_r5_retry_gate.md.
   - Round7 r4 fresh 510-B1/4080-call implementation acceptance is running as session 73114 from ba3ef3d in T025 worktree. Do not duplicate, overwrite, or resume; no source edit/test in that worktree until terminal status. This is not scientific data.
@@ -325,10 +329,11 @@ retries:
   C0001-T023: 1
 
 next_action: >
-  Launch one fresh round7 r6 implementation acceptance in clean isolated
-  /tmp/lansr-multiai-C0001-acceptance-r6 from reviewed source ba3ef3d, using a monitored
-  user systemd service and empty output c0001_metric_identifiability_audit_v16_round7_acceptance_r6.
-  Use the frozen CLI plus --implementation-acceptance --fail-if-exists, no --resume. Preserve
+  Monitor the already-running user systemd service lansr-c0001-acceptance-r6.service
+  (invocation a6e81620fb504b26b9fcbbe5876f7118) in clean isolated
+  /tmp/lansr-multiai-C0001-acceptance-r6 at reviewed source ba3ef3d. It writes only to
+  c0001_metric_identifiability_audit_v16_round7_acceptance_r6 with frozen CLI,
+  --implementation-acceptance --fail-if-exists and no --resume. Preserve
   interrupted r4 (1627/4080 calls), failed-before-output r5 journal, and all earlier outputs.
   Do not duplicate or edit the r6 worktree while it runs. Once terminal, mechanically verify the new primary packet
   (including 510 B1, exactly 4080 unique counted calls,
@@ -342,7 +347,7 @@ next_action: >
   Preserve r2 and prior runs. Mechanically verify the new packet, independently review it,
   bind 91 accepted source hashes and closure record, run bounded smoke, then consider full audit.
 
-last_checkpoint_utc: 2026-09-24T16:40:00Z
+last_checkpoint_utc: 2026-09-24T16:40:23Z
 ```
 
 ## Notes
