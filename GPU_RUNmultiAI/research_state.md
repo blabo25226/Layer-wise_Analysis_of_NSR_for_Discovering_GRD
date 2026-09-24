@@ -7,7 +7,7 @@ Update it before a parent session ends.
 campaign: GPU_RUNmultiAI
 status: active
 current_cycle: C0001
-current_stage: C0001_V16_ROUND7_PRE_CLOSURE_ACCEPTANCE_RUNNING
+current_stage: C0001_V16_ROUND7_ACCEPTANCE_REVIEW
 branch: 20260912_multiAI_research
 observed_commit: c7319e7ece430fbef4d5d04f9ffb3e0b69b8285d
 base_commit: df39f61f862da3329f29257b573659a19477601c
@@ -41,7 +41,7 @@ tracks:
   scientific:
     status: active
     current_cycle: C0001
-    stage: V16_ROUND7_PRE_CLOSURE_ACCEPTANCE_RUNNING
+    stage: V16_ROUND7_ACCEPTANCE_REVIEW
     resumed_by: user continuation after routing refresh
 
 active_tasks:
@@ -52,19 +52,17 @@ active_tasks:
     branch: ai/C0001/research-engineer/implement-metric-audit
     worktree: /tmp/lansr-multiai-C0001-implement-audit
     observed_commit: 6e20b25dc633dbc698fe79d63cfee7b87a255ea8
-    dirty_paths:
-      - src/gpu_runmultiai/manifest.py
-      - src/gpu_runmultiai/reachability.py
-      - tests/test_gpu_runmultiai_c0001_metric_audit.py
+    dirty_paths: []
     untracked_paths:
       - GPU_RUNmultiAI/.runtime/
       - GPU_RUNmultiAI/cycles/C0001/runs/c0001_metric_identifiability_audit_v16_round6_acceptance/
       - GPU_RUNmultiAI/cycles/C0001/runs/c0001_metric_identifiability_audit_v16_round6_acceptance_r2/
       - GPU_RUNmultiAI/cycles/C0001/runs/c0001_metric_identifiability_audit_v16_round6_acceptance_r3/
       - GPU_RUNmultiAI/cycles/C0001/runs/c0001_metric_identifiability_audit_v16_round7_acceptance/
+      - GPU_RUNmultiAI/cycles/C0001/runs/c0001_metric_identifiability_audit_v16_round7_acceptance_r2/
       - GPU_RUNmultiAI/cycles/C0001/runs/c0001_metric_identifiability_audit_v9_smoke/
     write_scope: [frozen 82-path runtime inventory, focused tests, G_contract/G_impl evidence, bounded v16 smoke, implementation completion]
-    status: pre_closure_acceptance_running
+    status: pre_closure_acceptance_review
     acceptance_output: GPU_RUNmultiAI/cycles/C0001/runs/c0001_metric_identifiability_audit_v16_round7_acceptance_r2/
     acceptance_source_commit: 6e20b25dc633dbc698fe79d63cfee7b87a255ea8
     acceptance_command: >
@@ -72,7 +70,10 @@ active_tasks:
       python scripts/phases/gpu_runmultiai_c0001_metric_audit.py --implementation-acceptance
       --fail-if-exists --output-dir
       GPU_RUNmultiAI/cycles/C0001/runs/c0001_metric_identifiability_audit_v16_round7_acceptance_r2
-    acceptance_status_observed: running; audit_manifest.json reports running; no PASS claimed
+    acceptance_status_observed: completed at 2026-09-24T06:00:35Z; mechanical and independent review pending; no PI PASS claimed
+    acceptance_observed_counts: 510 B1 rows, 4080 counted calls, 2145.36 elapsed seconds, 8713621 output bytes
+    acceptance_observed_gates: G_contract true; G_impl true; G_b1 true; reachability 10/10; timing calibration PASS
+    acceptance_review_workers: Gemini broker evidence compression and Cursor mechanical verifier and Claude Opus 5.5 independent auditor
     continuity_heartbeat: gpu-runmultiai (hourly, same thread; no duplicate run)
     prior_pause_reason: C0001-INFRA-T003 routing refresh; dirty scientific worktree preserved
     pi_resolution: GPU_RUNmultiAI/cycles/C0001/implementation_v16_round7_pi_resolution.md (scientific worktree only until source commit)
@@ -228,13 +229,14 @@ retries:
   C0001-T023: 1
 
 next_action: >
-  Monitor the one running C0001 v16 pre-closure acceptance process (PI shell session 11393) in
-  /tmp/lansr-multiai-C0001-implement-audit; do not rerun, resume, overwrite, or delete its r2 output.
-  Source branch tip is 6e20b25. Enforce frozen 18,000-second and 1,200,000,000-byte ceilings.
-  On completion mechanically verify 510 B1 rows, 4,080 unique counted calls, G_contract/G_impl,
-  F evidence, reachability, timing and final schema. Independent review and PI gate follow. Full audit prohibited.
+  Complete mechanical verification and independent Claude Opus 5.5 review of the completed r2
+  pre-closure acceptance packet in /tmp/lansr-multiai-C0001-implement-audit. Preserve r2 unchanged.
+  Verify frozen SHA, 510 distinct B1 rows, 4080 unique counted calls and multiplicities, G_contract/G_impl,
+  F evidence, reachability, timing and final schema. Then PI decides acceptance-only gate;
+  resolve full-audit P2 safety issues and create an accepted closure record before any full run.
+  Full 27637-call audit remains prohibited.
 
-last_checkpoint_utc: 2026-09-24T05:26:54Z
+last_checkpoint_utc: 2026-09-24T06:36:00Z
 ```
 
 ## Notes
