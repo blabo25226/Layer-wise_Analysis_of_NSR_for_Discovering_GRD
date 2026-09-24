@@ -94,10 +94,10 @@ def gate_g_contract(state: dict[str, Any]) -> bool:
 
 
 def gate_g_impl(state: dict[str, Any]) -> bool:
+    from gpu_runmultiai.reachability import reachability_evidence_passes
+
     reachability = state.get("reachability_evidence", [])
-    if not reachability or len(reachability) != 10:
-        return False
-    if not all(row.get("passed") for row in reachability):
+    if not reachability_evidence_passes(reachability):
         return False
     acceptance = state.get("f_acceptance", {})
     for key in ("F1", "F2", "F4", "F5", "F6", "F7", "F8"):

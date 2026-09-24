@@ -1296,10 +1296,53 @@ def test_reach_ident_fallback_live_observation_run_b0_pair_hard_bounded(monkeypa
     assert f"run_b0_pair_budget={LIVE_IDENT_FALLBACK_RUN_B0_PAIR_BUDGET}" in detail
     assert "run_b0_pair_calls=" in detail
     assert "bounded_scan_exhausted=" in detail
-    assert "bounded_no_match_within_first_8_trials=true" in detail
+    assert "bounded_no_match_within_budget=true" in detail
     assert "not_global_corpus_absence" in detail
     assert "production_e2_unchanged=True" in detail
     assert "live_simplifier_fixed_point" not in detail
+
+
+def test_acceptance_reachability_preflight_preserves_b1_call_log(tmp_path, monkeypatch):
+    """Acceptance path: live ident-fallback probe must not append to the B1 audit ledger."""
+    from gpu_runmultiai.audit import build_acceptance_reachability_evidence
+    from gpu_runmultiai.calls import CallLogger
+
+    call_log = tmp_path / "call_log.jsonl"
+    audit_logger = CallLogger(call_log)
+    audit_logger.execute_or_record(
+        primitive="oracle_equivalence",
+        condition="B1",
+        stage="E1",
+        unit_type="pair",
+        unit_id="pair_sha256:acceptance_ledger_probe",
+        status="completed",
+    )
+    before_bytes = call_log.read_bytes()
+    before_total = audit_logger.confirmatory_total()
+
+    live_calls = 0
+
+    def _fake_live():
+        nonlocal live_calls
+        live_calls += 1
+        return (
+            "live_production_observation bounded_no_match_within_budget=true "
+            "observation_scope=first_8_sorted_trials run_b0_pair_budget=8 "
+            "run_b0_pair_calls=0 auxiliary_guard_direct_attempts=0 "
+            "auxiliary_guard_child_attempts=0 bounded_scan_exhausted=False "
+            "not_global_corpus_absence production_e2_unchanged=True"
+        )
+
+    monkeypatch.setattr(
+        "gpu_runmultiai.reachability._reach_ident_fallback_1_live_production_observation",
+        _fake_live,
+    )
+    rows = build_acceptance_reachability_evidence()
+    assert live_calls == 1
+    assert audit_logger.confirmatory_total() == before_total
+    assert call_log.read_bytes() == before_bytes
+    ident = next(row for row in rows if row["fixture_id"] == "REACH-IDENT-FALLBACK-1")
+    assert "auxiliary_guard_child_attempts=" in ident["details"] or "live_production_observation" in ident["details"]
 
 
 def test_reach_ident_fallback_live_observation_isolated_from_counted_ledger(monkeypatch, tmp_path):
@@ -1339,7 +1382,7 @@ def test_build_reachability_evidence_excludes_live_ident_fallback_by_default(mon
     def _track_live():
         nonlocal live_calls
         live_calls += 1
-        return "live_production_observation bounded_no_match_within_first_8_trials=true"
+        return "live_production_observation bounded_no_match_within_budget=true"
 
     monkeypatch.setattr(
         "gpu_runmultiai.reachability._reach_ident_fallback_1_live_production_observation",
@@ -1357,7 +1400,7 @@ def test_reach_ident_fallback_row_labels_synthetic_pass_not_live_production(monk
     monkeypatch.setattr(
         "gpu_runmultiai.reachability._reach_ident_fallback_1_live_production_observation",
         lambda: (
-            "live_production_observation bounded_no_match_within_first_8_trials=true "
+            "live_production_observation bounded_no_match_within_budget=true "
             "observation_scope=first_8_sorted_trials run_b0_pair_budget=8 "
             "run_b0_pair_calls=0 bounded_scan_exhausted=False "
             "not_global_corpus_absence production_e2_unchanged=True"
@@ -2188,9 +2231,42 @@ def test_f_acceptance_rows_are_computed_from_rows():
     assert "510" in by_id["F6"]["details"]
 
 
+def test_build_reachability_fixture_exception_isolated_fail_closed(monkeypatch):
+    from gpu_runmultiai.reachability import REACHABILITY_FIXTURE_IDS, build_reachability_evidence
+
+    def _boom():
+        raise RuntimeError("injected reachability fixture failure")
+
+    monkeypatch.setattr("gpu_runmultiai.reachability._reach_sfn_1", _boom)
+    rows = build_reachability_evidence()
+    assert len(rows) == len(REACHABILITY_FIXTURE_IDS)
+    sfn = next(row for row in rows if row["fixture_id"] == "REACH-SFN-1")
+    assert sfn["passed"] is False
+    assert "fixture_execution_error" in sfn["details"]
+    assert "error_isolated=true" in sfn["details"]
+    assert next(row for row in rows if row["fixture_id"] == "REACH-PRESERVED-1")["passed"] is True
+
+
+def test_reachability_injected_failure_blocks_before_counted_primitives(monkeypatch):
+    from gpu_runmultiai.audit import GateAbortError, _assert_reachability_before_counted_primitives
+    from gpu_runmultiai.reachability import build_reachability_evidence
+
+    def _boom():
+        raise RuntimeError("injected reachability fixture failure")
+
+    monkeypatch.setattr("gpu_runmultiai.reachability._reach_sfn_1", _boom)
+    rows = build_reachability_evidence()
+    sfn = next(row for row in rows if row["fixture_id"] == "REACH-SFN-1")
+    assert sfn["passed"] is False
+    with pytest.raises(GateAbortError, match="before counted primitives"):
+        _assert_reachability_before_counted_primitives(rows, smoke=False)
+    _assert_reachability_before_counted_primitives(rows, smoke=True)
+
+
 def test_g_contract_and_g_impl_gates_read_executed_evidence():
     from gpu_runmultiai.controls import gate_g_contract, gate_g_impl
     from gpu_runmultiai.contract_evidence import F_ACCEPTANCE_IDS, G_CONTRACT_CHECK_KEYS
+    from gpu_runmultiai.reachability import REACHABILITY_FIXTURE_IDS
 
     passing = {key: True for key in G_CONTRACT_CHECK_KEYS}
     assert gate_g_contract({"g_contract_evidence": passing}) is True
@@ -2198,9 +2274,13 @@ def test_g_contract_and_g_impl_gates_read_executed_evidence():
         assert gate_g_contract({"g_contract_evidence": {**passing, key: False}}) is False
     assert gate_g_contract({}) is False
 
-    reachability = [{"passed": True} for _ in range(10)]
+    reachability = [{"fixture_id": fixture_id, "passed": True} for fixture_id in REACHABILITY_FIXTURE_IDS]
     acceptance = {key: True for key in F_ACCEPTANCE_IDS}
     assert gate_g_impl({"reachability_evidence": reachability, "f_acceptance": acceptance}) is True
+    duplicate_wrong_id = [
+        {"fixture_id": "REACH-SFN-1", "passed": True} for _ in range(len(REACHABILITY_FIXTURE_IDS))
+    ]
+    assert gate_g_impl({"reachability_evidence": duplicate_wrong_id, "f_acceptance": acceptance}) is False
     for key in F_ACCEPTANCE_IDS:
         assert (
             gate_g_impl(

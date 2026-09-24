@@ -97,7 +97,11 @@ from gpu_runmultiai.pipeline import (
     select_b3_pairs,
 )
 from gpu_runmultiai.q4_reference import Q4ContractError
-from gpu_runmultiai.reachability import build_reachability_evidence
+from gpu_runmultiai.reachability import (
+    LIVE_IDENT_FALLBACK_RUN_B0_PAIR_BUDGET,
+    build_reachability_evidence,
+    reachability_evidence_passes,
+)
 from gpu_runmultiai.stage_cache import append_stage_cache, load_stage_cache
 from gpu_runmultiai.source_inventory import build_source_inventory
 from gpu_runmultiai.strata import component_stratum, is_linear_component, is_strict_hill_component
@@ -519,6 +523,30 @@ def _derive_deviation_entries(options: dict[str, Any]) -> list[tuple[str, str, s
     return entries
 
 
+def build_acceptance_reachability_evidence() -> list[dict[str, Any]]:
+    """§3.8 reachability for implementation acceptance (includes capped live observation)."""
+    return build_reachability_evidence(include_live_ident_fallback_observation=True)
+
+
+def _assert_reachability_before_counted_primitives(
+    reachability_evidence: list[dict[str, Any]], *, smoke: bool
+) -> None:
+    """Fail-closed preflight: full confirmatory must not enter counted primitives when §3.8 fails."""
+    if smoke:
+        return
+    if reachability_evidence_passes(reachability_evidence):
+        return
+    failed = [
+        str(row.get("fixture_id"))
+        for row in reachability_evidence
+        if not row.get("passed")
+    ]
+    raise GateAbortError(
+        "G_impl reachability preflight FAIL before counted primitives: "
+        f"failed_fixtures={failed}"
+    )
+
+
 def write_abort_manifest(
     output_dir: Path,
     *,
@@ -830,6 +858,9 @@ def _run_implementation_acceptance(
         },
     )
 
+    reachability_evidence = build_acceptance_reachability_evidence()
+    _assert_reachability_before_counted_primitives(reachability_evidence, smoke=False)
+
     oracle_timeout_sec = float(options["oracle_timeout_sec"])
     q4_timeout_sec = float(options.get("q4_timeout_sec", Q4_TIMEOUT_SEC))
     simplifier_timeout_sec = float(options.get("simplifier_subprocess_timeout_sec", 5.0))
@@ -938,9 +969,6 @@ def _run_implementation_acceptance(
         stage_cache=stage_cache,
         cache_path=stage_cache_path,
     )
-    reachability_evidence = build_reachability_evidence(
-        include_live_ident_fallback_observation=True,
-    )
     timing_calibration = run_timing_calibration(
         call_logger=evidence_logger,
         runtime_available=runtime_available,
@@ -979,7 +1007,18 @@ def _run_implementation_acceptance(
             description="implementation acceptance mode (--implementation-acceptance): 510 B1 rows only",
             scientific_impact="non-scientific implementation evidence; not confirmatory audit data",
             resolution="full confirmatory audit requires accepted closure record",
-        )
+        ),
+        build_deviation_entry(
+            description=(
+                "implementation acceptance auxiliary work excluded from §8.1 counted ledger: "
+                "registration for all components, smoke B0/B2 pairs, seven q4_reference fixtures, "
+                "§3.8 reachability preflight (synthetic fixtures plus capped live ident-fallback "
+                f"observation budget={LIVE_IDENT_FALLBACK_RUN_B0_PAIR_BUDGET} run_b0_pair trials), "
+                "timing_calibration projection"
+            ),
+            scientific_impact="auxiliary preflight only; not confirmatory counted-call evidence",
+            resolution="full confirmatory audit uses separate ledger and omits live ident-fallback probe",
+        ),
     ]
     for entry in deviation_entries:
         artifacts.append_deviation_entry(deviation_path, entry)
@@ -1171,6 +1210,11 @@ def _run_audit_body(
             "worktree_provenance": worktree_provenance,
             "started_utc": utc_now(),
         },
+    )
+
+    reachability_evidence = build_reachability_evidence()
+    _assert_reachability_before_counted_primitives(
+        reachability_evidence, smoke=bool(options.get("smoke"))
     )
 
     oracle_timeout_sec = float(options["oracle_timeout_sec"])
@@ -1370,7 +1414,6 @@ def _run_audit_body(
     deviation_entries = _derive_deviation_entries(options)
     for entry in deviation_entries:
         artifacts.append_deviation_entry(deviation_path, entry)
-    reachability_evidence = build_reachability_evidence(resource_monitor=resource_monitor)
     negative_controls_payload = [
         {
             "negative_id": row["negative_id"],

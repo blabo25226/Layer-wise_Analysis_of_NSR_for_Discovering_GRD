@@ -32,6 +32,29 @@ from gpu_runmultiai.q4_reference import audit_q4_decimal_round_reference
 
 PRIMARY_PAIR_COUNT = 1320
 
+REACHABILITY_FIXTURE_IDS: tuple[str, ...] = (
+    "REACH-POW-COMP-1",
+    "REACH-SFN-1",
+    "REACH-PRESERVED-1",
+    "REACH-UNS-1",
+    "REACH-SUP-1",
+    "REACH-DRIFT-E2",
+    "REACH-Q4FAIL-1",
+    "REACH-IDENT-FALLBACK-1",
+    "REACH-PARSE-1",
+    "REACH-RESCALE-1",
+)
+
+
+def reachability_evidence_passes(rows: list[dict[str, Any]]) -> bool:
+    """True when §3.8 rows match the frozen ten-fixture set and all passed."""
+    if len(rows) != len(REACHABILITY_FIXTURE_IDS):
+        return False
+    by_id = {row.get("fixture_id") for row in rows}
+    if by_id != set(REACHABILITY_FIXTURE_IDS):
+        return False
+    return all(bool(row.get("passed")) for row in rows)
+
 
 def _reachability_row(fixture_id: str, evidence_type: str, passed: bool, details: str) -> dict[str, Any]:
     return {
@@ -217,7 +240,9 @@ def _synthetic_gate_state(primary_rows: list[dict[str, Any]]) -> dict[str, Any]:
         "strict_rows": primary_rows,
         "g_contract_evidence": {key: True for key in G_CONTRACT_CHECK_KEYS},
         "f_acceptance": {key: True for key in F_ACCEPTANCE_IDS},
-        "reachability_evidence": [{"passed": True} for _ in range(10)],
+        "reachability_evidence": [
+            {"fixture_id": fixture_id, "passed": True} for fixture_id in REACHABILITY_FIXTURE_IDS
+        ],
     }
 
 
@@ -499,6 +524,7 @@ def _reach_ident_fallback_1_live_production_observation_body() -> str:
     guard = SealedPathGuard(output_root_abs=Path("/nonexistent/results/runs"))
     auxiliary_logger = CallLogger()
     run_b0_pair_calls = 0
+    child_guard_attempts_logged = 0
     for record, component_idx, scale in trials:
         dimension = int(record["dimension"])
         truth_prefix, truth_infix = truth_component_infix(record, component_idx)
@@ -523,6 +549,7 @@ def _reach_ident_fallback_1_live_production_observation_body() -> str:
             guard=guard,
         )
         run_b0_pair_calls += 1
+        child_guard_attempts_logged = len(guard.child_attempts)
         e1_prefix_raw = row.get("e1_prefix_raw") or ""
         production_e2_prefix_raw = row.get("e2_prefix_raw") or ""
         if MULTI_COMPONENT_SEPARATOR not in e1_prefix_raw:
@@ -581,6 +608,8 @@ def _reach_ident_fallback_1_live_production_observation_body() -> str:
                 "live_production_observation bounded_match=true "
                 f"observation_scope=first_{budget}_sorted_trials "
                 f"run_b0_pair_budget={budget} run_b0_pair_calls={run_b0_pair_calls} "
+                f"auxiliary_guard_direct_attempts={len(guard.attempts)} "
+                f"auxiliary_guard_child_attempts={child_guard_attempts_logged} "
                 f"system_id={record['system_id']} component_idx={component_idx} "
                 f"scale={scale} dimension={dimension} "
                 f"production_e1_raw==e2_raw=True production_e2_unchanged=True "
@@ -594,10 +623,12 @@ def _reach_ident_fallback_1_live_production_observation_body() -> str:
             )
     bounded_scan_exhausted = run_b0_pair_calls >= len(trials)
     return (
-        "live_production_observation bounded_no_match_within_first_8_trials=true "
+        "live_production_observation bounded_no_match_within_budget=true "
         f"observation_scope=first_{budget}_sorted_trials "
         f"run_b0_pair_budget={budget} run_b0_pair_calls={run_b0_pair_calls} "
         f"bounded_scan_exhausted={bounded_scan_exhausted} "
+        f"auxiliary_guard_direct_attempts={len(guard.attempts)} "
+        f"auxiliary_guard_child_attempts={child_guard_attempts_logged} "
         "not_global_corpus_absence production_e2_unchanged=True"
     )
 
@@ -703,6 +734,38 @@ def _reach_pow_comp_1() -> dict[str, Any]:
     )
 
 
+def _reachability_fixture_failed_row(fixture_id: str, exc: BaseException) -> dict[str, Any]:
+    return _reachability_row(
+        fixture_id,
+        "synthetic",
+        False,
+        f"fixture_execution_error error_isolated=true error={type(exc).__name__}:{exc}",
+    )
+
+
+def _run_reachability_fixture(
+    fixture_id: str,
+    builder: Any,
+    *,
+    include_live_ident_fallback_observation: bool = False,
+) -> dict[str, Any]:
+    try:
+        if fixture_id == "REACH-IDENT-FALLBACK-1":
+            row = builder(include_live_observation=include_live_ident_fallback_observation)
+        else:
+            row = builder()
+    except Exception as exc:  # must not abort confirmatory work after counted primitives
+        return _reachability_fixture_failed_row(fixture_id, exc)
+    if row.get("fixture_id") != fixture_id:
+        return _reachability_row(
+            fixture_id,
+            str(row.get("evidence_type") or "synthetic"),
+            False,
+            f"fixture_id_mismatch expected={fixture_id} got={row.get('fixture_id')}",
+        )
+    return row
+
+
 def build_reachability_evidence(
     resource_monitor: Any | None = None,
     *,
@@ -714,17 +777,28 @@ def build_reachability_evidence(
     must not attach to the confirmatory audit monitor. Live identity-fallback observation
     runs only when ``include_live_ident_fallback_observation`` is True (implementation
     acceptance / pre-closure preflight).
+
+    Fixture builders are error-isolated: an exception becomes a fail-closed row instead of
+    aborting the audit process.
     """
     _ = resource_monitor
+    builders: list[tuple[str, Any]] = [
+        ("REACH-POW-COMP-1", _reach_pow_comp_1),
+        ("REACH-SFN-1", _reach_sfn_1),
+        ("REACH-PRESERVED-1", _reach_preserved_1),
+        ("REACH-UNS-1", _reach_uns_1),
+        ("REACH-SUP-1", _reach_sup_1),
+        ("REACH-DRIFT-E2", _reach_drift_e2),
+        ("REACH-Q4FAIL-1", _reach_q4fail_1),
+        ("REACH-IDENT-FALLBACK-1", _reach_ident_fallback_1),
+        ("REACH-PARSE-1", _reach_parse_1),
+        ("REACH-RESCALE-1", _reach_rescale_1),
+    ]
     return [
-        _reach_pow_comp_1(),
-        _reach_sfn_1(),
-        _reach_preserved_1(),
-        _reach_uns_1(),
-        _reach_sup_1(),
-        _reach_drift_e2(),
-        _reach_q4fail_1(),
-        _reach_ident_fallback_1(include_live_observation=include_live_ident_fallback_observation),
-        _reach_parse_1(),
-        _reach_rescale_1(),
+        _run_reachability_fixture(
+            fixture_id,
+            fn,
+            include_live_ident_fallback_observation=include_live_ident_fallback_observation,
+        )
+        for fixture_id, fn in builders
     ]
