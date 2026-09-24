@@ -9,13 +9,13 @@ status: active
 current_cycle: C0001
 current_stage: C0001_V16_POST_ACCEPTANCE_SAFETY_REVIEW
 branch: 20260912_multiAI_research
-observed_commit: 1c65532920d15642176a2237305d1eea3d03074f
+observed_commit: 6a48318b8a96dc718399718fdb0f1fb208cbfd79
 base_commit: df39f61f862da3329f29257b573659a19477601c
 remote_branch: 20260912_multiAI_research
-remote_commit: 1c65532920d15642176a2237305d1eea3d03074f
-remote_commit_note: verified checkpoint before this state update; newer tip is verified separately after push
-last_push_attempt_utc: 2026-09-24T17:42:00Z
-last_push_error: null
+remote_commit: d410e06cd251244576a839ba83ea17403e1e2b08
+remote_commit_note: last independently verified remote SHA; local branch is ahead because GitHub authentication failed
+last_push_attempt_utc: 2026-09-24T18:39:00Z
+last_push_error: GitHub CLI reports stored token invalid; HTTPS push cannot read Username; SSH authentication denied publickey
 binding_plan:
   path: GPU_RUNmultiAI/cycles/C0001/preregistration_draft_v16.md
   version: v16
@@ -30,8 +30,8 @@ binding_plan:
   closure_verdict: PASS
   frozen_at_utc: 2026-09-16T01:06:24Z
 
-hard_stop: false
-hard_stop_reason: null
+hard_stop: true
+hard_stop_reason: GitHub credentials required for mandated non-force push durability; gh stored token invalid and SSH publickey denied. User must reauthenticate; do not claim local review/gate commits are remote-durable.
 
 tracks:
   infrastructure:
@@ -298,6 +298,7 @@ completed_tasks:
     integration_commit: 47d7459
     result: four C0001 evidence and preregistration draft artifacts persisted
 open_findings:
+  - HARD STOP (credentials): after local commit 6a48318 recorded the independent r6 review and PI gate, non-force push failed because gh auth status reports the stored GitHub token invalid; SSH auth also denied publickey. Remote remains d410e06. No credentials were printed or changed. Local state is safe; do not start closure worker until user reauthenticates and remote parity is restored.
   - Independent Claude Opus 5.5 post-r6 review PASS_PRE_CLOSURE_ACCEPTANCE_ONLY; PI accepted the mechanically verified r6 packet for closure work only. No scientific conclusion or full-audit authorization. Reviewer found r7 guard-durability issues 1–5 still closure-blocking, plus acceptance fingerprint/freshness/G4 evidence/not-evaluated gate semantics and timing-smoke gaps. See implementation_review_v16_round7_acceptance_r6.md and implementation_acceptance_r6_pi_gate.md.
   - Round7 r6 implementation acceptance completed at 2026-09-24T17:15:35Z, service exit 0. PI direct mechanical checks found 510/510 B1, 4080 unique counted calls, 7/7 Q4, 10/10 reachability, applicable G_contract/G_impl and source-hash consistency. Gemini broker compressed a prompt-supplied index, but its truncated-commit and plan-amendment speculations were rejected against primary evidence. Independent Claude Opus 5.5 post-packet review session 40316 is running; no closure/full audit/scientific result yet.
   - Round7 r6 acceptance is active as user systemd unit lansr-c0001-acceptance-r6.service from clean worktree /tmp/lansr-multiai-C0001-acceptance-r6 and reviewed source ba3ef3d. The branch remote SHA was verified. Do not duplicate/overwrite/resume; monitor unit/journal and r6 primary output. Linger=no may still interrupt a last-session logout.
@@ -339,7 +340,10 @@ retries:
   C0001-T023: 1
 
 next_action: >
-  Begin C0001 closure hardening from reviewed source ba3ef3d in a new isolated Cursor
+  Await user reauthentication for GitHub (for example gh auth login -h github.com). Then
+  verify gh auth status, non-force push local 20260912_multiAI_research, and confirm remote
+  SHA equals local HEAD. If push succeeds, clear hard_stop in a new state commit, push and
+  verify that SHA too. Only then begin C0001 closure hardening from reviewed source ba3ef3d in a new isolated Cursor
   repo-operator worktree/branch. Explicit scope: independent r7 guard-durability issues 1–5
   plus post-r6 review MINOR 1–4, with focused regression tests; document MINOR 5–9 and
   recheck timing before bounded smoke. Preserve r6 primary packet, interrupted r4,
@@ -354,7 +358,7 @@ next_action: >
   Preserve r2 and prior runs. Mechanically verify the new packet, independently review it,
   bind 91 accepted source hashes and closure record, run bounded smoke, then consider full audit.
 
-last_checkpoint_utc: 2026-09-24T18:38:42Z
+last_checkpoint_utc: 2026-09-24T18:40:14Z
 ```
 
 ## Notes
