@@ -73,6 +73,7 @@ active_tasks:
       --fail-if-exists --output-dir
       GPU_RUNmultiAI/cycles/C0001/runs/c0001_metric_identifiability_audit_v16_round7_acceptance_r2
     acceptance_status_observed: running; audit_manifest.json reports running; no PASS claimed
+    continuity_heartbeat: gpu-runmultiai (hourly, same thread; no duplicate run)
     prior_pause_reason: C0001-INFRA-T003 routing refresh; dirty scientific worktree preserved
     pi_resolution: GPU_RUNmultiAI/cycles/C0001/implementation_v16_round7_pi_resolution.md (scientific worktree only until source commit)
     source_candidate_commit: 663a56d467636761a2030aa381a12fb2af4313c2
