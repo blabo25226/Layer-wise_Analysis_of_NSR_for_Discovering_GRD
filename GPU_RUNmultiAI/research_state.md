@@ -7,14 +7,14 @@ Update it before a parent session ends.
 campaign: GPU_RUNmultiAI
 status: active
 current_cycle: C0001
-current_stage: C0001_V16_POST_ACCEPTANCE_FULL_AUDIT_SAFETY
+current_stage: C0001_V16_POST_ACCEPTANCE_SAFETY_REVIEW
 branch: 20260912_multiAI_research
-observed_commit: f37678c3f81efbc117396a7bac124bf588a7d71e
+observed_commit: f35ad8bc9d4daa0bb0cc0219c072a9e7517e99b3
 base_commit: df39f61f862da3329f29257b573659a19477601c
 remote_branch: 20260912_multiAI_research
-remote_commit: f37678c3f81efbc117396a7bac124bf588a7d71e
+remote_commit: f35ad8bc9d4daa0bb0cc0219c072a9e7517e99b3
 remote_commit_note: verified checkpoint before this state update; newer tip is verified separately after push
-last_push_attempt_utc: 2026-09-24T06:44:00Z
+last_push_attempt_utc: 2026-09-24T06:48:00Z
 last_push_error: null
 binding_plan:
   path: GPU_RUNmultiAI/cycles/C0001/preregistration_draft_v16.md
@@ -41,7 +41,7 @@ tracks:
   scientific:
     status: active
     current_cycle: C0001
-    stage: V16_POST_ACCEPTANCE_FULL_AUDIT_SAFETY
+    stage: V16_POST_ACCEPTANCE_SAFETY_REVIEW
     resumed_by: user continuation after routing refresh
 
 active_tasks:
@@ -107,7 +107,12 @@ active_tasks:
     worktree: /tmp/lansr-multiai-C0001-full-audit-safety
     base_commit: ba8ccfc612c29077214d30a0e4a451bbfd3642ed
     write_scope: [full-audit reachability safety, exact fixture-ID gate, guard-attempt honesty, ledger-isolation regression test, focused tests, handoff]
-    status: running
+    status: source_committed_pending_independent_review
+    source_commit: f9933b223606deab88b7ec675b64eb349acb7815
+    source_remote_verified: true
+    focused_system_python_test: 107 passed, 14 skipped; conda lansr310 full focused suite not yet rerun
+    frozen_plan_hash_unchanged: true
+    source_inventory_paths: 91
     implementer_identity: Cursor Agent
     independent_reviewer_identity: Claude Opus 5.5 reproducibility-auditor
     reviewer_diff_assertion: true
@@ -244,15 +249,14 @@ retries:
   C0001-T023: 1
 
 next_action: >
-  Monitor the one active Cursor task C0001-T024 (PI shell session 57714) in
-  /tmp/lansr-multiai-C0001-full-audit-safety; do not dispatch a duplicate writer.
-  On completion inspect its commit, diff and tests, verify non-force push, and obtain independent
-  Claude Opus 5.5 reproducibility review. Source inventory changes require a fresh 4080-call
-  acceptance packet in a new suffixed output directory before final closure, unless an independent
-  reviewer demonstrates that a narrower check is sufficient under frozen v16.
-  Preserve accepted r2 and all prior run trees. No implementation closure record or full 27637-call audit before independent PASS.
+  Await the one active Claude Opus 5.5 independent source review (PI shell session 73877)
+  of Cursor's committed/pushed f9933b2 safety diff. Do not duplicate review or launch full audit.
+  If source review PASS, run the complete focused C0001 suite in conda lansr310, then a fresh
+  4080-call pre-closure acceptance at final source in a new suffixed output directory (not r2).
+  Preserve r2 and prior runs. Mechanically verify the new packet, independently review it,
+  bind 91 accepted source hashes and closure record, run bounded smoke, then consider full audit.
 
-last_checkpoint_utc: 2026-09-24T06:46:36Z
+last_checkpoint_utc: 2026-09-24T07:33:44Z
 ```
 
 ## Notes
