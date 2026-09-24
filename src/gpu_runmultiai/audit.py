@@ -559,11 +559,44 @@ def _assert_reachability_before_counted_primitives(
     )
 
 
+def _assert_no_auxiliary_denied_attempts(
+    auxiliary_guard_sink: list[dict[str, str]], side_channel: Path
+) -> None:
+    """Fail closed before counted primitives on any denied auxiliary child attempt (frozen §11).
+
+    §11 merges child side-channel rows into the parent handle whose attempts feed G4, so any
+    denied child row would make G4 FAIL. The auxiliary probe's rows are persisted durably to
+    ``side_channel`` rather than merged into the confirmatory G4 ledger; the equivalent
+    fail-closed outcome is a global abort here, before any §10 counted call.
+    """
+    if not auxiliary_guard_sink:
+        return
+    raise GateAbortError(
+        "G4 auxiliary sealed-path child attempts denied before counted primitives: "
+        f"auxiliary_denied_attempts={len(auxiliary_guard_sink)} "
+        f"side_channel={repo_relative_path(side_channel)}"
+    )
+
+
 def clear_stale_abort_manifest(output_dir: Path) -> None:
-    """Remove a prior global-abort manifest before resuming or restarting counted work."""
+    """Archive (never delete) a prior global-abort manifest before restarting counted work.
+
+    Resume paths invoke this only after resume identity and closure validation have already
+    succeeded (§12.7 P3). ``write_abort_manifest`` also invokes it before every abort write,
+    so an invalid or mismatched resume that itself aborts cannot overwrite an earlier abort
+    record. The prior file is renamed to a timestamped sibling so it remains a recoverable
+    artifact even though ``abort_manifest.json`` itself is cleared for the new run.
+    """
     path = Path(output_dir) / "abort_manifest.json"
-    if path.is_file():
-        path.unlink()
+    if not path.is_file():
+        return
+    stamp = utc_now().replace(":", "").replace(".", "")
+    backup = path.with_name(f"abort_manifest.prior-{stamp}.json")
+    suffix = 1
+    while backup.exists():
+        backup = path.with_name(f"abort_manifest.prior-{stamp}-{suffix}.json")
+        suffix += 1
+    path.replace(backup)
 
 
 def write_abort_manifest(
@@ -592,6 +625,8 @@ def write_abort_manifest(
         "output_dir_byte_ceiling": OUTPUT_DIR_BYTE_CEILING,
         "byte_convention": BYTE_CONVENTION,
     }
+    # Never overwrite earlier abort evidence (e.g. a rejected --resume after a prior abort).
+    clear_stale_abort_manifest(output_dir)
     write_json(Path(output_dir) / "abort_manifest.json", payload)
     return payload
 
@@ -822,7 +857,8 @@ def _run_implementation_acceptance(
             raise ResumeIdentityError(
                 "implementation acceptance --resume requires existing call_log.jsonl and pair_results.csv"
             )
-        clear_stale_abort_manifest(output_dir)
+        # Do not clear a prior abort manifest yet: identity/closure validation below can still
+        # reject this resume attempt, and the earlier abort record must survive that rejection.
         existing_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         call_logger = CallLogger.load(call_log_path, resource_monitor=resource_monitor)
         call_logger.skip_duplicates = True
@@ -862,6 +898,9 @@ def _run_implementation_acceptance(
         plan_hash=resume_identity["plan_hash"],
         audit_id=resume_identity["audit_id"],
     )
+    if resume_acceptance:
+        # Identity and closure validation both passed: safe to archive any prior abort record.
+        clear_stale_abort_manifest(output_dir)
     artifacts.write_atomic_manifest(
         manifest_path,
         {
@@ -882,11 +921,15 @@ def _run_implementation_acceptance(
     auxiliary_guard_sink: list[dict[str, str]] = []
     reachability_aux_path = reachability_auxiliary_side_channel_path(output_dir)
     artifacts.ensure_guard_side_channel(reachability_aux_path)
-    reachability_evidence = build_acceptance_reachability_evidence(
-        auxiliary_guard_sink=auxiliary_guard_sink
-    )
-    if auxiliary_guard_sink:
-        append_guard_attempts(reachability_aux_path, auxiliary_guard_sink)
+    try:
+        reachability_evidence = build_acceptance_reachability_evidence(
+            auxiliary_guard_sink=auxiliary_guard_sink
+        )
+    finally:
+        # Persist every collected child attempt even if the builder raised after a child call.
+        if auxiliary_guard_sink:
+            append_guard_attempts(reachability_aux_path, auxiliary_guard_sink)
+    _assert_no_auxiliary_denied_attempts(auxiliary_guard_sink, reachability_aux_path)
     _assert_reachability_before_counted_primitives(reachability_evidence, smoke=False)
 
     oracle_timeout_sec = float(options["oracle_timeout_sec"])
@@ -1045,7 +1088,9 @@ def _run_implementation_acceptance(
                 "§3.8 reachability preflight before counted B1 (synthetic fixtures plus capped live "
                 f"ident-fallback observation budget={LIVE_IDENT_FALLBACK_RUN_B0_PAIR_BUDGET} "
                 "run_b0_pair trials with isolated auxiliary CallLogger and "
-                "reachability_auxiliary_guard_side_channel.jsonl for child guard rows), "
+                "reachability_auxiliary_guard_side_channel.jsonl for child guard rows; any denied "
+                "auxiliary child row aborts before counted primitives as the §11/G4 fail-closed "
+                "equivalent), "
                 "timing_calibration projection"
             ),
             scientific_impact="auxiliary preflight only; not confirmatory counted-call evidence",
@@ -1186,8 +1231,13 @@ def _run_audit_body(
     call_log_path = output_dir / "call_log.jsonl"
     pair_cache_path = output_dir / "pair_cache.jsonl"
     stage_cache_path = output_dir / "stage_cache.jsonl"
-    if options.get("resume") and call_log_path.is_file():
-        clear_stale_abort_manifest(output_dir)
+    if options.get("resume"):
+        if not call_log_path.is_file():
+            raise ResumeIdentityError(
+                "audit --resume requires an existing call_log.jsonl; refusing a silent fresh start"
+            )
+        # Do not clear a prior abort manifest yet: identity/closure validation below can still
+        # reject this resume attempt, and the earlier abort record must survive that rejection.
         call_logger = CallLogger.load(call_log_path, resource_monitor=resource_monitor)
         call_logger.skip_duplicates = True
         durable_pair_cache = _load_pair_cache(pair_cache_path)
@@ -1238,6 +1288,9 @@ def _run_audit_body(
             fingerprint_bytes=corpus["fingerprint_bytes"],
             manifest_payload=existing_manifest.get("fingerprint_payload"),
         )
+        # Identity, closure, and fingerprint validation all passed: safe to archive any
+        # prior abort record now that this resume attempt is confirmed legitimate.
+        clear_stale_abort_manifest(output_dir)
 
     # §12.7: counted primitives run under status=running.
     artifacts.write_atomic_manifest(

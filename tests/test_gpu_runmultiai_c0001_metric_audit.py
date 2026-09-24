@@ -1394,6 +1394,339 @@ def test_reach_ident_fallback_live_observation_isolated_from_counted_ledger(monk
     assert "auxiliary_call_logger_grand_calls=" in detail
 
 
+def _install_match_path_fakes(monkeypatch, *, simplifier_guard_attempts):
+    """Force the §3.8 live probe's match branch (fallback + execution_failure) so the extra
+    ``simplify_tree_subprocess`` call at the match path actually executes."""
+    from gpu_runmultiai.odeformer_runtime import MULTI_COMPONENT_SEPARATOR
+    from gpu_runmultiai.q4_reference import Q4Result
+
+    def _fake_run_b0_pair(**kwargs):
+        component_idx = kwargs["component_idx"]
+        parts = [f"x_{i}" for i in range(component_idx + 2)]
+        e1_prefix_raw = MULTI_COMPONENT_SEPARATOR.join(parts)
+        return {
+            "e1_prefix_raw": e1_prefix_raw,
+            "e2_prefix_raw": e1_prefix_raw,
+            "q4_construction_completed": True,
+        }
+
+    simplifier_calls: list[bool] = []
+
+    def _fake_simplify(*_args, **_kwargs):
+        simplifier_calls.append(True)
+        return {"ok": True, "prefix": "x_0", "guard_attempts": simplifier_guard_attempts}
+
+    monkeypatch.setattr("gpu_runmultiai.pipeline.run_b0_pair", _fake_run_b0_pair)
+    monkeypatch.setattr("gpu_runmultiai.odeformer_runtime.require_odeformer", lambda: None)
+    monkeypatch.setattr(
+        "gpu_runmultiai.q4_reference.audit_q4_decimal_round_reference",
+        lambda *_a, **_k: Q4Result(q4_construction_completed=True, q4_sympy_expr_canonical="x_0"),
+    )
+    monkeypatch.setattr("gpu_runmultiai.q4_reference.e1_not_equivalent_to_q4", lambda *_a, **_k: True)
+    monkeypatch.setattr("gpu_runmultiai.odeformer_runtime.simplify_tree_subprocess", _fake_simplify)
+    monkeypatch.setattr(
+        "gpu_runmultiai.reachability.detect_e2_identity_fallback_candidate", lambda *_a, **_k: True
+    )
+    return simplifier_calls
+
+
+def test_match_path_simplifier_guard_attempts_persist_to_auxiliary_sink(monkeypatch):
+    """P2 finding 1 regression: the match-path extra ``simplify_tree_subprocess`` call must not
+    discard denied-path ``guard_attempts`` collected while probing a match candidate."""
+    from gpu_runmultiai.reachability import _reach_ident_fallback_1_live_production_observation_body
+
+    denied_row = {
+        "attempted_operation": "open",
+        "attempted_path_norm": "/tmp/match_denied",
+        "attempted_path_real": "/tmp/match_denied",
+    }
+    simplifier_calls = _install_match_path_fakes(monkeypatch, simplifier_guard_attempts=[denied_row])
+
+    sink: list[dict[str, str]] = []
+    detail = _reach_ident_fallback_1_live_production_observation_body(auxiliary_guard_sink=sink)
+    assert "bounded_match=true" in detail
+    # One denied row per match-path simplifier call, none lost and none duplicated.
+    assert simplifier_calls
+    assert len(sink) == len(simplifier_calls)
+    assert f"auxiliary_guard_child_attempts={len(simplifier_calls)}" in detail
+    assert all(row["attempted_operation"] == "auxiliary_live_probe:open" for row in sink)
+    assert all(row["attempted_path_norm"] == "/tmp/match_denied" for row in sink)
+
+
+def test_match_path_missing_sink_fails_closed_not_swallowed(monkeypatch):
+    """P2 finding 2 regression: an unrecorded auxiliary child guard attempt on the match path
+    must fail closed (GateAbortError propagates) at every layer between the live-observation
+    body and the fixture runner, instead of being downgraded into a benign
+    ``error_isolated=true`` string that lets the fixture still register a synthetic PASS."""
+    from gpu_runmultiai.invariants import GateAbortError
+    from gpu_runmultiai.reachability import (
+        _reach_ident_fallback_1,
+        _reach_ident_fallback_1_live_production_observation,
+        _run_reachability_fixture,
+    )
+
+    denied_row = {
+        "attempted_operation": "open",
+        "attempted_path_norm": "/tmp/match_denied_no_sink",
+        "attempted_path_real": "/tmp/match_denied_no_sink",
+    }
+
+    _install_match_path_fakes(monkeypatch, simplifier_guard_attempts=[denied_row])
+    with pytest.raises(GateAbortError):
+        _reach_ident_fallback_1_live_production_observation(auxiliary_guard_sink=None)
+
+    _install_match_path_fakes(monkeypatch, simplifier_guard_attempts=[denied_row])
+    with pytest.raises(GateAbortError):
+        _reach_ident_fallback_1(include_live_observation=True, auxiliary_guard_sink=None)
+
+    _install_match_path_fakes(monkeypatch, simplifier_guard_attempts=[denied_row])
+    with pytest.raises(GateAbortError):
+        _run_reachability_fixture(
+            "REACH-IDENT-FALLBACK-1",
+            _reach_ident_fallback_1,
+            include_live_ident_fallback_observation=True,
+            auxiliary_guard_sink=None,
+        )
+
+
+def test_acceptance_entrypoint_captures_match_path_simplifier_guard_attempts(monkeypatch):
+    """Entrypoint-level check: the implementation-acceptance reachability builder must persist
+    match-path simplifier guard attempts to its side channel rather than certifying a PASS
+    with unrecorded attempts."""
+    from gpu_runmultiai.audit import build_acceptance_reachability_evidence
+
+    denied_row = {
+        "attempted_operation": "open",
+        "attempted_path_norm": "/tmp/entrypoint_match_denied",
+        "attempted_path_real": "/tmp/entrypoint_match_denied",
+    }
+    _install_match_path_fakes(monkeypatch, simplifier_guard_attempts=[denied_row])
+
+    sink: list[dict[str, str]] = []
+    rows = build_acceptance_reachability_evidence(auxiliary_guard_sink=sink)
+    ident = next(row for row in rows if row["fixture_id"] == "REACH-IDENT-FALLBACK-1")
+    assert ident["passed"] is True
+    assert "bounded_match=true" in ident["details"]
+    assert any(row["attempted_path_norm"] == "/tmp/entrypoint_match_denied" for row in sink)
+
+
+def _install_exception_after_child_fakes(monkeypatch, *, child_rows):
+    """Live probe whose run_b0_pair merges child guard rows and then raises."""
+
+    def _fake_run_b0_pair(**kwargs):
+        kwargs["guard"].extend_child_attempts(child_rows)
+        raise RuntimeError("injected_failure_after_child_call")
+
+    monkeypatch.setattr("gpu_runmultiai.pipeline.run_b0_pair", _fake_run_b0_pair)
+    monkeypatch.setattr("gpu_runmultiai.odeformer_runtime.require_odeformer", lambda: None)
+
+
+def test_exception_after_child_call_still_persists_guard_attempts(monkeypatch):
+    """P2 finding 1: an exception after a child call must not lose collected child attempts."""
+    from gpu_runmultiai.invariants import GateAbortError
+    from gpu_runmultiai.reachability import (
+        _reach_ident_fallback_1_live_production_observation,
+        _reach_ident_fallback_1_live_production_observation_body,
+    )
+
+    denied_row = {
+        "attempted_operation": "os.stat",
+        "attempted_path_norm": "/tmp/exception_denied",
+        "attempted_path_real": "/tmp/exception_denied",
+    }
+    _install_exception_after_child_fakes(monkeypatch, child_rows=[denied_row])
+
+    sink: list[dict[str, str]] = []
+    with pytest.raises(RuntimeError, match="injected_failure_after_child_call"):
+        _reach_ident_fallback_1_live_production_observation_body(auxiliary_guard_sink=sink)
+    assert [row["attempted_path_norm"] for row in sink] == ["/tmp/exception_denied"]
+    assert sink[0]["attempted_operation"] == "auxiliary_live_probe:os.stat"
+
+    sink = []
+    detail = _reach_ident_fallback_1_live_production_observation(auxiliary_guard_sink=sink)
+    assert "error_isolated=true" in detail
+    assert len(sink) == 1
+
+    with pytest.raises(GateAbortError, match="without auxiliary side-channel sink"):
+        _reach_ident_fallback_1_live_production_observation(auxiliary_guard_sink=None)
+
+
+def test_malformed_child_side_channel_on_simplify_failure_fails_closed(monkeypatch):
+    """r3 finding 1: malformed worker side-channel rows must not be swallowed as benign
+    ``error_isolated=true`` when the simplifier subprocess fails before merging attempts."""
+    from gpu_runmultiai.guard_side_channel import child_side_channel_path
+    from gpu_runmultiai.invariants import GateAbortError
+    from gpu_runmultiai.reachability import _reach_ident_fallback_1_live_production_observation
+
+    def _bad_simplify(*_args, **_kwargs):
+        path = child_side_channel_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text('{"not_a_guard_row": true}\n', encoding="utf-8")
+        raise RuntimeError("simplify_failed_after_child_side_channel_write")
+
+    _install_match_path_fakes(monkeypatch, simplifier_guard_attempts=[])
+    monkeypatch.setattr("gpu_runmultiai.odeformer_runtime.simplify_tree_subprocess", _bad_simplify)
+
+    try:
+        with pytest.raises(GateAbortError, match="malformed child guard side channel"):
+            _reach_ident_fallback_1_live_production_observation(auxiliary_guard_sink=[])
+    finally:
+        path = child_side_channel_path()
+        if path.is_file():
+            path.unlink()
+
+
+def test_match_path_fallback_patch_is_reachability_scoped(monkeypatch):
+    """r3 finding 2: the match-path test must force fallback via ``reachability`` import site."""
+    from gpu_runmultiai import reachability as reachability_module
+
+    calls = {"fallback": 0}
+
+    def _forced_fallback(*_args, **_kwargs):
+        calls["fallback"] += 1
+        return True
+
+    _install_match_path_fakes(monkeypatch, simplifier_guard_attempts=[])
+    assert reachability_module.detect_e2_identity_fallback_candidate is not None
+    monkeypatch.setattr(
+        reachability_module,
+        "detect_e2_identity_fallback_candidate",
+        _forced_fallback,
+    )
+    from gpu_runmultiai.reachability import _reach_ident_fallback_1_live_production_observation_body
+
+    detail = _reach_ident_fallback_1_live_production_observation_body(auxiliary_guard_sink=[])
+    assert calls["fallback"] >= 1
+    assert "bounded_match=true" in detail
+
+
+def _acceptance_entrypoint_options(output_dir):
+    return {
+        "output_dir": str(output_dir),
+        "oracle_timeout_sec": 30.0,
+        "simplifier_subprocess_timeout_sec": SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
+        "fail_if_exists": False,
+        "resume": False,
+        "implementation_acceptance": True,
+    }
+
+
+def _patch_acceptance_entrypoint_closure(monkeypatch):
+    registration_calls: list[bool] = []
+
+    def _forbidden_registration(*_args, **_kwargs):
+        registration_calls.append(True)
+        return [], []
+
+    monkeypatch.setattr("gpu_runmultiai.audit.registration_rows", _forbidden_registration)
+    monkeypatch.setattr(
+        "gpu_runmultiai.audit.verify_canonical_closure_record",
+        lambda **_kwargs: "closure_ok_for_test",
+    )
+    monkeypatch.setattr(
+        "gpu_runmultiai.audit.verify_accepted_closure_source_hashes",
+        lambda *_args, **_kwargs: "closure_ok_for_test",
+    )
+    monkeypatch.setattr("gpu_runmultiai.audit.verify_source_inventory_at_commit", lambda *_a, **_k: None)
+    return registration_calls
+
+
+def _assert_auxiliary_fail_closed_entrypoint(
+    output_dir, bootstrap_guard, *, parent_attempts_before, path, expected_rows
+):
+    from gpu_runmultiai.guard_side_channel import (
+        load_guard_attempts,
+        reachability_auxiliary_side_channel_path,
+        side_channel_path,
+    )
+
+    assert expected_rows >= 1
+    aux_rows = load_guard_attempts(reachability_auxiliary_side_channel_path(output_dir))
+    assert [row["attempted_path_norm"] for row in aux_rows] == [path] * expected_rows
+    # Auxiliary rows are not merged into the counted G4 ledger (parent bootstrap handle) nor
+    # the counted guard side channel; the run aborts instead, so G4 is never evaluated.
+    assert len(bootstrap_guard.attempts) == parent_attempts_before
+    counted_side_channel = side_channel_path(output_dir)
+    if counted_side_channel.is_file():
+        assert load_guard_attempts(counted_side_channel) == []
+    call_log = output_dir / "call_log.jsonl"
+    if call_log.is_file():
+        assert CallLogger.load(call_log).total() == 0
+    abort = json.loads((output_dir / "abort_manifest.json").read_text(encoding="utf-8"))
+    assert abort["abort_type"] == "GateAbortError"
+    assert f"auxiliary_denied_attempts={expected_rows} " in abort["abort_reason"]
+    assert abort["confirmatory_calls"] == 0
+    assert abort["grand_calls"] == 0
+    manifest = json.loads((output_dir / "audit_manifest.json").read_text(encoding="utf-8"))
+    assert manifest["status"] == "aborted"
+
+
+def test_acceptance_entrypoint_match_path_denied_child_fails_closed(
+    tmp_path, bootstrap_guard, monkeypatch
+):
+    """P2 finding 2: a denied auxiliary child row (match-path simplifier) aborts the acceptance
+    entrypoint before registration or any counted call, with the row durably persisted."""
+    from gpu_runmultiai.invariants import GateAbortError
+
+    denied_path = "/tmp/entrypoint_match_fail_closed"
+    simplifier_calls = _install_match_path_fakes(
+        monkeypatch,
+        simplifier_guard_attempts=[
+            {
+                "attempted_operation": "open",
+                "attempted_path_norm": denied_path,
+                "attempted_path_real": denied_path,
+            }
+        ],
+    )
+    registration_calls = _patch_acceptance_entrypoint_closure(monkeypatch)
+    parent_attempts_before = len(bootstrap_guard.attempts)
+    output_dir = tmp_path / "aux_match_fail_closed"
+    with pytest.raises(GateAbortError, match="auxiliary sealed-path child attempts denied"):
+        _run_audit(_acceptance_entrypoint_options(output_dir), bootstrap_guard)
+    assert registration_calls == []
+    _assert_auxiliary_fail_closed_entrypoint(
+        output_dir,
+        bootstrap_guard,
+        parent_attempts_before=parent_attempts_before,
+        path=denied_path,
+        expected_rows=len(simplifier_calls),
+    )
+
+
+def test_acceptance_entrypoint_exception_path_denied_child_fails_closed(
+    tmp_path, bootstrap_guard, monkeypatch
+):
+    """P2 findings 1+2: a probe exception after a child call must neither lose the child row
+    nor let the fixture's synthetic PASS certify acceptance; the entrypoint fails closed."""
+    from gpu_runmultiai.invariants import GateAbortError
+
+    denied_path = "/tmp/entrypoint_exception_fail_closed"
+    _install_exception_after_child_fakes(
+        monkeypatch,
+        child_rows=[
+            {
+                "attempted_operation": "os.stat",
+                "attempted_path_norm": denied_path,
+                "attempted_path_real": denied_path,
+            }
+        ],
+    )
+    registration_calls = _patch_acceptance_entrypoint_closure(monkeypatch)
+    parent_attempts_before = len(bootstrap_guard.attempts)
+    output_dir = tmp_path / "aux_exception_fail_closed"
+    with pytest.raises(GateAbortError, match="auxiliary sealed-path child attempts denied"):
+        _run_audit(_acceptance_entrypoint_options(output_dir), bootstrap_guard)
+    assert registration_calls == []
+    _assert_auxiliary_fail_closed_entrypoint(
+        output_dir,
+        bootstrap_guard,
+        parent_attempts_before=parent_attempts_before,
+        path=denied_path,
+        expected_rows=1,
+    )
+
+
 def test_build_reachability_evidence_excludes_live_ident_fallback_by_default(monkeypatch):
     from gpu_runmultiai.reachability import build_reachability_evidence
 
@@ -2381,6 +2714,229 @@ def test_clear_stale_abort_manifest_removes_prior_abort_file(tmp_path):
     abort.write_text('{"status":"aborted"}', encoding="utf-8")
     clear_stale_abort_manifest(tmp_path)
     assert not abort.is_file()
+
+
+def test_clear_stale_abort_manifest_archives_instead_of_destroying_content(tmp_path):
+    """P3 regression: the prior abort record must remain recoverable, not merely vanish."""
+    from gpu_runmultiai.audit import clear_stale_abort_manifest
+
+    abort = tmp_path / "abort_manifest.json"
+    marker = "prior_abort_evidence_marker"
+    abort.write_text(json.dumps({"status": "aborted", "abort_reason": marker}), encoding="utf-8")
+    clear_stale_abort_manifest(tmp_path)
+    assert not abort.is_file()
+    backups = list(tmp_path.glob("abort_manifest.prior-*.json"))
+    assert len(backups) == 1
+    preserved = json.loads(backups[0].read_text(encoding="utf-8"))
+    assert preserved["abort_reason"] == marker
+
+    # A no-op call (no stale manifest present) must not create a spurious backup.
+    clear_stale_abort_manifest(tmp_path)
+    assert len(list(tmp_path.glob("abort_manifest.prior-*.json"))) == 1
+
+
+def test_write_abort_manifest_archives_prior_abort_before_writing(tmp_path):
+    """P3: a new abort write must never overwrite an earlier abort record."""
+    from gpu_runmultiai.audit import write_abort_manifest
+
+    abort = tmp_path / "abort_manifest.json"
+    abort.write_text(json.dumps({"status": "aborted", "abort_reason": "first"}), encoding="utf-8")
+    write_abort_manifest(tmp_path, abort_type="X", abort_reason="second", call_logger=CallLogger())
+    write_abort_manifest(tmp_path, abort_type="Y", abort_reason="third", call_logger=CallLogger())
+    archived = sorted(
+        json.loads(path.read_text(encoding="utf-8"))["abort_reason"]
+        for path in tmp_path.glob("abort_manifest.prior-*.json")
+    )
+    assert archived == ["first", "second"]
+    assert json.loads(abort.read_text(encoding="utf-8"))["abort_reason"] == "third"
+
+
+def test_resume_without_call_log_rejects_silent_fresh_start(tmp_path, bootstrap_guard):
+    """P3 regression: audit --resume with no prior ledger must reject, not silently start fresh."""
+    from gpu_runmultiai.invariants import ResumeIdentityError
+
+    output_dir = tmp_path / "resume_no_ledger"
+    options = {
+        "output_dir": str(output_dir),
+        "oracle_timeout_sec": 30.0,
+        "simplifier_subprocess_timeout_sec": SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
+        "fail_if_exists": False,
+        "resume": True,
+        "smoke": True,
+        "primary_scales": ("0.1",),
+    }
+    with pytest.raises(ResumeIdentityError, match="call_log.jsonl"):
+        _run_audit(options, bootstrap_guard)
+    assert not (output_dir / "call_log.jsonl").exists()
+    abort = json.loads((output_dir / "abort_manifest.json").read_text(encoding="utf-8"))
+    assert abort["abort_type"] == "ResumeIdentityError"
+    assert abort["grand_calls"] == 0
+
+
+def test_resume_invalid_identity_clear_stale_runs_only_after_verify(
+    tmp_path, bootstrap_guard, canonical_closure_record, monkeypatch
+):
+    """r3 finding 3: distinguish resume-path archival from abort-writer archival via call order."""
+    from gpu_runmultiai import audit as audit_module
+    from gpu_runmultiai.invariants import ResumeIdentityError
+
+    output_dir = tmp_path / "resume_clear_ordering"
+    base_options = {
+        "output_dir": str(output_dir),
+        "oracle_timeout_sec": 30.0,
+        "simplifier_subprocess_timeout_sec": SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
+        "fail_if_exists": False,
+        "resume": False,
+        "smoke": True,
+        "primary_scales": ("0.1",),
+    }
+    _run_audit(base_options, bootstrap_guard)
+
+    prior_abort_marker = "prior_abort_before_identity_check"
+    (output_dir / "abort_manifest.json").write_text(
+        json.dumps(
+            {
+                "status": "aborted",
+                "abort_type": "PriorSyntheticAbort",
+                "abort_reason": prior_abort_marker,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    events: list[str] = []
+    real_clear = audit_module.clear_stale_abort_manifest
+
+    def tracked_clear(directory):
+        events.append("clear_stale")
+        return real_clear(directory)
+
+    real_verify = audit_module.verify_resume_identity
+
+    def tracked_verify(existing, new):
+        events.append("verify_resume_identity")
+        return real_verify(existing, new)
+
+    monkeypatch.setattr(audit_module, "clear_stale_abort_manifest", tracked_clear)
+    monkeypatch.setattr(audit_module, "verify_resume_identity", tracked_verify)
+    monkeypatch.setattr(
+        audit_module,
+        "require_accepted_closure_for_execution",
+        lambda *_args, **_kwargs: "closure_ok_for_ordering_test",
+    )
+
+    mismatched = {**base_options, "resume": True, "oracle_timeout_sec": 45.0}
+    with pytest.raises(ResumeIdentityError):
+        _run_audit(mismatched, bootstrap_guard)
+
+    assert events == ["verify_resume_identity", "clear_stale"]
+
+
+def test_resume_identity_mismatch_preserves_prior_abort_manifest(
+    tmp_path, bootstrap_guard, canonical_closure_record
+):
+    """P3 regression: an invalid resume attempt must not destroy the record of an earlier abort.
+
+    ``clear_stale_abort_manifest`` may only run after resume identity/closure validation
+    succeeds; a rejected resume must leave the earlier abort archived and recoverable.
+    """
+    from gpu_runmultiai.invariants import ResumeIdentityError
+
+    output_dir = tmp_path / "resume_abort_preserve"
+    base_options = {
+        "output_dir": str(output_dir),
+        "oracle_timeout_sec": 30.0,
+        "simplifier_subprocess_timeout_sec": SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
+        "fail_if_exists": False,
+        "resume": False,
+        "smoke": True,
+        "primary_scales": ("0.1",),
+    }
+    _run_audit(base_options, bootstrap_guard)
+
+    prior_abort_marker = "prior_synthetic_abort_marker_should_survive"
+    (output_dir / "abort_manifest.json").write_text(
+        json.dumps(
+            {
+                "status": "aborted",
+                "abort_type": "PriorSyntheticAbort",
+                "abort_reason": prior_abort_marker,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    mismatched = {**base_options, "resume": True, "oracle_timeout_sec": 45.0}
+    with pytest.raises(ResumeIdentityError):
+        _run_audit(mismatched, bootstrap_guard)
+
+    backups = list(output_dir.glob("abort_manifest.prior-*.json"))
+    assert len(backups) == 1
+    preserved = json.loads(backups[0].read_text(encoding="utf-8"))
+    assert preserved["abort_reason"] == prior_abort_marker
+
+    fresh_abort = json.loads((output_dir / "abort_manifest.json").read_text(encoding="utf-8"))
+    assert fresh_abort["abort_type"] == "ResumeIdentityError"
+
+
+def test_acceptance_resume_without_ledgers_rejects(tmp_path, bootstrap_guard, monkeypatch):
+    """r3 finding 3: implementation acceptance ``--resume`` without prior ledgers must reject."""
+    from gpu_runmultiai.invariants import ResumeIdentityError
+
+    registration_calls = _patch_acceptance_entrypoint_closure(monkeypatch)
+    output_dir = tmp_path / "acceptance_resume_no_ledger"
+    options = {**_acceptance_entrypoint_options(output_dir), "resume": True}
+    with pytest.raises(ResumeIdentityError, match="call_log.jsonl and pair_results.csv"):
+        _run_audit(options, bootstrap_guard)
+    assert registration_calls == []
+    assert not (output_dir / "call_log.jsonl").exists()
+
+
+def test_acceptance_resume_identity_mismatch_preserves_prior_abort_manifest(
+    tmp_path, bootstrap_guard, monkeypatch
+):
+    """r3 finding 3: invalid implementation-acceptance resume archives the prior abort only via
+    the abort writer, leaving the earlier record recoverable."""
+    from gpu_runmultiai.invariants import ResumeIdentityError
+
+    output_dir = tmp_path / "acceptance_resume_abort_preserve"
+    base_options = _acceptance_entrypoint_options(output_dir)
+    _patch_acceptance_entrypoint_closure(monkeypatch)
+
+    # Seed minimal acceptance artifacts so resume reaches identity verification.
+    output_dir.mkdir(parents=True, exist_ok=True)
+    (output_dir / "call_log.jsonl").write_text("", encoding="utf-8")
+    (output_dir / "pair_results.csv").write_text("pair_id\n", encoding="utf-8")
+    manifest = {
+        "status": "aborted",
+        "resume_identity": {"commit": "0" * 40},
+        "commit": "0" * 40,
+        "source_hashes": [],
+    }
+    (output_dir / "audit_manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+    prior_abort_marker = "acceptance_prior_abort_should_survive"
+    (output_dir / "abort_manifest.json").write_text(
+        json.dumps(
+            {
+                "status": "aborted",
+                "abort_type": "PriorAcceptanceAbort",
+                "abort_reason": prior_abort_marker,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    mismatched = {**base_options, "resume": True, "oracle_timeout_sec": 45.0}
+    with pytest.raises(ResumeIdentityError):
+        _run_audit(mismatched, bootstrap_guard)
+
+    backups = list(output_dir.glob("abort_manifest.prior-*.json"))
+    assert len(backups) == 1
+    preserved = json.loads(backups[0].read_text(encoding="utf-8"))
+    assert preserved["abort_reason"] == prior_abort_marker
+    fresh_abort = json.loads((output_dir / "abort_manifest.json").read_text(encoding="utf-8"))
+    assert fresh_abort["abort_type"] == "ResumeIdentityError"
 
 
 def test_g_contract_and_g_impl_gates_read_executed_evidence():

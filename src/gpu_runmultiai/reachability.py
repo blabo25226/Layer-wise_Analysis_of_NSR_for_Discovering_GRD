@@ -24,6 +24,7 @@ from gpu_runmultiai.constants import (
 )
 from gpu_runmultiai.contract_evidence import F_ACCEPTANCE_IDS, G_CONTRACT_CHECK_KEYS
 from gpu_runmultiai.controls import evaluate_validity_gates
+from gpu_runmultiai.invariants import GateAbortError
 from gpu_runmultiai.odeformer_runtime import MULTI_COMPONENT_SEPARATOR, component_prefix_list_from_raw
 from gpu_runmultiai.outcomes import build_outcome_row, evaluate_primary_decision
 from gpu_runmultiai.oracle import oracle_equivalence, oracle_single_component
@@ -346,6 +347,33 @@ _IDENT_FALLBACK_SYNTHETIC_DIMENSION = 2
 LIVE_IDENT_FALLBACK_RUN_B0_PAIR_BUDGET = 8
 
 
+def _reconcile_orphan_child_process_guard_side_channel(guard: Any) -> None:
+    """Merge worker-side-channel rows left behind when simplify subprocess aborts early.
+
+    Malformed durable lines fail closed: they cannot be downgraded to ``error_isolated=true``.
+    """
+    from gpu_runmultiai.guard_side_channel import child_side_channel_path, load_guard_attempts
+    from gpu_runmultiai.invariants import AuditInvariantError
+
+    path = child_side_channel_path()
+    if not path.is_file():
+        return
+    try:
+        if path.stat().st_size == 0:
+            return
+    except OSError:
+        return
+    try:
+        attempts = load_guard_attempts(path)
+    except AuditInvariantError as exc:
+        raise GateAbortError(
+            "auxiliary live probe cannot certify: malformed child guard side channel "
+            f"at {path}"
+        ) from exc
+    if attempts:
+        guard.extend_child_attempts(attempts)
+
+
 def _finalize_auxiliary_live_probe_guard(
     guard: Any,
     auxiliary_guard_sink: list[dict[str, str]] | None,
@@ -377,7 +405,9 @@ def _finalize_auxiliary_live_probe_guard(
 def _auxiliary_guard_attempt_fields(
     guard: Any,
     auxiliary_guard_sink: list[dict[str, str]] | None,
+    finalized: list[bool],
 ) -> tuple[int, int, int, bool]:
+    finalized.append(True)
     direct, child_count, total = _finalize_auxiliary_live_probe_guard(guard, auxiliary_guard_sink)
     return direct, child_count, total, child_count > 0 and auxiliary_guard_sink is not None
 
@@ -540,6 +570,10 @@ def _reach_ident_fallback_1_live_production_observation(
         return _reach_ident_fallback_1_live_production_observation_body(
             auxiliary_guard_sink=auxiliary_guard_sink
         )
+    except GateAbortError:
+        # Unrecorded auxiliary child guard attempts are an evidence-integrity failure and
+        # must fail closed rather than be papered over as a benign observation string.
+        raise
     except Exception as exc:  # must not abort acceptance after counted work completes
         return (
             "live_production_observation error_isolated=true "
@@ -551,6 +585,39 @@ def _reach_ident_fallback_1_live_production_observation_body(
     *,
     auxiliary_guard_sink: list[dict[str, str]] | None = None,
 ) -> str:
+    """Run the bounded live scan; child guard attempts are always flushed to the sink.
+
+    Normal return paths finalize inside the scan. If the scan raises after any child call
+    (run_b0_pair internals or the match-path simplifier), ``finally`` still flushes collected
+    child attempts, and a missing sink raises GateAbortError instead of losing them.
+    """
+    from gpu_runmultiai.guard_side_channel import child_side_channel_path
+    from gpu_runmultiai.sealed_guard import SealedPathGuard
+
+    stale_child_channel = child_side_channel_path()
+    if stale_child_channel.is_file():
+        stale_child_channel.unlink()
+
+    guard = SealedPathGuard(output_root_abs=Path("/nonexistent/results/runs"))
+    finalized: list[bool] = []
+    try:
+        return _reach_ident_fallback_1_live_probe_scan(
+            guard=guard,
+            auxiliary_guard_sink=auxiliary_guard_sink,
+            finalized=finalized,
+        )
+    finally:
+        if not finalized:
+            _reconcile_orphan_child_process_guard_side_channel(guard)
+            _finalize_auxiliary_live_probe_guard(guard, auxiliary_guard_sink)
+
+
+def _reach_ident_fallback_1_live_probe_scan(
+    *,
+    guard: Any,
+    auxiliary_guard_sink: list[dict[str, str]] | None,
+    finalized: list[bool],
+) -> str:
     from gpu_runmultiai.calls import CallLogger
     from gpu_runmultiai.corpus import load_frozen_corpus
     from gpu_runmultiai.odeformer_runtime import (
@@ -560,12 +627,10 @@ def _reach_ident_fallback_1_live_production_observation_body(
     from gpu_runmultiai.pipeline import run_b0_pair
     from gpu_runmultiai.q4_reference import audit_q4_decimal_round_reference, e1_not_equivalent_to_q4
     from gpu_runmultiai.rewrites import rewrite_registration, truth_component_infix
-    from gpu_runmultiai.sealed_guard import SealedPathGuard
 
     corpus = load_frozen_corpus()
     trials = _live_ident_fallback_b0_pair_trials(corpus)
     budget = LIVE_IDENT_FALLBACK_RUN_B0_PAIR_BUDGET
-    guard = SealedPathGuard(output_root_abs=Path("/nonexistent/results/runs"))
     auxiliary_logger = CallLogger()
     run_b0_pair_calls = 0
     for record, component_idx, scale in trials:
@@ -613,10 +678,16 @@ def _reach_ident_fallback_1_live_production_observation_body(
             timeout_sec=Q4_TIMEOUT_SEC,
         ):
             continue
-        simplified = simplify_tree_subprocess(
-            component_prefix_list_from_raw(e1_prefix_raw),
-            timeout_sec=SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
-        )
+        try:
+            simplified = simplify_tree_subprocess(
+                component_prefix_list_from_raw(e1_prefix_raw),
+                timeout_sec=SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
+            )
+        except Exception:
+            _reconcile_orphan_child_process_guard_side_channel(guard)
+            raise
+        if simplified.get("guard_attempts"):
+            guard.extend_child_attempts(simplified["guard_attempts"])
         simplifier_output_raw = ""
         if simplified.get("ok"):
             simplifier_output_raw = canonical_system_prefix_raw(simplified.get("prefix") or "")
@@ -647,7 +718,7 @@ def _reach_ident_fallback_1_live_production_observation_body(
         )
         if fallback and outcome_row["outcome_category"] == "execution_failure":
             direct, child_count, total, child_persisted = _auxiliary_guard_attempt_fields(
-                guard, auxiliary_guard_sink
+                guard, auxiliary_guard_sink, finalized
             )
             return (
                 "live_production_observation bounded_match=true "
@@ -671,7 +742,7 @@ def _reach_ident_fallback_1_live_production_observation_body(
             )
     bounded_scan_exhausted = run_b0_pair_calls >= len(trials)
     direct, child_count, total, child_persisted = _auxiliary_guard_attempt_fields(
-        guard, auxiliary_guard_sink
+        guard, auxiliary_guard_sink, finalized
     )
     return (
         "live_production_observation bounded_no_match_within_budget=true "
@@ -700,6 +771,8 @@ def _reach_ident_fallback_1(
             live_detail = _reach_ident_fallback_1_live_production_observation(
                 auxiliary_guard_sink=auxiliary_guard_sink
             )
+        except GateAbortError:
+            raise
         except Exception as exc:
             live_detail = (
                 "live_production_observation error_isolated=true "
@@ -815,6 +888,10 @@ def _run_reachability_fixture(
             )
         else:
             row = builder()
+    except GateAbortError:
+        # Evidence-integrity fail-closed signal (e.g. unrecorded auxiliary child guard
+        # attempts): must propagate to the acceptance entrypoint, not become a fixture row.
+        raise
     except Exception as exc:  # must not abort confirmatory work after counted primitives
         return _reachability_fixture_failed_row(fixture_id, exc)
     if row.get("fixture_id") != fixture_id:
