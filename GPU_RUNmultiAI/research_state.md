@@ -7,7 +7,7 @@ Update it before a parent session ends.
 campaign: GPU_RUNmultiAI
 status: active
 current_cycle: C0001
-current_stage: C0001_V16_ROUND7_ACCEPTANCE_REVIEW
+current_stage: C0001_V16_POST_ACCEPTANCE_FULL_AUDIT_SAFETY
 branch: 20260912_multiAI_research
 observed_commit: c7319e7ece430fbef4d5d04f9ffb3e0b69b8285d
 base_commit: df39f61f862da3329f29257b573659a19477601c
@@ -41,7 +41,7 @@ tracks:
   scientific:
     status: active
     current_cycle: C0001
-    stage: V16_ROUND7_ACCEPTANCE_REVIEW
+    stage: V16_POST_ACCEPTANCE_FULL_AUDIT_SAFETY
     resumed_by: user continuation after routing refresh
 
 active_tasks:
@@ -62,7 +62,7 @@ active_tasks:
       - GPU_RUNmultiAI/cycles/C0001/runs/c0001_metric_identifiability_audit_v16_round7_acceptance_r2/
       - GPU_RUNmultiAI/cycles/C0001/runs/c0001_metric_identifiability_audit_v9_smoke/
     write_scope: [frozen 82-path runtime inventory, focused tests, G_contract/G_impl evidence, bounded v16 smoke, implementation completion]
-    status: pre_closure_acceptance_review
+    status: pre_closure_acceptance_pass
     acceptance_output: GPU_RUNmultiAI/cycles/C0001/runs/c0001_metric_identifiability_audit_v16_round7_acceptance_r2/
     acceptance_source_commit: 6e20b25dc633dbc698fe79d63cfee7b87a255ea8
     acceptance_command: >
@@ -70,10 +70,13 @@ active_tasks:
       python scripts/phases/gpu_runmultiai_c0001_metric_audit.py --implementation-acceptance
       --fail-if-exists --output-dir
       GPU_RUNmultiAI/cycles/C0001/runs/c0001_metric_identifiability_audit_v16_round7_acceptance_r2
-    acceptance_status_observed: completed at 2026-09-24T06:00:35Z; mechanical and independent review pending; no PI PASS claimed
+    acceptance_status_observed: completed at 2026-09-24T06:00:35Z; PI and independent Claude Opus 5.5 PASS for pre-closure acceptance only
     acceptance_observed_counts: 510 B1 rows, 4080 counted calls, 2145.36 elapsed seconds, 8713621 output bytes
     acceptance_observed_gates: G_contract true; G_impl true; G_b1 true; reachability 10/10; timing calibration PASS
     acceptance_review_workers: Gemini broker evidence compression and Cursor mechanical verifier and Claude Opus 5.5 independent auditor
+    acceptance_archive_commit: ba8ccfc612c29077214d30a0e4a451bbfd3642ed
+    acceptance_archive_remote_verified: true
+    acceptance_review_artifact: GPU_RUNmultiAI/cycles/C0001/implementation_v16_round7_acceptance_r2_verification.md
     continuity_heartbeat: gpu-runmultiai (hourly, same thread; no duplicate run)
     prior_pause_reason: C0001-INFRA-T003 routing refresh; dirty scientific worktree preserved
     pi_resolution: GPU_RUNmultiAI/cycles/C0001/implementation_v16_round7_pi_resolution.md (scientific worktree only until source commit)
@@ -99,6 +102,19 @@ active_tasks:
     reviewer_diff_assertion: true
     retry_count: 1
     fallback: Claude Sonnet research-engineer; GPT-6 Sol PI conflict resolution only
+  - task_id: C0001-T024
+    track: scientific
+    role: repo-operator
+    worker: Cursor Agent
+    branch: ai/C0001/repo-operator/full-audit-safety
+    worktree: /tmp/lansr-multiai-C0001-full-audit-safety
+    base_commit: ba8ccfc612c29077214d30a0e4a451bbfd3642ed
+    write_scope: [full-audit reachability safety, exact fixture-ID gate, guard-attempt honesty, ledger-isolation regression test, focused tests, handoff]
+    status: assigned
+    implementer_identity: Cursor Agent
+    independent_reviewer_identity: Claude Opus 5.5 reproducibility-auditor
+    reviewer_diff_assertion: true
+    acceptance_tests: [focused C0001 test module, source-inventory validation, no full-audit execution]
 completed_tasks:
   - task_id: C0001-INFRA-T003
     track: infrastructure
@@ -211,6 +227,8 @@ completed_tasks:
     integration_commit: 47d7459
     result: four C0001 evidence and preregistration draft artifacts persisted
 open_findings:
+  - Round7 r2 pre-closure acceptance PASS at source 6e20b25 and archived/pushed as ba8ccfc; 510/510 B1, 4080 unique counted calls, G_contract and G_impl PASS, 10/10 reachability, 7/7 Q4. This is non-scientific and does not authorize full audit.
+  - Independent Claude Opus 5.5 P2 full-audit blocker: uncontained synthetic reachability checks run after all counted work; fix before closure/full audit. Auxiliary probe guard attempts and tautological ledger-isolation test remain P2 transparency/regression gaps. The v16 82-path list is an observed snapshot; the normative recursive algorithm now yields 91 paths, with a required 82-to-91 closure reconciliation.
   - C0001-T023 source 663a56d passed 118/118 full focused tests in 1640.45 s; Claude Opus 5.5 independently closed pre-acceptance P1. One fresh 510-B1/4,080-call acceptance packet is ready at a new directory, but no full audit or scientific conclusion is authorized.
   - Claude Opus 5.5 pre-acceptance review BLOCK at 92fe0c7: synthetic identity fixture hard-coded an oracle result inconsistent with E2 versus Q4 and failed to test fallback precedence over semantic_drift; auxiliary live probe could run after counted full audit and abort it. Cursor remediation is active. A full focused rerun was intentionally interrupted at 23 passed / 441.61 s because source must change; no full-suite PASS claimed.
   - Routing exception: direct Claude primary-code review preceded Gemini compression because the narrow question required scientific interpretation of frozen predicates and production oracle behavior, which cannot safely be delegated to mechanical extraction alone.
@@ -229,12 +247,11 @@ retries:
   C0001-T023: 1
 
 next_action: >
-  Complete mechanical verification and independent Claude Opus 5.5 review of the completed r2
-  pre-closure acceptance packet in /tmp/lansr-multiai-C0001-implement-audit. Preserve r2 unchanged.
-  Verify frozen SHA, 510 distinct B1 rows, 4080 unique counted calls and multiplicities, G_contract/G_impl,
-  F evidence, reachability, timing and final schema. Then PI decides acceptance-only gate;
-  resolve full-audit P2 safety issues and create an accepted closure record before any full run.
-  Full 27637-call audit remains prohibited.
+  Dispatch Cursor task C0001-T024 in /tmp/lansr-multiai-C0001-full-audit-safety to fix
+  the full-audit reachability exception P2 blocker and other bounded review findings, with tests and commit.
+  Independently review the diff and final source inventory; determine whether the 4080-call acceptance
+  must be rerun at final source before closure. Preserve the accepted r2 packet and all prior run trees.
+  No implementation closure record or full 27637-call audit before independent PASS.
 
 last_checkpoint_utc: 2026-09-24T06:36:00Z
 ```
