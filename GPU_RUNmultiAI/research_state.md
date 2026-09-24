@@ -9,12 +9,12 @@ status: active
 current_cycle: C0001
 current_stage: C0001_V16_POST_ACCEPTANCE_SAFETY_REVIEW
 branch: 20260912_multiAI_research
-observed_commit: 7c8148abea852e97027e3044e7e83d2062487164
+observed_commit: 9636cc390e3779cf21854220e0de8c30a701979f
 base_commit: df39f61f862da3329f29257b573659a19477601c
 remote_branch: 20260912_multiAI_research
-remote_commit: 7c8148abea852e97027e3044e7e83d2062487164
+remote_commit: 9636cc390e3779cf21854220e0de8c30a701979f
 remote_commit_note: verified checkpoint before this state update; newer tip is verified separately after push
-last_push_attempt_utc: 2026-09-24T07:34:00Z
+last_push_attempt_utc: 2026-09-24T07:35:00Z
 last_push_error: null
 binding_plan:
   path: GPU_RUNmultiAI/cycles/C0001/preregistration_draft_v16.md
@@ -107,12 +107,14 @@ active_tasks:
     worktree: /tmp/lansr-multiai-C0001-full-audit-safety
     base_commit: ba8ccfc612c29077214d30a0e4a451bbfd3642ed
     write_scope: [full-audit reachability safety, exact fixture-ID gate, guard-attempt honesty, ledger-isolation regression test, focused tests, handoff]
-    status: review_pass_with_bounded_revision_running
-    source_commit: f9933b223606deab88b7ec675b64eb349acb7815
+    status: second_revision_committed_test_and_review_running
+    source_commit: 456d8becaa274a89ef3c770cd2aac9f4693fe38c
     source_remote_verified: true
     first_independent_review_verdict: PASS_to_fresh_acceptance_only
     first_independent_review_artifact: GPU_RUNmultiAI/cycles/C0001/implementation_review_v16_post_acceptance_safety.md
     review_followup_worker_session: 55507
+    second_independent_review_session: 31873
+    conda_full_focused_test_status: running; worker-owned pytest process; no PASS claimed yet
     focused_system_python_test: 107 passed, 14 skipped; conda lansr310 full focused suite not yet rerun
     frozen_plan_hash_unchanged: true
     source_inventory_paths: 91
@@ -232,6 +234,7 @@ completed_tasks:
     integration_commit: 47d7459
     result: four C0001 evidence and preregistration draft artifacts persisted
 open_findings:
+  - Cursor C0001-T024 second revision 456d8be is committed/pushed and the conda full focused test and independent Claude review are active. PI inspection identified a possible destructive resume-risk: clear_stale_abort_manifest runs before resume identity verification; do not accept or run fresh acceptance until resolved or disproved by review.
   - Independent Claude Opus 5.5 PASSed f9933b2 for a fresh acceptance only; requested bounded P2 auxiliary guard transparency, real ledger-isolation and entrypoint preflight tests before reacceptance. Cursor C0001-T024 revision is active in the same isolated worktree; no concurrent writer.
   - Round7 r2 pre-closure acceptance PASS at source 6e20b25 and archived/pushed as ba8ccfc; 510/510 B1, 4080 unique counted calls, G_contract and G_impl PASS, 10/10 reachability, 7/7 Q4. This is non-scientific and does not authorize full audit.
   - Independent Claude Opus 5.5 P2 full-audit blocker: uncontained synthetic reachability checks run after all counted work; fix before closure/full audit. Auxiliary probe guard attempts and tautological ledger-isolation test remain P2 transparency/regression gaps. The v16 82-path list is an observed snapshot; the normative recursive algorithm now yields 91 paths, with a required 82-to-91 closure reconciliation.
@@ -253,15 +256,16 @@ retries:
   C0001-T023: 1
 
 next_action: >
-  Monitor the one active Cursor C0001-T024 revision (PI shell session 55507) in
-  /tmp/lansr-multiai-C0001-full-audit-safety; do not duplicate the writer.
-  On commit/push verify diff, tests, remote SHA, and obtain independent Claude Opus 5.5 re-review.
-  Then run the complete focused C0001 suite in conda lansr310 and a fresh 4080-call
+  Monitor the one active Cursor C0001-T024 worker/test (PI shell session 55507) and
+  Claude Opus 5.5 independent review (session 31873). Do not duplicate workers or tests.
+  Review the destructive-resume concern in clear_stale_abort_manifest before final-source acceptance;
+  preserve all abort evidence. If needed, send a bounded Cursor fix and rerun affected tests.
+  After independent PASS and complete conda focused-suite PASS, launch exactly one fresh 4080-call
   pre-closure acceptance at final source in a new suffixed output directory (not r2).
   Preserve r2 and prior runs. Mechanically verify the new packet, independently review it,
   bind 91 accepted source hashes and closure record, run bounded smoke, then consider full audit.
 
-last_checkpoint_utc: 2026-09-24T07:35:26Z
+last_checkpoint_utc: 2026-09-24T08:33:03Z
 ```
 
 ## Notes
