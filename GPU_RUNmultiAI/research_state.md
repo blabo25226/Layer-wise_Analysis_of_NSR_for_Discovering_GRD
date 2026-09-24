@@ -7,7 +7,7 @@ Update it before a parent session ends.
 campaign: GPU_RUNmultiAI
 status: active
 current_cycle: C0001
-current_stage: C0001_V16_ROUND7_PRE_CLOSURE_ACCEPTANCE_READY
+current_stage: C0001_V16_ROUND7_PRE_CLOSURE_ACCEPTANCE_RUNNING
 branch: 20260912_multiAI_research
 observed_commit: c7319e7ece430fbef4d5d04f9ffb3e0b69b8285d
 base_commit: df39f61f862da3329f29257b573659a19477601c
@@ -41,7 +41,7 @@ tracks:
   scientific:
     status: active
     current_cycle: C0001
-    stage: V16_ROUND7_PRE_CLOSURE_ACCEPTANCE_READY
+    stage: V16_ROUND7_PRE_CLOSURE_ACCEPTANCE_RUNNING
     resumed_by: user continuation after routing refresh
 
 active_tasks:
@@ -64,7 +64,15 @@ active_tasks:
       - GPU_RUNmultiAI/cycles/C0001/runs/c0001_metric_identifiability_audit_v16_round7_acceptance/
       - GPU_RUNmultiAI/cycles/C0001/runs/c0001_metric_identifiability_audit_v9_smoke/
     write_scope: [frozen 82-path runtime inventory, focused tests, G_contract/G_impl evidence, bounded v16 smoke, implementation completion]
-    status: pre_closure_acceptance_ready
+    status: pre_closure_acceptance_running
+    acceptance_output: GPU_RUNmultiAI/cycles/C0001/runs/c0001_metric_identifiability_audit_v16_round7_acceptance_r2/
+    acceptance_source_commit: 6e20b25dc633dbc698fe79d63cfee7b87a255ea8
+    acceptance_command: >
+      env PYTHONPATH=src timeout 18000 conda run --no-capture-output -n lansr310
+      python scripts/phases/gpu_runmultiai_c0001_metric_audit.py --implementation-acceptance
+      --fail-if-exists --output-dir
+      GPU_RUNmultiAI/cycles/C0001/runs/c0001_metric_identifiability_audit_v16_round7_acceptance_r2
+    acceptance_status_observed: running; audit_manifest.json reports running; no PASS claimed
     prior_pause_reason: C0001-INFRA-T003 routing refresh; dirty scientific worktree preserved
     pi_resolution: GPU_RUNmultiAI/cycles/C0001/implementation_v16_round7_pi_resolution.md (scientific worktree only until source commit)
     source_candidate_commit: 663a56d467636761a2030aa381a12fb2af4313c2
@@ -219,14 +227,13 @@ retries:
   C0001-T023: 1
 
 next_action: >
-  Launch exactly one fresh, non-resumed C0001 v16 pre-closure acceptance run in
-  /tmp/lansr-multiai-C0001-implement-audit at
-  GPU_RUNmultiAI/cycles/C0001/runs/c0001_metric_identifiability_audit_v16_round7_acceptance_r2/.
-  Use source branch tip 6e20b25 with no source edits; enforce the frozen 18,000-second and 1,200,000,000-byte ceilings,
-  preserve all earlier run trees, then mechanically verify 510 B1 rows, 4,080 unique counted calls, G_contract/G_impl,
+  Monitor the one running C0001 v16 pre-closure acceptance process (PI shell session 11393) in
+  /tmp/lansr-multiai-C0001-implement-audit; do not rerun, resume, overwrite, or delete its r2 output.
+  Source branch tip is 6e20b25. Enforce frozen 18,000-second and 1,200,000,000-byte ceilings.
+  On completion mechanically verify 510 B1 rows, 4,080 unique counted calls, G_contract/G_impl,
   F evidence, reachability, timing and final schema. Independent review and PI gate follow. Full audit prohibited.
 
-last_checkpoint_utc: 2026-09-24T05:24:06Z
+last_checkpoint_utc: 2026-09-24T05:26:54Z
 ```
 
 ## Notes
