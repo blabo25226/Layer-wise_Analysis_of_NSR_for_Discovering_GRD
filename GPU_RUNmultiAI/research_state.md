@@ -107,7 +107,7 @@ active_tasks:
     worktree: /tmp/lansr-multiai-C0001-full-audit-safety
     base_commit: ba8ccfc612c29077214d30a0e4a451bbfd3642ed
     write_scope: [full-audit reachability safety, exact fixture-ID gate, guard-attempt honesty, ledger-isolation regression test, focused tests, handoff]
-    status: sonnet_revision_uncommitted_independent_verification_running
+    status: cursor_r3_minor_repair_running
     source_commit: 456d8becaa274a89ef3c770cd2aac9f4693fe38c
     source_remote_verified: true
     first_independent_review_verdict: PASS_to_fresh_acceptance_only
@@ -118,11 +118,12 @@ active_tasks:
     second_independent_review_artifact: GPU_RUNmultiAI/cycles/C0001/implementation_review_v16_post_acceptance_safety_r2.md
     conda_full_focused_test_status: 124 passed on committed source 456d8be; must rerun after final source edit
     fallback_worker: Claude Sonnet research-engineer; sessions 72818 and 25252 returned uncommitted edits without completed test/commit evidence; no worker writer active
-    pi_full_focused_test_session: 60251 (conda lansr310, in progress; result not yet known)
+    pi_full_focused_test_session: 60251 (completed: 128 passed, 6 failed in 1841.71 s; all 6 fail because uncommitted source hashes differ from bound HEAD 456d8be)
     independent_reviewer_session: 80838 (Claude Opus 5.5, read-only source review completed)
     independent_review_r3_verdict: PASS_to_one_fresh_acceptance_only_with_minor_conditions; not implementation closure
     independent_review_r3_artifact: GPU_RUNmultiAI/cycles/C0001/implementation_review_v16_post_acceptance_safety_r3.md (task worktree, untracked pending integration)
-    focused_test_interim: at least one failure observed; full module still running, no PASS claimed
+    focused_test_interim: 128 passed, 6 failed on dirty source; no PASS claimed
+    active_repair_worker: Cursor Agent write mode, PI shell session 36072; sole writer in task worktree
     fallback_reason: Cursor second revision left repeated auxiliary-guard and destructive-resume evidence-integrity findings
     focused_system_python_test: 107 passed, 14 skipped; conda lansr310 full focused suite not yet rerun
     frozen_plan_hash_unchanged: true
@@ -243,6 +244,8 @@ completed_tasks:
     integration_commit: 47d7459
     result: four C0001 evidence and preregistration draft artifacts persisted
 open_findings:
+  - The 2026-09-24 PI full focused suite on uncommitted C0001-T024 source ended 128 passed, 6 failed. Every failure was source-inventory-at-commit mismatch versus HEAD 456d8be (including closure fixture cascades), not an observed safety-regression assertion failure. Commit source first, then rerun full suite; do not count this run as PASS.
+  - Independent Claude Opus 5.5 r3 source review conditionally PASSed one fresh acceptance only, while identifying malformed/timeout simplifier side-channel loss risk, ineffective match-path monkeypatch, and weak abort-ordering tests. Cursor session 36072 is repairing these in isolation before commit; no acceptance/full audit authorized.
   - Cursor's committed 456d8be conda focused suite passed 124/124 in about 29 minutes; this does not close Claude's auxiliary guard and resume-provenance findings. Claude Sonnet 5 is now a sequential fallback writer in the same isolated task worktree, and Opus 5.5 remains independent reviewer.
   - Claude Opus 5.5 conditionally PASSed 456d8be for one fresh acceptance but found auxiliary child attempts can be dropped on match/exception paths, no gate on the auxiliary side channel, and resume can erase a prior abort record before identity verification. PI requires these evidence-integrity issues resolved before final-source acceptance to avoid rerunning an expensive packet after another source change.
   - Cursor C0001-T024 second revision 456d8be is committed/pushed and the conda full focused test and independent Claude review are active. PI inspection identified a possible destructive resume-risk: clear_stale_abort_manifest runs before resume identity verification; do not accept or run fresh acceptance until resolved or disproved by review.
@@ -267,12 +270,13 @@ retries:
   C0001-T023: 1
 
 next_action: >
-  Monitor the one PI conda full-focused test (session 60251) and read-only Claude Opus 5.5
-  independent source review (session 80838, completed conditional PASS) in
-  /tmp/lansr-multiai-C0001-full-audit-safety. Focused suite has at least one failure; await
-  full failure report, then diagnose and repair. Do not duplicate tests or launch a writer
-  while the suite runs. Inspect review r3, diff and frozen-plan hash; repair any failures before
-  selective commit/non-force push. Resolve or explicitly waive review r3 minor findings 1–3
+  Monitor the sole Cursor C0001-T024 repair worker (PI shell session 36072) in
+  /tmp/lansr-multiai-C0001-full-audit-safety; do not launch another writer. It must resolve
+  r3 findings 1–3, run targeted tests, selectively commit source/tests/review artifacts,
+  non-force push task branch and verify remote SHA. Inspect the resulting diff and tests;
+  then rerun the full conda focused module on committed final source (prior dirty-tree suite:
+  128 passed, 6 source-inventory binding failures, no PASS). Seek independent Opus follow-up
+  on final source before any fresh acceptance. Resolve or explicitly waive r3 minor findings
   before scientific closure.
   Preserve old abort manifests and fail-closed auxiliary guard evidence on all paths.
   Only after a final-source PASS and conda focused-suite PASS may one fresh
@@ -280,7 +284,7 @@ next_action: >
   Preserve r2 and prior runs. Mechanically verify the new packet, independently review it,
   bind 91 accepted source hashes and closure record, run bounded smoke, then consider full audit.
 
-last_checkpoint_utc: 2026-09-24T08:50:23Z
+last_checkpoint_utc: 2026-09-24T11:35:55Z
 ```
 
 ## Notes
