@@ -90,11 +90,8 @@ active_tasks:
     full_focused_test: 118_passed_in_1640_45_seconds
     full_focused_test_artifact: GPU_RUNmultiAI/cycles/C0001/implementation_v16_round7_full_focused_pass.md
     resume_action: >
-      Dispatch Cursor in /tmp/lansr-multiai-C0001-implement-audit using
-      GPU_RUNmultiAI/cycles/C0001/implementation_v16_round6_revision_handoff.md (round7 acceptance track);
-      complete F1/F2/F4-F8, G_contract/G_impl, reachability evidence, bounded v16 smoke; Claude Opus 5.5
-      independent implementation/reproducibility review; GPT-6 Sol PI Go/No-Go with broker or mechanical
-      compression when live Gemini broker is unavailable.
+      Preserve accepted r2 evidence and use task C0001-T024 for post-acceptance source fixes.
+      Re-review and, if required for final source binding, rerun acceptance in a new output directory.
     expected_outputs: [F1/F2/F4-F8, G_contract, G_impl, reachability evidence, bounded v16 smoke]
     evidence_packet: GPU_RUNmultiAI/cycles/C0001/implementation_v16_round6_revision_handoff.md
     implementer_identity: Cursor Agent
@@ -110,7 +107,7 @@ active_tasks:
     worktree: /tmp/lansr-multiai-C0001-full-audit-safety
     base_commit: ba8ccfc612c29077214d30a0e4a451bbfd3642ed
     write_scope: [full-audit reachability safety, exact fixture-ID gate, guard-attempt honesty, ledger-isolation regression test, focused tests, handoff]
-    status: assigned
+    status: running
     implementer_identity: Cursor Agent
     independent_reviewer_identity: Claude Opus 5.5 reproducibility-auditor
     reviewer_diff_assertion: true
@@ -229,13 +226,13 @@ completed_tasks:
 open_findings:
   - Round7 r2 pre-closure acceptance PASS at source 6e20b25 and archived/pushed as ba8ccfc; 510/510 B1, 4080 unique counted calls, G_contract and G_impl PASS, 10/10 reachability, 7/7 Q4. This is non-scientific and does not authorize full audit.
   - Independent Claude Opus 5.5 P2 full-audit blocker: uncontained synthetic reachability checks run after all counted work; fix before closure/full audit. Auxiliary probe guard attempts and tautological ledger-isolation test remain P2 transparency/regression gaps. The v16 82-path list is an observed snapshot; the normative recursive algorithm now yields 91 paths, with a required 82-to-91 closure reconciliation.
-  - C0001-T023 source 663a56d passed 118/118 full focused tests in 1640.45 s; Claude Opus 5.5 independently closed pre-acceptance P1. One fresh 510-B1/4,080-call acceptance packet is ready at a new directory, but no full audit or scientific conclusion is authorized.
-  - Claude Opus 5.5 pre-acceptance review BLOCK at 92fe0c7: synthetic identity fixture hard-coded an oracle result inconsistent with E2 versus Q4 and failed to test fallback precedence over semantic_drift; auxiliary live probe could run after counted full audit and abort it. Cursor remediation is active. A full focused rerun was intentionally interrupted at 23 passed / 441.61 s because source must change; no full-suite PASS claimed.
+  - C0001-T023 source 663a56d passed 118/118 full focused tests in 1640.45 s; Claude Opus 5.5 independently closed pre-acceptance P1. The subsequent r2 acceptance and independent review passed; no full audit or scientific conclusion is authorized.
+  - Claude Opus 5.5 pre-acceptance review BLOCK at 92fe0c7 identified synthetic-oracle and live-probe isolation P1s; source 663a56d fixed these before the accepted r2 packet. Historical interrupted test runs are not counted as PASS.
   - Routing exception: direct Claude primary-code review preceded Gemini compression because the narrow question required scientific interpretation of frozen predicates and production oracle behavior, which cannot safely be delegated to mechanical extraction alone.
-  - C0001-T023 full focused run at fa1804b: 5 failed, 110 passed in 1672.83 s. Three resume and one source-inventory failure were due to dirty manifest.py; one stale output-directory hook test was repaired without weakening the canonical closure gate. Five affected tests passed individually on committed 92fe0c7; a clean-tree full module rerun is active.
+  - C0001-T023 full focused run at fa1804b: 5 failed, 110 passed in 1672.83 s. These historical failures were repaired before the 118/118 PASS at source 663a56d.
   - C0001-T023 first resumed full focused test was interrupted after an unbounded auxiliary live-production reachability scan launched overlapping pytest processes during Cursor reconnection. No PASS was claimed; all duplicate processes were terminated without deleting artifacts. Retry caps the non-scientific live observation at eight production pairs before rerunning the full suite.
   - v16 preregistration is frozen at SHA256 67017f5c8bac861664fc867b70cf229d43be3d052d266ffd0d575e20e6c12078 after Claude, Codex subagent, and PI PASS closure.
-  - Full audit remains prohibited until post-freeze G_contract/G_impl, reachability evidence, accepted 82-path hashes, bounded smoke, and independent implementation review PASS.
+  - Full audit remains prohibited until post-acceptance source safety fix, updated focused tests, reconciled 91-path accepted source hashes, bounded smoke, and independent implementation closure PASS. The 82-path figure is a frozen pre-implementation snapshot, not a cap.
   - Eight pre-existing GPU_RUN5 worktree records are prunable; they are unrelated to C0000 and were left untouched.
   - Gemini headless filesystem access soft-denies read_file/ListDir and can exit 0 without producing an artifact; broker mode is the standard mitigation (see C0001-INFRA-T003 artifacts).
   - Claude critic raised a possible rescaling/exact-skeleton non-invariance; an exploratory algebraically equivalent formula check reproduced a false negative, but the actual pipeline round-trip remains untested.
@@ -253,7 +250,7 @@ next_action: >
   must be rerun at final source before closure. Preserve the accepted r2 packet and all prior run trees.
   No implementation closure record or full 27637-call audit before independent PASS.
 
-last_checkpoint_utc: 2026-09-24T06:36:00Z
+last_checkpoint_utc: 2026-09-24T06:44:00Z
 ```
 
 ## Notes
