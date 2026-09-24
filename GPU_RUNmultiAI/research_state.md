@@ -144,7 +144,7 @@ active_tasks:
     worktree: /tmp/lansr-multiai-C0001-child-guard-durability
     base_commit: 86d089123226dfef434d8e0921f5f37d3afa81fc
     write_scope: [child guard timeout/crash evidence durability, idempotent orphan merge, malformed side-channel fail-closed tests, acceptance resume ordering, task handoff]
-    status: r6_committed_source_full_suite_pass_r7_review_conditional_pass_acceptance_authorized
+    status: r6_committed_source_round7_r4_acceptance_running
     worker_session: 18466 initial commit 0016644; revision 11387 source c2067c2; r6 Cursor session 92105 completed source 2787587 and handoff ba3ef3d; no writer active
     initial_source_commit: 0016644a4f2903f00abc1616912ff2b518e20155
     initial_source_remote_verified: true
@@ -166,6 +166,8 @@ active_tasks:
     independent_reviewer_r7_session: 7119 (Claude Opus 5.5 read-only, completed)
     independent_review_r7_verdict: PASS_TO_ONE_FRESH_ACCEPTANCE_ONLY, conditional on same-commit PI conda full focused suite PASS
     independent_review_r7_artifact: GPU_RUNmultiAI/cycles/C0001/implementation_review_v16_child_guard_durability_r7.md
+    round7_r4_acceptance_session: 73114 (conda lansr310 from ba3ef3d, started 2026-09-24T15:38:40Z; fresh output, --implementation-acceptance --fail-if-exists, no --resume)
+    round7_r4_output: GPU_RUNmultiAI/cycles/C0001/runs/c0001_metric_identifiability_audit_v16_round7_acceptance_r4/ (in T025 isolated worktree)
     acceptance_tests: [targeted C0001 guard/resume tests, compileall, diff check, committed source inventory]
     forbidden: [frozen v16 preregistration edit, existing runs/r2 overwrite, acceptance/full audit]
 completed_tasks:
@@ -280,6 +282,7 @@ completed_tasks:
     integration_commit: 47d7459
     result: four C0001 evidence and preregistration draft artifacts persisted
 open_findings:
+  - Round7 r4 fresh 510-B1/4080-call implementation acceptance is running as session 73114 from ba3ef3d in T025 worktree. Do not duplicate, overwrite, or resume; no source edit/test in that worktree until terminal status. This is not scientific data.
   - PI gate at 2026-09-24 15:38 UTC authorized exactly one fresh round7 acceptance r4 on committed/pushed ba3ef3d after same-commit conda full focused 152 PASS and independent Claude r7 conditional PASS. The child guard side-channel and r4 output were absent; no overlapping test process; frozen v16 hash matched. See implementation_acceptance_r4_pi_gate.md. This is non-scientific and does not authorize full audit.
   - Independent Claude Opus 5.5 r7 conditionally PASSed ba3ef3d for one fresh empty no-resume acceptance only, pending the running same-commit PI conda full focused suite. No closure or scientific PASS. Six closure/operational caveats are recorded in the r7 review artifact, including fail-closed side-channel read/cleanup and nonempty shared runtime channel handling.
   - T025 r6 narrow Python 3.10 stat repair committed as 2787587 with handoff ba3ef3d; task remote SHA verified. Targeted conda subset 19 passed, 133 deselected. PI full focused suite and independent Opus r7 review are in progress on branch head ba3ef3d. No acceptance/full audit launched.
@@ -315,12 +318,14 @@ retries:
   C0001-T023: 1
 
 next_action: >
-  Launch exactly one fresh round7 acceptance r4 from committed/pushed ba3ef3d in
-  /tmp/lansr-multiai-C0001-child-guard-durability, using frozen v16 seeds/timeouts and
-  --allow-cpu --implementation-acceptance --fail-if-exists, no --resume. The PI pre-run gate
-  is implementation_acceptance_r4_pi_gate.md; same-source conda suite 152 PASS and independent
-  Claude r7 conditional PASS. Do not duplicate or overwrite this run. Monitor until it ends;
-  if it fails, preserve artifacts, diagnose, and retry only in a new suffix after review.
+  Monitor the already-running round7 r4 implementation acceptance session 73114 in
+  /tmp/lansr-multiai-C0001-child-guard-durability. It uses committed/pushed ba3ef3d and
+  fresh output c0001_metric_identifiability_audit_v16_round7_acceptance_r4. Do not start a
+  second run, edit this worktree, overwrite output, or resume. Once terminal, mechanically
+  verify the new primary packet (including 510 B1, exactly 4080 unique counted calls,
+  guard, Q4/reachability, source/frozen-plan hashes, lifecycle and no error_isolated=true),
+  then obtain independent Claude review and PI gate. If failed, preserve the packet,
+  diagnose, and retry only under a fresh suffix after review.
   Never reuse r2; mechanically verify new packet and preserve all earlier outputs.
   Preserve old abort manifests and fail-closed auxiliary guard evidence on all paths.
   Only after a final-source PASS and conda focused-suite PASS may one fresh
@@ -328,7 +333,7 @@ next_action: >
   Preserve r2 and prior runs. Mechanically verify the new packet, independently review it,
   bind 91 accepted source hashes and closure record, run bounded smoke, then consider full audit.
 
-last_checkpoint_utc: 2026-09-24T15:38:00Z
+last_checkpoint_utc: 2026-09-24T15:38:50Z
 ```
 
 ## Notes
