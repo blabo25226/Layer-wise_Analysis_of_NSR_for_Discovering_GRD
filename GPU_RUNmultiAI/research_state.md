@@ -9,12 +9,12 @@ status: active
 current_cycle: C0001
 current_stage: C0001_V16_POST_ACCEPTANCE_SAFETY_REVIEW
 branch: 20260912_multiAI_research
-observed_commit: ee2a09ba2373106f41d0e4aab65c95098f78dfcd
+observed_commit: 927b7c6c5d82b6d801e632b0c9ce74b6a081f8bf
 base_commit: df39f61f862da3329f29257b573659a19477601c
 remote_branch: 20260912_multiAI_research
-remote_commit: ee2a09ba2373106f41d0e4aab65c95098f78dfcd
+remote_commit: 927b7c6c5d82b6d801e632b0c9ce74b6a081f8bf
 remote_commit_note: verified checkpoint before this state update; newer tip is verified separately after push
-last_push_attempt_utc: 2026-09-24T08:33:00Z
+last_push_attempt_utc: 2026-09-24T08:35:00Z
 last_push_error: null
 binding_plan:
   path: GPU_RUNmultiAI/cycles/C0001/preregistration_draft_v16.md
@@ -107,7 +107,7 @@ active_tasks:
     worktree: /tmp/lansr-multiai-C0001-full-audit-safety
     base_commit: ba8ccfc612c29077214d30a0e4a451bbfd3642ed
     write_scope: [full-audit reachability safety, exact fixture-ID gate, guard-attempt honesty, ledger-isolation regression test, focused tests, handoff]
-    status: second_revision_conditional_review_full_test_running
+    status: sonnet_bounded_fallback_running
     source_commit: 456d8becaa274a89ef3c770cd2aac9f4693fe38c
     source_remote_verified: true
     first_independent_review_verdict: PASS_to_fresh_acceptance_only
@@ -115,7 +115,10 @@ active_tasks:
     review_followup_worker_session: 55507
     second_independent_review_session: 31873
     second_independent_review_verdict: PASS_to_one_fresh_acceptance_with_conditions; no closure/full-audit authorization
-    conda_full_focused_test_status: running; worker-owned pytest process; no PASS claimed yet
+    second_independent_review_artifact: GPU_RUNmultiAI/cycles/C0001/implementation_review_v16_post_acceptance_safety_r2.md
+    conda_full_focused_test_status: 124 passed on committed source 456d8be; must rerun after final source edit
+    fallback_worker: Claude Sonnet 5 research-engineer; sequential writer, session 72818
+    fallback_reason: Cursor second revision left repeated auxiliary-guard and destructive-resume evidence-integrity findings
     focused_system_python_test: 107 passed, 14 skipped; conda lansr310 full focused suite not yet rerun
     frozen_plan_hash_unchanged: true
     source_inventory_paths: 91
@@ -235,6 +238,7 @@ completed_tasks:
     integration_commit: 47d7459
     result: four C0001 evidence and preregistration draft artifacts persisted
 open_findings:
+  - Cursor's committed 456d8be conda focused suite passed 124/124 in about 29 minutes; this does not close Claude's auxiliary guard and resume-provenance findings. Claude Sonnet 5 is now a sequential fallback writer in the same isolated task worktree, and Opus 5.5 remains independent reviewer.
   - Claude Opus 5.5 conditionally PASSed 456d8be for one fresh acceptance but found auxiliary child attempts can be dropped on match/exception paths, no gate on the auxiliary side channel, and resume can erase a prior abort record before identity verification. PI requires these evidence-integrity issues resolved before final-source acceptance to avoid rerunning an expensive packet after another source change.
   - Cursor C0001-T024 second revision 456d8be is committed/pushed and the conda full focused test and independent Claude review are active. PI inspection identified a possible destructive resume-risk: clear_stale_abort_manifest runs before resume identity verification; do not accept or run fresh acceptance until resolved or disproved by review.
   - Independent Claude Opus 5.5 PASSed f9933b2 for a fresh acceptance only; requested bounded P2 auxiliary guard transparency, real ledger-isolation and entrypoint preflight tests before reacceptance. Cursor C0001-T024 revision is active in the same isolated worktree; no concurrent writer.
@@ -258,16 +262,15 @@ retries:
   C0001-T023: 1
 
 next_action: >
-  Monitor the one active Cursor C0001-T024 worker/test (PI shell session 55507); do not duplicate it.
-  When the conda focused suite finishes, capture its exact result. Then send a bounded Cursor revision
-  in the same isolated worktree to preserve abort history before resume identity checks and close the
-  auxiliary guard attempt drop/ungated side-channel paths identified by Claude. Require tests and commit/push,
-  then independent re-review. Only after a final-source PASS and conda focused-suite PASS may one fresh
+  Monitor the one active Claude Sonnet 5 C0001-T024 fallback (PI shell session 72818) in
+  /tmp/lansr-multiai-C0001-full-audit-safety; do not duplicate a writer. On handoff inspect artifact,
+  diff, tests, commit and non-force push, then seek independent Claude Opus 5.5 re-review.
+  Only after a final-source PASS and conda focused-suite PASS may one fresh
   4080-call acceptance run start in a new suffixed output directory (not r2).
   Preserve r2 and prior runs. Mechanically verify the new packet, independently review it,
   bind 91 accepted source hashes and closure record, run bounded smoke, then consider full audit.
 
-last_checkpoint_utc: 2026-09-24T08:35:23Z
+last_checkpoint_utc: 2026-09-24T08:50:23Z
 ```
 
 ## Notes
