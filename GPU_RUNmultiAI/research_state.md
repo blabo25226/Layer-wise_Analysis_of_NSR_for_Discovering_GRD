@@ -193,7 +193,7 @@ active_tasks:
     branch: ai/C0001/repo-operator/closure-hardening-r1
     worktree: /tmp/lansr-multiai-C0001-closure-hardening-r1
     base_commit: ba3ef3dd26ba3ae0dd36a2c7165d7476e11a2432
-    status: r1_review_revise_cursor_revision_authorized
+    status: r2_cursor_revision_running
     worker_session: 17135 (Cursor write-mode completed, exit 0)
     source_commit: 56cf8efea8c1c247d4f6772c490b00dc76e23ead
     source_remote_verified: true
@@ -204,6 +204,7 @@ active_tasks:
     independent_review_artifact: GPU_RUNmultiAI/cycles/C0001/implementation_review_v16_closure_hardening_r1.md
     pi_full_focused_test_session: 14602 (conda lansr310, completed; 159 passed in 2181.06s on r1 only)
     pi_revision_gate: GPU_RUNmultiAI/cycles/C0001/implementation_closure_r1_pi_revision_gate.md
+    revision_worker_session: 79162 (Cursor write mode on same isolated worktree; no concurrent writer)
     handoff: GPU_RUNmultiAI/cycles/C0001/closure_hardening_r1_handoff.md
     write_scope: [C0001 runtime, focused tests, task-specific handoff]
     expected_outputs: [closure hardening commit, focused test evidence, source inventory impact, verified task-branch push]
@@ -367,7 +368,7 @@ retries:
   C0001-T023: 1
 
 next_action: >
-  Dispatch sequential Cursor revision for C0001-T026 in the same isolated worktree, following
+  Monitor Cursor revision session 79162 for C0001-T026 in the same isolated worktree, following
   implementation_review_v16_closure_hardening_r1.md and implementation_closure_r1_pi_revision_gate.md.
   Preserve untracked .runtime evidence and all prior runs. Require committed/pushed source and
   focused regressions, then PI full conda suite and new independent Claude review on revised commit.
