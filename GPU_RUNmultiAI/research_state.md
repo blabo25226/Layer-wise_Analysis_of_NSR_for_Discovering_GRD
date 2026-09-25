@@ -193,7 +193,7 @@ active_tasks:
     branch: ai/C0001/repo-operator/closure-hardening-r1
     worktree: /tmp/lansr-multiai-C0001-closure-hardening-r1
     base_commit: ba3ef3dd26ba3ae0dd36a2c7165d7476e11a2432
-    status: r2_committed_under_independent_review_and_pi_full_focused_test
+    status: r2_review_complete_pi_requires_evidence_preservation_revision_after_auth
     worker_session: 17135 (Cursor write-mode completed, exit 0)
     source_commit: 56cf8efea8c1c247d4f6772c490b00dc76e23ead
     source_remote_verified: true
@@ -208,8 +208,10 @@ active_tasks:
     revision_source_commit: 78cafb00250471513eefcb42aa9ba702c960e536
     revision_source_remote_verified: true
     revision_targeted_conda_tests: 18 passed, 145 deselected (worker-reported)
-    revision_pi_full_focused_test_session: 18566 (conda lansr310, running)
-    revision_independent_claude_session: 3897 (read-only, running)
+    revision_pi_full_focused_test_session: 18566 (conda lansr310, completed; 163 passed in 2167.37s)
+    revision_independent_claude_session: 3897 (read-only, completed; PASS_TO_PI_GATE with conditions)
+    revision_independent_review_artifact: GPU_RUNmultiAI/cycles/C0001/implementation_review_v16_closure_hardening_r2.md
+    pi_interpretation: M1 late freshness guard and M4 stale-row deletion are closure-blocking evidence preservation issues; no acceptance gate yet
     handoff: GPU_RUNmultiAI/cycles/C0001/closure_hardening_r1_handoff.md
     write_scope: [C0001 runtime, focused tests, task-specific handoff]
     expected_outputs: [closure hardening commit, focused test evidence, source inventory impact, verified task-branch push]
@@ -330,6 +332,7 @@ completed_tasks:
     integration_commit: 47d7459
     result: four C0001 evidence and preregistration draft artifacts persisted
 open_findings:
+  - C0001-T026 r2 full focused conda suite 163/163 PASS and independent Claude Opus 5.5 PASS_TO_PI_GATE with conditions on 78cafb0. PI treats late fail-if-exists guard (prior manifest/deviation overwrite) and pre-guard stale-row deletion as closure-blocking evidence-preservation gaps. No fresh acceptance authorized; GitHub credential hard stop remains. See implementation_review_v16_closure_hardening_r2.md.
   - HARD STOP (credentials recurrence): at 2026-09-25T11:46Z, non-force push of local 7ae7319 failed because gh stored token is invalid. Remote remains e366075. Cursor task branch 78cafb0 had already been pushed and SHA-verified. Ongoing PI focused test 18566 and independent read-only Claude review 3897 may complete; preserve their outputs. Do not claim local state remote-durable until user reauthenticates and push SHA is verified.
   - C0001-T026 r1 independent Claude Opus 5.5 REVISE: reachability orphan-reconcile path can let a post-stat side-channel read OSError escape and be downgraded to error_isolated, losing child-denial accounting. Full focused conda tests 159/159 PASS on r1 do not close this MAJOR. Cursor revision authorized in isolated worktree; no acceptance/full audit authorized. See implementation_review_v16_closure_hardening_r1.md and implementation_closure_r1_pi_revision_gate.md.
   - RESOLVED (credentials): GitHub authentication recovered by 2026-09-25T08:37Z; non-force push carried local commits 6a48318 and 9204d00; remote SHA independently verified as 9204d0029c83eb198cb38ad9a3609d97fd2abb15. No scientific work was performed during the hard stop.
@@ -374,12 +377,14 @@ retries:
   C0001-T023: 1
 
 next_action: >
-  Await user GitHub reauthentication (for example gh auth login -h github.com). Already-started
-  C0001-T026 r2 full focused test session 18566 and independent Claude review 3897 may finish;
-  collect and preserve their outputs without starting new work. After gh auth is valid, non-force
-  push local research branch and verify remote SHA parity. Clear this hard stop in a new state
-  commit, push and verify again. Then resolve review/test findings and consider one fresh
-  no-resume new-suffix acceptance only after PI gate. Preserve all prior runs and .runtime evidence.
+  Await user GitHub reauthentication (for example gh auth login -h github.com). The already-started
+  C0001-T026 r2 full focused suite and independent review are complete and persisted locally.
+  After gh auth is valid, non-force push local research branch and verify remote SHA parity.
+  Clear this hard stop in a new state commit, push and verify again. Then delegate a narrow Cursor
+  revision for r2 review M1 late freshness check and M4 stale-row evidence preservation, plus
+  pragmatic shared-channel test isolation. Rerun affected tests and independent diff review.
+  Only after PI gate may one fresh no-resume new-suffix acceptance be considered. Preserve all prior
+  runs and .runtime evidence.
   If both pass, PI may authorize one fresh no-resume new-suffix acceptance on final source.
   Bind all 91
   source hashes in the closure record only after final-source tests/review PASS; if acceptance
