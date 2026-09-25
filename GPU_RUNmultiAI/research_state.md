@@ -193,8 +193,15 @@ active_tasks:
     branch: ai/C0001/repo-operator/closure-hardening-r1
     worktree: /tmp/lansr-multiai-C0001-closure-hardening-r1
     base_commit: ba3ef3dd26ba3ae0dd36a2c7165d7476e11a2432
-    status: running
-    worker_session: 17135 (Cursor write-mode launch 2026-09-25; no concurrent writer)
+    status: committed_under_independent_review_and_pi_full_focused_test
+    worker_session: 17135 (Cursor write-mode completed, exit 0)
+    source_commit: 56cf8efea8c1c247d4f6772c490b00dc76e23ead
+    source_remote_verified: true
+    worker_targeted_tests: 26 passed, 133 deselected in conda lansr310 (reported; PI full suite pending)
+    worker_handoff: GPU_RUNmultiAI/cycles/C0001/implementation_handoff_C0001-T026.md (task worktree)
+    acceptance_behavior_changed: true (process/manifest only; fresh suffix acceptance required)
+    independent_claude_review_session: 69415 (read-only, running)
+    pi_full_focused_test_session: 14602 (conda lansr310, running)
     handoff: GPU_RUNmultiAI/cycles/C0001/closure_hardening_r1_handoff.md
     write_scope: [C0001 runtime, focused tests, task-specific handoff]
     expected_outputs: [closure hardening commit, focused test evidence, source inventory impact, verified task-branch push]
@@ -357,10 +364,11 @@ retries:
   C0001-T023: 1
 
 next_action: >
-  Monitor Cursor session 17135 for C0001-T026 in the prepared isolated worktree using
-  GPU_RUNmultiAI/cycles/C0001/closure_hardening_r1_handoff.md, without a
-  concurrent writer. On completion inspect diff/tests and obtain independent Claude Opus 5.5
-  review of the closure diff. Bind all 91
+  Monitor C0001-T026 PI full focused conda test session 14602 and independent Claude Opus 5.5
+  review session 69415 on committed/pushed 56cf8ef. No writer may edit that worktree while
+  tests/review run. Resolve any findings by new Cursor revision and repeat affected gates.
+  If both pass, PI may authorize one fresh no-resume new-suffix acceptance on final source.
+  Bind all 91
   source hashes in the closure record only after final-source tests/review PASS; if acceptance
   behavior changed, run a fresh new-suffix acceptance on that source before closure.
   Never reuse r2; mechanically verify new packet and preserve all earlier outputs.
@@ -370,7 +378,7 @@ next_action: >
   Preserve r2 and prior runs. Mechanically verify the new packet, independently review it,
   bind 91 accepted source hashes and closure record, run bounded smoke, then consider full audit.
 
-last_checkpoint_utc: 2026-09-25T08:40:00Z
+last_checkpoint_utc: 2026-09-25T09:46:30Z
 ```
 
 ## Notes
