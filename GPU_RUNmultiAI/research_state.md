@@ -9,13 +9,13 @@ status: active
 current_cycle: C0001
 current_stage: C0001_V16_CLOSURE_HARDENING
 branch: 20260912_multiAI_research
-observed_commit: 9204d0029c83eb198cb38ad9a3609d97fd2abb15
+observed_commit: 7ae73196de0bc4f65d5a0b6c93aba6ee833f7aaf
 base_commit: df39f61f862da3329f29257b573659a19477601c
 remote_branch: 20260912_multiAI_research
-remote_commit: 9204d0029c83eb198cb38ad9a3609d97fd2abb15
-remote_commit_note: independently verified after GitHub authentication recovery on 2026-09-25; state-resumption commit will require another push and verification
-last_push_attempt_utc: 2026-09-25T08:37:00Z
-last_push_error: null
+remote_commit: e366075f1b971e9bd54c38b20fee1bbe7779715d
+remote_commit_note: last independently verified remote SHA; local 7ae7319 is ahead after GitHub authentication failed again
+last_push_attempt_utc: 2026-09-25T11:46:00Z
+last_push_error: GitHub CLI stored token invalid; HTTPS push could not read Username
 binding_plan:
   path: GPU_RUNmultiAI/cycles/C0001/preregistration_draft_v16.md
   version: v16
@@ -30,8 +30,8 @@ binding_plan:
   closure_verdict: PASS
   frozen_at_utc: 2026-09-16T01:06:24Z
 
-hard_stop: false
-hard_stop_reason: null
+hard_stop: true
+hard_stop_reason: GitHub credentials required for mandated non-force push durability; token became invalid again after C0001-T026 r2 test/review state commit. Await user reauthentication. Existing read-only review and focused test processes may finish, but no new research action or integration until remote parity is restored.
 
 tracks:
   infrastructure:
@@ -330,6 +330,7 @@ completed_tasks:
     integration_commit: 47d7459
     result: four C0001 evidence and preregistration draft artifacts persisted
 open_findings:
+  - HARD STOP (credentials recurrence): at 2026-09-25T11:46Z, non-force push of local 7ae7319 failed because gh stored token is invalid. Remote remains e366075. Cursor task branch 78cafb0 had already been pushed and SHA-verified. Ongoing PI focused test 18566 and independent read-only Claude review 3897 may complete; preserve their outputs. Do not claim local state remote-durable until user reauthenticates and push SHA is verified.
   - C0001-T026 r1 independent Claude Opus 5.5 REVISE: reachability orphan-reconcile path can let a post-stat side-channel read OSError escape and be downgraded to error_isolated, losing child-denial accounting. Full focused conda tests 159/159 PASS on r1 do not close this MAJOR. Cursor revision authorized in isolated worktree; no acceptance/full audit authorized. See implementation_review_v16_closure_hardening_r1.md and implementation_closure_r1_pi_revision_gate.md.
   - RESOLVED (credentials): GitHub authentication recovered by 2026-09-25T08:37Z; non-force push carried local commits 6a48318 and 9204d00; remote SHA independently verified as 9204d0029c83eb198cb38ad9a3609d97fd2abb15. No scientific work was performed during the hard stop.
   - Independent Claude Opus 5.5 post-r6 review PASS_PRE_CLOSURE_ACCEPTANCE_ONLY; PI accepted the mechanically verified r6 packet for closure work only. No scientific conclusion or full-audit authorization. Reviewer found r7 guard-durability issues 1–5 still closure-blocking, plus acceptance fingerprint/freshness/G4 evidence/not-evaluated gate semantics and timing-smoke gaps. See implementation_review_v16_round7_acceptance_r6.md and implementation_acceptance_r6_pi_gate.md.
@@ -373,9 +374,12 @@ retries:
   C0001-T023: 1
 
 next_action: >
-  Monitor C0001-T026 r2 PI full focused conda test session 18566 and independent Claude Opus 5.5
-  review session 3897 on committed/pushed 78cafb0. No writer may edit that worktree while tests
-  and review run. Preserve untracked .runtime evidence and all prior runs.
+  Await user GitHub reauthentication (for example gh auth login -h github.com). Already-started
+  C0001-T026 r2 full focused test session 18566 and independent Claude review 3897 may finish;
+  collect and preserve their outputs without starting new work. After gh auth is valid, non-force
+  push local research branch and verify remote SHA parity. Clear this hard stop in a new state
+  commit, push and verify again. Then resolve review/test findings and consider one fresh
+  no-resume new-suffix acceptance only after PI gate. Preserve all prior runs and .runtime evidence.
   If both pass, PI may authorize one fresh no-resume new-suffix acceptance on final source.
   Bind all 91
   source hashes in the closure record only after final-source tests/review PASS; if acceptance
@@ -387,7 +391,7 @@ next_action: >
   Preserve r2 and prior runs. Mechanically verify the new packet, independently review it,
   bind 91 accepted source hashes and closure record, run bounded smoke, then consider full audit.
 
-last_checkpoint_utc: 2026-09-25T10:45:30Z
+last_checkpoint_utc: 2026-09-25T11:47:12Z
 ```
 
 ## Notes
