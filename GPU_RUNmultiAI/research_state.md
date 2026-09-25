@@ -186,6 +186,22 @@ active_tasks:
     round7_r6_pi_gate: GPU_RUNmultiAI/cycles/C0001/implementation_acceptance_r6_pi_gate.md (accepted as pre-closure packet only)
     acceptance_tests: [targeted C0001 guard/resume tests, compileall, diff check, committed source inventory]
     forbidden: [frozen v16 preregistration edit, existing runs/r2 overwrite, acceptance/full audit]
+  - task_id: C0001-T026
+    track: scientific
+    role: repo-operator
+    worker: Cursor Agent
+    branch: ai/C0001/repo-operator/closure-hardening-r1
+    worktree: /tmp/lansr-multiai-C0001-closure-hardening-r1
+    base_commit: ba3ef3dd26ba3ae0dd36a2c7165d7476e11a2432
+    status: assigned
+    handoff: GPU_RUNmultiAI/cycles/C0001/closure_hardening_r1_handoff.md
+    write_scope: [C0001 runtime, focused tests, task-specific handoff]
+    expected_outputs: [closure hardening commit, focused test evidence, source inventory impact, verified task-branch push]
+    implementer_identity: Cursor Agent
+    independent_reviewer_identity: Claude Opus 5.5
+    reviewer_diff_assertion: true
+    retry_count: 0
+    fallback: Claude Sonnet 5 research-engineer if Cursor fails; PI resolves scientific conflicts
 completed_tasks:
   - task_id: C0001-INFRA-T003
     track: infrastructure
@@ -340,12 +356,10 @@ retries:
   C0001-T023: 1
 
 next_action: >
-  Begin C0001 closure hardening from reviewed source ba3ef3d in a new isolated Cursor
-  repo-operator worktree/branch. Explicit scope: independent r7 guard-durability issues 1–5
-  plus post-r6 review MINOR 1–4, with focused regression tests; document MINOR 5–9 and
-  recheck timing before bounded smoke. Preserve r6 primary packet, interrupted r4,
-  failed-before-output r5 journal and all earlier outputs. Worker must edit/test/commit/push,
-  then PI inspect diff/tests and independent Claude review the closure diff. Bind all 91
+  Dispatch C0001-T026 to Cursor in the prepared isolated worktree using
+  GPU_RUNmultiAI/cycles/C0001/closure_hardening_r1_handoff.md. Monitor progress without a
+  concurrent writer. On completion inspect diff/tests and obtain independent Claude Opus 5.5
+  review of the closure diff. Bind all 91
   source hashes in the closure record only after final-source tests/review PASS; if acceptance
   behavior changed, run a fresh new-suffix acceptance on that source before closure.
   Never reuse r2; mechanically verify new packet and preserve all earlier outputs.
@@ -355,7 +369,7 @@ next_action: >
   Preserve r2 and prior runs. Mechanically verify the new packet, independently review it,
   bind 91 accepted source hashes and closure record, run bounded smoke, then consider full audit.
 
-last_checkpoint_utc: 2026-09-25T08:37:38Z
+last_checkpoint_utc: 2026-09-25T08:40:00Z
 ```
 
 ## Notes
