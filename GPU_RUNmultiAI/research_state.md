@@ -193,7 +193,8 @@ active_tasks:
     branch: ai/C0001/repo-operator/closure-hardening-r1
     worktree: /tmp/lansr-multiai-C0001-closure-hardening-r1
     base_commit: ba3ef3dd26ba3ae0dd36a2c7165d7476e11a2432
-    status: assigned
+    status: running
+    worker_session: 17135 (Cursor write-mode launch 2026-09-25; no concurrent writer)
     handoff: GPU_RUNmultiAI/cycles/C0001/closure_hardening_r1_handoff.md
     write_scope: [C0001 runtime, focused tests, task-specific handoff]
     expected_outputs: [closure hardening commit, focused test evidence, source inventory impact, verified task-branch push]
@@ -356,8 +357,8 @@ retries:
   C0001-T023: 1
 
 next_action: >
-  Dispatch C0001-T026 to Cursor in the prepared isolated worktree using
-  GPU_RUNmultiAI/cycles/C0001/closure_hardening_r1_handoff.md. Monitor progress without a
+  Monitor Cursor session 17135 for C0001-T026 in the prepared isolated worktree using
+  GPU_RUNmultiAI/cycles/C0001/closure_hardening_r1_handoff.md, without a
   concurrent writer. On completion inspect diff/tests and obtain independent Claude Opus 5.5
   review of the closure diff. Bind all 91
   source hashes in the closure record only after final-source tests/review PASS; if acceptance
