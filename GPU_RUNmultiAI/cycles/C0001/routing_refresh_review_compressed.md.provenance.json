@@ -1,0 +1,13 @@
+{
+  "worker": "repo_operator",
+  "mode": "mechanical_fallback",
+  "compression_source": "repo_operator_mechanical_fallback",
+  "broker_live_attempt_at_utc": "2026-09-23T07:10:00Z",
+  "broker_live_exit_code": 70,
+  "broker_live_stderr_log": "GPU_RUNmultiAI/cycles/C0001/routing_refresh_review_broker.stderr.log",
+  "agy_version": "1.2.9",
+  "model": "gemini-3.8-flash-high",
+  "evidence_packet": "GPU_RUNmultiAI/cycles/C0001/routing_refresh_review_evidence.md",
+  "output_file": "GPU_RUNmultiAI/cycles/C0001/routing_refresh_review_compressed.md",
+  "acceptance": "headings_mechanical_fallback"
+}

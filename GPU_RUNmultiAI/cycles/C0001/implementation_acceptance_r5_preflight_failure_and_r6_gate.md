@@ -1,0 +1,7 @@
+# C0001 v16 r5 preflight failure and r6 isolated-worktree gate
+
+The `lansr-c0001-acceptance-r5.service` user-systemd invocation `7a0dccd9724c4d80b289f9c6cf1fd729` exited code 1 before creating an r5 output directory. Its journal shows `ResumeIdentityError` from `verify_clean_worktree`: the preserved interrupted r4 directory appeared as an untracked dirty entry. This was a preflight safety rejection, not an experimental observation. No source change, frozen-plan change, or r4 artifact deletion is authorized.
+
+PI disposition: create a **new clean isolated worktree** `/tmp/lansr-multiai-C0001-acceptance-r6` on branch `ai/C0001/repo-operator/acceptance-r6`, directly from immutable reviewed source `ba3ef3dd26ba3ae0dd36a2c7165d7476e11a2432`. Its Git status is clean and v16 preregistration SHA256 remains `67017f5c8bac861664fc867b70cf229d43be3d052d266ffd0d575e20e6c12078`. `/tmp` had about 27 GiB free. The earlier r4 stays in the T025 worktree, unmodified. The r5 output was never created.
+
+Authorize exactly one fresh `r6` output in this new worktree with the same frozen CLI, `--implementation-acceptance --fail-if-exists`, no `--resume`. Run via a user-systemd transient service and monitor its journal/result. `Linger=no` remains a limitation if every login session ends. Exit code alone will not establish PASS; primary artifacts and independent review are still required. This gate is non-scientific and does not authorize full audit.

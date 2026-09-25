@@ -1,0 +1,10 @@
+---
+description: Research implementation rules for GPU_RUNmultiAI-related source and tests
+globs: "src/**,scripts/**,configs/**,tests/**,GPU_RUNmultiAI/**"
+alwaysApply: false
+---
+Read `.agent/rules/02-test-data-and-leakage.md`,
+`.agent/rules/03-symbolic-research-contract.md`,
+`.agent/rules/07-artifact-provenance-and-reproducibility.md`,
+and `.agent/rules/16-gpu-runmultiai-layout.md`.
+Reuse existing repository utilities before duplicating logic.

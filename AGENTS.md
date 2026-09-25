@@ -431,3 +431,61 @@ YYYYMMDD_<やること(verb)>_<やる内容(noun)>
 
 不明点を安全にファイルやテストから確認できる場合は確認して進める。研究結論、データ利用、長時間GPU計算、
 破壊的Git操作など、判断によって結果やコストが大きく変わる場合は、推測で進めずユーザーへ確認する。
+
+## 13. Multi-AI autonomous research track: GPU_RUNmultiAI
+
+自律的な multi-AI 研究の canonical operating system は `.agent/` にある。
+
+この track を開始または再開する前に、最低限次を読む。
+
+1. [`.agent/README.md`](.agent/README.md)
+2. [`.agent/rules/00-mission-and-authority.md`](.agent/rules/00-mission-and-authority.md)
+3. [`.agent/rules/05-git-worktree-and-concurrency.md`](.agent/rules/05-git-worktree-and-concurrency.md)
+4. [`.agent/rules/08-routing-and-delegation.md`](.agent/rules/08-routing-and-delegation.md)
+5. [`.agent/rules/12-cycle-persistence-and-continuity.md`](.agent/rules/12-cycle-persistence-and-continuity.md)
+6. [`GPU_RUNmultiAI/RESEARCH_LOOP.md`](GPU_RUNmultiAI/RESEARCH_LOOP.md)
+7. [`GPU_RUNmultiAI/research_state.md`](GPU_RUNmultiAI/research_state.md)
+8. [`GPU_RUNmultiAI/hypothesis_tree.md`](GPU_RUNmultiAI/hypothesis_tree.md)
+9. Research PI 役割: [`.agent/agents/research-pi.md`](.agent/agents/research-pi.md)
+
+`GPU_RUNmultiAI/` は persistent campaign 領域である。再利用コードは通常の `src/`, `scripts/`, `configs/`, `tests/` に置き、
+campaign 固有の plan、review、state、report、manifest、cycle artifact は `GPU_RUNmultiAI/` に置く。
+
+retired PR #4 の `GPU_RUNclaude1` track から、人間が明示的に許可しない限り科学的結論、cycle 結果、
+実験 artifact を持ち込まない。プロセス設計のみ再利用してよい。
+
+### 13.1 Infrastructure track と scientific track の分離
+
+- **Infrastructure track** (`C0000`, PR #5 remediation など): 研究 OS、routing、state、manifest、push 耐久性。
+  ここでの PASS/FAIL は科学的仮説の支持・不支持を意味しない。
+- **Scientific track** (`C0001` 以降): 仮説、preregistration、実験、分析、独立 review。
+  infrastructure 結論を scientific 結論へ混ぜない。
+
+`GPU_RUNmultiAI/research_state.md` の `tracks` ブロックが現在の track 位置の authority である。
+
+### 13.2 タスク受け入れ条件
+
+delegated task の成功は **process exit code だけでは判定しない**。
+
+write task は、少なくとも次を満たすこと。
+
+- 期待された artifact が worktree 内に存在する
+- 対応する acceptance test または focused check が PASS である
+- handoff に commit SHA、変更ファイル、実行コマンド結果、未解決リスクが記録されている
+
+Gemini/Antigravity headless では filesystem read/write が soft-deny され、exit code 0 でも artifact が
+生成されないことがある。filesystem E2E が再 PASS するまで、Gemini には prompt 内 evidence または
+親 worker による prompt-supplied evidence task を割り当てる。
+
+### 13.3 Remote research branch の push 耐久性
+
+active remote research branch で accepted integration または stable checkpoint を記録した後は、
+non-force push して remote SHA を検証する。push 失敗は `research_state.md` に記録し、
+remote 検証が完了するまで durability を報告しない。
+
+bootstrap/control/tooling の integrity は root [`MANIFEST.sha256`](MANIFEST.sha256) で管理する。
+更新は `bash scripts/ops/update_ai_manifest.sh`、検証は `bash scripts/ops/verify_ai_manifest.sh`。
+
+デフォルトは自律継続である。negative result、bug、worker failure、reviewer disagreement は hard stop ではない。
+agent session 終了前に、current stage、active work、未解決 issue、exact `next_action` を
+`GPU_RUNmultiAI/research_state.md` に persist する。

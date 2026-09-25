@@ -1,0 +1,48 @@
+# Git worktree and concurrency
+
+All workers may write, but concurrent writing must be isolated.
+
+## Default
+
+Each write-capable delegated task gets:
+- its own branch
+- its own Git worktree (or an equivalent isolated project copy)
+- an explicit `write_scope`
+- an explicit acceptance test
+- a task ID recorded in `GPU_RUNmultiAI/research_state.md`
+
+Recommended naming:
+- branch: `ai/<cycle>/<role>/<task-slug>`
+- worktree: `.worktrees/<cycle>-<role>-<task-slug>`
+
+Do not attach one branch to two worktrees.
+
+## Integration
+
+Workers commit their deliverable before handoff unless explicitly told otherwise.
+The parent/PI inspects diff/tests and integrates by merge or cherry-pick.
+Do not edit the integration worktree merely to avoid making a proper handoff.
+
+## Forbidden destructive shared-state operations
+
+Without explicit human authorization:
+- no force push
+- no shared-history rewrite
+- no deleting another worker's branch/worktree
+- no `git reset --hard` against another worker's unintegrated work
+- no broad clean operation that can remove unrelated artifacts
+- no overwriting prior run directories
+
+If branches conflict, resolve deliberately and record what was chosen.
+
+## Remote research branch durability
+
+After each accepted integration or stable checkpoint on an active remote research branch:
+
+1. push with a normal non-force `git push` (set upstream with `-u` when needed)
+2. fetch or query the remote ref
+3. verify that `remote_commit` equals the intended local integration SHA
+4. record `remote_branch`, `remote_commit`, and `last_checkpoint_utc` in `GPU_RUNmultiAI/research_state.md`
+
+If push fails, record `last_push_attempt_utc` and `last_push_error`, retry when safe, and continue the campaign.
+Never report that work is durably pushed before remote verification succeeds.
