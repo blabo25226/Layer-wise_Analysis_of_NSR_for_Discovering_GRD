@@ -193,15 +193,17 @@ active_tasks:
     branch: ai/C0001/repo-operator/closure-hardening-r1
     worktree: /tmp/lansr-multiai-C0001-closure-hardening-r1
     base_commit: ba3ef3dd26ba3ae0dd36a2c7165d7476e11a2432
-    status: committed_under_independent_review_and_pi_full_focused_test
+    status: r1_review_revise_cursor_revision_authorized
     worker_session: 17135 (Cursor write-mode completed, exit 0)
     source_commit: 56cf8efea8c1c247d4f6772c490b00dc76e23ead
     source_remote_verified: true
     worker_targeted_tests: 26 passed, 133 deselected in conda lansr310 (reported; PI full suite pending)
     worker_handoff: GPU_RUNmultiAI/cycles/C0001/implementation_handoff_C0001-T026.md (task worktree)
     acceptance_behavior_changed: true (process/manifest only; fresh suffix acceptance required)
-    independent_claude_review_session: 69415 (read-only, running)
-    pi_full_focused_test_session: 14602 (conda lansr310, running)
+    independent_claude_review_session: 69415 (read-only, completed; REVISE)
+    independent_review_artifact: GPU_RUNmultiAI/cycles/C0001/implementation_review_v16_closure_hardening_r1.md
+    pi_full_focused_test_session: 14602 (conda lansr310, completed; 159 passed in 2181.06s on r1 only)
+    pi_revision_gate: GPU_RUNmultiAI/cycles/C0001/implementation_closure_r1_pi_revision_gate.md
     handoff: GPU_RUNmultiAI/cycles/C0001/closure_hardening_r1_handoff.md
     write_scope: [C0001 runtime, focused tests, task-specific handoff]
     expected_outputs: [closure hardening commit, focused test evidence, source inventory impact, verified task-branch push]
@@ -322,6 +324,7 @@ completed_tasks:
     integration_commit: 47d7459
     result: four C0001 evidence and preregistration draft artifacts persisted
 open_findings:
+  - C0001-T026 r1 independent Claude Opus 5.5 REVISE: reachability orphan-reconcile path can let a post-stat side-channel read OSError escape and be downgraded to error_isolated, losing child-denial accounting. Full focused conda tests 159/159 PASS on r1 do not close this MAJOR. Cursor revision authorized in isolated worktree; no acceptance/full audit authorized. See implementation_review_v16_closure_hardening_r1.md and implementation_closure_r1_pi_revision_gate.md.
   - RESOLVED (credentials): GitHub authentication recovered by 2026-09-25T08:37Z; non-force push carried local commits 6a48318 and 9204d00; remote SHA independently verified as 9204d0029c83eb198cb38ad9a3609d97fd2abb15. No scientific work was performed during the hard stop.
   - Independent Claude Opus 5.5 post-r6 review PASS_PRE_CLOSURE_ACCEPTANCE_ONLY; PI accepted the mechanically verified r6 packet for closure work only. No scientific conclusion or full-audit authorization. Reviewer found r7 guard-durability issues 1–5 still closure-blocking, plus acceptance fingerprint/freshness/G4 evidence/not-evaluated gate semantics and timing-smoke gaps. See implementation_review_v16_round7_acceptance_r6.md and implementation_acceptance_r6_pi_gate.md.
   - Round7 r6 implementation acceptance completed at 2026-09-24T17:15:35Z, service exit 0. PI direct mechanical checks found 510/510 B1, 4080 unique counted calls, 7/7 Q4, 10/10 reachability, applicable G_contract/G_impl and source-hash consistency. Gemini broker compressed a prompt-supplied index, but its truncated-commit and plan-amendment speculations were rejected against primary evidence. Independent Claude Opus 5.5 post-packet review session 40316 is running; no closure/full audit/scientific result yet.
@@ -364,9 +367,10 @@ retries:
   C0001-T023: 1
 
 next_action: >
-  Monitor C0001-T026 PI full focused conda test session 14602 and independent Claude Opus 5.5
-  review session 69415 on committed/pushed 56cf8ef. No writer may edit that worktree while
-  tests/review run. Resolve any findings by new Cursor revision and repeat affected gates.
+  Dispatch sequential Cursor revision for C0001-T026 in the same isolated worktree, following
+  implementation_review_v16_closure_hardening_r1.md and implementation_closure_r1_pi_revision_gate.md.
+  Preserve untracked .runtime evidence and all prior runs. Require committed/pushed source and
+  focused regressions, then PI full conda suite and new independent Claude review on revised commit.
   If both pass, PI may authorize one fresh no-resume new-suffix acceptance on final source.
   Bind all 91
   source hashes in the closure record only after final-source tests/review PASS; if acceptance
@@ -378,7 +382,7 @@ next_action: >
   Preserve r2 and prior runs. Mechanically verify the new packet, independently review it,
   bind 91 accepted source hashes and closure record, run bounded smoke, then consider full audit.
 
-last_checkpoint_utc: 2026-09-25T09:46:30Z
+last_checkpoint_utc: 2026-09-25T10:45:30Z
 ```
 
 ## Notes

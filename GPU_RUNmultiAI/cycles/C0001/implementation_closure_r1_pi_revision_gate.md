@@ -1,0 +1,5 @@
+# PI gate — C0001-T026 closure r1
+
+At 2026-09-25 10:45 UTC, the PI records **REVISE** for committed/pushed source `56cf8efea8c1c247d4f6772c490b00dc76e23ead`. The same-commit full focused conda suite passed 159/159 in 2181.06 seconds, but independent Claude Opus 5.5 found a MAJOR fail-closed orphan-reconcile gap. The test result is valid for r1 only and does not authorize a fresh acceptance, bounded smoke, full audit, or scientific claim.
+
+Cursor may sequentially revise C0001-T026 in its existing isolated worktree after the completed test and read-only review. Scope: close the MAJOR and associated minor evidence-integrity issues in `implementation_review_v16_closure_hardening_r1.md`, add regressions, commit/push/verify. Do not alter frozen v16 science or historical artifacts. The untracked shared `.runtime` directory observed after tests must be inspected/preserved, not blindly cleared. PI will repeat focused tests and independent review on the revised source before any new-suffix acceptance decision.
