@@ -38,6 +38,7 @@ from gpu_runmultiai.corpus import load_frozen_corpus
 from gpu_runmultiai.guard_side_channel import (
     append_guard_attempts,
     ensure_guard_side_channel,
+    load_durable_side_channel_attempts,
     load_guard_attempts,
     reachability_auxiliary_side_channel_path,
     side_channel_path,
@@ -561,18 +562,7 @@ def _assert_reachability_before_counted_primitives(
 
 def _assert_no_residual_auxiliary_denied_attempts(side_channel: Path) -> None:
     """Fail closed when a prior acceptance attempt left denied rows on the auxiliary channel."""
-    try:
-        st = side_channel.stat()
-    except FileNotFoundError:
-        return
-    except OSError as exc:
-        raise GateAbortError(
-            "G4 auxiliary sealed-path side channel stat failed before counted primitives: "
-            f"side_channel={repo_relative_path(side_channel)} error={exc}"
-        ) from exc
-    if st.st_size == 0:
-        return
-    rows = load_guard_attempts(side_channel)
+    rows = load_durable_side_channel_attempts(side_channel)
     if rows:
         raise GateAbortError(
             "G4 auxiliary sealed-path child attempts denied before counted primitives: "
@@ -856,6 +846,11 @@ def _run_implementation_acceptance(
 ) -> dict[str, Any]:
     """Pre-closure 510-row B1 acceptance path with a dedicated 4080-call ledger."""
     from gpu_runmultiai.timing_calibration import run_timing_calibration
+
+    if not options.get("resume") and not options.get("fail_if_exists"):
+        raise RuntimeError(
+            "implementation acceptance fresh runs require --fail-if-exists (fail_if_exists=True)"
+        )
 
     manifest_path = output_dir / "audit_manifest.json"
     deviation_path = output_dir / "deviation_log.md"

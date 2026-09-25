@@ -143,7 +143,7 @@ def build_resume_identity(
         "corpus_hash": corpus_hash,
         "fingerprint_payload_path": fingerprint_payload_path,
         "fingerprint_bytes_path": fingerprint_bytes_path,
-        "fingerprint_payload_bytes_hash": corpus_hash,
+        "fingerprint_payload_bytes_hash": corpus_hash if fingerprint_artifacts_expected else None,
         "seeds": {
             "audit_data_seed": AUDIT_DATA_SEED,
             "audit_trajectory_seed": AUDIT_TRAJECTORY_SEED,

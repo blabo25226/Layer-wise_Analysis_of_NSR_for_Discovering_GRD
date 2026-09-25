@@ -352,35 +352,10 @@ def _reconcile_orphan_child_process_guard_side_channel(guard: Any) -> None:
 
     Malformed durable lines fail closed: they cannot be downgraded to ``error_isolated=true``.
     """
-    from gpu_runmultiai.guard_side_channel import child_side_channel_path, load_guard_attempts, remove_side_channel_file
-    from gpu_runmultiai.invariants import AuditInvariantError
+    from gpu_runmultiai.guard_side_channel import child_side_channel_path, load_durable_side_channel_attempts
 
     path = child_side_channel_path()
-    try:
-        st = path.stat()
-    except FileNotFoundError:
-        return
-    except OSError as exc:
-        raise GateAbortError(
-            "auxiliary live probe cannot certify: child guard side channel stat failed "
-            f"at {path}: {exc}"
-        ) from exc
-    import stat as stat_module
-
-    if not stat_module.S_ISREG(st.st_mode):
-        raise GateAbortError(
-            "auxiliary live probe cannot certify: child guard side channel path is not a "
-            f"regular file at {path}"
-        )
-    if st.st_size == 0:
-        return
-    try:
-        attempts = load_guard_attempts(path)
-    except AuditInvariantError as exc:
-        raise GateAbortError(
-            "auxiliary live probe cannot certify: malformed child guard side channel "
-            f"at {path}"
-        ) from exc
+    attempts = load_durable_side_channel_attempts(path)
     if attempts:
         guard.extend_child_attempts(attempts)
 
