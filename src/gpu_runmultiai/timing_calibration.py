@@ -17,6 +17,7 @@ from gpu_runmultiai.constants import (
     IDENTITY_REWRITE_ID,
     IDENTITY_SCALE,
     ORACLE_TIMEOUT_SEC,
+    PRIMARY_SCALES,
     Q4_TIMEOUT_SEC,
     SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC,
 )
@@ -168,6 +169,9 @@ def run_timing_calibration(
             "sampled_components": 0,
             "projected_grand_run_sec": None,
             "elapsed_wall_ceiling_sec": ELAPSED_WALL_CEILING_SEC,
+            "b0_calibration_scales_observed": [],
+            "b0_primary_scales_frozen": list(PRIMARY_SCALES),
+            "b0_scales_extrapolated_not_observed": list(PRIMARY_SCALES),
         }
 
     try:
@@ -179,6 +183,9 @@ def run_timing_calibration(
             "sampled_components": 0,
             "projected_grand_run_sec": None,
             "elapsed_wall_ceiling_sec": ELAPSED_WALL_CEILING_SEC,
+            "b0_calibration_scales_observed": [],
+            "b0_primary_scales_frozen": list(PRIMARY_SCALES),
+            "b0_scales_extrapolated_not_observed": list(PRIMARY_SCALES),
         }
 
     corpus = load_frozen_corpus()
@@ -419,4 +426,9 @@ def run_timing_calibration(
         "elapsed_wall_ceiling_sec": ELAPSED_WALL_CEILING_SEC,
         "confirmatory_call_ceiling": expected_confirmatory_calls(),
         "grand_call_ceiling": FULL_RUN_CALL_CEILING,
+        "b0_calibration_scales_observed": ["0.1"],
+        "b0_primary_scales_frozen": list(PRIMARY_SCALES),
+        "b0_scales_extrapolated_not_observed": [
+            scale for scale in PRIMARY_SCALES if scale != "0.1"
+        ],
     }

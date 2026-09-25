@@ -352,7 +352,7 @@ def _reconcile_orphan_child_process_guard_side_channel(guard: Any) -> None:
 
     Malformed durable lines fail closed: they cannot be downgraded to ``error_isolated=true``.
     """
-    from gpu_runmultiai.guard_side_channel import child_side_channel_path, load_guard_attempts
+    from gpu_runmultiai.guard_side_channel import child_side_channel_path, load_guard_attempts, remove_side_channel_file
     from gpu_runmultiai.invariants import AuditInvariantError
 
     path = child_side_channel_path()
@@ -365,6 +365,13 @@ def _reconcile_orphan_child_process_guard_side_channel(guard: Any) -> None:
             "auxiliary live probe cannot certify: child guard side channel stat failed "
             f"at {path}: {exc}"
         ) from exc
+    import stat as stat_module
+
+    if not stat_module.S_ISREG(st.st_mode):
+        raise GateAbortError(
+            "auxiliary live probe cannot certify: child guard side channel path is not a "
+            f"regular file at {path}"
+        )
     if st.st_size == 0:
         return
     try:
@@ -606,12 +613,11 @@ def _reach_ident_fallback_1_live_production_observation_body(
     (run_b0_pair internals or the match-path simplifier), ``finally`` still flushes collected
     child attempts, and a missing sink raises GateAbortError instead of losing them.
     """
-    from gpu_runmultiai.guard_side_channel import child_side_channel_path
+    from gpu_runmultiai.guard_side_channel import child_side_channel_path, remove_side_channel_file
     from gpu_runmultiai.sealed_guard import SealedPathGuard
 
     stale_child_channel = child_side_channel_path()
-    if stale_child_channel.is_file():
-        stale_child_channel.unlink()
+    remove_side_channel_file(stale_child_channel)
 
     guard = SealedPathGuard(output_root_abs=Path("/nonexistent/results/runs"))
     finalized: list[bool] = []

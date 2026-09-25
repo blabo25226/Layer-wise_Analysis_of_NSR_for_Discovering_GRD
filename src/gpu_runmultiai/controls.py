@@ -31,6 +31,23 @@ ABORT_GATES: frozenset[str] = frozenset(
     {"G_corpus", "G_eligibility", "G_stratum", "G0", "G1", "G_grand"}
 )
 
+IMPLEMENTATION_ACCEPTANCE_EVALUATED_GATES: frozenset[str] = frozenset(
+    {
+        "G_corpus",
+        "G_eligibility",
+        "G0",
+        "G4",
+        "G1",
+        "G_grand",
+        "G_contract",
+        "G_impl",
+        "G_q4ref",
+        "G_b1",
+    }
+)
+
+GateValue = bool | str | None
+
 
 def gate_g0(scaler_asserts: dict[str, Any]) -> bool:
     expected = {
@@ -153,7 +170,11 @@ def gate_q4ref(rows: list[dict[str, Any]]) -> bool:
     return len(rows) == 7 and all(row.get("fixture_pass") for row in rows)
 
 
-def evaluate_validity_gates(state: dict[str, Any]) -> dict[str, bool]:
+def evaluate_validity_gates(
+    state: dict[str, Any],
+    *,
+    mode: str = "full",
+) -> dict[str, GateValue]:
     gates = {
         "G_corpus": bool(state.get("g_corpus_pass")),
         "G_eligibility": gate_g_eligibility(state.get("eligibility_counts")),
@@ -174,16 +195,29 @@ def evaluate_validity_gates(state: dict[str, Any]) -> dict[str, bool]:
         "G_term": gate_term(state.get("strict_rows", [])),
         "G_inc": gate_inc(state.get("strict_rows", [])),
     }
+    if mode == "implementation_acceptance":
+        return {
+            name: (
+                gates[name]
+                if name in IMPLEMENTATION_ACCEPTANCE_EVALUATED_GATES
+                else "not_evaluated"
+            )
+            for name in GATE_ORDER
+        }
     return {name: gates[name] for name in GATE_ORDER}
 
 
-def any_gate_failed(gates: dict[str, bool]) -> bool:
-    return not all(gates.values())
+def _gate_is_false(value: GateValue) -> bool:
+    return value is False or value is None
 
 
-def first_abort_gate(gates: dict[str, bool]) -> str | None:
+def any_gate_failed(gates: dict[str, GateValue]) -> bool:
+    return any(_gate_is_false(gates.get(name)) for name in GATE_ORDER)
+
+
+def first_abort_gate(gates: dict[str, GateValue]) -> str | None:
     for name in GATE_ORDER:
-        if name in ABORT_GATES and not gates.get(name):
+        if name in ABORT_GATES and _gate_is_false(gates.get(name)):
             return name
     return None
 

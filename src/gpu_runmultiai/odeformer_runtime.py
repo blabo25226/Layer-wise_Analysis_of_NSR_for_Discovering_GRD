@@ -15,7 +15,7 @@ from experiment_runtime import REPO_ROOT
 from gpu_run4.formulas import split_components
 
 from gpu_runmultiai.constants import MAX_SYSTEM_DIMENSION, SIMPLIFIER_SUBPROCESS_TIMEOUT_SEC
-from gpu_runmultiai.guard_side_channel import child_side_channel_path, load_guard_attempts
+from gpu_runmultiai.guard_side_channel import child_side_channel_path
 from gpu_runmultiai.invariants import GateAbortError, ScalerGateError
 
 PRODUCTION_SCALER_MODULE = "odeformer.model.utils_wrapper"
@@ -277,10 +277,11 @@ def simplify_tree_subprocess(
 ) -> dict[str, Any]:
     worker = REPO_ROOT / "src/gpu_runmultiai/simplifier_worker.py"
     payload = json.dumps({"prefixes": prefixes, "timeout_sec": timeout_sec})
+    from gpu_runmultiai.guard_side_channel import load_durable_side_channel_attempts, remove_side_channel_file
+
     side_channel = child_side_channel_path()
-    preexisting_attempts = _load_child_side_channel_attempts(side_channel)
-    if side_channel.is_file():
-        side_channel.unlink()
+    preexisting_attempts = load_durable_side_channel_attempts(side_channel)
+    remove_side_channel_file(side_channel)
     try:
         proc = subprocess.run(
             [sys.executable, str(worker)],
@@ -297,7 +298,7 @@ def simplify_tree_subprocess(
         guard_attempts = _merge_guard_attempts(
             preexisting_attempts,
             _guard_attempts_from_timeout_output(exc),
-            _load_child_side_channel_attempts(side_channel),
+            load_durable_side_channel_attempts(side_channel),
         )
         return {
             "ok": False,
@@ -312,7 +313,7 @@ def simplify_tree_subprocess(
     guard_attempts = _merge_guard_attempts(
         preexisting_attempts,
         _guard_attempts_from_process_output(proc.stdout, proc.stderr),
-        _load_child_side_channel_attempts(side_channel),
+        load_durable_side_channel_attempts(side_channel),
     )
     if proc.returncode != 0:
         return {
@@ -345,18 +346,6 @@ def simplify_tree_subprocess(
         guard_attempts=result_payload["guard_attempts"],
     )
     return result_payload
-
-
-def _load_child_side_channel_attempts(path: Path) -> list[dict[str, str]]:
-    try:
-        path.stat()
-    except FileNotFoundError:
-        return []
-    except OSError as exc:
-        raise GateAbortError(
-            f"simplifier child guard side channel stat failed at {path}: {exc}"
-        ) from exc
-    return load_guard_attempts(path)
 
 
 def _subprocess_guard_accounting_uncertain(

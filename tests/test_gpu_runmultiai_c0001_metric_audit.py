@@ -3234,6 +3234,124 @@ def test_orphan_child_side_channel_stat_oserror_fails_closed(monkeypatch, tmp_pa
     path.unlink(missing_ok=True)
 
 
+def test_load_durable_side_channel_read_oserror_fails_closed(tmp_path, monkeypatch):
+    from gpu_runmultiai.guard_side_channel import load_durable_side_channel_attempts
+    from gpu_runmultiai.invariants import GateAbortError
+
+    path = tmp_path / "side.jsonl"
+    path.write_text(
+        '{"attempted_operation":"open","attempted_path_norm":"/n","attempted_path_real":"/r"}\n',
+        encoding="utf-8",
+    )
+
+    real_read_text = Path.read_text
+
+    def _read_fail(self, *args, **kwargs):
+        if self == path:
+            raise OSError("simulated read failure")
+        return real_read_text(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", _read_fail)
+    with pytest.raises(GateAbortError, match="side channel read failed"):
+        load_durable_side_channel_attempts(path)
+
+
+def test_load_durable_side_channel_directory_fails_closed(tmp_path):
+    from gpu_runmultiai.guard_side_channel import load_durable_side_channel_attempts
+    from gpu_runmultiai.invariants import GateAbortError
+
+    directory = tmp_path / "side_dir"
+    directory.mkdir()
+    with pytest.raises(GateAbortError, match="not a regular file"):
+        load_durable_side_channel_attempts(directory)
+
+
+def test_remove_side_channel_directory_fails_closed(tmp_path):
+    from gpu_runmultiai.guard_side_channel import remove_side_channel_file
+    from gpu_runmultiai.invariants import GateAbortError
+
+    directory = tmp_path / "side_dir"
+    directory.mkdir()
+    with pytest.raises(GateAbortError, match="not a regular file"):
+        remove_side_channel_file(directory)
+
+
+def test_simplify_tree_subprocess_side_channel_stat_oserror_fails_closed(monkeypatch, tmp_path):
+    import gpu_runmultiai.odeformer_runtime as runtime
+    from gpu_runmultiai.guard_side_channel import child_side_channel_path
+    from gpu_runmultiai.invariants import GateAbortError
+
+    path = child_side_channel_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    def _stat_fail(_self):
+        raise OSError("simulated stat failure")
+
+    monkeypatch.setattr(type(path), "stat", _stat_fail)
+    try:
+        with pytest.raises(GateAbortError, match="side channel stat failed"):
+            runtime.simplify_tree_subprocess(["add,x_0,1"], timeout_sec=5.0)
+    finally:
+        monkeypatch.undo()
+        if path.is_file():
+            path.unlink()
+
+
+def test_implementation_acceptance_resume_identity_null_fingerprint_paths(tmp_path):
+    identity = build_resume_identity(
+        commit="abc123",
+        audit_script_path=Path("scripts/phases/gpu_runmultiai_c0001_metric_audit.py"),
+        corpus_hash="0" * 64,
+        cli_args={"implementation_acceptance": True},
+        output_dir=tmp_path,
+        fingerprint_artifacts_expected=False,
+    )
+    assert identity["fingerprint_payload_path"] is None
+    assert identity["fingerprint_bytes_path"] is None
+
+
+def test_implementation_acceptance_validity_gates_mark_full_audit_gates_not_evaluated():
+    from gpu_runmultiai.controls import evaluate_validity_gates
+
+    gates = evaluate_validity_gates(
+        {
+            "g_corpus_pass": True,
+            "eligibility_counts": {
+                "strict_hill": 330,
+                "non_strict_hill": 60,
+                "linear": 120,
+                "other": 0,
+            },
+            "quantization_rows": [],
+            "scaler_asserts": {},
+            "access_attempts": 0,
+            "total_calls": 0,
+            "call_ceiling": 4080,
+            "grand_calls": 0,
+            "grand_call_ceiling": 30277,
+            "g_contract_evidence": {},
+            "f_acceptance": {},
+            "c_q4_rows": [],
+            "b1_rows": [],
+        },
+        mode="implementation_acceptance",
+    )
+    assert gates["G4"] is True
+    assert gates["G_stratum"] == "not_evaluated"
+    assert gates["G_b4"] == "not_evaluated"
+    assert gates["G_term"] == "not_evaluated"
+
+
+def test_timing_calibration_records_b0_scale_coverage():
+    from gpu_runmultiai.constants import PRIMARY_SCALES
+    from gpu_runmultiai.timing_calibration import run_timing_calibration
+
+    blocked = run_timing_calibration(call_logger=None, runtime_available=False, guard=None)
+    assert blocked["b0_primary_scales_frozen"] == list(PRIMARY_SCALES)
+    assert blocked["b0_calibration_scales_observed"] == []
+    assert set(blocked["b0_scales_extrapolated_not_observed"]) == set(PRIMARY_SCALES)
+
+
 def test_acceptance_resume_identity_mismatch_preserves_prior_abort_manifest(
     tmp_path, bootstrap_guard, monkeypatch
 ):

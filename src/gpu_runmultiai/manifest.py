@@ -126,10 +126,11 @@ def build_resume_identity(
     corpus_hash: str,
     cli_args: dict[str, Any],
     output_dir: Path | None = None,
+    fingerprint_artifacts_expected: bool = True,
 ) -> dict[str, Any]:
     fingerprint_payload_path = None
     fingerprint_bytes_path = None
-    if output_dir is not None:
+    if output_dir is not None and fingerprint_artifacts_expected:
         fingerprint_payload_path = repo_relative_path(Path(output_dir) / "fingerprint_payload.json")
         fingerprint_bytes_path = repo_relative_path(Path(output_dir) / "fingerprint_bytes.bin")
     return {

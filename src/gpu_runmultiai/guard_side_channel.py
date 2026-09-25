@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import os
+import stat as stat_module
 from pathlib import Path
 
 from experiment_runtime import REPO_ROOT
-from gpu_runmultiai.invariants import AuditInvariantError
+from gpu_runmultiai.invariants import AuditInvariantError, GateAbortError
 from gpu_runmultiai.jsonl_durable import append_jsonl_line, load_jsonl
 
 SIDE_CHANNEL_NAME = "guard_attempts_side_channel.jsonl"
@@ -59,3 +60,53 @@ def load_guard_attempts(path: Path) -> list[dict[str, str]]:
 
 def child_side_channel_path() -> Path:
     return REPO_ROOT / "GPU_RUNmultiAI" / ".runtime" / SIDE_CHANNEL_NAME
+
+
+def _side_channel_stat(path: Path):
+    try:
+        return path.stat()
+    except FileNotFoundError:
+        return None
+    except OSError as exc:
+        raise GateAbortError(
+            f"child guard side channel stat failed at {path}: {exc}"
+        ) from exc
+
+
+def _require_regular_side_channel_file(path: Path, st: os.stat_result) -> None:
+    if not stat_module.S_ISREG(st.st_mode):
+        raise GateAbortError(
+            f"child guard side channel path is not a regular file at {path}"
+        )
+
+
+def remove_side_channel_file(path: Path) -> None:
+    """Remove a durable side-channel file using stat-only guards (Python 3.10 safe)."""
+    st = _side_channel_stat(path)
+    if st is None:
+        return
+    _require_regular_side_channel_file(path, st)
+    try:
+        path.unlink()
+    except OSError as exc:
+        raise GateAbortError(
+            f"child guard side channel unlink failed at {path}: {exc}"
+        ) from exc
+
+
+def load_durable_side_channel_attempts(path: Path) -> list[dict[str, str]]:
+    """Load attempt rows; absent path returns []. Stat/read/malformed paths fail closed."""
+    st = _side_channel_stat(path)
+    if st is None:
+        return []
+    _require_regular_side_channel_file(path, st)
+    try:
+        return load_guard_attempts(path)
+    except AuditInvariantError as exc:
+        raise GateAbortError(
+            f"malformed child guard side channel at {path}"
+        ) from exc
+    except OSError as exc:
+        raise GateAbortError(
+            f"child guard side channel read failed at {path}: {exc}"
+        ) from exc

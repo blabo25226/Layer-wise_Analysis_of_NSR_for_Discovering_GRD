@@ -886,7 +886,10 @@ def _run_implementation_acceptance(
         call_logger = CallLogger.load(call_log_path, resource_monitor=resource_monitor)
         call_logger.skip_duplicates = True
         stage_cache = load_stage_cache(stage_cache_path)
+        fresh_run_log_policy = None
     else:
+        cleared_call_log = call_log_path.exists()
+        cleared_stage_cache = stage_cache_path.exists()
         if call_log_path.exists():
             call_log_path.unlink()
         if stage_cache_path.exists():
@@ -894,6 +897,10 @@ def _run_implementation_acceptance(
         clear_stale_abort_manifest(output_dir)
         call_logger = CallLogger(call_log_path, resource_monitor=resource_monitor)
         stage_cache = {}
+        fresh_run_log_policy = {
+            "cleared_existing_call_log": cleared_call_log,
+            "cleared_existing_stage_cache": cleared_stage_cache,
+        }
     registration_logger = CallLogger(resource_monitor=resource_monitor)
     context["call_logger"] = call_logger
 
@@ -905,6 +912,7 @@ def _run_implementation_acceptance(
         corpus_hash=corpus["corpus_hash"],
         cli_args=options,
         output_dir=output_dir,
+        fingerprint_artifacts_expected=False,
     )
     verify_source_inventory_at_commit(commit, source_inventory)
     if resume_acceptance:
@@ -924,6 +932,11 @@ def _run_implementation_acceptance(
     if resume_acceptance:
         # Identity and closure validation both passed: safe to archive any prior abort record.
         clear_stale_abort_manifest(output_dir)
+    acceptance_manifest_common = {
+        "fail_if_exists_requested": bool(options.get("fail_if_exists")),
+        "cli_args_normalization_excludes": ["resume", "fail_if_exists"],
+        "fresh_run_log_policy": fresh_run_log_policy,
+    }
     artifacts.write_atomic_manifest(
         manifest_path,
         {
@@ -938,6 +951,7 @@ def _run_implementation_acceptance(
             "source_hashes": source_inventory,
             "worktree_provenance": worktree_provenance,
             "started_utc": utc_now(),
+            **acceptance_manifest_common,
         },
     )
 
@@ -1093,11 +1107,21 @@ def _run_implementation_acceptance(
         "g_contract_evidence": {row["check_key"]: row["passed"] for row in g_contract_rows},
         "f_acceptance": {row["requirement_id"]: row["passed"] for row in f_acceptance_rows},
     }
-    gates = evaluate_validity_gates(gate_state)
+    gates = evaluate_validity_gates(gate_state, mode="implementation_acceptance")
     if not runtime_available:
         gates["G0"] = True
 
     deviation_entries = _derive_deviation_entries(options) + [
+        build_deviation_entry(
+            description=(
+                "implementation acceptance fresh-run log policy: non-resume acceptance clears "
+                "existing call_log.jsonl and stage_cache.jsonl when present; "
+                "fail_if_exists_requested is recorded explicitly because --fail-if-exists is "
+                "excluded from cli_args_normalized resume identity"
+            ),
+            scientific_impact="process provenance only",
+            resolution="use --fail-if-exists for empty output_dir enforcement; inspect fresh_run_log_policy",
+        ),
         build_deviation_entry(
             description="implementation acceptance mode (--implementation-acceptance): 510 B1 rows only",
             scientific_impact="non-scientific implementation evidence; not confirmatory audit data",
@@ -1162,6 +1186,7 @@ def _run_implementation_acceptance(
     if deviation_body.rstrip().endswith("status=aborted"):
         raise GateAbortError("completed implementation acceptance may not retain aborted deviation terminator")
 
+    counted_guard_attempts = guard.to_log()
     manifest = {
         "status": "completed",
         "audit_id": resume_identity["audit_id"],
@@ -1179,11 +1204,16 @@ def _run_implementation_acceptance(
         "validity_gates": gates,
         "g_contract_evidence": gate_state["g_contract_evidence"],
         "f_acceptance": gate_state["f_acceptance"],
+        "access_guard_attempts": counted_guard_attempts,
+        "g4_access_attempt_count": guard.attempt_count(),
+        "g4_pass": gates.get("G4") is True,
+        "guard_side_channel_path": repo_relative_path(side_channel_path(output_dir)),
         "timing_calibration_status": timing_calibration.get("status"),
         "timing_calibration_path": repo_relative_path(output_dir / "timing_calibration.json"),
         "contract_evidence_path": repo_relative_path(output_dir / "contract_evidence.json"),
         "elapsed_sec": resource_monitor.elapsed_sec(),
         "completed_utc": utc_now(),
+        **acceptance_manifest_common,
     }
     artifacts.write_atomic_manifest(manifest_path, manifest)
     schema_ok, schema_detail = validate_acceptance_artifact_schemas(
