@@ -1,146 +1,192 @@
-# 4 CLI 運用手順書（Codex / Claude Code / Cursor Agent / Antigravity）
+# CLI 運用手順書（Codex / Claude Code / Cursor Agent / Antigravity）
 
-対象: 人間オペレーターとエージェント AI。Codex がオーケストレータとなり、`.ai/workers/*.sh` 経由で
-他 3 CLI を呼ぶ（詳細は [README.md](README.md) と [../../FULL_ACCESS_SETUP.md](../../FULL_ACCESS_SETUP.md)）。
+対象: 人間オペレーターと、4 CLI のいずれかで動くエージェント AI。
+どの CLI も「呼び出し元（オーケストレータ）」にも「ワーカー」にもなれる。リポジトリ固有の事項は
+`<REPO_URL>`（clone 元）と `<REPO_DIR>`（clone 先）で表す。
 
-確認日: 2026-10-21（この環境 Linux x86_64 で実測）。
+| CLI                   | コマンド                     | 認証方式                       | ログイン状態の確認            | 非対話実行                | 更新                     |
+| --------------------- | ---------------------------- | ------------------------------ | ----------------------------- | ------------------------- | ------------------------ |
+| Codex                 | `codex`                    | ChatGPT アカウント（ブラウザ） | `codex login status`        | `codex exec "<prompt>"` | 公式インストーラを再実行 |
+| Claude Code           | `claude`                   | claude.ai アカウント           | `claude auth status`        | `claude -p "<prompt>"`  | `claude update`        |
+| Cursor Agent          | `agent` / `cursor-agent` | Cursor アカウント（ブラウザ）  | `agent status`              | `agent -p "<prompt>"`   | `agent update`         |
+| Antigravity（Gemini） | `agy`                      | Google アカウント（AI Pro 等） | `agy models` が成功すること | `agy -p "<prompt>"`     | `agy update`           |
 
-| CLI | コマンド | 確認バージョン | 認証方式 | 状態確認コマンド |
-|---|---|---|---|---|
-| Codex | `codex` | 0.163.0 | ChatGPT アカウント（ブラウザ） | `codex login status` |
-| Claude Code | `claude` | 2.1.280 | claude.ai アカウント（チームシート） | `claude auth status` |
-| Cursor Agent | `agent` / `cursor-agent` | 2026.09.23 | Cursor アカウント（ブラウザ） | `agent status` |
-| Antigravity (Gemini) | `agy` | 1.3.2 | Google AI Pro アカウント | 下記「agy」参照 |
+Linux x86_64 / arm64 と macOS が対象（Windows は WSL2 の Ubuntu 内で Linux 手順を実施）。
+手順は Linux (Ubuntu) で実測。macOS の `apt` は `brew` に読み替える。
 
 ## 0. 共通原則
 
 - 認証は各公式 CLI が所有する。パスワード・トークン・API キーをリポジトリ、ログ、プロンプトに書かない。
-  `~/.codex/auth.json` 等の中身を `cat` しない。
-- **ログイン（ブラウザ操作）は人間だけが行う。** エージェントはログイン切れを検知したら
-  `.agent/rules/13-retry-fallback-and-hard-stops.md` と `.agent/rules/14-human-intervention-and-review-queue.md`
-  に従い、`GPU_RUNmultiAI/human_review_queue.md` に記録して人間に引き継ぐ（キャンペーンは止めず、他タスクへ進む）。
-- API キーで回避しない（チームシート運用のため。`claude` は `ANTHROPIC_API_KEY` を設定しない）。
-- ラッパーは既定が読み取り専用。`--write` は隔離 worktree/ブランチと書き込み範囲を宣言したタスクのみ。
+  認証ファイル（例: `~/.codex/auth.json`）の中身を `cat` しない。
+- **ログイン（ブラウザ操作）は人間だけが行う。** エージェントはログイン切れを検知したら自分で再ログインせず、
+  リポジトリの人間介入キュー／ハードストップ規約に従って「どの CLI の再ログインが必要か」を記録し、
+  ログイン不要の他タスクを続ける。
+- API キーでの回避はしない（アカウント/チームシート運用の場合、認証方式を勝手に切り替えない）。
+- 子 CLI を呼ぶときは既定を読み取り専用とし、書き込みは隔離ブランチ/worktree と書き込み範囲を宣言したタスクのみ。
+  権限確認を丸ごと飛ばすフラグ（`--dangerously-skip-permissions`、`--dangerously-bypass-approvals-and-sandbox`、
+  `--force`、`--yolo`）は使わない。
 
-## 1. 初回セットアップ（初めてのログインを含む）— 人間が実施
+## 1. 新しい PC でのインストール（ダウンロード）— 人間が実施
 
-### 1-1. Codex CLI のインストール
+インストーラはすべてユーザー領域（`~/.local/bin` や各 CLI のホーム）に入り、sudo は不要。
 
-公式インストーラ（`~/.local/bin/codex` と `~/.codex/` に配置。sudo 不要・Node 不要）:
+### 1-1. 前提ツール
 
 ```bash
-curl -fsSL https://chatgpt.com/codex/install.sh -o /tmp/codex_install.sh
-less /tmp/codex_install.sh                      # 内容を確認
-CODEX_NON_INTERACTIVE=true sh /tmp/codex_install.sh
-codex --version                                 # codex-cli 0.163.0 など
+sudo apt update && sudo apt install -y git curl gh      # macOS: brew install git gh
+git --version && gh --version
+echo "$PATH" | tr ':' '\n' | grep -x "$HOME/.local/bin" || echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+exec bash -l                                            # PATH を反映
 ```
 
-代替: `npm install -g @openai/codex`（Node が必要。この環境は conda 環境 `ai-workers-node` にのみ Node がある）。
-更新は同じインストーラを再実行する。
+Node.js は 4 CLI のどれにも不要（Codex の npm 版を使う場合のみ必要）。
 
-### 1-2. 各 CLI の初回ログイン
-
-ブラウザが開ける端末（デスクトップ、または SSH なら手元 PC でポート転送/URL 手動オープン）で実施。
+### 1-2. GitHub とリポジトリ
 
 ```bash
-# Codex: 初回は対話 UI を起動して "Sign in with ChatGPT" を選ぶ
-codex
-codex login status                  # "Logged in using ChatGPT" を確認
+gh auth login                                           # GitHub.com / HTTPS / ブラウザ。人間が実施
+gh auth status
+git clone <REPO_URL> <REPO_DIR>
+cd <REPO_DIR>
+git config user.name  "<name>"
+git config user.email "<email>"
+```
+
+作業ブランチへ `git switch` してから進める。リポジトリ固有の追加セットアップ（言語環境など）は
+リポジトリの README に従う。
+
+### 1-3. 4 CLI のダウンロード
+
+各インストーラは先にファイルへ保存して内容を確認してから実行するのが安全。下は公式の最短形。
+
+```bash
+# Codex
+curl -fsSL https://chatgpt.com/codex/install.sh -o /tmp/codex_install.sh && CODEX_NON_INTERACTIVE=true sh /tmp/codex_install.sh
+#   代替: npm install -g @openai/codex（Node が必要）
 
 # Claude Code
-claude auth login                   # claude.ai アカウントを選ぶ（Console/API ではない）
-claude auth status                  # loggedIn: true, authMethod: claude.ai
+curl -fsSL https://claude.ai/install.sh | bash
 
-# Cursor Agent（ブラウザが開けない場合は NO_OPEN_BROWSER=1 を付け、表示 URL を手動で開く）
+# Cursor Agent（コマンドは agent と cursor-agent の両方ができる）
+curl https://cursor.com/install -fsS | bash
+
+# Antigravity CLI（Gemini。コマンドは agy）
+curl -fsSL https://antigravity.google/cli/install.sh | bash
+```
+
+PATH が書き換えられた場合は `exec bash -l` で反映する。
+
+### 1-4. インストール確認（ログイン前）
+
+```bash
+codex --version && claude --version && agent --version && agy --version
+command -v codex claude agent cursor-agent agy
+```
+
+すべてバージョンが出れば 2 章へ。`command not found` は 1-1 の PATH を確認する。
+
+更新は表の「更新」列のコマンド。失敗したら 1-3 のインストーラを再実行する。
+
+## 2. 初回ログイン — 人間が実施
+
+ブラウザが開ける端末で行う（SSH 先ならログイン用 URL を手元 PC のブラウザで開く）。
+
+```bash
+# Codex: 対話 UI を起動し "Sign in with ChatGPT" を選ぶ
+codex
+codex login status
+
+# Claude Code
+claude auth login               # 利用するアカウント種別（claude.ai）を選ぶ
+claude auth status
+
+# Cursor Agent（ブラウザが開けない場合は NO_OPEN_BROWSER=1 を付け、表示された URL を手動で開く）
 agent login
 agent status
 
-# Antigravity CLI（未導入なら先にインストール）
-curl -fsSL https://antigravity.google/cli/install.sh | bash
-agy                                 # 初回起動時の Google ログイン案内に従う（Google AI Pro アカウント）
-agy models                          # 利用可能モデルが出ればログイン成功
+# Antigravity CLI: 初回起動時の Google ログイン案内に従う
+agy
+agy models                      # モデル一覧が出ればログイン成功
 ```
 
 注意:
 
-- Cursor 未導入なら `curl https://cursor.com/install -fsS | bash`。
-- Gemini 単体 CLI（`gemini`）は Google AI Pro のログインが非対応のため使わない（診断用のみ）。
-- `agy` のログイン手順と専用の status サブコマンドは、この環境では未検証（`agy --help` に auth 系サブコマンドなし）。
-  初回ログイン時に実際の画面を確認し、本書を更新すること。
+- `agy` には専用の status/login サブコマンドが無い（`agy --help` で確認）。初回の画面表示は未検証のため、
+  実際のログイン時に確認し、本書へ反映すること。
+- Gemini 単体 CLI（`gemini`）は Google AI Pro 等の個人アカウントログインが非対応のため、`agy` を使う。
 
-### 1-3. Codex にワーカーを許可する（初回のみ）
+### 2-1. リポジトリ側のワーカー連携設定（リポジトリが提供している場合のみ）
 
-1. リポジトリルートで Codex を起動し、プロジェクトを **trusted** にする（`~/.codex/config.toml` の
-   `[projects."<repo path>"] trust_level = "trusted"`。本リポジトリは設定済み）。
-2. [`.codex/rules/ai-workers.rules`](../../.codex/rules/ai-workers.rules) を追加・変更した後は **Codex を再起動**する。
-3. 動作確認（読み取り専用、ファイルは変更されない）:
+リポジトリに CLI 呼び出し用ラッパー（例: `.ai/workers/*.sh`）や許可ルールがある場合は、その README に従う。
+一般に必要な作業:
+
+1. 呼び出し元 CLI でリポジトリを「信頼する」設定にする（Codex は `~/.codex/config.toml` の
+   `[projects."<REPO_DIR>"] trust_level = "trusted"`、Claude/Cursor は初回起動時の信頼確認）。
+2. 許可ルールファイルを追加・変更した後は、呼び出し元 CLI を再起動する。
+3. 全ワーカーに読み取り専用の疎通確認をする:
 
 ```bash
-.ai/workers/claude.sh "Reply with exactly: CLAUDE_OK"
-.ai/workers/cursor.sh "Reply with exactly: CURSOR_OK"
-.ai/workers/gemini.sh "Reply with exactly: GEMINI_OK"
+<各ワーカーの呼び出し> "Reply with exactly: WORKER_OK"
 ```
 
-3 つとも応答が返れば完了。1 つでも認証エラーなら 1-2 の該当 CLI をやり直す。
+すべて応答すれば完了。認証エラーが出た CLI は 2 章に戻ってログインする。
 
-## 2. 2 回目以降（ログイン済みの日常運用）
+## 3. 2 回目以降（ログイン済みの日常運用）
 
-### 2-1. 人間: セッション開始時チェック（約 1 分）
+### 3-1. 人間: セッション開始時チェック（約 1 分）
 
 ```bash
 codex login status && claude auth status && agent status && agy models | head -3
 ```
 
-- すべて成功 → そのまま作業開始。ログインは不要（トークンは各 CLI が自動更新する）。
-- 失敗した CLI のみ 1-2 の該当コマンドで再ログイン。
+- すべて成功 → ログイン不要でそのまま作業開始（トークンは各 CLI が自動更新する）。
+- 失敗した CLI だけ 2 章の該当コマンドで再ログイン。
 
-人間が直接使う:
-
-```bash
-cd /home/blabo/Layer-wise_Analysis_of_NSR_for_Discovering_GRD
-codex                       # 対話（Codex が .ai/workers/*.sh で他 CLI を委譲）
-codex exec "<task>"         # 非対話
-claude                      # 対話 / claude -p "<prompt>" で非対話
-agent                       # 対話 / agent -p "<prompt>" で非対話
-agy                         # 対話 / agy -p "<prompt>" で非対話（--mode plan で読み取り専用）
-```
-
-### 2-2. エージェント AI: ワーカー呼び出し（ログイン操作はしない）
-
-常にリポジトリルートから、ラッパー経由で呼ぶ。直接 `claude`/`agent`/`agy` を `--dangerously-skip-permissions`、
-`--force`/`--yolo` 付きで呼ばない。
+人間が直接使う（リポジトリルートで）:
 
 ```bash
-# 読み取り専用（既定）
-.ai/workers/claude.sh "Review the design without changing files."
-.ai/workers/claude.sh --model claude-sonnet-5 "Implement the bounded scientific change."
-.ai/workers/cursor.sh "Check this implementation without changing files."
-.ai/workers/gemini.sh "Summarize this log without changing files."
-
-# 書き込み（隔離 worktree/ブランチ + 書き込み範囲を宣言したタスクのみ）
-.ai/workers/cursor.sh --write "Implement the requested change and run focused tests."
-
-# Gemini は直接書き込み不可。ブローカー経由でローカルシェルが成果物を保存する
-.ai/workers/gemini.sh --broker --prompt-file <packet.md> --output-file <out.md> --acceptance headings
+cd <REPO_DIR>
+codex      /  claude      /  agent      /  agy                       # 対話
+codex exec "<task>"  /  claude -p "<task>"  /  agent -p "<task>"  /  agy -p "<task>"   # 非対話
 ```
 
-成功判定: 終了コード 0 だけで成功としない。期待成果物、受け入れテスト、必要なコミットを確認する
-（`.agent/rules/09-subagent-policy.md`、`.agent/schemas/task-handoff-schema.md`）。
-Gemini ブローカーの失敗は終了コード 70–77。
+### 3-2. エージェント AI: 他の CLI を呼ぶとき（ログイン操作はしない）
 
-### 2-3. 認証エラー時のエージェントの動き
+どの CLI が呼び出し元でも手順は同じ。
 
-| 症状 | 動き |
-|---|---|
-| ラッパーが認証/ログインエラーを返す | 1 回だけ再試行。同じなら該当ワーカーを別ロールへフォールバック（`.agent/rules/08-routing-and-delegation.md`） |
-| フォールバック先もない | `human_review_queue.md` に「どの CLI の再ログインが必要か」を記録し、ログイン不要の他タスクを続行 |
-| 容量/レート制限 | `.agent/rules/13-retry-fallback-and-hard-stops.md` に従う |
+1. 自分と同じ CLI は呼ばない（別 CLI を独立した第 2 の視点として使う）。
+2. リポジトリにラッパーがあればそれを優先する。ラッパーが無い CLI は、下の読み取り専用の直接呼び出しを使う。
+3. 既定は読み取り専用。書き込みは隔離ブランチ/worktree と書き込み範囲を宣言したタスクだけ。
+4. 成功判定は終了コード 0 だけで行わない。期待成果物、受け入れテスト、必要なコミットを確認する。
 
-人間は通知を受けたら 1-2 の該当コマンドだけ実行し、キューの項目を閉じる。
+読み取り専用の直接呼び出し:
 
-## 3. 現状メモ（この環境）
+```bash
+codex exec --sandbox read-only "<prompt>"
+claude -p --permission-mode plan --tools Read,Glob,Grep "<prompt>"
+agent -p --trust --mode=ask "<prompt>"
+agy -p --mode plan --sandbox "<prompt>"
+```
 
-- 2026-10-21 時点で Codex は導入済み（0.163.0）、ChatGPT ログイン済み（既存の `~/.codex/auth.json` を再利用）。
-  よって Codex については 1-2 のログインは不要で、2 章から開始できる。
-- `.ai/workers/README.md` の「Installed commands」表（2026-09-23 時点）は旧バージョンのまま。
-  本書の表が最新。
+書き込みを許す場合の例（隔離ブランチ上でのみ）:
+
+```bash
+codex exec --sandbox workspace-write "<prompt>"
+claude -p --permission-mode acceptEdits "<prompt>"
+agent -p --trust "<prompt>"          # --force/--yolo は使わない
+agy -p --mode accept-edits "<prompt>"
+```
+
+`agy` の非対話モードは、書き込みが拒否されても終了コード 0 を返すことがある。
+`agy` に成果物を残させたいときは、標準出力を呼び出し元のシェルがファイルへ保存し、
+保存後に内容を検証する方式にする。
+
+### 3-3. 認証エラー時のエージェントの動き
+
+| 症状                               | 動き                                                                                    |
+| ---------------------------------- | --------------------------------------------------------------------------------------- |
+| 子 CLI が認証/ログインエラーを返す | 1 回だけ再試行。同じなら別の CLI へフォールバック                                       |
+| フォールバック先もない             | 人間介入キューに「どの CLI の再ログインが必要か」を記録し、ログイン不要の他タスクを続行 |
+| 容量/レート制限                    | リポジトリのリトライ/フォールバック規約に従う                                           |
+
+人間は通知を受けたら 2 章の該当コマンドだけ実行し、キューの項目を閉じる。
