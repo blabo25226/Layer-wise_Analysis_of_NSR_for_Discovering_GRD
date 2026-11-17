@@ -38,8 +38,8 @@ Reusable code does not belong here by default. Put reusable software in `src/`, 
 
 ## Integrity manifest and checkpoints
 
-Root [`MANIFEST.sha256`](../MANIFEST.sha256) checksums canonical bootstrap, control, and tooling files across
-`.agent/`, provider adapters, and the durable `GPU_RUNmultiAI/` control files listed by
+Root [`.agents/MANIFEST.sha256`](../.agents/MANIFEST.sha256) checksums canonical bootstrap, control, and tooling files across
+`.agents/`, provider adapters, and the durable `GPU_RUNmultiAI/` control files listed by
 `scripts/ops/update_ai_manifest.sh`. The manifest excludes itself to avoid self-reference.
 
 ```bash
@@ -50,3 +50,19 @@ bash scripts/ops/verify_ai_manifest.sh
 Use this manifest after infrastructure edits and before reporting that the research OS checkpoint is durable.
 Cycle archives and promoted reports may additionally store manifests under `GPU_RUNmultiAI/manifests/` or
 `GPU_RUNmultiAI/runs/`; those are campaign artifacts, not substitutes for the root tooling manifest.
+
+## Path migration (2026-11-17)
+
+The repository layout was reorganized. Records under `cycles/` and `reviews/` are historical and keep the paths that
+were valid when they were written:
+
+| Old path | Current path |
+| --- | --- |
+| `.agent/` | `.agents/` |
+| `.ai/workers/` | `.agents/workers/` |
+| `.claude/`, `.codex/`, `.cursor/` | `.agents/providers/{claude,codex,cursor}/` (root symlinks remain) |
+| `.gemini/`, old `.agents/` Antigravity adapters | removed; canonical files now sit at the Antigravity-native `.agents/` paths |
+| `CLAUDE.md`, `GEMINI.md`, `COMPATIBILITY.md`, `FULL_ACCESS_SETUP.md`, `ROOT_SNIPPETS/` | merged into `AGENTS.md` §14–§15 |
+| `MANIFEST.sha256`, `PACKAGE.json`, `README_JA.md` | `.agents/` |
+| `GPU_RUN1/`–`GPU_RUN5/`, `CPU_RUN/` | `experiments/` |
+| `source.md` | `docs/references.md` |

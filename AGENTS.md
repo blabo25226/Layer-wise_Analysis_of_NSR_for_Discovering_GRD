@@ -3,6 +3,9 @@
 このファイルは、このリポジトリで作業する **Cursor、Claude Code、Claude Science、Codex、およびその他のAI** に対する共通説明書である。
 目的は、複数のAIが交代・並行して作業しても、研究設計、コード、結果、Git履歴の整合性を保つことにある。
 
+このファイルは全AI共通の唯一のルールファイルである。`CLAUDE.md` と `GEMINI.md` はこのファイルへの symlink であり、
+AI固有の指示は §14、AI設定ディレクトリの構成は §15 にまとめている。
+
 このルールはリポジトリ全体に適用する。下位フォルダに別の `AGENTS.md` がある場合は、そのフォルダ内では下位ファイルの指示を追加で守る。
 ユーザーから明示的な指示がある場合は、ユーザーの指示を優先する。
 
@@ -26,20 +29,22 @@ $$
 1. `git status --short` と `git branch --show-current`
 2. [`README.md`](README.md)：研究背景、現状、CPU pilot、GPU_RUN1結果、重要な限界
 3. [`docs/plans/20260714_firstplan.md`](docs/plans/20260714_firstplan.md)：研究質問と当初計画
-4. GPU実験に関係する場合は実行手順と実施記録の [`GPU_RUN1/runbook.md`](GPU_RUN1/runbook.md)、実施済みGPU_RUN1は
+4. GPU実験に関係する場合は実行手順と実施記録の [`experiments/GPU_RUN1/runbook.md`](experiments/GPU_RUN1/runbook.md)、実施済みGPU_RUN1は
    [`results/GPU_RUN1_report.md`](results/GPU_RUN1_report.md)、次回計画は
-   [`GPU_RUN2/plan.md`](GPU_RUN2/plan.md)
+   [`experiments/GPU_RUN2/plan.md`](experiments/GPU_RUN2/plan.md)
 5. 図表を作る場合は [`graphs/README.md`](graphs/README.md)
 6. 対象Phaseの `results/phase_results/*_report.md` と実行スクリプト
 7. 変更対象に対応する `tests/` のテスト
 
 実行専用資産の置き場は次のとおりである。
 
-- GPU_RUN1: [`GPU_RUN1/`](GPU_RUN1/)
-- GPU_RUN2: [`GPU_RUN2/`](GPU_RUN2/)（計画・固有テスト。共通コードは `src/`、Phase入口は `scripts/phases/gpu_run2_*.py`）
-- GPU_RUN3: [`GPU_RUN3/`](GPU_RUN3/)（ND2。共通コードは `src/`、Phase入口は `scripts/phases/gpu_run3_*.py`）
-- GPU_RUN4: [`GPU_RUN4/`](GPU_RUN4/)（ODEFormer。計画・固有テスト。共通コードは `src/gpu_run4/`、Phase入口は `scripts/phases/gpu_run4_*.py`）
-- CPU_RUN: [`CPU_RUN/`](CPU_RUN/)
+- GPU_RUN1: [`experiments/GPU_RUN1/`](experiments/GPU_RUN1/)
+- GPU_RUN2: [`experiments/GPU_RUN2/`](experiments/GPU_RUN2/)（計画・固有テスト。共通コードは `src/`、Phase入口は `scripts/phases/gpu_run2_*.py`）
+- GPU_RUN3: [`experiments/GPU_RUN3/`](experiments/GPU_RUN3/)（ND2。共通コードは `src/`、Phase入口は `scripts/phases/gpu_run3_*.py`）
+- GPU_RUN4: [`experiments/GPU_RUN4/`](experiments/GPU_RUN4/)（ODEFormer。計画・固有テスト。共通コードは `src/gpu_run4/`、Phase入口は `scripts/phases/gpu_run4_*.py`）
+- GPU_RUN5: [`experiments/GPU_RUN5/`](experiments/GPU_RUN5/)（ODEFormerのGRN適応。Phase入口は `scripts/phases/gpu_run5_*.py`）
+- Multi-AI自律研究: [`GPU_RUNmultiAI/`](GPU_RUNmultiAI/)（進行中キャンペーンのためrootに置く。§13）
+- CPU_RUN: [`experiments/CPU_RUN/`](experiments/CPU_RUN/)
 - 共通コード: `src/`、共通Phase入口: `scripts/`
 
 過去の会話やAIの要約だけを根拠にせず、必ず現在のファイルを読むこと。ブランチは作業ごとに確認し、`main` が常に最新だと仮定しない。
@@ -56,7 +61,7 @@ $$
 - 最新コードでは、validation/test分離、paired seed、Studentのt区間、trajectory分割、failure-aware集計などを修正済み。
 - CPU pilotの数値は研究の方向確認には使えるが、論文レベルの仮説確証として扱わない。
 - GPU_RUN1の数値も探索的なreduced runとして扱い、GPU_RUN2または後続の固定commit確認runと混ぜない。
-- GPU_RUN4は公開ODEFormer checkpoint（4 encoder dim 256 + 12 decoder dim 512、約61M）の再現と16層解析である。論文Tableの4+16 / 約86Mではない。reduced grid（1 seed、noise sigma は 0 と 0.05 のみ）でPhase 0–9まで実施済み。数値は [`GPU_RUN4/README.md`](GPU_RUN4/README.md) と `results/runs/gpu_run4_phase0_01/` を正とし、GPU_RUN2/3と混ぜない。
+- GPU_RUN4は公開ODEFormer checkpoint（4 encoder dim 256 + 12 decoder dim 512、約61M）の再現と16層解析である。論文Tableの4+16 / 約86Mではない。reduced grid（1 seed、noise sigma は 0 と 0.05 のみ）でPhase 0–9まで実施済み。数値は [`experiments/GPU_RUN4/README.md`](experiments/GPU_RUN4/README.md) と `results/runs/gpu_run4_phase0_01/` を正とし、GPU_RUN2/3と混ぜない。
 - `gpu-scale-prep` はGPU本実験の準備と再現性強化を含む作業ブランチである。`main` との関係は毎回Gitで確認する。
 
 研究状態を更新した場合は、コードだけでなくREADME、GPU_RUN、該当Phaseレポートのどれを更新すべきか検討する。
@@ -121,7 +126,7 @@ DREAM4などの時系列は、trajectoryをtrain/validation/testへ分けてか�
 
 ### 5.1 既存構造を再利用する
 
-- 共通処理は `src/`、実験入口は `scripts/phases/`、GPU運用は `scripts/ops/`、設定は `configs/`、テストは `tests/`（キャンペーン固有は `GPU_RUN1/tests/` 等）に置く。
+- 共通処理は `src/`、実験入口は `scripts/phases/`、GPU運用は `scripts/ops/`、設定は `configs/`、テストは `tests/`（キャンペーン固有は `experiments/GPU_RUN1/tests/` 等）に置く。
 - Phaseスクリプト間でsplit、seed、集計、メトリクスを複製せず、既存の共通モジュールを使う。
 - 既にある `src/data/splits.py`、`src/evaluation/aggregation.py`、`src/experiment_runtime.py` などを先に確認する。
 - `GitHubSourceCode/` は調査用クローン置き場であり、**アルゴリズム・実験ランタイムの一部ではない**。
@@ -203,7 +208,7 @@ CPU pilotの可視化は `graphs/cpu_pilot/` を使う。ファイル名にはPh
 - READMEは高校生でも大筋を追える日本語を保つ。
 - 専門語は初出で説明し、略語だけで進めない。
 - 数式が必要な説明にはTeXを使う。
-- 研究計画は `docs/plans/`、実行キャンペーン専用資産は `GPU_RUN1/`、`GPU_RUN2/`、`CPU_RUN/` に置く。
+- 研究計画は `docs/plans/`、実行キャンペーン専用資産は `experiments/GPU_RUN1/`、`experiments/GPU_RUN2/`、`experiments/CPU_RUN/` に置く。
 - `docs/*.pdf` と `docs/translated_paper/` はローカル文献資産であり、Git管理外とする。
 - 文献は原論文、公式ドキュメント、公式データページを優先し、URLと書誌情報を確認する。
 - AIが生成した架空の論文、DOI、数値、引用を残さない。
@@ -434,19 +439,19 @@ YYYYMMDD_<やること(verb)>_<やる内容(noun)>
 
 ## 13. Multi-AI autonomous research track: GPU_RUNmultiAI
 
-自律的な multi-AI 研究の canonical operating system は `.agent/` にある。
+自律的な multi-AI 研究の canonical operating system は `.agents/` にある。
 
 この track を開始または再開する前に、最低限次を読む。
 
-1. [`.agent/README.md`](.agent/README.md)
-2. [`.agent/rules/00-mission-and-authority.md`](.agent/rules/00-mission-and-authority.md)
-3. [`.agent/rules/05-git-worktree-and-concurrency.md`](.agent/rules/05-git-worktree-and-concurrency.md)
-4. [`.agent/rules/08-routing-and-delegation.md`](.agent/rules/08-routing-and-delegation.md)
-5. [`.agent/rules/12-cycle-persistence-and-continuity.md`](.agent/rules/12-cycle-persistence-and-continuity.md)
+1. [`.agents/README.md`](.agents/README.md)
+2. [`.agents/rules/00-mission-and-authority.md`](.agents/rules/00-mission-and-authority.md)
+3. [`.agents/rules/05-git-worktree-and-concurrency.md`](.agents/rules/05-git-worktree-and-concurrency.md)
+4. [`.agents/rules/08-routing-and-delegation.md`](.agents/rules/08-routing-and-delegation.md)
+5. [`.agents/rules/12-cycle-persistence-and-continuity.md`](.agents/rules/12-cycle-persistence-and-continuity.md)
 6. [`GPU_RUNmultiAI/RESEARCH_LOOP.md`](GPU_RUNmultiAI/RESEARCH_LOOP.md)
 7. [`GPU_RUNmultiAI/research_state.md`](GPU_RUNmultiAI/research_state.md)
 8. [`GPU_RUNmultiAI/hypothesis_tree.md`](GPU_RUNmultiAI/hypothesis_tree.md)
-9. Research PI 役割: [`.agent/agents/research-pi.md`](.agent/agents/research-pi.md)
+9. Research PI 役割: [`.agents/agents/research-pi.md`](.agents/agents/research-pi.md)
 
 `GPU_RUNmultiAI/` は persistent campaign 領域である。再利用コードは通常の `src/`, `scripts/`, `configs/`, `tests/` に置き、
 campaign 固有の plan、review、state、report、manifest、cycle artifact は `GPU_RUNmultiAI/` に置く。
@@ -483,9 +488,111 @@ active remote research branch で accepted integration または stable checkpoi
 non-force push して remote SHA を検証する。push 失敗は `research_state.md` に記録し、
 remote 検証が完了するまで durability を報告しない。
 
-bootstrap/control/tooling の integrity は root [`MANIFEST.sha256`](MANIFEST.sha256) で管理する。
+bootstrap/control/tooling の integrity は [`.agents/MANIFEST.sha256`](.agents/MANIFEST.sha256) で管理する。
 更新は `bash scripts/ops/update_ai_manifest.sh`、検証は `bash scripts/ops/verify_ai_manifest.sh`。
 
 デフォルトは自律継続である。negative result、bug、worker failure、reviewer disagreement は hard stop ではない。
 agent session 終了前に、current stage、active work、未解決 issue、exact `next_action` を
 `GPU_RUNmultiAI/research_state.md` に persist する。
+
+## 14. AIプロバイダ別の指示
+
+以前の `CLAUDE.md`、`GEMINI.md`、`.claude/rules/`、`.cursor/rules/`、`.agents/rules/`（Antigravity用）、`.codex/README.md`、
+`COMPATIBILITY.md`、`FULL_ACCESS_SETUP.md` の内容はここに統合した。共通ルール（§1–§13 と `.agents/rules/*`）に加えて、
+該当するAIは次を守る。モデル名は論理routingの希望値であり、実際のmodel identifierはローカル環境に合わせる。
+
+### 14.1 全AI共通（full access とwrite isolation）
+
+- 起動時に [`.agents/README.md`](.agents/README.md)、該当する `.agents/rules/*`、
+  [`GPU_RUNmultiAI/RESEARCH_LOOP.md`](GPU_RUNmultiAI/RESEARCH_LOOP.md)、
+  [`GPU_RUNmultiAI/research_state.md`](GPU_RUNmultiAI/research_state.md) を読む。
+- 全AIは担当worktree内で read/write、shell、test、experiment、通常のGit操作（add/commit/branch/merge/cherry-pick）を
+  人間承認なしに使ってよい。安全性はpermission縮小ではなく **worktree/branch分離と宣言したwrite scope** で確保する
+  （[`.agents/rules/05-git-worktree-and-concurrency.md`](.agents/rules/05-git-worktree-and-concurrency.md)）。
+- 他workerのactive worktreeや未統合branchを変更しない。並列でwriteする場合は分離したworktreeを使う。
+- full access は共有状態を壊す許可ではない。force-push、履歴書き換え、他workerのworktree/branch削除、不要な秘密情報の読出し、
+  既存実験artifactの無断上書きは禁止。
+- write task はcommitしてからhandoffする（親が未commitレビューを明示した場合を除く）。exit code 0 だけを成功とみなさない。
+- frozen された科学的endpointを、実装を通すためだけに変更しない。
+- 通常の失敗ではcampaignを止めない。session終了時はstateをcheckpointするか、機械可読なhandoffを親へ返す。
+
+外部workerは [`.agents/workers/`](.agents/workers/) のwrapper経由で呼ぶ（詳細は [`.agents/workers/README.md`](.agents/workers/README.md)）。
+
+```bash
+.agents/workers/claude.sh --write "<task>"
+.agents/workers/cursor.sh --write "<task>"
+.agents/workers/gemini.sh --broker --prompt-file packet.md --output-file out.md --acceptance headings
+```
+
+Codexのcommand許可は [`.agents/providers/codex/rules/ai-workers.rules`](.agents/providers/codex/rules/ai-workers.rules) の単一
+`allow` policy で管理する。wrapperが `--write` でもread-only modeで起動する場合は、wrapper側で各CLIの通常の
+autonomous write/execute modeを選ぶよう直す。認証は公式CLIに任せる。
+
+### 14.2 Codex（Research PI）
+
+- Codex（GPT-6 Sol、reasoning Medium は人間がUIで設定）は既定の **Research PI** であり、bulk editor・repo偵察worker・
+  routine subagent hostではない。役割定義は [`.agents/agents/research-pi.md`](.agents/agents/research-pi.md)。
+- 起動時に加えて [`.agents/rules/08-routing-and-delegation.md`](.agents/rules/08-routing-and-delegation.md)、
+  [`.agents/rules/09-subagent-policy.md`](.agents/rules/09-subagent-policy.md)、
+  [`.agents/rules/12-cycle-persistence-and-continuity.md`](.agents/rules/12-cycle-persistence-and-continuity.md) を読む。
+- capacity thresholdに従い委譲する：5ファイル以上の偵察・複数ファイル実装は Cursor、Gemini-first の bulk/圧縮作業と
+  report初稿は Gemini（必要なら broker mode）、科学レビューは Claude Opus、小さな有界タスクは GPT-6 Luna。
+- Codex subagent を既定にしない。使う前に代替不能である理由を記録する。大きな機械的evidenceはPI contextで直接読む前に
+  Geminiで圧縮する。
+
+### 14.3 Claude（Claude Code / Claude Science）
+
+- Opus-class：scientific critic、方法論・統計レビュー、independent reviewer、final auditor。
+- Sonnet-class：research engineer、scientific polish、Gemini初稿後のreportレビュー。
+- 広範なリポジトリ走査やroutineな初稿はClaudeを既定にしない（§14.2のrouting）。
+- critic/reviewer/final-auditorとして動くときは一次artifactを直接確認する。指摘を記録する前に実装を直して指摘を消さない。
+  Claude Sonnetが実装したタスクの高影響レビューは、Claude Opusまたは別の独立roleで行う。
+- 権限設定は [`.agents/providers/claude/settings.json`](.agents/providers/claude/settings.json)（`.claude/settings.json` として読まれる）。
+
+### 14.4 Cursor（Repository Intelligence + Implementation）
+
+- Stage 1以降の repo偵察（実質5ファイル以上）、複数ファイル編集、refactor、test、担当worktree内のGitを担う。
+- `src/**`、`scripts/**`、`configs/**`、`tests/**`、`GPU_RUNmultiAI/**` を触るときは
+  [`02-test-data-and-leakage`](.agents/rules/02-test-data-and-leakage.md)、
+  [`03-symbolic-research-contract`](.agents/rules/03-symbolic-research-contract.md)、
+  [`07-artifact-provenance-and-reproducibility`](.agents/rules/07-artifact-provenance-and-reproducibility.md)、
+  [`16-gpu-runmultiai-layout`](.agents/rules/16-gpu-runmultiai-layout.md) を読み、既存utilityを再利用する。
+- 進捗をpersistし、関連テストを実行し、task-localな作業をcommitしてからhandoffする。
+
+### 14.5 Gemini / Antigravity（Scout / Bulk Worker）
+
+- 主な役割：research scout、bulk worker、evidence compression、artifact indexer、log analyst、report初稿（約10k token以上の
+  広範な走査・ログ・索引・文献候補収集）。
+- 目標モデル：**Gemini 3.8 Flash**（`gemini-3.8-flash-high`、`AI_WORKERS_GEMINI_MODEL` で上書き）。
+  [`.agents/rules/08-routing-and-delegation.md`](.agents/rules/08-routing-and-delegation.md) の Gemini-first threshold は
+  triggerに当たれば必須。
+- 出力では evidence / inference / speculation を分ける。科学的結論や高インパクトなnovelty claimはcritic/PIレビューへ回す。
+- headless Antigravity は filesystem write を soft-deny しても exit 0 を返すことがある。disposable worktreeでの
+  filesystem E2E が PASS するまで、repo書き込みに頼らず **broker mode** を使う（wrapperがstdoutとprovenanceを保存する）。
+  repo変更が必要なら、Cursorが適用できる構造化edit proposal / diff / planを出す。
+- 参照：[`.agents/routing/FALLBACKS.md`](.agents/routing/FALLBACKS.md)、
+  [`.agents/skills/evidence-compression/SKILL.md`](.agents/skills/evidence-compression/SKILL.md)、
+  [`.agents/rules/09-subagent-policy.md`](.agents/rules/09-subagent-policy.md)。
+
+## 15. AI設定のディレクトリ構成
+
+AI関連の設定・ルール・wrapperはすべて `.agents/` に集約している。各ツールが固定パスを探すため、root には
+symlink だけを置いている（実体は `.agents/` と `AGENTS.md`）。
+
+| パス | 内容 |
+| --- | --- |
+| `AGENTS.md` | 全AI共通の唯一のルールファイル（本ファイル） |
+| `CLAUDE.md`, `GEMINI.md` | `AGENTS.md` への symlink（Claude Code / Gemini CLI が自動で読む） |
+| `.agents/README.md`, `.agents/README_JA.md` | 研究OSの概要（canonical） |
+| `.agents/rules/` | canonical rules 00–16（Antigravity の native workspace rules も兼ねる） |
+| `.agents/agents/` | canonical role 定義 |
+| `.agents/skills/` | canonical skill 定義（Antigravity の native skills も兼ねる） |
+| `.agents/routing/`, `.agents/schemas/` | routing・fallback・handoff/state schema |
+| `.agents/workers/` | Codex から各CLIを呼ぶ wrapper（旧 `.ai/workers/`） |
+| `.agents/providers/claude/` | Claude Code の subagent・skill adapter と `settings.json`（`.claude` → symlink） |
+| `.agents/providers/codex/` | Codex の role・skill adapter と command rules（`.codex` → symlink） |
+| `.agents/providers/cursor/` | Cursor の subagent・skill adapter（`.cursor` → symlink） |
+| `.agents/MANIFEST.sha256`, `.agents/PACKAGE.json` | 研究OSファイルの checksum とパッケージ情報 |
+
+provider adapter は canonical 定義を参照するだけの薄いファイルにし、ルール本文は `AGENTS.md` か `.agents/rules/` に書く。
+新しいAIを追加するときも、この方針で `.agents/providers/<name>/` に置き、必要なら root に symlink を張る。

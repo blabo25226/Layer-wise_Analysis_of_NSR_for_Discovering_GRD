@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
-# Regenerate MANIFEST.sha256 for Multi-AI bootstrap/control/tooling files.
+# Regenerate .agents/MANIFEST.sha256 for Multi-AI bootstrap/control/tooling files.
 # The manifest never includes itself to avoid self-reference.
+# Provider entry points (.claude, .codex, .cursor, CLAUDE.md, GEMINI.md) are symlinks
+# into .agents/ or AGENTS.md, so hashing the real files under .agents/ covers them.
 set -euo pipefail
 
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 
-OUTPUT="MANIFEST.sha256"
+OUTPUT=".agents/MANIFEST.sha256"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     -o|--output)
@@ -43,17 +45,10 @@ collect_manifest_paths() {
     paths+=("$path")
   done < <(
     {
-      find .agent .agents .ai .claude .codex .cursor .gemini \
-        -type f ! -path '*/.*' 2>/dev/null || true
+      find .agents -type f ! -path '*/.*' ! -path '*/__pycache__/*' \
+        ! -path .agents/MANIFEST.sha256 2>/dev/null || true
       printf '%s\n' \
         AGENTS.md \
-        CLAUDE.md \
-        COMPATIBILITY.md \
-        FULL_ACCESS_SETUP.md \
-        GEMINI.md \
-        README_JA.md \
-        ROOT_SNIPPETS/AGENTS_APPEND.md \
-        PACKAGE.json \
         GPU_RUNmultiAI/README.md \
         GPU_RUNmultiAI/RESEARCH_LOOP.md \
         GPU_RUNmultiAI/research_state.md \

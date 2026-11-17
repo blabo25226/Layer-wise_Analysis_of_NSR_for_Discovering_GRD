@@ -1,0 +1,56 @@
+# Authorized delegated worker invocations may run without an extra Codex approval.
+# .agents/workers wrappers remain the single entrypoint.
+
+prefix_rule(
+    pattern = [".agents/workers/claude.sh"],
+    decision = "allow",
+    justification = "Claude worker is an authorized autonomous research worker",
+    match = [
+        ".agents/workers/claude.sh Review the design",
+        ".agents/workers/claude.sh --write Implement the frozen plan",
+        ".agents/workers/claude.sh --json Return a status summary",
+    ],
+)
+
+prefix_rule(
+    pattern = [".agents/workers/cursor.sh"],
+    decision = "allow",
+    justification = "Cursor worker is an authorized autonomous repo operator",
+    match = [
+        ".agents/workers/cursor.sh Review the implementation",
+        ".agents/workers/cursor.sh --write Implement and test the task",
+        ".agents/workers/cursor.sh --json Return a status summary",
+    ],
+)
+
+prefix_rule(
+    pattern = [".agents/workers/gemini.sh"],
+    decision = "allow",
+    justification = "Gemini worker is an authorized autonomous scout and bulk worker (broker read-only until direct FS E2E PASS)",
+    match = [
+        ".agents/workers/gemini.sh Summarize the artifacts",
+        ".agents/workers/gemini.sh --json Return a status summary",
+        ".agents/workers/gemini.sh --broker --prompt-file packet.md --output-file out.md --acceptance headings",
+    ],
+)
+
+prefix_rule(
+    pattern = [".agents/workers/claude.sh", "--write"],
+    decision = "allow",
+    justification = "Write-mode delegation is pre-authorized for isolated research tasks",
+    match = [".agents/workers/claude.sh --write Implement the task"],
+)
+
+prefix_rule(
+    pattern = [".agents/workers/cursor.sh", "--write"],
+    decision = "allow",
+    justification = "Write-mode delegation is pre-authorized for isolated research tasks",
+    match = [".agents/workers/cursor.sh --write Implement the task"],
+)
+
+prefix_rule(
+    pattern = [".agents/workers/gemini.sh", "--write"],
+    decision = "deny",
+    justification = "Gemini direct --write remains blocked until five-step filesystem E2E PASS; use --broker or Cursor",
+    match = [".agents/workers/gemini.sh --write Produce the artifact"],
+)

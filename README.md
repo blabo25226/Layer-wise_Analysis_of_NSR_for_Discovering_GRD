@@ -3,7 +3,7 @@
 > **現在地（2026年9月1日）** ：GPU_RUN2–5を完了した。GPU_RUN5は公開ODEFormerを閉じたHill型GRNへ適応し、
 > validation 20,736 cell、final GRN 6,000 cell、ODEBench forgetting 3,780 cellを固定計画で評価した。
 > 事前登録判定は6 hit / 1 missで、Go 8はNO-GOだったためDREAM4・実データへの追加実験は行っていない。
-> GPU_RUN5の結果は [`GPU_RUN5/README.md`](GPU_RUN5/README.md) から辿り、評価世代の異なるGPU_RUN2–4の数値と混ぜない。
+> GPU_RUN5の結果は [`experiments/GPU_RUN5/README.md`](experiments/GPU_RUN5/README.md) から辿り、評価世代の異なるGPU_RUN2–4の数値と混ぜない。
 > GPU_RUN2は合成GNW式・oracle変数・解析的微分だけを使い、層解析と選択的fine-tuningを検証した実験である。
 > 主結果は「適応はdecoder中後段、とくに `decoder_4` に局在する」「少数層FTは全層FTより数値精度・生成安定性が良い」
 > 「しかし正しい式構造の回復はほぼ達成できていない」の3点である。
@@ -74,18 +74,18 @@
 | CPU pilot | パイプライン構築と問題発見のためのlegacy run | [§12](#12-過去のrunの位置づけ)に要約のみ |
 | GPU_RUN1 | Colab L4、3 seeds、DREAM4・ヒト時系列まで含む探索的reduced run | [§12](#12-過去のrunの位置づけ)に要約のみ |
 | **GPU_RUN2** | **ローカルRTX 2070、固定commit、合成GNW式のみの層解析run** | **§7–§11の主結果** |
-| GPU_RUN3 | ND2の再現と層解析 | 本READMEの主結果と混ぜない。入口は [`GPU_RUN3/`](GPU_RUN3/) |
-| GPU_RUN4 | 公開ODEFormer checkpoint（4+12 / 約61M）の再現と層解析。reduced Phase 0–9済み | 本READMEの主結果と混ぜない。入口は [`GPU_RUN4/README.md`](GPU_RUN4/README.md) |
-| GPU_RUN5 | 同じ公開ODEFormerの閉じたHill型GRN適応、多軌道候補選択、formula-level層解析。Phase 0–9完了、Go 8 NO-GO | 固定計画とmanifest検証済み成果物は [`GPU_RUN5/README.md`](GPU_RUN5/README.md) から辿る。他世代のscoreと直接混ぜない |
+| GPU_RUN3 | ND2の再現と層解析 | 本READMEの主結果と混ぜない。入口は [`experiments/GPU_RUN3/`](experiments/GPU_RUN3/) |
+| GPU_RUN4 | 公開ODEFormer checkpoint（4+12 / 約61M）の再現と層解析。reduced Phase 0–9済み | 本READMEの主結果と混ぜない。入口は [`experiments/GPU_RUN4/README.md`](experiments/GPU_RUN4/README.md) |
+| GPU_RUN5 | 同じ公開ODEFormerの閉じたHill型GRN適応、多軌道候補選択、formula-level層解析。Phase 0–9完了、Go 8 NO-GO | 固定計画とmanifest検証済み成果物は [`experiments/GPU_RUN5/README.md`](experiments/GPU_RUN5/README.md) から辿る。他世代のscoreと直接混ぜない |
 
 評価設計が世代間で異なるため、**GPU_RUN2の数値を他世代と同一表に混ぜてはならない。**
 
 研究計画の詳細は [`docs/plans/20260714_firstplan.md`](docs/plans/20260714_firstplan.md)、
-GPU_RUN2の計画正本は [`GPU_RUN2/plan.md`](GPU_RUN2/plan.md)、実行入口は [`GPU_RUN2/README.md`](GPU_RUN2/README.md) にある。
+GPU_RUN2の計画正本は [`experiments/GPU_RUN2/plan.md`](experiments/GPU_RUN2/plan.md)、実行入口は [`experiments/GPU_RUN2/README.md`](experiments/GPU_RUN2/README.md) にある。
 GPU_RUN2の詳細レポートは次の2本であり、本READMEの§7–§11はこの2本を突き合わせ、保存recordで再検証したうえで要約したものである。
 
-- [`GPU_RUN2/GPU_RUN2_research_report_20260816_claude-science.md`](GPU_RUN2/GPU_RUN2_research_report_20260816_claude-science.md)（事実・考察・提案を分離した監査型レポート）
-- [`GPU_RUN2/GPU_RUN2_research_report_20260816_chatGPT.md`](GPU_RUN2/GPU_RUN2_research_report_20260816_chatGPT.md)（仮説判定と実装監査を中心にしたレポート）
+- [`experiments/GPU_RUN2/GPU_RUN2_research_report_20260816_claude-science.md`](experiments/GPU_RUN2/GPU_RUN2_research_report_20260816_claude-science.md)（事実・考察・提案を分離した監査型レポート）
+- [`experiments/GPU_RUN2/GPU_RUN2_research_report_20260816_chatGPT.md`](experiments/GPU_RUN2/GPU_RUN2_research_report_20260816_chatGPT.md)（仮説判定と実装監査を中心にしたレポート）
 
 ## 2. 背景
 
@@ -1135,14 +1135,14 @@ GPU_RUN1は複数の継続runを含む探索的runであり、Phase 7の主集�
 Phase 0–8のパイプライン構築と問題発見に使ったlegacy resultである。
 NeSymReS・PySR・TPSRの実行確認、合成GRN生成、層スキャン、DREAM4・ヒト時系列への適用経路を一通り成立させた点に価値がある。
 数値結果は条件別hyperparameter探索やvalidation/test分離より前のものであり、仮説の確証には使わない。
-詳細は [`CPU_RUN/README.md`](CPU_RUN/README.md) と [`results/phase_results/`](results/phase_results/) に残している。
+詳細は [`experiments/CPU_RUN/README.md`](experiments/CPU_RUN/README.md) と [`results/phase_results/`](results/phase_results/) に残している。
 
 ## 13. 今後の展望
 
 > **⚠ この節の内容はすべて未定である。**
 > ここに挙げるのは、GPU_RUN2の結果から導かれる**検討中の選択肢**であって、決定した計画ではない。
 > 次のrunの範囲、優先順位、実施の有無、GPU_RUN3という枠組みで行うかどうかも、現時点では何も確定していない。
-> [`GPU_RUN2/plan.md`](GPU_RUN2/plan.md) に相当する正式な計画書は、次のrunについてはまだ存在しない。
+> [`experiments/GPU_RUN2/plan.md`](experiments/GPU_RUN2/plan.md) に相当する正式な計画書は、次のrunについてはまだ存在しない。
 > 実施が決まった項目だけを、後日この節から計画書へ移す。
 
 ### 13.1 保存済みrecordだけで実施できる再解析（GPU再実行不要）
@@ -1218,7 +1218,7 @@ Hydra 1.0との互換性により、Python 3.12は本実験環境としてサポ
 ```bash
 python -m compileall -q src scripts tests
 python -m pytest -q
-python -m pytest -q GPU_RUN2/tests
+python -m pytest -q experiments/GPU_RUN2/tests
 ```
 
 ### GPU_RUN2の実行
@@ -1236,7 +1236,7 @@ powershell -File scripts/ops/run_gpu_run2.ps1
 ```
 
 `--from-phase 3` / `-FromPhase 3` で途中再開できる。実行中の正本は常に `results/runs/<run-id>/` である。
-手順の詳細と設定ファイルの一覧は [`GPU_RUN2/README.md`](GPU_RUN2/README.md) を参照する。
+手順の詳細と設定ファイルの一覧は [`experiments/GPU_RUN2/README.md`](experiments/GPU_RUN2/README.md) を参照する。
 
 ### GPU_RUN2の主要スクリプト
 
@@ -1260,39 +1260,41 @@ scripts/ops/finalize_gpu_run2.py               schema検査、真式対予測式
 ```text
 LANSR/
 ├── README.md                      本ファイル。研究の正本
-├── AGENTS.md                      リポジトリ運用規約（コード変更時の約束事）
-├── source.md                      調査対象の文献・公式実装の一覧（参考文献の出典）
+├── AGENTS.md                      全AI共通の運用規約（CLAUDE.md / GEMINI.md はこのsymlink）
 ├── pytest.ini                     テスト設定
 │
-├── GPU_RUN4/                      ODEFormer公開checkpointの再現と層解析（reduced Phase 0–9）
-│   ├── README.md                  実行順・Phase 0–9結果・設定
-│   ├── plan.md                    計画の正本
-│   └── tests/                     GPU_RUN4固有のテスト
+├── .agents/                       AI設定の集約先（rules・roles・skills・workers・providers。AGENTS.md §15）
 │
-├── GPU_RUN3/                      ND2の再現キャンペーン
+├── experiments/                   ★ 実行キャンペーン（run別の計画・手順・レポート・固有テスト）
+│   ├── README.md                  キャンペーン一覧
+│   ├── GPU_RUN5/                  ODEFormerの閉じたHill型GRNへの適応
+│   ├── GPU_RUN4/                  ODEFormer公開checkpointの再現と層解析（reduced Phase 0–9）
+│   │   ├── README.md              実行順・Phase 0–9結果・設定
+│   │   ├── plan.md                計画の正本
+│   │   └── tests/                 GPU_RUN4固有のテスト
+│   ├── GPU_RUN3/                  ND2の再現キャンペーン
+│   ├── GPU_RUN2/                  ★ 本READMEの主実験キャンペーン（NeSymReS / GNW）
+│   │   ├── README.md              実行順・設定・テストの入口
+│   │   ├── plan.md                計画の正本（2026-07-29作成、2026-08-12方針改訂）
+│   │   ├── GPU_RUN2_research_report_20260816_claude-science.md  事実／考察／提案を分離した監査型レポート
+│   │   ├── GPU_RUN2_research_report_20260816_chatGPT.md         仮説判定と実装監査中心のレポート
+│   │   ├── gpu_pc.md              実行機（RTX 2070）のセットアップ記録
+│   │   ├── smoke_test.md          本実行前のsmoke test手順
+│   │   ├── remote/                実行機を遠隔操作するための補助script群
+│   │   ├── notebooks/             （未使用。Colabを使わないため空）
+│   │   └── tests/                 GPU_RUN2固有のテスト
+│   │       ├── test_gnw_synthetic.py       GNW 8族の生成と真式の検査
+│   │       ├── test_oracle_and_splits.py   oracle入力とsplit分離の検査
+│   │       ├── test_operator_policy.py     演算子allowlistとtoken maskの検査
+│   │       ├── test_records_and_resume.py  record schemaと再開処理の検査
+│   │       └── test_live_paths.py          checkpoint実読み込み経路の検査
+│   ├── GPU_RUN1/                  Colab L4での先行キャンペーン（legacy）
+│   │   ├── README.md / runbook.md / plan_colab.md
+│   │   ├── notebooks/             Phase 0–9のColab Notebook
+│   │   └── scripts/               Notebook生成と再解析図のscript
+│   └── CPU_RUN/                   CPU pilotの叙述（legacy。README.mdのみ）
 │
-├── GPU_RUN2/                      ★ 本READMEの主実験キャンペーン（NeSymReS / GNW）
-│   ├── README.md                  実行順・設定・テストの入口
-│   ├── plan.md                    計画の正本（2026-07-29作成、2026-08-12方針改訂）
-│   ├── GPU_RUN2_research_report_20260816_claude-science.md  事実／考察／提案を分離した監査型レポート
-│   ├── GPU_RUN2_research_report_20260816_chatGPT.md         仮説判定と実装監査中心のレポート
-│   ├── gpu_pc.md                  実行機（RTX 2070）のセットアップ記録
-│   ├── smoke_test.md              本実行前のsmoke test手順
-│   ├── remote/                    実行機を遠隔操作するための補助script群
-│   ├── notebooks/                 （未使用。Colabを使わないため空）
-│   └── tests/                     GPU_RUN2固有のテスト
-│       ├── test_gnw_synthetic.py       GNW 8族の生成と真式の検査
-│       ├── test_oracle_and_splits.py   oracle入力とsplit分離の検査
-│       ├── test_operator_policy.py     演算子allowlistとtoken maskの検査
-│       ├── test_records_and_resume.py  record schemaと再開処理の検査
-│       └── test_live_paths.py          checkpoint実読み込み経路の検査
-│
-├── GPU_RUN1/                      Colab L4での先行キャンペーン（legacy）
-│   ├── README.md / runbook.md / plan_colab.md
-│   ├── notebooks/                 Phase 0–9のColab Notebook
-│   └── scripts/                   Notebook生成と再解析図のscript
-│
-├── CPU_RUN/                       CPU pilotの叙述（legacy。README.mdのみ）
+├── GPU_RUNmultiAI/                Multi-AI自律研究キャンペーン（進行中のためrootに置く）
 │
 ├── src/                           ★ 全runが共有する実装
 │   ├── data/                      データ生成・読み込み・分割
@@ -1394,6 +1396,7 @@ LANSR/
 │
 ├── docs/
 │   ├── README.md                  文書全体の索引
+│   ├── references.md              調査対象の文献・公式実装の一覧（参考文献の出典）
 │   ├── plans/                     研究計画・レビューメモ（20260714_firstplan.md ほか）
 │   ├── runbooks/                  運用手順
 │   ├── paper/                     参照論文のPDF（略称_paper.pdf）
@@ -1421,27 +1424,27 @@ LANSR/
 | 目的 | 見る場所 |
 |---|---|
 | 研究全体を知る | 本README |
-| GPU_RUN2の詳細な根拠を確認する | [`GPU_RUN2/GPU_RUN2_research_report_20260816_claude-science.md`](GPU_RUN2/GPU_RUN2_research_report_20260816_claude-science.md)、[`GPU_RUN2/GPU_RUN2_research_report_20260816_chatGPT.md`](GPU_RUN2/GPU_RUN2_research_report_20260816_chatGPT.md) |
-| GPU_RUN2を再実行する | [`GPU_RUN2/README.md`](GPU_RUN2/README.md) → [`GPU_RUN2/plan.md`](GPU_RUN2/plan.md) |
+| GPU_RUN2の詳細な根拠を確認する | [`experiments/GPU_RUN2/GPU_RUN2_research_report_20260816_claude-science.md`](experiments/GPU_RUN2/GPU_RUN2_research_report_20260816_claude-science.md)、[`experiments/GPU_RUN2/GPU_RUN2_research_report_20260816_chatGPT.md`](experiments/GPU_RUN2/GPU_RUN2_research_report_20260816_chatGPT.md) |
+| GPU_RUN2を再実行する | [`experiments/GPU_RUN2/README.md`](experiments/GPU_RUN2/README.md) → [`experiments/GPU_RUN2/plan.md`](experiments/GPU_RUN2/plan.md) |
 | 層解析手法の定義と限界を確認する | [§6](#6-層解析手法) |
 | 層解析の実装を読む | [`src/interpretability/`](src/interpretability/) |
 | 評価指標の定義を確認する | [`src/evaluation/`](src/evaluation/) |
 | 生の数値を確認する | `results/runs/gpu_run2_20260815_1d91927/` と [`graphs/gpu_run2_20260815_1d91927/tables/`](graphs/gpu_run2_20260815_1d91927/tables/) |
-| 過去のrunを知る | [`results/GPU_RUN1_report.md`](results/GPU_RUN1_report.md)、[`CPU_RUN/README.md`](CPU_RUN/README.md) |
+| 過去のrunを知る | [`results/GPU_RUN1_report.md`](results/GPU_RUN1_report.md)、[`experiments/CPU_RUN/README.md`](experiments/CPU_RUN/README.md) |
 
 ### 15.3 配置の規約
 
-- 実行キャンペーンの入口は [`GPU_RUN2/`](GPU_RUN2/)、[`GPU_RUN1/`](GPU_RUN1/)、[`CPU_RUN/`](CPU_RUN/)。Phaseの実装は共有し、手順書と成果物だけを分ける。
+- 実行キャンペーンの入口は [`experiments/GPU_RUN2/`](experiments/GPU_RUN2/)、[`experiments/GPU_RUN1/`](experiments/GPU_RUN1/)、[`experiments/CPU_RUN/`](experiments/CPU_RUN/)。Phaseの実装は共有し、手順書と成果物だけを分ける。
 - 実行中の正本は常にローカルの `results/runs/<run-id>/` である。runをまたいで成果物を混ぜない。
 - 新しく作る独立した図・表は [`graphs/README.md`](graphs/README.md) の規約に従い、`graphs/<run-id>/figures/` または `graphs/<run-id>/tables/` に保存する。
 - 調査用外部コードの方針は [`GitHubSourceCode/README.md`](GitHubSourceCode/README.md)、文書索引は [`docs/README.md`](docs/README.md)、スクリプト索引は [`scripts/README.md`](scripts/README.md) を参照する。
 
 ## 16. 参考文献
 
-本研究で調査対象として管理している文献・公式実装の一覧は [`source.md`](source.md) に置く。
-以下の参考文献は、[`source.md`](source.md) に掲載されたものだけで構成する。
+本研究で調査対象として管理している文献・公式実装の一覧は [`docs/references.md`](docs/references.md) に置く。
+以下の参考文献は、[`docs/references.md`](docs/references.md) に掲載されたものだけで構成する。
 **番号は本文の引用記号として使う追加順の識別子であり、重要度の順ではない。**
-重要度の区分は [`source.md`](source.md) の見出し（最重要／重要）を正とする。
+重要度の区分は [`docs/references.md`](docs/references.md) の見出し（最重要／重要）を正とする。
 現時点で最重要に置いている文献は **TED [36]**（式の構造距離）と **NSRS [1]**（本研究の基盤モデル）である。
 各項目の先頭の太字は本リポジトリで使う略称であり、原論文PDFは `docs/paper/<略称>_paper.pdf`、
 日本語訳は `docs/translated_paper/<略称>_translated.md` に対応する（DREAM4は `docs/paper/DREAM4.pdf`、訳出なし）。

@@ -26,7 +26,7 @@ $PY scripts/reports/gpu_run3_recompute_structural.py --run-id "$EXT_RUN" || echo
 
 echo "[finish] === reports for the extended run ==="
 $PY scripts/reports/gpu_run3_report.py --run-id "$EXT_RUN" \
-  --out-dir "$REPO_ROOT/GPU_RUN3/extended" || echo "[finish] report FAILED"
+  --out-dir "$REPO_ROOT/experiments/GPU_RUN3/extended" || echo "[finish] report FAILED"
 
 echo "[finish] === paired budget comparison ==="
 $PY scripts/reports/gpu_run3_budget_comparison.py --base "$BASE_RUN" --extended "$EXT_RUN" \

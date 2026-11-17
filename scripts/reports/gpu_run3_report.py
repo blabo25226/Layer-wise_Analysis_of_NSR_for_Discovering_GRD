@@ -1,8 +1,8 @@
 """Assemble the GPU_RUN3 deliverables (plan section 18) from a finished run directory.
 
 Emits:
-  GPU_RUN3/GPU_RUN3_nd2_reproduction_report.md   (18.1)
-  GPU_RUN3/GPU_RUN3_layer_analysis_report.md     (18.2)
+  experiments/GPU_RUN3/GPU_RUN3_nd2_reproduction_report.md   (18.1)
+  experiments/GPU_RUN3/GPU_RUN3_layer_analysis_report.md     (18.2)
   graphs/<run_id>/tables/problem_formulas.csv    (18.3)
   graphs/<run_id>/tables/layer_summary.csv       (18.4)
 
@@ -27,7 +27,7 @@ from gpu_run3_runtime import graphs_dir, load_gpu_run3_configs, resolve_run_dir 
 def parse_args():
     parser = argparse.ArgumentParser(description="GPU_RUN3 report builder")
     parser.add_argument("--run-id", required=True)
-    parser.add_argument("--out-dir", default=str(ROOT / "GPU_RUN3"))
+    parser.add_argument("--out-dir", default=str(ROOT / "experiments" / "GPU_RUN3"))
     return parser.parse_args()
 
 

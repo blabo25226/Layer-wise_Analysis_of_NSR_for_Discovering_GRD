@@ -1,6 +1,6 @@
 # scripts/
 
-研究実験のエントリポイント。共通処理は `src/`、キャンペーン専用は `GPU_RUN1/` 等へ置く。
+研究実験のエントリポイント。共通処理は `src/`、キャンペーン専用は `experiments/GPU_RUN1/` 等へ置く。
 
 ## 構成
 
@@ -60,14 +60,14 @@ scripts/
 
 | 場所 | 内容 |
 |---|---|
-| [`GPU_RUN1/scripts/`](../GPU_RUN1/scripts/) | Notebook生成・図表再解析 |
-| [`GPU_RUN1/tests/`](../GPU_RUN1/tests/) | Colab/GPU_RUN1固有テスト |
-| [`GPU_RUN2/tests/`](../GPU_RUN2/tests/) | GPU_RUN2固有テスト |
+| [`experiments/GPU_RUN1/scripts/`](../experiments/GPU_RUN1/scripts/) | Notebook生成・図表再解析 |
+| [`experiments/GPU_RUN1/tests/`](../experiments/GPU_RUN1/tests/) | Colab/GPU_RUN1固有テスト |
+| [`experiments/GPU_RUN2/tests/`](../experiments/GPU_RUN2/tests/) | GPU_RUN2固有テスト |
 
 ## 実行の目安
 
 ```bash
-python -m compileall -q src scripts tests GPU_RUN1/scripts GPU_RUN1/tests GPU_RUN2/tests
+python -m compileall -q src scripts tests experiments/GPU_RUN1/scripts experiments/GPU_RUN1/tests experiments/GPU_RUN2/tests
 python -m pytest -q
 python scripts/ops/preflight_gpu.py \
   --weights /path/to/model.ckpt \

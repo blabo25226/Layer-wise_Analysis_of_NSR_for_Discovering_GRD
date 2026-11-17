@@ -204,7 +204,7 @@ def main() -> int:
     run_root = (args.run_dir or repo_root / "results" / "runs" / run_id).resolve()
     out = run_root / "phase9"
     out.mkdir(parents=True, exist_ok=True)
-    reports_dir = (args.reports_dir or repo_root / "GPU_RUN5").resolve()
+    reports_dir = (args.reports_dir or repo_root / "experiments" / "GPU_RUN5").resolve()
     graph_root = (args.graphs_dir or repo_root / "graphs" / run_id).resolve()
     figures, tables = graph_root / "figures", graph_root / "tables"
 

@@ -173,7 +173,7 @@ summary = {
 # Prefer measured decode/FT means when available.
 dec_p50 = summary["decode_p50"] or 0.0
 dec_p90 = summary["decode_p90"] or 0.0
-# Production counts from GPU_RUN2/plan.md Phase decode table (serial upper-bound units).
+# Production counts from experiments/GPU_RUN2/plan.md Phase decode table (serial upper-bound units).
 # Phase2 NeSymReS half of 1152 method-runs ≈ 576; Phase3/4/5 add more GPU decode-like work.
 # For estimate we split method searches and FT runs explicitly.
 N_NESYMRES_DECODE = 576 + 1440 + 1440 + 4680  # plan Phase2(NSR)+3+4+5
@@ -198,7 +198,7 @@ summary["estimate_assumptions"] = {
     "N_FULL_FT": N_FULL_FT,
     "N_SINGLE_FT": N_SINGLE_FT,
     "N_PYSR": N_PYSR,
-    "source": "GPU_RUN2/plan.md Phase decode table",
+    "source": "experiments/GPU_RUN2/plan.md Phase decode table",
 }
 out = run_dir / "smoke_timing_summary.json"
 out.write_text(json.dumps(summary, indent=2), encoding="utf-8")

@@ -19,7 +19,7 @@ Do not mix infrastructure conclusions into scientific reports or preregistration
 
 ## Capacity-aware routing (C0001 onward)
 
-Apply `.agent/rules/08-routing-and-delegation.md` at every stage. Summary:
+Apply `.agents/rules/08-routing-and-delegation.md` at every stage. Summary:
 
 | Trigger | Default worker |
 |---|---|
@@ -140,7 +140,7 @@ Update:
 After accepted integration or a stable checkpoint on an active remote research branch, non-force push and verify
 `remote_commit` before reporting durability.
 
-Refresh `MANIFEST.sha256` when bootstrap/control/tooling files change:
+Refresh `.agents/MANIFEST.sha256` when bootstrap/control/tooling files change:
 
 ```bash
 bash scripts/ops/update_ai_manifest.sh
@@ -157,4 +157,4 @@ An external watchdog may relaunch Codex/PI and instruct it to run state reconstr
 
 ## Hard-stop rule
 
-Use `.agent/rules/13-retry-fallback-and-hard-stops.md`.
+Use `.agents/rules/13-retry-fallback-and-hard-stops.md`.

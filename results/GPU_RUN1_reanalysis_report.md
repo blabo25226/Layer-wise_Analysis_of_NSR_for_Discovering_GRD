@@ -373,7 +373,7 @@ NeSymReS: decode 30 秒 + GPU fine-tuning）。
 ### 再現
 
 ```bash
-python GPU_RUN1/scripts/reanalysis_figures.py \
+python experiments/GPU_RUN1/scripts/reanalysis_figures.py \
     --run-id colab_reduced_20260729_03 \
     --suite diverse_gpu_n0.1 \
     --seeds 0 1 2

@@ -1,7 +1,7 @@
 # docs/plans/
 
 日付付きの一般研究計画・指摘メモを置く。実行キャンペーン固有の手順は
-`GPU_RUN1/`、`GPU_RUN2/`、`CPU_RUN/` 側へ置く。
+`experiments/GPU_RUN1/`、`experiments/GPU_RUN2/`、`experiments/CPU_RUN/` 側へ置く。
 
 | ファイル | 内容 |
 |---|---|
@@ -13,7 +13,7 @@
 
 | 旧パス | 新パス |
 |---|---|
-| `docs/plans/20260726_colabexe.md` | [`GPU_RUN1/plan_colab.md`](../../GPU_RUN1/plan_colab.md) |
-| `docs/plans/20260729_GPU_RUN2.md` | [`GPU_RUN2/plan.md`](../../GPU_RUN2/plan.md) |
+| `docs/plans/20260726_colabexe.md` | [`experiments/GPU_RUN1/plan_colab.md`](../../experiments/GPU_RUN1/plan_colab.md) |
+| `docs/plans/20260729_GPU_RUN2.md` | [`experiments/GPU_RUN2/plan.md`](../../experiments/GPU_RUN2/plan.md) |
 
-文献出典の一覧は [`../../source.md`](../../source.md) を参照する。
+文献出典の一覧は [`../../source.md`](../references.md) を参照する。

@@ -26,7 +26,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="GPU_RUN3 budget comparison")
     parser.add_argument("--base", required=True)
     parser.add_argument("--extended", required=True)
-    parser.add_argument("--out", default=str(ROOT / "GPU_RUN3" / "GPU_RUN3_budget_comparison.md"))
+    parser.add_argument("--out", default=str(ROOT / "experiments" / "GPU_RUN3" / "GPU_RUN3_budget_comparison.md"))
     return parser.parse_args()
 
 

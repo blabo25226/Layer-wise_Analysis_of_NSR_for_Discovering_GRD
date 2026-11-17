@@ -261,7 +261,7 @@ def main() -> int:
     commit = str(current_git.get("commit") or "")
     expected_run_id = bool(args.run_id and re.fullmatch(r"gpu_run5_\d{8}_[0-9a-f]{8}", args.run_id))
     run_id_matches_commit = bool(expected_run_id and str(args.run_id).endswith(commit[:8]))
-    prereg_path = ROOT / "GPU_RUN5" / "preregistration.json"
+    prereg_path = ROOT / "experiments" / "GPU_RUN5" / "preregistration.json"
     prereg = json.loads(prereg_path.read_text()) if prereg_path.is_file() else {}
     checkpoint_audit = {
         "sha256": sha256_file(checkpoint),

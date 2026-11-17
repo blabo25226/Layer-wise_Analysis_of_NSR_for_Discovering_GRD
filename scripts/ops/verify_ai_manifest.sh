@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Verify MANIFEST.sha256 matches the canonical bootstrap/control/tooling files.
+# Verify .agents/MANIFEST.sha256 matches the canonical bootstrap/control/tooling files.
 set -euo pipefail
 
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 
-MANIFEST="MANIFEST.sha256"
+MANIFEST=".agents/MANIFEST.sha256"
 if [[ ! -f "$MANIFEST" ]]; then
   echo "verify_ai_manifest: missing $MANIFEST" >&2
   exit 1

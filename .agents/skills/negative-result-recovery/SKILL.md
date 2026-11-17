@@ -1,6 +1,12 @@
 ---
 name: negative-result-recovery
-description: Antigravity adapter for the canonical negative-result-recovery workflow.
+description: Turn unsupported, invalidated, or ambiguous findings into discriminating next hypotheses rather than blind compute escalation.
 ---
-Read and follow `.agent/skills/negative-result-recovery/SKILL.md`.
-Also obey `.agent/rules/*` and `GPU_RUNmultiAI/research_state.md`.
+# Negative Result Recovery
+
+Classify likely bottleneck:
+generation, selection, optimization, evaluator, identifiability, architecture, distribution shift, data/noise,
+compute, layer-ranking criterion, implementation/reproducibility, or unknown.
+
+Prefer the cheapest experiment that separates two plausible explanations.
+Do not respond to every negative result by increasing compute.

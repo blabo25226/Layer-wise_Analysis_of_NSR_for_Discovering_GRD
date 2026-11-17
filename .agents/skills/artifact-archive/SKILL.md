@@ -1,6 +1,18 @@
 ---
 name: artifact-archive
-description: Antigravity adapter for the canonical artifact-archive workflow.
+description: Create auditable manifests/checksums and preserve the files/commands needed to reproduce a completed cycle.
 ---
-Read and follow `.agent/skills/artifact-archive/SKILL.md`.
-Also obey `.agent/rules/*` and `GPU_RUNmultiAI/research_state.md`.
+# Artifact Archive
+
+At cycle completion preserve:
+- report
+- frozen plan
+- analysis
+- independent review
+- relevant configs/commands
+- task/commit provenance
+- artifact manifest
+- checksums
+
+Do not commit huge raw datasets/checkpoints solely for archival.
+Reference stable paths/hashes instead.

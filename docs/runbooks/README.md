@@ -4,6 +4,6 @@
 
 | 旧パス | 新パス |
 |---|---|
-| `docs/runbooks/GPU_RUN1.md` | [`GPU_RUN1/runbook.md`](../../GPU_RUN1/runbook.md) |
+| `docs/runbooks/GPU_RUN1.md` | [`experiments/GPU_RUN1/runbook.md`](../../experiments/GPU_RUN1/runbook.md) |
 
-GPU_RUN2の計画は [`GPU_RUN2/plan.md`](../../GPU_RUN2/plan.md) にある。
+GPU_RUN2の計画は [`experiments/GPU_RUN2/plan.md`](../../experiments/GPU_RUN2/plan.md) にある。

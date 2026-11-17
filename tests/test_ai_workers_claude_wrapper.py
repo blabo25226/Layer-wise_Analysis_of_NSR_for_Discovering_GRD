@@ -1,4 +1,4 @@
-"""Focused tests for .ai/workers/claude.sh (no live Claude API call)."""
+"""Focused tests for .agents/workers/claude.sh (no live Claude API call)."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import subprocess
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-CLAUDE_SH = REPO_ROOT / ".ai" / "workers" / "claude.sh"
+CLAUDE_SH = REPO_ROOT / ".agents" / "workers" / "claude.sh"
 
 
 def test_claude_sh_syntax() -> None:

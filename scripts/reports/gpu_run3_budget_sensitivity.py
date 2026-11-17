@@ -31,7 +31,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="GPU_RUN3 budget sensitivity section")
     parser.add_argument("--run-id", required=True, help="baseline benchmark run")
     parser.add_argument("--extended-run-id", required=True, help="extended-budget rerun")
-    parser.add_argument("--report", default=str(ROOT / "GPU_RUN3" / "GPU_RUN3_nd2_reproduction_report.md"))
+    parser.add_argument("--report", default=str(ROOT / "experiments" / "GPU_RUN3" / "GPU_RUN3_nd2_reproduction_report.md"))
     return parser.parse_args()
 
 

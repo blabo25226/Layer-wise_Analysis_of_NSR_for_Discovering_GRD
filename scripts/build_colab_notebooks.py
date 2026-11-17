@@ -1,4 +1,4 @@
-"""Compat wrapper. Prefer GPU_RUN1/scripts/build_colab_notebooks.py."""
+"""Compat wrapper. Prefer experiments/GPU_RUN1/scripts/build_colab_notebooks.py."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import importlib.util
 import sys
 from pathlib import Path
 
-_TARGET = Path(__file__).resolve().parents[1] / "GPU_RUN1" / "scripts" / "build_colab_notebooks.py"
+_TARGET = Path(__file__).resolve().parents[1] / "experiments" / "GPU_RUN1" / "scripts" / "build_colab_notebooks.py"
 _SPEC = importlib.util.spec_from_file_location("gpu_run1_build_colab_notebooks", _TARGET)
 if _SPEC is None or _SPEC.loader is None:
     raise ImportError(f"Cannot load {_TARGET}")

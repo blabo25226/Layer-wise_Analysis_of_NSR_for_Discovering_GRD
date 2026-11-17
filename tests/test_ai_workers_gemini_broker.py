@@ -1,4 +1,4 @@
-"""Focused tests for .ai/workers/gemini.sh broker acceptance (no live Antigravity call)."""
+"""Focused tests for .agents/workers/gemini.sh broker acceptance (no live Antigravity call)."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import textwrap
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-GEMINI_SH = REPO_ROOT / ".ai" / "workers" / "gemini.sh"
+GEMINI_SH = REPO_ROOT / ".agents" / "workers" / "gemini.sh"
 
 
 def _run_broker(

@@ -369,7 +369,7 @@ open_findings:
   - Eight pre-existing GPU_RUN5 worktree records are prunable; they are unrelated to C0000 and were left untouched.
   - Gemini headless filesystem access soft-denies read_file/ListDir and can exit 0 without producing an artifact; broker mode is the standard mitigation (see C0001-INFRA-T003 artifacts).
   - Claude critic raised a possible rescaling/exact-skeleton non-invariance; an exploratory algebraically equivalent formula check reproduced a false negative, but the actual pipeline round-trip remains untested.
-  - Direct `.ai/workers/cursor.sh --write` launch rejected by cached policy in pre-reload Codex session; bash wrapper fallback used for C0001-INFRA-T002.
+  - Direct `.agents/workers/cursor.sh --write` launch rejected by cached policy in pre-reload Codex session; bash wrapper fallback used for C0001-INFRA-T002.
 
 retries:
   C0000-T003: 1
@@ -404,4 +404,4 @@ last_checkpoint_utc: 2026-09-25T11:47:12Z
 - `C0000` is infrastructure/bootstrap only, not a scientific result cycle.
 - Use `observed_commit`, `base_commit`, and verified `remote_commit` instead of a self-referential `commit` field.
 - Reconstruction must reclassify stale `running` tasks using branch, worktree, artifact, and acceptance evidence.
-- Active task entries follow `.agent/schemas/task-handoff-schema.md`.
+- Active task entries follow `.agents/schemas/task-handoff-schema.md`.
