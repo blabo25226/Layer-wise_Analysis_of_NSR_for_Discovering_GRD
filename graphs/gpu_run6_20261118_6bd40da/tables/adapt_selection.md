@@ -1,0 +1,24 @@
+| condition | rational: selected class correct | polynomial: selected class correct | discrimination (sum − 1) | n (rat/poly) |
+| --- | --- | --- | --- | --- |
+| base | 0.02 | 0.86 | -0.12 | 150/90 |
+| full | 0.59 | 0.00 | -0.41 | 150/90 |
+| single_decoder_0 | 0.03 | 0.83 | -0.13 | 60/36 |
+| single_decoder_1 | 0.07 | 0.83 | -0.10 | 60/36 |
+| single_decoder_10 | 0.48 | 0.00 | -0.52 | 60/36 |
+| single_decoder_11 | 0.55 | 0.00 | -0.45 | 60/36 |
+| single_decoder_2 | 0.02 | 0.64 | -0.34 | 60/36 |
+| single_decoder_3 | 0.03 | 0.14 | -0.83 | 60/36 |
+| single_decoder_4 | 0.00 | 0.39 | -0.61 | 60/36 |
+| single_decoder_5 | 0.00 | 0.08 | -0.92 | 60/36 |
+| single_decoder_6 | 0.02 | 0.25 | -0.73 | 60/36 |
+| single_decoder_7 | 0.38 | 0.03 | -0.59 | 60/36 |
+| single_decoder_8 | 0.53 | 0.00 | -0.47 | 60/36 |
+| single_decoder_9 | 0.47 | 0.00 | -0.53 | 60/36 |
+| single_encoder_0 | 0.00 | 0.28 | -0.72 | 60/36 |
+| single_encoder_1 | 0.00 | 0.00 | -1.00 | 60/36 |
+| single_encoder_2 | 0.00 | 0.06 | -0.94 | 60/36 |
+| single_encoder_3 | 0.17 | 0.36 | -0.47 | 60/36 |
+| lr3e-05_full | 0.25 | 0.00 | -0.75 | 60/36 |
+| lr3e-05_single_decoder_11 | 0.37 | 0.25 | -0.38 | 60/36 |
+| lr3e-05_single_decoder_3 | 0.02 | 0.81 | -0.18 | 60/36 |
+| lr3e-05_single_encoder_2 | 0.00 | 0.00 | -1.00 | 60/36 |

@@ -1,0 +1,23 @@
+| method A | method B | Spearman ρ (decoder only) | layers |
+| --- | --- | --- | --- |
+| tuned_lens_gain | block_skip_drop | +0.54 | 11 |
+| tuned_lens_gain | probe_acc | -0.17 | 12 |
+| tuned_lens_gain | patch_restoration | -0.18 | 12 |
+| tuned_lens_gain | single_ft_ce_gain | -0.01 | 12 |
+| tuned_lens_gain | swap_into_base_ce_gain | +0.10 | 12 |
+| tuned_lens_gain | weight_change | +0.33 | 12 |
+| block_skip_drop | probe_acc | -0.62 | 11 |
+| block_skip_drop | patch_restoration | -0.43 | 11 |
+| block_skip_drop | single_ft_ce_gain | -0.35 | 11 |
+| block_skip_drop | swap_into_base_ce_gain | -0.31 | 11 |
+| block_skip_drop | weight_change | -0.12 | 11 |
+| probe_acc | patch_restoration | +0.88 | 12 |
+| probe_acc | single_ft_ce_gain | +0.83 | 12 |
+| probe_acc | swap_into_base_ce_gain | +0.85 | 12 |
+| probe_acc | weight_change | +0.41 | 12 |
+| patch_restoration | single_ft_ce_gain | +0.94 | 12 |
+| patch_restoration | swap_into_base_ce_gain | +0.89 | 12 |
+| patch_restoration | weight_change | +0.53 | 12 |
+| single_ft_ce_gain | swap_into_base_ce_gain | +0.92 | 12 |
+| single_ft_ce_gain | weight_change | +0.55 | 12 |
+| swap_into_base_ce_gain | weight_change | +0.74 | 12 |

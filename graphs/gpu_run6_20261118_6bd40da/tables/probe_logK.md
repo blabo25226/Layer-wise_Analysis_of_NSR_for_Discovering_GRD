@@ -1,0 +1,19 @@
+| layer | R² (log10 K, MM_S) |
+| --- | --- |
+| encoder_0 | 0.949 |
+| encoder_1 | 0.963 |
+| encoder_2 | 0.969 |
+| encoder_3 | 0.972 |
+| decoder_0 | 0.965 |
+| decoder_1 | 0.963 |
+| decoder_2 | 0.964 |
+| decoder_3 | 0.962 |
+| decoder_4 | 0.971 |
+| decoder_5 | 0.975 |
+| decoder_6 | 0.985 |
+| decoder_7 | 0.984 |
+| decoder_8 | 0.989 |
+| decoder_9 | 0.990 |
+| decoder_10 | 0.989 |
+| decoder_11 | 0.987 |
+| base | 0.881 |

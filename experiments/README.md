@@ -11,5 +11,6 @@
 | [`GPU_RUN3/`](GPU_RUN3/) | ND2 / NDformer 再現と層解析 |
 | [`GPU_RUN4/`](GPU_RUN4/) | 公開 ODEFormer checkpoint の再現と16層解析 |
 | [`GPU_RUN5/`](GPU_RUN5/) | ODEFormer の閉じたHill型GRNへの適応 |
+| [`GPU_RUN6/`](GPU_RUN6/) | 酵素反応速度論の有効法則（有理式）と ODEFormer の層別解析手法の比較 |
 
 進行中の Multi-AI 自律研究キャンペーンは root の [`GPU_RUNmultiAI/`](../GPU_RUNmultiAI/) にある。
