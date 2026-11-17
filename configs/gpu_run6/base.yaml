@@ -1,0 +1,44 @@
+# GPU_RUN6 frozen configuration (see experiments/GPU_RUN6/plan.md).
+campaign: GPU_RUN6
+odeformer_checkpoint: assets/odeformer/weights/odeformer.pt
+odeformer_checkpoint_sha256: 56754040be5aa92ed4767fc43ee2008faa293f87c12b643e66c7df3e1623a5e8
+
+generation:
+  beam_size: 50
+  beam_temperature: 0.1
+  beam_type: sampling
+  rescale: false          # data are generated in the native frame (t in [1,10], x0 = 1)
+
+seeds:
+  # Seeds 1, 101-707 were used in the pilot and the smoke run (run id gpu_run6_smoke) before the
+  # pre-registration was frozen. Confirmatory runs use the fresh seeds below, never inspected before.
+  pilot: 1
+  evaluation: 1101
+  probe_train: 1202
+  finetune_train: 1303
+  finetune_validation: 1404
+  tuned_lens_generator: 1505
+  patch_pool: 1606
+  generic_heldout: 1707
+
+sizes:
+  eval_per_family: 60          # 7 one-dimensional families + MA_SC + MA_S
+  noise_eval_per_family: 30    # robustness arm, sigma below
+  noise_sigma: 0.02
+  probe_train_per_family: 80
+  tuned_lens_samples: 1500
+  tuned_lens_epochs: 8
+  patch_pairs: 60
+  patch_pool_quad: 300
+  finetune_train_per_family: 200     # MM_S, SI, HILL2
+  finetune_eval_per_family: 30       # first 30 evaluation problems of each family
+  generic_heldout: 200
+
+finetune:
+  train_families: [MM_S, SI, HILL2]
+  heldout_families: [MM_P, MA_S]
+  steps: 400
+  batch: 8
+  lr: 1.0e-4
+  seed: 0
+  lr_sensitivity: [3.0e-5]          # full FT and three single-block conditions only
