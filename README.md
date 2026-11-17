@@ -77,6 +77,7 @@
 | GPU_RUN3 | ND2の再現と層解析 | 本READMEの主結果と混ぜない。入口は [`experiments/GPU_RUN3/`](experiments/GPU_RUN3/) |
 | GPU_RUN4 | 公開ODEFormer checkpoint（4+12 / 約61M）の再現と層解析。reduced Phase 0–9済み | 本READMEの主結果と混ぜない。入口は [`experiments/GPU_RUN4/README.md`](experiments/GPU_RUN4/README.md) |
 | GPU_RUN5 | 同じ公開ODEFormerの閉じたHill型GRN適応、多軌道候補選択、formula-level層解析。Phase 0–9完了、Go 8 NO-GO | 固定計画とmanifest検証済み成果物は [`experiments/GPU_RUN5/README.md`](experiments/GPU_RUN5/README.md) から辿る。他世代のscoreと直接混ぜない |
+| GPU_RUN6 | 同じ公開ODEFormerで、酵素反応の有効法則（Michaelis–Menten型の有理式）の構造回復と、層別解析手法（lens・probe・patching・block skip・単一層FT・層移植）の一致を比較。合成データ、1 seed | 入口は [`experiments/GPU_RUN6/README.md`](experiments/GPU_RUN6/README.md)。本READMEの主結果と混ぜない |
 
 評価設計が世代間で異なるため、**GPU_RUN2の数値を他世代と同一表に混ぜてはならない。**
 
@@ -1267,6 +1268,7 @@ LANSR/
 │
 ├── experiments/                   ★ 実行キャンペーン（run別の計画・手順・レポート・固有テスト）
 │   ├── README.md                  キャンペーン一覧
+│   ├── GPU_RUN6/                  酵素反応の有効法則と層別解析手法の比較
 │   ├── GPU_RUN5/                  ODEFormerの閉じたHill型GRNへの適応
 │   ├── GPU_RUN4/                  ODEFormer公開checkpointの再現と層解析（reduced Phase 0–9）
 │   │   ├── README.md              実行順・Phase 0–9結果・設定

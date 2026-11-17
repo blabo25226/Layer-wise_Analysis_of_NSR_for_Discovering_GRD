@@ -226,22 +226,30 @@ class Report:
         # block skip
         sk = [r for r in L if "skip" in r]
         if sk:
+            from gpu_run6.layers import token_category
             drop_r, drop_p = defaultdict(list), defaultdict(list)
+            sdrop_r, sdrop_p = defaultdict(list), defaultdict(list)
             inv_drop = defaultdict(list)
             for r in sk:
                 base = np.sum(r["final"])
+                smask = np.array([token_category(w) in ("operator", "inv", "variable") for w in r["words"]])
+                sbase = np.sum(np.array(r["final"])[smask])
                 for layer, lp in r["skip"].items():
                     d = base - np.sum(lp)
                     (drop_r if r["rational"] else drop_p)[layer].append(d)
+                    (sdrop_r if r["rational"] else sdrop_p)[layer].append(sbase - np.sum(np.array(lp)[smask]))
                     if "inv" in r["words"]:
                         p = r["words"].index("inv")
                         inv_drop[layer].append(r["final"][p] - lp[p])
             layers = DEC[1:]
-            rows = [[l_, f"{np.mean(drop_r[l_]):.2f}", f"{np.mean(drop_p[l_]):.2f}", f"{np.mean(inv_drop[l_]):.2f}"]
-                    for l_ in layers]
-            self.table("block_skip", ["skipped block", "Δ total log p (rational targets)", "Δ total log p (polynomial)",
-                                      "Δ log p('inv')"], rows)
+            rows = [[l_, f"{np.mean(drop_r[l_]):.2f}", f"{np.mean(drop_p[l_]):.2f}", f"{np.mean(sdrop_r[l_]):.2f}",
+                     f"{np.mean(sdrop_p[l_]):.2f}", f"{np.mean(inv_drop[l_]):.2f}"] for l_ in layers]
+            self.table("block_skip", ["skipped block", "drop, all tokens (rational)", "drop, all tokens (polynomial)",
+                                      "drop, structure tokens (rational)", "drop, structure tokens (polynomial)",
+                                      "drop of log p('inv')"], rows)
             self.summary["block_skip"] = {l_: {"rational": float(np.mean(drop_r[l_])), "poly": float(np.mean(drop_p[l_])),
+                                               "struct_rational": float(np.mean(sdrop_r[l_])),
+                                               "struct_poly": float(np.mean(sdrop_p[l_])),
                                                "inv": float(np.mean(inv_drop[l_]))} for l_ in layers}
             self.layer_scores["block_skip_drop"] = {l_: float(np.mean(drop_r[l_])) for l_ in layers}
 
@@ -419,6 +427,26 @@ class Report:
                  f"{outof.get(l_, np.nan):.3f}", f"{wc.get(l_, np.nan):.4f}"] for l_ in ALL]
         self.table("adapt_layers", ["block", "single-block FT: CE gain", "single-block FT: in-beam (train fam.)",
                                     "swap into base: CE gain", "swap out of full: CE loss", "relative weight change"], rows)
+        # exploratory: does adaptation add input-dependent selection, or swap the output bias?
+        sel_rows, sel = [], {}
+        for f_ in sorted((self.rd / "adapt").glob("beh_*.jsonl")):
+            cond = f_.stem[len("beh_"):]
+            recs = load_jsonl(f_)
+            rat = [bool(x.get("selected_class_match")) for x in recs if x["rational"]]
+            pol = [bool(x.get("selected_class_match")) for x in recs if not x["rational"]]
+            if rat and pol:
+                sel[cond] = {"rational_selected_match": float(np.mean(rat)), "polynomial_selected_match": float(np.mean(pol)),
+                             "n_rational": len(rat), "n_polynomial": len(pol)}
+        order = ["base", "full"] + [c for c in sel if c.startswith("single_")] + [c for c in sel if c.startswith("lr")]
+        for c in order:
+            if c in sel:
+                v = sel[c]
+                sel_rows.append([c, f"{v['rational_selected_match']:.2f}", f"{v['polynomial_selected_match']:.2f}",
+                                 f"{v['rational_selected_match'] + v['polynomial_selected_match'] - 1:+.2f}",
+                                 f"{v['n_rational']}/{v['n_polynomial']}"])
+        self.table("adapt_selection", ["condition", "rational: selected class correct", "polynomial: selected class correct",
+                                       "discrimination (sum − 1)", "n (rat/poly)"], sel_rows)
+        self.summary["adapt_selection"] = sel
         self.summary["adapt_layers"] = {"single": single, "single_beam": beam_single, "into": into, "outof": outof,
                                         "weight_change": wc, "full_ce": rat_ce(C["full"]) if "full" in C else None,
                                         "base_ce": rat_ce(base)}
@@ -453,8 +481,28 @@ class Report:
                     if i < j:
                         pairs.append({"a": a, "b": b, "rho": float(rho), "n_layers": len(common)})
         small = [p for p in pairs if abs(p["rho"]) < 0.5]
-        self.summary["H9_agreement"] = {"pairs": pairs, "share_abs_rho_lt_0.5": len(small) / max(len(pairs), 1),
-                                        "supported": bool(len(small) > len(pairs) / 2), "layer_scores": self.layer_scores}
+        # preregistered set (plan.md H9) excludes the post-hoc swap_out_of_full score
+        prereg = [p for p in pairs if "swap_out_of_full_ce_loss" not in (p["a"], p["b"])]
+        prereg_small = [p for p in prereg if abs(p["rho"]) < 0.5]
+
+        def decoder_only_rho(a, b):
+            ks = [l_ for l_ in DEC if l_ in self.layer_scores[a] and l_ in self.layer_scores[b]
+                  and np.isfinite(self.layer_scores[a][l_]) and np.isfinite(self.layer_scores[b][l_])]
+            return float(spearmanr([self.layer_scores[a][k] for k in ks], [self.layer_scores[b][k] for k in ks]).correlation), len(ks)
+
+        dec_pairs = []
+        for p in prereg:
+            r, n = decoder_only_rho(p["a"], p["b"])
+            dec_pairs.append({"a": p["a"], "b": p["b"], "rho": r, "n_layers": n})
+        self.summary["H9_agreement"] = {
+            "pairs": pairs, "share_abs_rho_lt_0.5": len(small) / max(len(pairs), 1),
+            "prereg_pairs": len(prereg), "prereg_share_abs_rho_lt_0.5": len(prereg_small) / max(len(prereg), 1),
+            "supported": bool(len(prereg_small) > len(prereg) / 2),
+            "sensitivity_decoder_only": {"pairs": dec_pairs,
+                                         "share_abs_rho_lt_0.5": float(np.mean([abs(p["rho"]) < 0.5 for p in dec_pairs]))},
+            "layer_scores": self.layer_scores}
+        self.table("method_agreement_decoder_only", ["method A", "method B", "Spearman ρ (decoder only)", "layers"],
+                   [[p["a"], p["b"], f"{p['rho']:+.2f}", p["n_layers"]] for p in dec_pairs])
         self.table("layer_scores", ["block"] + names,
                    [[l_] + [f"{self.layer_scores[n].get(l_, float('nan')):.3f}" for n in names] for l_ in ALL])
         self.table("method_agreement", ["method A", "method B", "Spearman ρ", "layers"],

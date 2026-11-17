@@ -43,6 +43,7 @@ $$
 - GPU_RUN3: [`experiments/GPU_RUN3/`](experiments/GPU_RUN3/)（ND2。共通コードは `src/`、Phase入口は `scripts/phases/gpu_run3_*.py`）
 - GPU_RUN4: [`experiments/GPU_RUN4/`](experiments/GPU_RUN4/)（ODEFormer。計画・固有テスト。共通コードは `src/gpu_run4/`、Phase入口は `scripts/phases/gpu_run4_*.py`）
 - GPU_RUN5: [`experiments/GPU_RUN5/`](experiments/GPU_RUN5/)（ODEFormerのGRN適応。Phase入口は `scripts/phases/gpu_run5_*.py`）
+- GPU_RUN6: [`experiments/GPU_RUN6/`](experiments/GPU_RUN6/)（酵素反応の有効法則と層別解析手法の比較。入口は `scripts/phases/gpu_run6.py`）
 - Multi-AI自律研究: [`GPU_RUNmultiAI/`](GPU_RUNmultiAI/)（進行中キャンペーンのためrootに置く。§13）
 - CPU_RUN: [`experiments/CPU_RUN/`](experiments/CPU_RUN/)
 - 共通コード: `src/`、共通Phase入口: `scripts/`
